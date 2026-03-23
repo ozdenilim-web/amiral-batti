@@ -94,14 +94,14 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, overlay, hoverC
             if (isDefense) {
               if (val > 0 && shipColor) bg = shipColor;
               else if (val > 0) bg = t.shipCell;
-              if (ovr === "hit") { bg = t.hit; content = "\u2715"; shadow = `inset 0 0 12px ${t.hitGlow}`; clr = "#fff"; }
-              else if (ovr === "miss") { bg = t.miss; content = "\u2022"; }
+              if (ovr === "hit") { bg = t.hit; content = "✕"; shadow = `inset 0 0 12px ${t.hitGlow}`; clr = "#fff"; }
+              else if (ovr === "miss") { bg = t.miss; content = "•"; }
             } else {
-              if (ovr === "hit") { bg = t.hit; content = "\u2715"; shadow = `inset 0 0 12px ${t.hitGlow}`; clr = "#fff"; }
-              else if (ovr === "miss") { bg = t.miss; content = "\u2022"; }
-              else if (ovr === "sunk") { bg = t.sunk; content = "\u2715"; shadow = "inset 0 0 12px rgba(249,115,22,0.4)"; clr = "#fff"; }
-              else if (ovr === "selected") { bg = "rgba(6,182,212,0.4)"; content = "\u25CE"; shadow = `inset 0 0 10px ${t.accentGlow}`; }
-              if (!ovr && isManual) { bg = "rgba(75,85,99,0.3)"; content = "\u00B7"; clr = t.textDim; }
+              if (ovr === "hit") { bg = t.hit; content = "✕"; shadow = `inset 0 0 12px ${t.hitGlow}`; clr = "#fff"; }
+              else if (ovr === "miss") { bg = t.miss; content = "•"; }
+              else if (ovr === "sunk") { bg = t.sunk; content = "✕"; shadow = "inset 0 0 12px rgba(249,115,22,0.4)"; clr = "#fff"; }
+              else if (ovr === "selected") { bg = "rgba(6,182,212,0.4)"; content = "◎"; shadow = `inset 0 0 10px ${t.accentGlow}`; }
+              if (!ovr && isManual) { bg = "rgba(75,85,99,0.3)"; content = "·"; clr = t.textDim; }
             }
             if (isHov) { bg = "rgba(6,182,212,0.35)"; shadow = `inset 0 0 10px ${t.accentGlow}`; }
 
@@ -171,7 +171,7 @@ function NotationLog({ entries }) {
       padding: "10px 12px", width: 150, minWidth: 130, maxHeight: 500, overflowY: "auto", flexShrink: 0,
     }}>
       <div style={{ fontSize: 10, letterSpacing: 2, color: t.textDim, marginBottom: 8, fontWeight: 700 }}>NOTASYON</div>
-      {entries.length === 0 && <div style={{ fontSize: 10, color: t.textDim }}>Hen\u00FCz at\u0131\u015F yok</div>}
+      {entries.length === 0 && <div style={{ fontSize: 10, color: t.textDim }}>Henüz atış yok</div>}
       {entries.map((entry, i) => (
         <div key={i} style={{ marginBottom: 6, paddingBottom: 6, borderBottom: `1px solid ${t.border}` }}>
           <div style={{ fontSize: 9, color: entry.isMine ? t.accent : t.hit, fontWeight: 700, marginBottom: 2 }}>
@@ -369,12 +369,12 @@ export default function Game() {
                     const shipDef = SHIPS.find(sd => sd.id === hitShip.id);
                     const totalH = hitShip.cells.filter(([r, c]) => dHitMap[r][c]).length;
                     const isSunk = totalH === hitShip.cells.length;
-                    reports.push(isSunk ? `${shipDef?.name} batt\u0131!` : `${shipDef?.name} ${totalH} yara ald\u0131`);
+                    reports.push(isSunk ? `${shipDef?.name} battı!` : `${shipDef?.name} ${totalH} yara aldı`);
                   }
                 }
               });
               if (reports.length > 0) {
-                setDamageReport(reports.join(" \u2022 "));
+                setDamageReport(reports.join(" • "));
                 if (damageTimerRef.current) clearTimeout(damageTimerRef.current);
                 damageTimerRef.current = setTimeout(() => setDamageReport(""), 8000);
               }
@@ -394,9 +394,9 @@ export default function Game() {
         const reason = game.winReason || "hits";
         let winMsg;
         if (game.winner === pNum) {
-          winMsg = reason === "timeout" ? "Kazand\u0131n! (S\u00FCre bitti)" : "Kazand\u0131n!";
+          winMsg = reason === "timeout" ? "Kazandın! (Süre bitti)" : "Kazandın!";
         } else {
-          winMsg = reason === "timeout" ? "Kaybettin! (S\u00FCren bitti)" : "Kaybettin!";
+          winMsg = reason === "timeout" ? "Kaybettin! (Süren bitti)" : "Kaybettin!";
         }
         setWinner(winMsg);
         setPhase("gameover");
@@ -421,7 +421,7 @@ export default function Game() {
   }, []);
 
   const createRoom = async () => {
-    if (!playerName.trim()) { setMessage("Ad\u0131n\u0131 yaz!"); return; }
+    if (!playerName.trim()) { setMessage("Adını yaz!"); return; }
     const id = Math.random().toString(36).substring(2, 8).toUpperCase();
     roomIdRef.current = id; setRoomId(id); setPlayerNum(1); playerNumRef.current = 1;
     await set(ref(db, `rooms/${id}`), {
@@ -434,10 +434,10 @@ export default function Game() {
   };
 
   const joinRoom = async () => {
-    if (!playerName.trim() || !inputRoomId.trim()) { setMessage("Ad\u0131n\u0131 ve oda kodunu yaz!"); return; }
+    if (!playerName.trim() || !inputRoomId.trim()) { setMessage("Adını ve oda kodunu yaz!"); return; }
     const rid = inputRoomId.trim().toUpperCase();
     const snapshot = await get(ref(db, `rooms/${rid}`));
-    if (!snapshot.exists()) { setMessage("Oda bulunamad\u0131!"); return; }
+    if (!snapshot.exists()) { setMessage("Oda bulunamadı!"); return; }
     const game = snapshot.val();
     if (game.p2_name) { setMessage("Oda dolu!"); return; }
     roomIdRef.current = rid; setRoomId(rid); setPlayerNum(2); playerNumRef.current = 2;
@@ -571,16 +571,16 @@ export default function Game() {
     return (
       <div style={appStyle}>
         <style>{CSS_ANIMS}</style>
-        <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: 4, color: t.accent, textShadow: `0 0 30px ${t.accentGlow}`, marginBottom: 4 }}>AM\u0130RAL BATTI</div>
-        <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 6, marginBottom: 24 }}>ONLINE DEN\u0130Z SAVA\u015EI</div>
+        <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: 4, color: t.accent, textShadow: `0 0 30px ${t.accentGlow}`, marginBottom: 4 }}>AMİRAL BATTI</div>
+        <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 6, marginBottom: 24 }}>ONLINE DENİZ SAVAŞI</div>
         <div style={boxStyle}>
-          <input style={inputStyle} placeholder="Ad\u0131n" value={playerName} onChange={e => setPlayerName(e.target.value)} />
+          <input style={inputStyle} placeholder="Adın" value={playerName} onChange={e => setPlayerName(e.target.value)} />
           <div style={{ height: 20 }} />
-          <button style={btnStyle} onClick={createRoom}>Yeni Oda Olu\u015Ftur</button>
-          <div style={{ margin: "20px 0", color: t.textDim, fontSize: 11, letterSpacing: 3 }}>\u2014 VEYA \u2014</div>
+          <button style={btnStyle} onClick={createRoom}>Yeni Oda Oluştur</button>
+          <div style={{ margin: "20px 0", color: t.textDim, fontSize: 11, letterSpacing: 3 }}>— VEYA —</div>
           <input style={inputStyle} placeholder="Oda Kodu" value={inputRoomId} onChange={e => setInputRoomId(e.target.value.toUpperCase())} />
           <div style={{ height: 12 }} />
-          <button style={btnStyle} onClick={joinRoom}>Odaya Kat\u0131l</button>
+          <button style={btnStyle} onClick={joinRoom}>Odaya Katıl</button>
           {message && <div style={{ marginTop: 16, color: t.hit, fontSize: 12 }}>{message}</div>}
         </div>
       </div>
@@ -592,12 +592,12 @@ export default function Game() {
     return (
       <div style={appStyle}>
         <style>{CSS_ANIMS}</style>
-        <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: 4, color: t.accent, textShadow: `0 0 30px ${t.accentGlow}`, marginBottom: 4 }}>AM\u0130RAL BATTI</div>
-        <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 6, marginBottom: 24 }}>RAK\u0130P BEKLEN\u0130YOR</div>
+        <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: 4, color: t.accent, textShadow: `0 0 30px ${t.accentGlow}`, marginBottom: 4 }}>AMİRAL BATTI</div>
+        <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 6, marginBottom: 24 }}>RAKİP BEKLENİYOR</div>
         <div style={boxStyle}>
           <div style={{ fontSize: 14, marginBottom: 12 }}>Oda Kodu:</div>
           <div style={{ fontSize: 36, fontWeight: 800, color: t.accent, letterSpacing: 8, textShadow: `0 0 20px ${t.accentGlow}`, marginBottom: 16 }}>{roomId}</div>
-          <div style={{ fontSize: 12, color: t.textDim }}>Bu kodu rakibine g\u00F6nder!</div>
+          <div style={{ fontSize: 12, color: t.textDim }}>Bu kodu rakibine gönder!</div>
           <div style={{ marginTop: 24 }}>
             <div style={{ width: 12, height: 12, borderRadius: "50%", background: t.accent, margin: "0 auto", animation: "pulse 1.5s ease-in-out infinite" }} />
           </div>
@@ -612,14 +612,14 @@ export default function Game() {
     return (
       <div style={appStyle}>
         <style>{CSS_ANIMS}</style>
-        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 3, color: t.accent, marginBottom: 4 }}>GEM\u0130 YERLE\u015ET\u0130R</div>
+        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 3, color: t.accent, marginBottom: 4 }}>GEMİ YERLEŞTİR</div>
         <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 3, marginBottom: 12 }}>
-          {opponentName ? `vs ${opponentName}` : "Rakip bekleniyor..."} \u2022 {placedShips.length}/{SHIPS.length}
+          {opponentName ? `vs ${opponentName}` : "Rakip bekleniyor..."} • {placedShips.length}/{SHIPS.length}
         </div>
         {!allPlaced && (
           <>
             <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: 8, padding: "10px 20px", marginBottom: 12, fontSize: 12, textAlign: "center", maxWidth: 420, width: "100%" }}>
-              <span style={{ color: t.accent }}>\u25B8</span> Gemi se\u00E7 \u2192 Haritada t\u0131kla &nbsp;|&nbsp; <strong>R</strong> = D\u00F6nd\u00FCr
+              <span style={{ color: t.accent }}>▸</span> Gemi seç → Haritada tıkla &nbsp;|&nbsp; <strong>R</strong> = Döndür
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", marginBottom: 12, maxWidth: 500 }}>
               {SHIPS.map(ship => {
@@ -639,19 +639,19 @@ export default function Game() {
               })}
             </div>
             <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", justifyContent: "center" }}>
-              {selectedShip && <button style={btnSecStyle} onClick={() => setRotation((rotation + 1) % 4)}>\u21BB D\u00F6nd\u00FCr</button>}
-              {placedShips.length > 0 && <button style={{ ...btnSecStyle, color: t.hit, borderColor: t.hit }} onClick={undoLastShip}>\u21A9 Geri Al</button>}
+              {selectedShip && <button style={btnSecStyle} onClick={() => setRotation((rotation + 1) % 4)}>↻ Döndür</button>}
+              {placedShips.length > 0 && <button style={{ ...btnSecStyle, color: t.hit, borderColor: t.hit }} onClick={undoLastShip}>↩ Geri Al</button>}
             </div>
           </>
         )}
         {allPlaced && !placementConfirmed && (
           <div style={{ marginBottom: 16 }}>
-            <button style={btnStyle} onClick={confirmPlacement}>\u2713 Gemileri Onayla</button>
+            <button style={btnStyle} onClick={confirmPlacement}>✓ Gemileri Onayla</button>
           </div>
         )}
         {placementConfirmed && (
           <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: 8, padding: "12px 24px", marginBottom: 12, fontSize: 12, color: t.accent }}>
-            Gemilerin haz\u0131r! Rakip bekleniyor...
+            Gemilerin hazır! Rakip bekleniyor...
             <div style={{ marginTop: 8 }}><div style={{ width: 12, height: 12, borderRadius: "50%", background: t.accent, margin: "0 auto", animation: "pulse 1.5s ease-in-out infinite" }} /></div>
           </div>
         )}
@@ -669,7 +669,7 @@ export default function Game() {
     return (
       <div style={appStyle}>
         <style>{CSS_ANIMS}</style>
-        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 3, color: t.accent, marginBottom: 4 }}>AM\u0130RAL BATTI</div>
+        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 3, color: t.accent, marginBottom: 4 }}>AMİRAL BATTI</div>
         <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 3, marginBottom: 8 }}>vs {opponentName}</div>
 
         {/* Clock */}
@@ -693,10 +693,10 @@ export default function Game() {
         <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: 8, padding: "10px 20px", marginBottom: 8, textAlign: "center", width: "100%", maxWidth: 1100 }}>
           {myTurn ? (
             <div>
-              <span style={{ color: t.accent, fontWeight: 700, fontSize: 14 }}>SEN\u0130N SIRAN</span>
+              <span style={{ color: t.accent, fontWeight: 700, fontSize: 14 }}>SENİN SIRAN</span>
               <span style={{ margin: "0 12px", color: t.textDim }}>|</span>
               <span style={{ fontSize: 12 }}>
-                At\u0131\u015F: {currentShots.length}/{SHOTS_PER_TURN}
+                Atış: {currentShots.length}/{SHOTS_PER_TURN}
                 <span style={{ display: "inline-flex", gap: 4, marginLeft: 8, verticalAlign: "middle" }}>
                   {[0,1,2].map(i => (
                     <span key={i} style={{ width: 10, height: 10, borderRadius: "50%", display: "inline-block", background: i < currentShots.length ? t.hit : t.accent, opacity: i < currentShots.length ? 0.3 : 1 }} />
@@ -704,15 +704,15 @@ export default function Game() {
                 </span>
               </span>
               {currentShots.length > 0 && (
-                <button style={{ ...btnStyle, marginLeft: 16, padding: "6px 16px", fontSize: 11 }} onClick={fireShots}>ATE\u015E!</button>
+                <button style={{ ...btnStyle, marginLeft: 16, padding: "6px 16px", fontSize: 11 }} onClick={fireShots}>ATEŞ!</button>
               )}
             </div>
           ) : (
-            <span style={{ color: t.textDim, fontSize: 13 }}>Rakibin s\u0131ras\u0131 bekleniyor...</span>
+            <span style={{ color: t.textDim, fontSize: 13 }}>Rakibin sırası bekleniyor...</span>
           )}
           <div style={{ fontSize: 10, marginTop: 6, color: t.textDim }}>
-            \u0130sabet: {myHits}/20 &nbsp;\u2022&nbsp; Karavana: {oppHits}/20
-            <span style={{ marginLeft: 12, fontSize: 9 }}>Sa\u011F t\u0131k = i\u015Faretle</span>
+            İsabet: {myHits}/20 &nbsp;•&nbsp; Karavana: {oppHits}/20
+            <span style={{ marginLeft: 12, fontSize: 9 }}>Sağ tık = işaretle</span>
           </div>
         </div>
 
@@ -722,7 +722,7 @@ export default function Game() {
             background: "rgba(239,68,68,0.1)", border: `1px solid ${t.hit}`, borderRadius: 8,
             padding: "8px 20px", marginBottom: 8, fontSize: 12, color: t.hit, fontWeight: 700,
             textAlign: "center", width: "100%", maxWidth: 1100,
-          }}>\u26A0 {damageReport}</div>
+          }}>⚠ {damageReport}</div>
         )}
 
         {/* Main layout */}
@@ -730,14 +730,14 @@ export default function Game() {
           <NotationLog entries={notationEntries} />
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center", flex: 1 }}>
             <div style={{ flex: "1 1 340px", maxWidth: 430, minWidth: 280 }}>
-              <div style={{ fontSize: 11, letterSpacing: 3, color: t.textDim, marginBottom: 6, textAlign: "center", fontWeight: 600 }}>\uD83D\uDEE1 SAVUNMA</div>
+              <div style={{ fontSize: 11, letterSpacing: 3, color: t.textDim, marginBottom: 6, textAlign: "center", fontWeight: 600 }}>🛡 SAVUNMA</div>
               <Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />
-              <ShipStatusPanel title="GEM\u0130LER\u0130M" ships={myShipsData} hitCells={defHitMap} color={t.accent} />
+              <ShipStatusPanel title="GEMİLERİM" ships={myShipsData} hitCells={defHitMap} color={t.accent} />
             </div>
             <div style={{ flex: "1 1 340px", maxWidth: 430, minWidth: 280 }}>
-              <div style={{ fontSize: 11, letterSpacing: 3, color: t.textDim, marginBottom: 6, textAlign: "center", fontWeight: 600 }}>\u2694 SALDIRI</div>
+              <div style={{ fontSize: 11, letterSpacing: 3, color: t.textDim, marginBottom: 6, textAlign: "center", fontWeight: 600 }}>⚔ SALDIRI</div>
               <Grid board={emptyGrid()} cellSize={cellSize} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} disabled={!myTurn} manualMarks={manualMarks} />
-              <ShipStatusPanel title="RAK\u0130P GEM\u0130LER" ships={oppShipsData} hitCells={atkHitMap} color={t.hit} />
+              <ShipStatusPanel title="RAKİP GEMİLER" ships={oppShipsData} hitCells={atkHitMap} color={t.hit} />
             </div>
           </div>
         </div>
@@ -750,7 +750,7 @@ export default function Game() {
     return (
       <div style={appStyle}>
         <style>{CSS_ANIMS}</style>
-        <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: 4, color: t.accent, marginBottom: 24 }}>AM\u0130RAL BATTI</div>
+        <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: 4, color: t.accent, marginBottom: 24 }}>AMİRAL BATTI</div>
         <div style={{
           fontSize: 32, fontWeight: 800, letterSpacing: 4, textAlign: "center",
           color: winner?.includes("Kazand") ? t.accent : t.hit,
@@ -758,7 +758,7 @@ export default function Game() {
           marginBottom: 16,
         }}>{winner}</div>
         <div style={{ color: t.textDim, fontSize: 12, marginBottom: 24 }}>
-          \u0130sabet: {myHits}/20 \u2022 Karavana: {oppHits}/20
+          İsabet: {myHits}/20 • Karavana: {oppHits}/20
         </div>
         <button style={btnStyle} onClick={resetGame}>Yeni Oyun</button>
       </div>
