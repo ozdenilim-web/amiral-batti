@@ -6,7 +6,8 @@ const ROWS = 11;
 const COLS = 11;
 const COL_LABELS = ["A","B","C","D","E","F","G","H","I","J","K"];
 const SHOTS_PER_TURN = 3;
-const CLOCK_SECONDS = 180;
+const CLOCK_SECONDS = 300;
+const PLACEMENT_SECONDS = 60;
 
 const SHIPS = [
   { id: "amiral", name: "Amiral", shape: [[0,0],[0,1],[0,2],[1,1]], size: 4, color: "#e74c3c" },
@@ -28,11 +29,9 @@ function rotateShape(shape, times) {
   const minC = Math.min(...s.map(([, c]) => c));
   return s.map(([r, c]) => [r - minR, c - minC]);
 }
-
 function getShipCells(ship, row, col, rotation) {
   return rotateShape(ship.shape, rotation).map(([r, c]) => [row + r, col + c]);
 }
-
 function getNeighborCells(cells) {
   const cellSet = new Set(cells.map(([r, c]) => `${r},${c}`));
   const neighbors = new Set();
@@ -46,14 +45,12 @@ function getNeighborCells(cells) {
   });
   return [...neighbors].map(k => k.split(",").map(Number));
 }
-
 function isValidPlacement(cells, board) {
   return cells.every(([r, c]) => r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] === 0);
 }
-
 function emptyGrid() { return Array.from({ length: ROWS }, () => Array(COLS).fill(0)); }
 function coordStr(r, c) { return `${r + 1}${COL_LABELS[c]}`; }
-function formatTime(sec) { return `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, "0")}`; }
+function formatTime(sec) { const s = Math.max(0, sec); return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`; }
 
 const t = {
   bg: "#0a0e17", surface: "#111827", surfaceLight: "#1f2937",
@@ -64,33 +61,45 @@ const t = {
   water: "rgba(6,182,212,0.06)", shipCell: "rgba(6,182,212,0.25)",
 };
 
-const CSS_ANIMS = `
-@keyframes blink3s { 0%,100%{opacity:1} 50%{opacity:0.15} }
-@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
-@keyframes clockWarn { 0%,100%{color:#ef4444} 50%{color:#fbbf24} }
+const ANIMS = `
+@keyframes blink3s{0%,100%{opacity:1}50%{opacity:.15}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+@keyframes borderGlow{0%,100%{border-color:#06b6d4;box-shadow:0 0 8px rgba(6,182,212,.4)}50%{border-color:#22d3ee;box-shadow:0 0 20px rgba(6,182,212,.7)}}
+@keyframes popIn{0%{transform:scale(0)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
+@keyframes fadeUp{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes ripple{0%{transform:scale(0);opacity:.6}100%{transform:scale(2.5);opacity:0}}
+@keyframes loadDots{0%,80%,100%{opacity:.3}40%{opacity:1}}
+@keyframes slideIn{0%{opacity:0;transform:translateY(-20px)}100%{opacity:1;transform:translateY(0)}}
 `;
 
 function Grid({ board, cellSize, onClick, onHover, onRightClick, overlay, hoverCells, isDefense, shipColors, disabled, blinkCells, manualMarks }) {
+  const [rippleCell, setRippleCell] = useState(null);
+  const handleClick = (r, c) => {
+    if (disabled) return;
+    setRippleCell(`${r},${c}`);
+    setTimeout(() => setRippleCell(null), 400);
+    onClick?.(r, c);
+  };
   return (
-    <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: 8, padding: 8, overflow: "hidden" }}>
+    <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: 8, padding: 4, overflow: "hidden" }}>
       <div style={{ display: "flex" }}>
         <div style={{ width: cellSize, height: cellSize }} />
         {COL_LABELS.map((l, i) => (
-          <div key={i} style={{ width: cellSize, height: cellSize, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: t.textDim }}>{l}</div>
+          <div key={i} style={{ width: cellSize, height: cellSize, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: t.textDim }}>{l}</div>
         ))}
       </div>
       {board.map((row, r) => (
         <div key={r} style={{ display: "flex" }}>
-          <div style={{ width: cellSize, height: cellSize, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: t.textDim }}>{r + 1}</div>
+          <div style={{ width: cellSize, height: cellSize, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: t.textDim }}>{r + 1}</div>
           {row.map((val, c) => {
             const ovr = overlay?.[r]?.[c];
             const isHov = hoverCells?.some(([hr, hc]) => hr === r && hc === c);
             const shipColor = shipColors?.[r]?.[c];
             const isBlink = blinkCells?.some(([br, bc]) => br === r && bc === c);
             const isManual = manualMarks?.[r]?.[c];
+            const isRipple = rippleCell === `${r},${c}`;
 
             let bg = t.water, content = "", shadow = "none", clr = t.textDim;
-
             if (isDefense) {
               if (val > 0 && shipColor) bg = shipColor;
               else if (val > 0) bg = t.shipCell;
@@ -107,17 +116,18 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, overlay, hoverC
 
             return (
               <div key={c}
-                onClick={() => !disabled && onClick?.(r, c)}
+                onClick={() => handleClick(r, c)}
                 onMouseEnter={() => onHover?.(r, c)}
                 onContextMenu={(e) => { e.preventDefault(); onRightClick?.(r, c); }}
                 style={{
                   width: cellSize, height: cellSize,
                   border: `1px solid ${t.border}`,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 9, fontWeight: 700, cursor: disabled ? "default" : "pointer",
+                  fontSize: 8, fontWeight: 700, cursor: disabled ? "default" : "pointer",
                   background: bg, boxShadow: shadow, color: clr,
                   transition: "all 0.15s ease", boxSizing: "border-box",
-                  animation: isBlink ? "blink3s 0.5s ease-in-out 6" : "none",
+                  animation: isBlink ? "blink3s 0.5s ease-in-out 6" : isRipple ? "popIn 0.3s ease-out" : "none",
+                  position: "relative", overflow: "hidden",
                 }}
               >{content}</div>
             );
@@ -132,32 +142,32 @@ function ShipStatusPanel({ title, ships, hitCells, color }) {
   if (!ships) return null;
   const shipList = Object.values(ships);
   return (
-    <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: 8, padding: "10px 14px", marginTop: 8 }}>
-      <div style={{ fontSize: 10, letterSpacing: 2, color: t.textDim, marginBottom: 6, fontWeight: 700 }}>{title}</div>
-      {shipList.map((ship, idx) => {
-        const shipDef = SHIPS.find(s => s.id === ship.id);
-        const cells = ship.cells || [];
-        const hits = cells.filter(([r, c]) => hitCells?.[r]?.[c]).length;
-        const sunk = hits === cells.length && cells.length > 0;
-        return (
-          <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <span style={{ fontSize: 10, color: sunk ? t.sunk : t.text, width: 55, textDecoration: sunk ? "line-through" : "none", fontWeight: sunk ? 700 : 400 }}>
-              {shipDef?.name || ship.id}
-            </span>
-            <div style={{ display: "flex", gap: 2 }}>
-              {cells.map((_, i) => (
-                <div key={i} style={{
-                  width: 10, height: 10, borderRadius: 2,
-                  background: i < hits ? (sunk ? t.sunk : t.hit) : color || t.accent,
-                  opacity: i < hits ? 1 : 0.3,
-                }} />
-              ))}
+    <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px", marginTop: 6 }}>
+      <div style={{ fontSize: 9, letterSpacing: 2, color: t.textDim, marginBottom: 4, fontWeight: 700 }}>{title}</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+        {shipList.map((ship, idx) => {
+          const shipDef = SHIPS.find(s => s.id === ship.id);
+          const cells = ship.cells || [];
+          const hits = cells.filter(([r, c]) => hitCells?.[r]?.[c]).length;
+          const sunk = hits === cells.length && cells.length > 0;
+          return (
+            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              <span style={{ fontSize: 9, color: sunk ? t.sunk : t.text, textDecoration: sunk ? "line-through" : "none" }}>
+                {shipDef?.name?.charAt(0) || "?"}
+              </span>
+              <div style={{ display: "flex", gap: 1 }}>
+                {cells.map((_, i) => (
+                  <div key={i} style={{
+                    width: 7, height: 7, borderRadius: 1,
+                    background: i < hits ? (sunk ? t.sunk : t.hit) : color || t.accent,
+                    opacity: i < hits ? 1 : 0.3,
+                  }} />
+                ))}
+              </div>
             </div>
-            {hits > 0 && !sunk && <span style={{ fontSize: 9, color: t.hit }}>{hits} yara</span>}
-            {sunk && <span style={{ fontSize: 9, color: t.sunk, fontWeight: 700 }}>BATTI!</span>}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -168,24 +178,90 @@ function NotationLog({ entries }) {
   return (
     <div ref={logRef} style={{
       background: t.surface, border: `1px solid ${t.border}`, borderRadius: 8,
-      padding: "10px 12px", width: 150, minWidth: 130, maxHeight: 500, overflowY: "auto", flexShrink: 0,
+      padding: "8px 10px", maxHeight: 120, overflowY: "auto", marginTop: 6,
     }}>
-      <div style={{ fontSize: 10, letterSpacing: 2, color: t.textDim, marginBottom: 8, fontWeight: 700 }}>NOTASYON</div>
-      {entries.length === 0 && <div style={{ fontSize: 10, color: t.textDim }}>Henüz atış yok</div>}
-      {entries.map((entry, i) => (
-        <div key={i} style={{ marginBottom: 6, paddingBottom: 6, borderBottom: `1px solid ${t.border}` }}>
-          <div style={{ fontSize: 9, color: entry.isMine ? t.accent : t.hit, fontWeight: 700, marginBottom: 2 }}>
-            {entry.name} #{entry.turnNum}
+      <div style={{ fontSize: 9, letterSpacing: 2, color: t.textDim, marginBottom: 4, fontWeight: 700 }}>NOTASYON</div>
+      {entries.length === 0 && <div style={{ fontSize: 9, color: t.textDim }}>Henüz atış yok</div>}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+        {entries.map((entry, i) => (
+          <div key={i} style={{ fontSize: 9, color: entry.isMine ? t.accent : t.hit }}>
+            <span style={{ fontWeight: 700 }}>{entry.name?.charAt(0)}#{entry.turnNum}</span> {entry.coords.join(",")}
           </div>
-          <div style={{ fontSize: 10, color: t.text, letterSpacing: 1 }}>{entry.coords.join(", ")}</div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
 
+// ═══ LOADING SCREEN ═══
+function LoadingScreen({ onReady }) {
+  const [step, setStep] = useState(0);
+  const msgs = ["Gemiler denize indiriliyor...", "Toplar hazırlanıyor...", "Radarlar aktif..."];
+  useEffect(() => {
+    const t1 = setTimeout(() => setStep(1), 800);
+    const t2 = setTimeout(() => setStep(2), 1600);
+    const t3 = setTimeout(() => onReady(), 2800);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, [onReady]);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: t.bg, padding: 20 }}>
+      <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: 4, color: t.accent, textShadow: `0 0 30px ${t.accentGlow}`, marginBottom: 32, animation: "fadeUp 0.5s ease-out" }}>
+        AMİRAL BATTI
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {msgs.map((msg, i) => (
+          <div key={i} style={{
+            fontSize: 13, color: i <= step ? t.text : "transparent",
+            transition: "all 0.4s ease",
+            animation: i <= step ? "fadeUp 0.4s ease-out" : "none",
+            fontFamily: "'JetBrains Mono', monospace",
+          }}>
+            <span style={{ color: t.accent, marginRight: 8 }}>{i <= step ? "✓" : "○"}</span>{msg}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 6, marginTop: 32 }}>
+        {[0,1,2].map(i => (
+          <div key={i} style={{
+            width: 8, height: 8, borderRadius: "50%", background: t.accent,
+            animation: `loadDots 1.2s ease-in-out infinite`,
+            animationDelay: `${i * 0.2}s`,
+          }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ═══ READY SCREEN ═══
+function ReadyScreen({ onStart, opponentName }) {
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      minHeight: "100vh", background: t.bg, padding: 20,
+    }}>
+      <div style={{ fontSize: 24, fontWeight: 800, color: t.accent, marginBottom: 12, animation: "fadeUp 0.5s ease-out", letterSpacing: 3, fontFamily: "'JetBrains Mono', monospace" }}>
+        vs {opponentName}
+      </div>
+      <div style={{ fontSize: 16, color: t.text, marginBottom: 32, animation: "fadeUp 0.6s ease-out", fontFamily: "'JetBrains Mono', monospace" }}>
+        Gemileri batırmaya hazır mısın?
+      </div>
+      <button onClick={onStart} style={{
+        padding: "14px 40px", background: t.accent, color: t.bg, border: "none",
+        borderRadius: 8, fontSize: 16, fontWeight: 800, letterSpacing: 3,
+        textTransform: "uppercase", cursor: "pointer", fontFamily: "'JetBrains Mono', monospace",
+        animation: "fadeUp 0.8s ease-out",
+        boxShadow: `0 0 20px ${t.accentGlow}`,
+      }}>
+        HAZIR!
+      </button>
+    </div>
+  );
+}
+
+// ═══ MAIN GAME ═══
 export default function Game() {
-  const [phase, setPhase] = useState("lobby");
+  const [phase, setPhase] = useState("splash"); // splash, lobby, waiting, placing, ready, playing, gameover
   const [roomId, setRoomId] = useState("");
   const [inputRoomId, setInputRoomId] = useState("");
   const [playerNum, setPlayerNum] = useState(null);
@@ -203,6 +279,7 @@ export default function Game() {
   const [rotation, setRotation] = useState(0);
   const [hoverCells, setHoverCells] = useState([]);
   const [placementConfirmed, setPlacementConfirmed] = useState(false);
+  const [placementTimer, setPlacementTimer] = useState(PLACEMENT_SECONDS);
 
   const [myTurn, setMyTurn] = useState(false);
   const [currentShots, setCurrentShots] = useState([]);
@@ -221,22 +298,44 @@ export default function Game() {
   const [defHitMap, setDefHitMap] = useState(() => emptyGrid().map(r => r.map(() => false)));
   const [atkHitMap, setAtkHitMap] = useState(() => emptyGrid().map(r => r.map(() => false)));
 
+  // Toggle: "attack" or "defense"
+  const [activeBoard, setActiveBoard] = useState("attack");
+
   const unsubRef = useRef(null);
   const playerNumRef = useRef(null);
   const roomIdRef = useRef("");
   const blinkTimerRef = useRef(null);
   const damageTimerRef = useRef(null);
   const clockIntervalRef = useRef(null);
+  const placementTimerRef = useRef(null);
   const myClockRef = useRef(CLOCK_SECONDS);
   const oppClockRef = useRef(CLOCK_SECONDS);
   const myTurnRef = useRef(false);
-  const phaseRef = useRef("lobby");
+  const phaseRef = useRef("splash");
   const lastAttackCountRef = useRef(0);
 
-  const cellSize = typeof window !== "undefined" ? Math.min(28, Math.floor((Math.min(window.innerWidth - 60, 420)) / 12)) : 28;
+  const cellSize = typeof window !== "undefined" ? Math.min(30, Math.floor((Math.min(window.innerWidth - 24, 400)) / 12)) : 28;
 
   useEffect(() => { myTurnRef.current = myTurn; }, [myTurn]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
+
+  // Placement timer
+  useEffect(() => {
+    if (phase === "placing" && !placementConfirmed) {
+      if (placementTimerRef.current) clearInterval(placementTimerRef.current);
+      placementTimerRef.current = setInterval(() => {
+        setPlacementTimer(prev => {
+          if (prev <= 1) {
+            clearInterval(placementTimerRef.current);
+            // Auto-place remaining ships randomly (or just confirm what's placed)
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => { if (placementTimerRef.current) clearInterval(placementTimerRef.current); };
+  }, [phase, placementConfirmed]);
 
   // Chess clock
   useEffect(() => {
@@ -281,7 +380,11 @@ export default function Game() {
 
       if (game.phase === "placing" && !placementConfirmed) setPhase("placing");
       if (game.phase === "playing") {
-        setPhase("playing");
+        if (phaseRef.current === "placing") {
+          setPhase("ready");
+        } else if (phaseRef.current !== "ready") {
+          setPhase("playing");
+        }
         setMyTurn(game.turn === pNum);
         if (game.clocks) {
           myClockRef.current = game.clocks[myKey] ?? CLOCK_SECONDS;
@@ -293,8 +396,6 @@ export default function Game() {
 
       if (game.attacks) {
         const attacks = Object.values(game.attacks);
-
-        // Defense overlay
         const defOvr = emptyGrid().map(r => r.map(() => null));
         const dHitMap = emptyGrid().map(r => r.map(() => false));
         let oh = 0;
@@ -304,11 +405,8 @@ export default function Game() {
             if (s.result === "hit") { oh++; dHitMap[s.r][s.c] = true; }
           });
         });
-        setDefenseOverlay(defOvr);
-        setOppHits(oh);
-        setDefHitMap(dHitMap);
+        setDefenseOverlay(defOvr); setOppHits(oh); setDefHitMap(dHitMap);
 
-        // Attack overlay
         const atkOvr = emptyGrid().map(r => r.map(() => null));
         const aHitMap = emptyGrid().map(r => r.map(() => false));
         let mh = 0;
@@ -318,8 +416,6 @@ export default function Game() {
             if (s.result === "hit") { mh++; aHitMap[s.r][s.c] = true; }
           });
         });
-
-        // Check sunk — NO auto passive
         if (game[`${oppKey}_ships`]) {
           Object.values(game[`${oppKey}_ships`]).forEach(ship => {
             const cells = ship.cells;
@@ -328,11 +424,8 @@ export default function Game() {
             }
           });
         }
-        setAttackOverlay(atkOvr);
-        setMyHits(mh);
-        setAtkHitMap(aHitMap);
+        setAttackOverlay(atkOvr); setMyHits(mh); setAtkHitMap(aHitMap);
 
-        // Notation
         const entries = [];
         let p1T = 0, p2T = 0;
         attacks.forEach(a => {
@@ -347,18 +440,15 @@ export default function Game() {
         });
         setNotationEntries(entries);
 
-        // Blink + Damage report only on NEW attacks
         if (attacks.length > lastAttackCountRef.current) {
           const lastAtk = attacks[attacks.length - 1];
           lastAttackCountRef.current = attacks.length;
-
-          // Blink on defense if opponent just shot me
           if (lastAtk.target === myKey && lastAtk.shots) {
             setBlinkCells(lastAtk.shots.map(s => [s.r, s.c]));
             if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current);
             blinkTimerRef.current = setTimeout(() => setBlinkCells([]), 3000);
-
-            // Damage report
+            // Switch to defense to show incoming
+            setActiveBoard("defense");
             if (game[`${myKey}_ships`]) {
               const myShips = Object.values(game[`${myKey}_ships`]);
               const reports = [];
@@ -380,8 +470,6 @@ export default function Game() {
               }
             }
           }
-
-          // Blink on attack if I just shot
           if (lastAtk.by === pNum && lastAtk.shots) {
             setBlinkCells(lastAtk.shots.map(s => [s.r, s.c]));
             if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current);
@@ -393,13 +481,9 @@ export default function Game() {
       if (game.winner) {
         const reason = game.winReason || "hits";
         let winMsg;
-        if (game.winner === pNum) {
-          winMsg = reason === "timeout" ? "Kazandın! (Süre bitti)" : "Kazandın!";
-        } else {
-          winMsg = reason === "timeout" ? "Kaybettin! (Süren bitti)" : "Kaybettin!";
-        }
-        setWinner(winMsg);
-        setPhase("gameover");
+        if (game.winner === pNum) winMsg = reason === "timeout" ? "Kazandın! (Süre bitti)" : "Kazandın!";
+        else winMsg = reason === "timeout" ? "Kaybettin! (Süren bitti)" : "Kaybettin!";
+        setWinner(winMsg); setPhase("gameover");
         if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
       }
     });
@@ -411,6 +495,7 @@ export default function Game() {
       if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
       if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current);
       if (damageTimerRef.current) clearTimeout(damageTimerRef.current);
+      if (placementTimerRef.current) clearInterval(placementTimerRef.current);
     };
   }, []);
 
@@ -481,6 +566,7 @@ export default function Game() {
 
   const confirmPlacement = async () => {
     if (placedShips.length !== SHIPS.length) return;
+    if (placementTimerRef.current) clearInterval(placementTimerRef.current);
     const pNum = playerNumRef.current;
     const myKey = pNum === 1 ? "p1" : "p2";
     const oppKey = pNum === 1 ? "p2" : "p1";
@@ -546,6 +632,7 @@ export default function Game() {
   const resetGame = () => {
     if (unsubRef.current) unsubRef.current();
     if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
+    if (placementTimerRef.current) clearInterval(placementTimerRef.current);
     setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null);
     setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null)));
     setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null)));
@@ -555,33 +642,42 @@ export default function Game() {
     setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false)));
     setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS);
     myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS;
-    setMyShipsData(null); setOppShipsData(null);
+    setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack");
     setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false)));
-    lastAttackCountRef.current = 0;
+    lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS);
   };
 
-  const boxStyle = { background: t.surface, border: `1px solid ${t.border}`, borderRadius: 12, padding: 32, textAlign: "center", maxWidth: 420, width: "100%" };
-  const btnStyle = { padding: "10px 24px", background: t.accent, color: t.bg, border: "none", borderRadius: 6, fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" };
-  const btnSecStyle = { padding: "8px 16px", background: "transparent", color: t.accent, border: `1px solid ${t.accent}`, borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", cursor: "pointer", fontFamily: "inherit" };
-  const inputStyle = { padding: "10px 16px", background: t.surface, color: t.text, border: `1px solid ${t.border}`, borderRadius: 6, fontSize: 14, fontFamily: "inherit", outline: "none", textAlign: "center", width: 220 };
-  const appStyle = { minHeight: "100vh", background: t.bg, color: t.text, fontFamily: "'JetBrains Mono', monospace", display: "flex", flexDirection: "column", alignItems: "center", padding: 16 };
+  const btnStyle = { padding: "12px 28px", background: t.accent, color: t.bg, border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", cursor: "pointer", fontFamily: "'JetBrains Mono', monospace" };
+  const btnSecStyle = { padding: "8px 16px", background: "transparent", color: t.accent, border: `1px solid ${t.accent}`, borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: 1, cursor: "pointer", fontFamily: "inherit" };
+  const inputStyle = { padding: "12px 16px", background: t.surface, color: t.text, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 15, fontFamily: "inherit", outline: "none", textAlign: "center", width: "100%", maxWidth: 260, boxSizing: "border-box" };
+  const appStyle = { minHeight: "100vh", minHeight: "100dvh", background: t.bg, color: t.text, fontFamily: "'JetBrains Mono', monospace", display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 8px", boxSizing: "border-box" };
+
+  // ═══ SPLASH ═══
+  if (phase === "splash") {
+    return (
+      <>
+        <style>{ANIMS}</style>
+        <LoadingScreen onReady={() => setPhase("lobby")} />
+      </>
+    );
+  }
 
   // ═══ LOBBY ═══
   if (phase === "lobby") {
     return (
       <div style={appStyle}>
-        <style>{CSS_ANIMS}</style>
-        <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: 4, color: t.accent, textShadow: `0 0 30px ${t.accentGlow}`, marginBottom: 4 }}>AMİRAL BATTI</div>
-        <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 6, marginBottom: 24 }}>ONLINE DENİZ SAVAŞI</div>
-        <div style={boxStyle}>
+        <style>{ANIMS}</style>
+        <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: 4, color: t.accent, textShadow: `0 0 30px ${t.accentGlow}`, marginBottom: 4, animation: "fadeUp 0.4s ease-out" }}>AMİRAL BATTI</div>
+        <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 6, marginBottom: 28 }}>ONLINE DENİZ SAVAŞI</div>
+        <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: 12, padding: "28px 20px", textAlign: "center", width: "100%", maxWidth: 340, animation: "fadeUp 0.5s ease-out" }}>
           <input style={inputStyle} placeholder="Adın" value={playerName} onChange={e => setPlayerName(e.target.value)} />
-          <div style={{ height: 20 }} />
-          <button style={btnStyle} onClick={createRoom}>Yeni Oda Oluştur</button>
-          <div style={{ margin: "20px 0", color: t.textDim, fontSize: 11, letterSpacing: 3 }}>— VEYA —</div>
+          <div style={{ height: 16 }} />
+          <button style={{ ...btnStyle, width: "100%" }} onClick={createRoom}>Yeni Oda Oluştur</button>
+          <div style={{ margin: "18px 0", color: t.textDim, fontSize: 10, letterSpacing: 3 }}>— VEYA —</div>
           <input style={inputStyle} placeholder="Oda Kodu" value={inputRoomId} onChange={e => setInputRoomId(e.target.value.toUpperCase())} />
-          <div style={{ height: 12 }} />
-          <button style={btnStyle} onClick={joinRoom}>Odaya Katıl</button>
-          {message && <div style={{ marginTop: 16, color: t.hit, fontSize: 12 }}>{message}</div>}
+          <div style={{ height: 10 }} />
+          <button style={{ ...btnStyle, width: "100%" }} onClick={joinRoom}>Odaya Katıl</button>
+          {message && <div style={{ marginTop: 14, color: t.hit, fontSize: 11 }}>{message}</div>}
         </div>
       </div>
     );
@@ -591,14 +687,14 @@ export default function Game() {
   if (phase === "waiting") {
     return (
       <div style={appStyle}>
-        <style>{CSS_ANIMS}</style>
-        <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: 4, color: t.accent, textShadow: `0 0 30px ${t.accentGlow}`, marginBottom: 4 }}>AMİRAL BATTI</div>
-        <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 6, marginBottom: 24 }}>RAKİP BEKLENİYOR</div>
-        <div style={boxStyle}>
-          <div style={{ fontSize: 14, marginBottom: 12 }}>Oda Kodu:</div>
-          <div style={{ fontSize: 36, fontWeight: 800, color: t.accent, letterSpacing: 8, textShadow: `0 0 20px ${t.accentGlow}`, marginBottom: 16 }}>{roomId}</div>
-          <div style={{ fontSize: 12, color: t.textDim }}>Bu kodu rakibine gönder!</div>
-          <div style={{ marginTop: 24 }}>
+        <style>{ANIMS}</style>
+        <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: 4, color: t.accent, textShadow: `0 0 30px ${t.accentGlow}`, marginBottom: 4 }}>AMİRAL BATTI</div>
+        <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 6, marginBottom: 28 }}>RAKİP BEKLENİYOR</div>
+        <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: 12, padding: 28, textAlign: "center", width: "100%", maxWidth: 340 }}>
+          <div style={{ fontSize: 13, marginBottom: 10 }}>Oda Kodu:</div>
+          <div style={{ fontSize: 32, fontWeight: 800, color: t.accent, letterSpacing: 8, textShadow: `0 0 20px ${t.accentGlow}`, marginBottom: 14 }}>{roomId}</div>
+          <div style={{ fontSize: 11, color: t.textDim }}>Bu kodu rakibine gönder!</div>
+          <div style={{ marginTop: 20 }}>
             <div style={{ width: 12, height: 12, borderRadius: "50%", background: t.accent, margin: "0 auto", animation: "pulse 1.5s ease-in-out infinite" }} />
           </div>
         </div>
@@ -609,52 +705,79 @@ export default function Game() {
   // ═══ PLACING ═══
   if (phase === "placing") {
     const allPlaced = placedShips.length === SHIPS.length;
+    const nextShip = SHIPS.find(s => !placedShips.some(p => p.id === s.id));
+    const timerLow = placementTimer <= 15;
     return (
-      <div style={appStyle}>
-        <style>{CSS_ANIMS}</style>
-        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 3, color: t.accent, marginBottom: 4 }}>GEMİ YERLEŞTİR</div>
-        <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 3, marginBottom: 12 }}>
-          {opponentName ? `vs ${opponentName}` : "Rakip bekleniyor..."} • {placedShips.length}/{SHIPS.length}
+      <div style={{ ...appStyle, paddingBottom: 80 }}>
+        <style>{ANIMS}</style>
+        <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: 3, color: t.accent, marginBottom: 4 }}>GEMİ YERLEŞTİR</div>
+
+        {/* Placement timer */}
+        <div style={{
+          fontSize: 20, fontWeight: 800, marginBottom: 8,
+          color: timerLow ? t.hit : t.accent,
+          animation: timerLow ? "blink3s 1s infinite" : "none",
+        }}>
+          {formatTime(placementTimer)}
         </div>
-        {!allPlaced && (
+
+        {/* Step indicator */}
+        <div style={{ fontSize: 11, color: t.textDim, marginBottom: 8, textAlign: "center" }}>
+          {placedShips.length}/{SHIPS.length} gemi yerleştirildi
+        </div>
+
+        {!allPlaced && !placementConfirmed && (
           <>
-            <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: 8, padding: "10px 20px", marginBottom: 12, fontSize: 12, textAlign: "center", maxWidth: 420, width: "100%" }}>
-              <span style={{ color: t.accent }}>▸</span> Gemi seç → Haritada tıkla &nbsp;|&nbsp; <strong>R</strong> = Döndür
+            {/* Instructions */}
+            <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 14px", marginBottom: 8, fontSize: 11, textAlign: "center", width: "100%", maxWidth: 400 }}>
+              {selectedShip ? (
+                <span><span style={{ color: t.accent }}>▸</span> Haritada bir yere dokun</span>
+              ) : (
+                <span><span style={{ color: t.accent }}>▸</span> Aşağıdan bir gemi seç</span>
+              )}
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", marginBottom: 12, maxWidth: 500 }}>
+
+            {/* Ship buttons */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, justifyContent: "center", marginBottom: 8, maxWidth: 400, width: "100%" }}>
               {SHIPS.map(ship => {
                 const placed = placedShips.some(p => p.id === ship.id);
                 const sel = selectedShip === ship.id;
                 return (
                   <button key={ship.id} onClick={() => { if (!placed) { setSelectedShip(ship.id); setRotation(0); } }}
                     style={{
-                      padding: "6px 12px", background: placed ? t.surfaceLight : sel ? t.accent : t.surface,
+                      padding: "5px 10px", background: placed ? t.surfaceLight : sel ? t.accent : t.surface,
                       color: placed ? t.textDim : sel ? t.bg : t.text,
                       border: `1px solid ${placed ? t.border : sel ? t.accent : t.border}`,
-                      borderRadius: 4, fontSize: 10, cursor: placed ? "default" : "pointer",
-                      fontFamily: "inherit", opacity: placed ? 0.5 : 1,
+                      borderRadius: 4, fontSize: 9, cursor: placed ? "default" : "pointer",
+                      fontFamily: "inherit", opacity: placed ? 0.4 : 1,
                       textDecoration: placed ? "line-through" : "none", fontWeight: sel ? 700 : 400,
-                    }}>{ship.name} ({ship.size})</button>
+                      animation: !placed && !sel && ship.id === nextShip?.id ? "borderGlow 2s infinite" : "none",
+                    }}>{ship.name}({ship.size})</button>
                 );
               })}
             </div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", justifyContent: "center" }}>
+
+            {/* Action buttons */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
               {selectedShip && <button style={btnSecStyle} onClick={() => setRotation((rotation + 1) % 4)}>↻ Döndür</button>}
-              {placedShips.length > 0 && <button style={{ ...btnSecStyle, color: t.hit, borderColor: t.hit }} onClick={undoLastShip}>↩ Geri Al</button>}
+              {placedShips.length > 0 && <button style={{ ...btnSecStyle, color: t.hit, borderColor: t.hit }} onClick={undoLastShip}>↩ Geri</button>}
             </div>
           </>
         )}
+
         {allPlaced && !placementConfirmed && (
-          <div style={{ marginBottom: 16 }}>
-            <button style={btnStyle} onClick={confirmPlacement}>✓ Gemileri Onayla</button>
-          </div>
+          <button style={{ ...btnStyle, marginBottom: 12, animation: "borderGlow 1.5s infinite" }} onClick={confirmPlacement}>
+            ✓ Gemileri Onayla
+          </button>
         )}
+
         {placementConfirmed && (
-          <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: 8, padding: "12px 24px", marginBottom: 12, fontSize: 12, color: t.accent }}>
+          <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: 8, padding: "12px 20px", marginBottom: 8, fontSize: 12, color: t.accent, textAlign: "center" }}>
             Gemilerin hazır! Rakip bekleniyor...
-            <div style={{ marginTop: 8 }}><div style={{ width: 12, height: 12, borderRadius: "50%", background: t.accent, margin: "0 auto", animation: "pulse 1.5s ease-in-out infinite" }} /></div>
+            <div style={{ marginTop: 8 }}><div style={{ width: 12, height: 12, borderRadius: "50%", background: t.accent, margin: "0 auto", animation: "pulse 1.5s infinite" }} /></div>
           </div>
         )}
+
         <div onMouseLeave={() => setHoverCells([])}>
           <Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} hoverCells={hoverCells} onClick={handleDefenseClick} onHover={handleDefenseHover} disabled={placementConfirmed} />
         </div>
@@ -662,85 +785,142 @@ export default function Game() {
     );
   }
 
+  // ═══ READY ═══
+  if (phase === "ready") {
+    return (
+      <>
+        <style>{ANIMS}</style>
+        <ReadyScreen opponentName={opponentName} onStart={() => setPhase("playing")} />
+      </>
+    );
+  }
+
   // ═══ PLAYING ═══
   if (phase === "playing") {
     const myLow = myClock <= 30;
     const oppLow = oppClock <= 30;
+    const isAttack = activeBoard === "attack";
     return (
-      <div style={appStyle}>
-        <style>{CSS_ANIMS}</style>
-        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: 3, color: t.accent, marginBottom: 4 }}>AMİRAL BATTI</div>
-        <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 3, marginBottom: 8 }}>vs {opponentName}</div>
+      <div style={{ ...appStyle, paddingBottom: 70 }}>
+        <style>{ANIMS}</style>
 
-        {/* Clock */}
-        <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 8 }}>
+        {/* Clocks */}
+        <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 6, width: "100%", maxWidth: 400, justifyContent: "center" }}>
           <div style={{
-            padding: "6px 14px", borderRadius: 6, fontSize: 16, fontWeight: 800, fontFamily: "inherit",
+            padding: "4px 10px", borderRadius: 6, fontSize: 13, fontWeight: 800,
             background: myTurn ? (myLow ? "rgba(239,68,68,0.15)" : "rgba(6,182,212,0.12)") : t.surfaceLight,
             color: myTurn ? (myLow ? t.hit : t.accent) : t.textDim,
             border: `1px solid ${myTurn ? (myLow ? t.hit : t.accent) : t.border}`,
+            flex: 1, textAlign: "center",
           }}>{playerName}: {formatTime(myClock)}</div>
-          <span style={{ color: t.textDim, fontSize: 11 }}>vs</span>
           <div style={{
-            padding: "6px 14px", borderRadius: 6, fontSize: 16, fontWeight: 800, fontFamily: "inherit",
+            padding: "4px 10px", borderRadius: 6, fontSize: 13, fontWeight: 800,
             background: !myTurn ? (oppLow ? "rgba(239,68,68,0.15)" : "rgba(6,182,212,0.12)") : t.surfaceLight,
             color: !myTurn ? (oppLow ? t.hit : t.accent) : t.textDim,
             border: `1px solid ${!myTurn ? (oppLow ? t.hit : t.accent) : t.border}`,
+            flex: 1, textAlign: "center",
           }}>{opponentName}: {formatTime(oppClock)}</div>
         </div>
 
-        {/* Status */}
-        <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: 8, padding: "10px 20px", marginBottom: 8, textAlign: "center", width: "100%", maxWidth: 1100 }}>
-          {myTurn ? (
-            <div>
-              <span style={{ color: t.accent, fontWeight: 700, fontSize: 14 }}>SENİN SIRAN</span>
-              <span style={{ margin: "0 12px", color: t.textDim }}>|</span>
-              <span style={{ fontSize: 12 }}>
-                Atış: {currentShots.length}/{SHOTS_PER_TURN}
-                <span style={{ display: "inline-flex", gap: 4, marginLeft: 8, verticalAlign: "middle" }}>
-                  {[0,1,2].map(i => (
-                    <span key={i} style={{ width: 10, height: 10, borderRadius: "50%", display: "inline-block", background: i < currentShots.length ? t.hit : t.accent, opacity: i < currentShots.length ? 0.3 : 1 }} />
-                  ))}
-                </span>
-              </span>
-              {currentShots.length > 0 && (
-                <button style={{ ...btnStyle, marginLeft: 16, padding: "6px 16px", fontSize: 11 }} onClick={fireShots}>ATEŞ!</button>
-              )}
-            </div>
-          ) : (
-            <span style={{ color: t.textDim, fontSize: 13 }}>Rakibin sırası bekleniyor...</span>
-          )}
-          <div style={{ fontSize: 10, marginTop: 6, color: t.textDim }}>
-            İsabet: {myHits}/20 &nbsp;•&nbsp; Karavana: {oppHits}/20
-            <span style={{ marginLeft: 12, fontSize: 9 }}>Sağ tık = işaretle</span>
-          </div>
+        {/* Turn indicator */}
+        <div style={{
+          fontSize: 12, fontWeight: 700, marginBottom: 6, textAlign: "center",
+          color: myTurn ? t.accent : t.textDim,
+          animation: myTurn ? "fadeUp 0.3s ease-out" : "none",
+        }}>
+          {myTurn ? "SENİN SIRAN" : "Rakibin sırası..."}
+          <span style={{ marginLeft: 8, fontSize: 10, color: t.textDim }}>
+            İsabet: {myHits}/20 • Karavana: {oppHits}/20
+          </span>
         </div>
 
         {/* Damage report */}
         {damageReport && (
           <div style={{
             background: "rgba(239,68,68,0.1)", border: `1px solid ${t.hit}`, borderRadius: 8,
-            padding: "8px 20px", marginBottom: 8, fontSize: 12, color: t.hit, fontWeight: 700,
-            textAlign: "center", width: "100%", maxWidth: 1100,
+            padding: "6px 14px", marginBottom: 6, fontSize: 11, color: t.hit, fontWeight: 700,
+            textAlign: "center", width: "100%", maxWidth: 400, animation: "slideIn 0.3s ease-out",
           }}>⚠ {damageReport}</div>
         )}
 
-        {/* Main layout */}
-        <div style={{ display: "flex", gap: 12, justifyContent: "center", width: "100%", maxWidth: 1100, alignItems: "flex-start", flexWrap: "wrap" }}>
-          <NotationLog entries={notationEntries} />
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center", flex: 1 }}>
-            <div style={{ flex: "1 1 340px", maxWidth: 430, minWidth: 280 }}>
-              <div style={{ fontSize: 11, letterSpacing: 3, color: t.textDim, marginBottom: 6, textAlign: "center", fontWeight: 600 }}>🛡 SAVUNMA</div>
-              <Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />
-              <ShipStatusPanel title="GEMİLERİM" ships={myShipsData} hitCells={defHitMap} color={t.accent} />
-            </div>
-            <div style={{ flex: "1 1 340px", maxWidth: 430, minWidth: 280 }}>
-              <div style={{ fontSize: 11, letterSpacing: 3, color: t.textDim, marginBottom: 6, textAlign: "center", fontWeight: 600 }}>⚔ SALDIRI</div>
-              <Grid board={emptyGrid()} cellSize={cellSize} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} disabled={!myTurn} manualMarks={manualMarks} />
-              <ShipStatusPanel title="RAKİP GEMİLER" ships={oppShipsData} hitCells={atkHitMap} color={t.hit} />
-            </div>
-          </div>
+        {/* Toggle buttons */}
+        <div style={{ display: "flex", gap: 0, marginBottom: 6, width: "100%", maxWidth: 400 }}>
+          <button onClick={() => setActiveBoard("attack")} style={{
+            flex: 1, padding: "8px 0", fontSize: 12, fontWeight: 700, fontFamily: "inherit", cursor: "pointer",
+            background: isAttack ? t.accent : t.surfaceLight, color: isAttack ? t.bg : t.textDim,
+            border: `1px solid ${isAttack ? t.accent : t.border}`,
+            borderRadius: "8px 0 0 8px",
+            animation: myTurn && isAttack ? "borderGlow 2s infinite" : "none",
+          }}>⚔ Saldırı</button>
+          <button onClick={() => setActiveBoard("defense")} style={{
+            flex: 1, padding: "8px 0", fontSize: 12, fontWeight: 700, fontFamily: "inherit", cursor: "pointer",
+            background: !isAttack ? t.accent : t.surfaceLight, color: !isAttack ? t.bg : t.textDim,
+            border: `1px solid ${!isAttack ? t.accent : t.border}`,
+            borderRadius: "0 8px 8px 0",
+          }}>🛡 Savunma</button>
         </div>
+
+        {/* Active board */}
+        <div style={{
+          width: "100%", maxWidth: 400,
+          border: myTurn && isAttack ? `2px solid ${t.accent}` : `1px solid transparent`,
+          borderRadius: 10, padding: 2,
+          animation: myTurn && isAttack ? "borderGlow 2s infinite" : "none",
+        }}>
+          {isAttack ? (
+            <>
+              <Grid board={emptyGrid()} cellSize={cellSize} overlay={getAttackDisplayOverlay()}
+                onClick={handleAttackClick} onRightClick={handleAttackRightClick}
+                disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} />
+              <ShipStatusPanel title="RAKİP GEMİLER" ships={oppShipsData} hitCells={atkHitMap} color={t.hit} />
+            </>
+          ) : (
+            <>
+              <Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap}
+                overlay={defenseOverlay} disabled blinkCells={blinkCells} />
+              <ShipStatusPanel title="GEMİLERİM" ships={myShipsData} hitCells={defHitMap} color={t.accent} />
+            </>
+          )}
+        </div>
+
+        {/* Notation */}
+        <NotationLog entries={notationEntries} />
+
+        {/* Sticky fire button */}
+        {myTurn && isAttack && (
+          <div style={{
+            position: "fixed", bottom: 0, left: 0, right: 0,
+            background: "rgba(10,14,23,0.95)", backdropFilter: "blur(8px)",
+            borderTop: `1px solid ${t.border}`,
+            padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 12,
+            zIndex: 100,
+          }}>
+            <div style={{ display: "flex", gap: 4 }}>
+              {[0,1,2].map(i => (
+                <div key={i} style={{
+                  width: 12, height: 12, borderRadius: "50%",
+                  background: i < currentShots.length ? t.hit : t.accent,
+                  opacity: i < currentShots.length ? 0.3 : 1,
+                  animation: i < currentShots.length ? "popIn 0.3s ease-out" : "none",
+                }} />
+              ))}
+            </div>
+            <span style={{ fontSize: 11, color: t.textDim }}>{currentShots.length}/{SHOTS_PER_TURN}</span>
+            <button
+              onClick={fireShots}
+              disabled={currentShots.length === 0}
+              style={{
+                ...btnStyle, padding: "10px 32px",
+                opacity: currentShots.length === 0 ? 0.4 : 1,
+                cursor: currentShots.length === 0 ? "default" : "pointer",
+                boxShadow: currentShots.length > 0 ? `0 0 16px ${t.accentGlow}` : "none",
+              }}
+            >
+              ATEŞ! 🔥
+            </button>
+            <span style={{ fontSize: 9, color: t.textDim }}>Sağ tık = işaretle</span>
+          </div>
+        )}
       </div>
     );
   }
@@ -749,13 +929,13 @@ export default function Game() {
   if (phase === "gameover") {
     return (
       <div style={appStyle}>
-        <style>{CSS_ANIMS}</style>
-        <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: 4, color: t.accent, marginBottom: 24 }}>AMİRAL BATTI</div>
+        <style>{ANIMS}</style>
+        <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: 4, color: t.accent, marginBottom: 24, animation: "fadeUp 0.4s ease-out" }}>AMİRAL BATTI</div>
         <div style={{
-          fontSize: 32, fontWeight: 800, letterSpacing: 4, textAlign: "center",
+          fontSize: 28, fontWeight: 800, letterSpacing: 3, textAlign: "center",
           color: winner?.includes("Kazand") ? t.accent : t.hit,
           textShadow: `0 0 30px ${winner?.includes("Kazand") ? t.accentGlow : t.hitGlow}`,
-          marginBottom: 16,
+          marginBottom: 16, animation: "fadeUp 0.6s ease-out",
         }}>{winner}</div>
         <div style={{ color: t.textDim, fontSize: 12, marginBottom: 24 }}>
           İsabet: {myHits}/20 • Karavana: {oppHits}/20
