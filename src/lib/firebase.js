@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, set, get, onValue, update } from "firebase/database";
+import { getDatabase, ref, set, get, onValue, update, runTransaction, query, orderByChild, limitToLast } from "firebase/database";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyA-bIXTZWr_kLAQl6lXCkj2mSBbA_jEXGo",
@@ -13,5 +14,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const auth = getAuth(app);
 
-export { db, ref, set, get, onValue, update };
+export { db, auth, ref, set, get, onValue, update, runTransaction, query, orderByChild, limitToLast, signInAnonymously, onAuthStateChanged };

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { db, ref, set, get, onValue, update } from "../lib/firebase";
+import { db, auth, ref, set, get, onValue, update, runTransaction, query, orderByChild, limitToLast, signInAnonymously, onAuthStateChanged } from "../lib/firebase";
 
 const ROWS = 11;
 const COLS = 11;
@@ -61,6 +61,159 @@ const t = {
   water: "rgba(6,182,212,0.06)", shipCell: "rgba(6,182,212,0.25)",
   gold: "#fbbf24", goldGlow: "rgba(251,191,36,0.3)",
 };
+
+// ═══ ELO SYSTEM ═══
+function calculateElo(myElo, oppElo, didWin, k = 32) {
+  const expected = 1 / (1 + Math.pow(10, (oppElo - myElo) / 400));
+  const score = didWin ? 1 : 0;
+  const newElo = Math.round(myElo + k * (score - expected));
+  return Math.max(0, newElo); // ELO 0'ın altına düşmesin
+}
+
+function getRankInfo(elo) {
+  if (elo >= 2000) return { title: "AMİRAL", color: "#fbbf24", icon: "⭐" };
+  if (elo >= 1600) return { title: "KOMODOR", color: "#a78bfa", icon: "🎖" };
+  if (elo >= 1400) return { title: "KAPTAN", color: "#06b6d4", icon: "⚓" };
+  if (elo >= 1200) return { title: "YÜZBAŞI", color: "#34d399", icon: "🏅" };
+  if (elo >= 1000) return { title: "TEĞMEN", color: "#60a5fa", icon: "📛" };
+  return { title: "ER", color: "#9ca3af", icon: "🔰" };
+}
+
+// ═══ PROFILE HELPERS ═══
+async function ensureProfile(uid, displayName) {
+  const profileRef = ref(db, `profiles/${uid}`);
+  const snap = await get(profileRef);
+  if (!snap.exists()) {
+    const profile = {
+      displayName: displayName || "Denizci",
+      elo: 1200,
+      wins: 0,
+      losses: 0,
+      totalGames: 0,
+      createdAt: Date.now(),
+      lastGameAt: null,
+    };
+    await set(profileRef, profile);
+    return profile;
+  }
+  const existing = snap.val();
+  if (displayName && existing.displayName !== displayName) {
+    await update(profileRef, { displayName });
+    existing.displayName = displayName;
+  }
+  return existing;
+}
+
+async function updateEloAfterGame(winnerUid, loserUid) {
+  const winnerSnap = await get(ref(db, `profiles/${winnerUid}`));
+  const loserSnap = await get(ref(db, `profiles/${loserUid}`));
+  if (!winnerSnap.exists() || !loserSnap.exists()) return;
+  const winnerData = winnerSnap.val();
+  const loserData = loserSnap.val();
+  const winnerNewElo = calculateElo(winnerData.elo, loserData.elo, true);
+  const loserNewElo = calculateElo(loserData.elo, winnerData.elo, false);
+  const now = Date.now();
+  await update(ref(db, `profiles/${winnerUid}`), {
+    elo: winnerNewElo,
+    wins: (winnerData.wins || 0) + 1,
+    totalGames: (winnerData.totalGames || 0) + 1,
+    lastGameAt: now,
+  });
+  await update(ref(db, `profiles/${loserUid}`), {
+    elo: loserNewElo,
+    losses: (loserData.losses || 0) + 1,
+    totalGames: (loserData.totalGames || 0) + 1,
+    lastGameAt: now,
+  });
+  return { winnerNewElo, loserNewElo, winnerOldElo: winnerData.elo, loserOldElo: loserData.elo };
+}
+
+async function fetchLeaderboard(count = 50) {
+  const snap = await get(ref(db, "profiles"));
+  if (!snap.exists()) return [];
+  const profiles = [];
+  snap.forEach(child => {
+    const data = child.val();
+    profiles.push({ uid: child.key, ...data });
+  });
+  profiles.sort((a, b) => (b.elo || 1200) - (a.elo || 1200));
+  return profiles.slice(0, count);
+}
+
+// ═══ LEADERBOARD COMPONENT ═══
+function Leaderboard({ onBack, myUid }) {
+  const [players, setPlayers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchLeaderboard(50).then(data => {
+      setPlayers(data);
+      setLoading(false);
+    });
+  }, []);
+
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center",
+      minHeight: "100vh", minHeight: "100dvh", background: t.bg, padding: "20px 12px",
+      fontFamily: "'JetBrains Mono', monospace", color: t.text,
+    }}>
+      <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: 5, color: t.gold, marginBottom: 4, fontFamily: "'Oswald', sans-serif", textShadow: `0 0 20px ${t.goldGlow}` }}>SIRALAMA</div>
+      <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 4, marginBottom: 16, fontFamily: "'Oswald', sans-serif" }}>EN İYİ DENİZCİLER</div>
+      {loading ? (
+        <div style={{ color: t.textDim, fontSize: 12, marginTop: 40 }}>Yükleniyor...</div>
+      ) : players.length === 0 ? (
+        <div style={{ color: t.textDim, fontSize: 12, marginTop: 40 }}>Henüz oyuncu yok</div>
+      ) : (
+        <div style={{ width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 4 }}>
+          {players.map((p, i) => {
+            const rank = getRankInfo(p.elo || 1200);
+            const isMe = p.uid === myUid;
+            const winRate = p.totalGames > 0 ? Math.round((p.wins / p.totalGames) * 100) : 0;
+            return (
+              <div key={p.uid} style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
+                background: isMe ? "rgba(6,182,212,0.1)" : i < 3 ? "rgba(251,191,36,0.05)" : t.surface,
+                border: `1px solid ${isMe ? t.accent : i < 3 ? "rgba(251,191,36,0.2)" : t.border}`,
+                borderRadius: 8,
+              }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: i < 3 ? 14 : 11, fontWeight: 700,
+                  background: i === 0 ? "rgba(251,191,36,0.2)" : i === 1 ? "rgba(192,192,192,0.15)" : i === 2 ? "rgba(205,127,50,0.15)" : t.surfaceLight,
+                  color: i === 0 ? t.gold : i === 1 ? "#c0c0c0" : i === 2 ? "#cd7f32" : t.textDim,
+                  fontFamily: "'Oswald', sans-serif",
+                }}>
+                  {i < 3 ? ["🥇","🥈","🥉"][i] : i + 1}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: isMe ? t.accent : t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.displayName}</span>
+                    <span style={{ fontSize: 9, color: rank.color, fontFamily: "'Oswald', sans-serif", letterSpacing: 1 }}>{rank.icon} {rank.title}</span>
+                  </div>
+                  <div style={{ fontSize: 9, color: t.textDim, marginTop: 2 }}>
+                    {p.wins || 0}G / {p.losses || 0}M • %{winRate}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: rank.color, fontFamily: "'Oswald', sans-serif" }}>{p.elo || 1200}</div>
+                  <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 1 }}>ELO</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <button onClick={onBack} style={{
+        marginTop: 20, padding: "12px 32px",
+        background: `linear-gradient(135deg, ${t.accent}, #0891b2)`,
+        color: t.bg, border: "none", borderRadius: 8,
+        fontSize: 13, fontWeight: 700, letterSpacing: 2, cursor: "pointer",
+        fontFamily: "'Oswald', sans-serif", textTransform: "uppercase",
+      }}>GERİ DÖN</button>
+    </div>
+  );
+}
 
 const ANIMS = `
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700;800&display=swap');
@@ -455,6 +608,13 @@ export default function Game() {
   const [playerName, setPlayerName] = useState("");
   const [opponentName, setOpponentName] = useState("");
   const [message, setMessage] = useState("");
+
+  // Auth & Profile
+  const [authUid, setAuthUid] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [myProfile, setMyProfile] = useState(null);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [eloChange, setEloChange] = useState(null); // { myOld, myNew, oppOld, oppNew }
   const [defenseBoard, setDefenseBoard] = useState(emptyGrid);
   const [shipColorMap, setShipColorMap] = useState(() => Array.from({ length: ROWS }, () => Array(COLS).fill(null)));
   const [attackOverlay, setAttackOverlay] = useState(() => emptyGrid().map(r => r.map(() => null)));
@@ -497,11 +657,30 @@ export default function Game() {
   const myTurnRef = useRef(false);
   const phaseRef = useRef("splash");
   const lastAttackCountRef = useRef(0);
+  const eloUpdatedRef = useRef(false);
 
   const cellSize = typeof window !== "undefined" ? Math.min(30, Math.floor((Math.min(window.innerWidth - 24, 400)) / 12)) : 28;
 
   useEffect(() => { myTurnRef.current = myTurn; }, [myTurn]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
+
+  // ═══ AUTH: Anonim giriş ═══
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setAuthUid(user.uid);
+        setAuthReady(true);
+      } else {
+        try {
+          await signInAnonymously(auth);
+        } catch (err) {
+          console.error("Auth error:", err);
+          setAuthReady(true); // yine de devam et
+        }
+      }
+    });
+    return () => unsub();
+  }, []);
 
   // Placement timer
   useEffect(() => {
@@ -643,6 +822,48 @@ export default function Game() {
         else winMsg = reason === "timeout" ? "Süren doldu!" : "Gemilerin battı!";
         setWinner(winMsg); setIsWin(iW); setPhase("gameover");
         if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
+        // ═══ ELO UPDATE ═══
+        if (!game.eloProcessed && game.p1_uid && game.p2_uid) {
+          const winnerUid = game.winner === 1 ? game.p1_uid : game.p2_uid;
+          const loserUid = game.winner === 1 ? game.p2_uid : game.p1_uid;
+          // Only the winner's client processes ELO to avoid double-update
+          if (iW) {
+            update(ref(db, `rooms/${roomIdRef.current}`), { eloProcessed: true }).then(() => {
+              updateEloAfterGame(winnerUid, loserUid).then(result => {
+                if (result) {
+                  // Write ELO results to room so loser can read exact values
+                  update(ref(db, `rooms/${roomIdRef.current}`), {
+                    eloResult: {
+                      winnerOldElo: result.winnerOldElo, winnerNewElo: result.winnerNewElo,
+                      loserOldElo: result.loserOldElo, loserNewElo: result.loserNewElo,
+                    }
+                  });
+                  setEloChange({ myOld: result.winnerOldElo, myNew: result.winnerNewElo, oppOld: result.loserOldElo, oppNew: result.loserNewElo });
+                  setMyProfile(prev => prev ? { ...prev, elo: result.winnerNewElo, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1 } : prev);
+                }
+              }).catch(e => console.error("ELO update error:", e));
+            });
+          } else {
+            // Loser reads ELO results from room after a small delay
+            setTimeout(async () => {
+              try {
+                const roomSnap = await get(ref(db, `rooms/${roomIdRef.current}/eloResult`));
+                if (roomSnap.exists()) {
+                  const er = roomSnap.val();
+                  setEloChange({ myOld: er.loserOldElo, myNew: er.loserNewElo, oppOld: er.winnerOldElo, oppNew: er.winnerNewElo });
+                  setMyProfile(prev => prev ? { ...prev, elo: er.loserNewElo, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1 } : prev);
+                } else {
+                  // Fallback: read profile directly
+                  const myUidKey = pNum === 1 ? 'p1_uid' : 'p2_uid';
+                  const snap = await get(ref(db, `profiles/${game[myUidKey]}`));
+                  if (snap.exists()) {
+                    setMyProfile(prev => prev ? { ...prev, ...snap.val() } : prev);
+                  }
+                }
+              } catch (e) { console.error("ELO read error:", e); }
+            }, 2500);
+          }
+        }
       }
     });
   }, [placementConfirmed]);
@@ -655,6 +876,25 @@ export default function Game() {
     if (placementTimerRef.current) clearInterval(placementTimerRef.current);
   }, []);
 
+  // ═══ AUTH INIT ═══
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setAuthUid(user.uid);
+        try {
+          const profile = await ensureProfile(user.uid, null);
+          setMyProfile(profile);
+        } catch (e) { console.error("Profile error:", e); }
+        setAuthReady(true);
+      } else {
+        try {
+          await signInAnonymously(auth);
+        } catch (e) { console.error("Auth error:", e); setAuthReady(true); }
+      }
+    });
+    return () => unsub();
+  }, []);
+
   useEffect(() => {
     const handler = (e) => { if (e.key === "r" || e.key === "R") setRotation(prev => (prev + 1) % 4); };
     window.addEventListener("keydown", handler);
@@ -663,18 +903,25 @@ export default function Game() {
 
   const createRoom = async () => {
     if (!playerName.trim()) { setMessage("Adını yaz!"); return; }
+    if (!authUid) { setMessage("Bağlantı bekleniyor..."); return; }
+    // Update profile displayName
+    try { const p = await ensureProfile(authUid, playerName.trim()); setMyProfile(p); } catch (e) { console.error(e); }
     const id = Math.random().toString(36).substring(2, 8).toUpperCase();
     roomIdRef.current = id; setRoomId(id); setPlayerNum(1); playerNumRef.current = 1;
     await set(ref(db, `rooms/${id}`), {
-      p1_name: playerName.trim(), p2_name: null, phase: "waiting",
+      p1_name: playerName.trim(), p1_uid: authUid,
+      p2_name: null, p2_uid: null, phase: "waiting",
       p1_board: null, p2_board: null, p1_ships: null, p2_ships: null,
       attacks: null, turn: 1, clocks: { p1: CLOCK_SECONDS, p2: CLOCK_SECONDS },
-      winner: null, winReason: null, created: Date.now(),
+      winner: null, winReason: null, eloProcessed: false, created: Date.now(),
     });
     setPhase("waiting"); listenToRoom(id, 1);
   };
   const joinRoom = async () => {
     if (!playerName.trim() || !inputRoomId.trim()) { setMessage("Adını ve oda kodunu yaz!"); return; }
+    if (!authUid) { setMessage("Bağlantı bekleniyor..."); return; }
+    // Update profile displayName
+    try { const p = await ensureProfile(authUid, playerName.trim()); setMyProfile(p); } catch (e) { console.error(e); }
     const rid = inputRoomId.trim().toUpperCase();
     const snapshot = await get(ref(db, `rooms/${rid}`));
     if (!snapshot.exists()) { setMessage("Oda bulunamadı!"); return; }
@@ -682,7 +929,7 @@ export default function Game() {
     if (game.p2_name) { setMessage("Oda dolu!"); return; }
     roomIdRef.current = rid; setRoomId(rid); setPlayerNum(2); playerNumRef.current = 2;
     setOpponentName(game.p1_name);
-    await update(ref(db, `rooms/${rid}`), { p2_name: playerName.trim(), phase: "placing" });
+    await update(ref(db, `rooms/${rid}`), { p2_name: playerName.trim(), p2_uid: authUid, phase: "placing" });
     setPhase("placing"); listenToRoom(rid, 2);
   };
   const handleDefenseClick = (r, c) => {
@@ -780,6 +1027,9 @@ export default function Game() {
     setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false);
     setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false)));
     lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false);
+    setEloChange(null); eloUpdatedRef.current = false;
+    // Refresh profile
+    if (authUid) { ensureProfile(authUid).then(p => setMyProfile(p)).catch(() => {}); }
   };
 
   const appStyle = { minHeight: "100vh", minHeight: "100dvh", background: t.bg, color: t.text, fontFamily: mono, display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 8px", boxSizing: "border-box" };
@@ -789,18 +1039,96 @@ export default function Game() {
 
   if (phase === "splash") return <><style>{ANIMS}</style><LoadingScreen onReady={() => setPhase("lobby")} /></>;
   if (phase === "ready") return <><style>{ANIMS}</style><ReadyScreen opponentName={opponentName} onStart={() => setPhase("playing")} /></>;
+  if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} /></>;
 
   if (phase === "gameover") {
     if (showReview) return <BoardReview defenseBoard={defenseBoard} shipColorMap={shipColorMap} defenseOverlay={defenseOverlay} attackOverlay={attackOverlay} oppShipsData={oppShipsData} myShipsData={myShipsData} defHitMap={defHitMap} atkHitMap={atkHitMap} cellSize={cellSize} onBack={() => setShowReview(false)} />;
-    return <><style>{ANIMS}</style><GameOverScreen winner={winner} myHits={myHits} oppHits={oppHits} isWin={isWin} onNewGame={resetGame} onViewBoard={() => setShowReview(true)} /></>;
+    const myEloDiff = eloChange ? eloChange.myNew - eloChange.myOld : null;
+    const myRank = eloChange ? getRankInfo(eloChange.myNew) : (myProfile ? getRankInfo(myProfile.elo) : null);
+    return (
+      <><style>{ANIMS}</style>
+      <GameOverScreen winner={winner} myHits={myHits} oppHits={oppHits} isWin={isWin} onNewGame={resetGame} onViewBoard={() => setShowReview(true)} />
+      {/* ELO overlay on gameover */}
+      {eloChange && (
+        <div style={{
+          position: "fixed", bottom: 80, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 200,
+          animation: "fadeUp 0.6s ease-out",
+        }}>
+          <div style={{
+            background: "rgba(17,24,39,0.95)", border: `1px solid ${isWin ? t.accent : t.hit}`,
+            borderRadius: 12, padding: "14px 24px", textAlign: "center",
+            boxShadow: `0 0 30px ${isWin ? t.accentGlow : t.hitGlow}`,
+          }}>
+            <div style={{ fontSize: 10, letterSpacing: 3, color: t.textDim, marginBottom: 6, fontFamily: warrior }}>ELO DEĞİŞİMİ</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "center" }}>
+              <span style={{ fontSize: 20, fontWeight: 700, color: t.textDim, fontFamily: warrior }}>{eloChange.myOld}</span>
+              <span style={{ fontSize: 20, color: t.textDim }}>→</span>
+              <span style={{ fontSize: 24, fontWeight: 800, color: myRank?.color || t.accent, fontFamily: warrior }}>{eloChange.myNew}</span>
+              <span style={{
+                fontSize: 16, fontWeight: 800, fontFamily: warrior,
+                color: myEloDiff >= 0 ? "#34d399" : t.hit,
+              }}>
+                {myEloDiff >= 0 ? `+${myEloDiff}` : myEloDiff}
+              </span>
+            </div>
+            {myRank && (
+              <div style={{ fontSize: 11, color: myRank.color, marginTop: 6, fontFamily: warrior, letterSpacing: 2 }}>
+                {myRank.icon} {myRank.title}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      </>
+    );
   }
 
   if (phase === "lobby") {
+    const rank = myProfile ? getRankInfo(myProfile.elo) : null;
     return (
       <div style={appStyle}>
         <style>{ANIMS}</style>
         <div style={{ fontSize: 30, fontWeight: 700, letterSpacing: 5, color: t.accent, textShadow: `0 0 30px ${t.accentGlow}`, marginBottom: 4, fontFamily: warrior, animation: "fadeUp 0.4s ease-out" }}>AMİRAL BATTI</div>
-        <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 6, marginBottom: 28, fontFamily: warrior }}>ONLINE DENİZ SAVAŞI</div>
+        <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 6, marginBottom: 16, fontFamily: warrior }}>ONLINE DENİZ SAVAŞI</div>
+
+        {/* Profile Card */}
+        {myProfile && (
+          <div style={{
+            background: `linear-gradient(135deg, ${t.surface}, rgba(17,24,39,0.9))`,
+            border: `1px solid ${rank?.color || t.border}`,
+            borderRadius: 10, padding: "12px 20px", marginBottom: 14,
+            width: "100%", maxWidth: 340, animation: "fadeUp 0.3s ease-out",
+            boxShadow: `0 0 15px ${rank?.color ? rank.color + "33" : "transparent"}`,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: t.text, fontFamily: warrior }}>{myProfile.displayName}</div>
+                <div style={{ fontSize: 10, color: rank?.color || t.textDim, fontFamily: warrior, letterSpacing: 2, marginTop: 2 }}>{rank?.icon} {rank?.title}</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: rank?.color || t.accent, fontFamily: warrior }}>{myProfile.elo}</div>
+                <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 1 }}>ELO</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 16, marginTop: 8, justifyContent: "center" }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#34d399", fontFamily: mono }}>{myProfile.wins || 0}</div>
+                <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 1 }}>GALİBİYET</div>
+              </div>
+              <div style={{ width: 1, background: t.border }} />
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: t.hit, fontFamily: mono }}>{myProfile.losses || 0}</div>
+                <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 1 }}>MAĞLUBİYET</div>
+              </div>
+              <div style={{ width: 1, background: t.border }} />
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: t.accent, fontFamily: mono }}>{myProfile.totalGames || 0}</div>
+                <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 1 }}>TOPLAM</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div style={{ background: `linear-gradient(135deg, ${t.surface}, rgba(17,24,39,0.9))`, border: `1px solid ${t.border}`, borderRadius: 14, padding: "28px 20px", textAlign: "center", width: "100%", maxWidth: 340, animation: "fadeUp 0.5s ease-out", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>
           <input style={inputStyle} placeholder="Adın" value={playerName} onChange={e => setPlayerName(e.target.value)} />
           <div style={{ height: 16 }} />
@@ -811,6 +1139,16 @@ export default function Game() {
           <button style={{ ...btnStyle, width: "100%" }} onClick={joinRoom}>ODAYA KATIL</button>
           {message && <div style={{ marginTop: 14, color: t.hit, fontSize: 11 }}>{message}</div>}
         </div>
+
+        {/* Leaderboard Button */}
+        <button onClick={() => setShowLeaderboard(true)} style={{
+          marginTop: 16, padding: "10px 28px",
+          background: "transparent", color: t.gold, border: `1px solid ${t.gold}`,
+          borderRadius: 8, fontSize: 12, fontWeight: 700, letterSpacing: 3,
+          cursor: "pointer", fontFamily: warrior, textTransform: "uppercase",
+          boxShadow: `0 0 10px ${t.goldGlow}`,
+          animation: "fadeUp 0.7s ease-out",
+        }}>🏆 SIRALAMA TABLOSU</button>
       </div>
     );
   }
