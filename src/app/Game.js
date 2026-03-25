@@ -56,6 +56,7 @@ function isTestMode() {
   if (typeof window === "undefined") return false;
   return new URLSearchParams(window.location.search).get("test") === "1";
 }
+function getTestGold() { return isTestMode() ? 5000 : STARTING_GOLD; }
 
 const t = {
   bg: "#0a0e17", surface: "#111827", surfaceLight: "#1f2937",
@@ -166,19 +167,18 @@ async function ensureProfile(uid, displayName) {
   const profileRef = ref(db, `profiles/${uid}`);
   const snap = await get(profileRef);
   if (!snap.exists()) {
-    const profile = { displayName: displayName||"Denizci", elo:1200, wins:0, losses:0, totalGames:0, gold:STARTING_GOLD, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, nameLocked:false };
+    const startGold = isTestMode() ? 5000 : STARTING_GOLD;
+    const profile = { displayName: displayName||"Denizci", elo:1200, wins:0, losses:0, totalGames:0, gold:startGold, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null };
     await set(profileRef, profile);
     return profile;
   }
   const existing = snap.val();
   if (existing.gold === undefined) { await update(profileRef, { gold:STARTING_GOLD, loginStreak:0, lastDailyReward:null }); existing.gold=STARTING_GOLD; existing.loginStreak=0; existing.lastDailyReward=null; }
-  if (displayName && !existing.nameLocked && existing.displayName !== displayName) { await update(profileRef, { displayName }); existing.displayName = displayName; }
+  if (displayName && existing.displayName !== displayName) { await update(profileRef, { displayName }); existing.displayName = displayName; }
   return existing;
 }
 
-async function lockUsername(uid, displayName) {
-  await update(ref(db, `profiles/${uid}`), { displayName, nameLocked: true });
-}
+
 
 async function updateEloAfterGame(winnerUid, loserUid, arena) {
   const winnerSnap = await get(ref(db, `profiles/${winnerUid}`));
@@ -584,9 +584,16 @@ export default function Game() {
   useEffect(() => () => { if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current); if (damageTimerRef.current) clearTimeout(damageTimerRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current); }, []);
 
   useEffect(() => {
-    if (isTestMode()) { const testId = `test_${Math.random().toString(36).substring(2, 10)}`; setAuthUid(testId); ensureProfile(testId, `Test_${testId.substring(5, 9)}`).then(p => { setMyProfile(p); setPlayerName(p.displayName); }).catch(() => {}); setAuthReady(true); return; }
+    if (isTestMode()) {
+      signInAnonymously(auth).then(result => {
+        const uid = result.user.uid;
+        setAuthUid(uid);
+        ensureProfile(uid, `Test_${uid.substring(0, 4)}`).then(p => { setMyProfile(p); setPlayerName(p.displayName); setAuthReady(true); }).catch(() => setAuthReady(true));
+      }).catch(e => { console.error("Test auth error:", e); setAuthReady(true); });
+      return;
+    }
     const unsub = onAuthStateChanged(auth, async (user) => {
-      if (user) { setAuthUid(user.uid); try { const profile = await ensureProfile(user.uid, null); setMyProfile(profile); if (profile.nameLocked && profile.displayName) setPlayerName(profile.displayName); } catch (e) { console.error("Profile error:", e); } setAuthReady(true); }
+      if (user) { setAuthUid(user.uid); try { const profile = await ensureProfile(user.uid, null); setMyProfile(profile); if (profile.displayName) setPlayerName(profile.displayName); } catch (e) { console.error("Profile error:", e); } setAuthReady(true); }
       else { try { await signInAnonymously(auth); } catch (e) { console.error("Auth error:", e); setAuthReady(true); } }
     });
     return () => unsub();
@@ -597,7 +604,6 @@ export default function Game() {
   const createRoom = async (arenaOverride) => {
     if (!playerName.trim()) { setMessage("Adını yaz!"); return; }
     if (!authUid) { setMessage("Bağlantı bekleniyor..."); return; }
-    if (!myProfile?.nameLocked && !isTestMode()) await lockUsername(authUid, playerName.trim());
     try { const p = await ensureProfile(authUid, playerName.trim()); setMyProfile(p); } catch (e) { console.error(e); }
     const arena = arenaOverride || selectedArena;
     if (arena) { const cg = myProfile?.gold || 0; if (cg < arena.entryFee) { setMessage("Yeterli altının yok!"); return; } await update(ref(db, `profiles/${authUid}`), { gold: cg - arena.entryFee }); setMyProfile(prev => prev ? { ...prev, gold: cg - arena.entryFee } : prev); setEntryFeeDeducted(arena.entryFee); }
@@ -610,7 +616,6 @@ export default function Game() {
   const joinRoom = async () => {
     if (!playerName.trim() || !inputRoomId.trim()) { setMessage("Adını ve oda kodunu yaz!"); return; }
     if (!authUid) { setMessage("Bağlantı bekleniyor..."); return; }
-    if (!myProfile?.nameLocked && !isTestMode()) await lockUsername(authUid, playerName.trim());
     try { const p = await ensureProfile(authUid, playerName.trim()); setMyProfile(p); } catch (e) { console.error(e); }
     const rid = inputRoomId.trim().toUpperCase();
     const snapshot = await get(ref(db, `rooms/${rid}`)); if (!snapshot.exists()) { setMessage("Oda bulunamadı!"); return; }
@@ -644,7 +649,6 @@ export default function Game() {
   const startQuickMatch = async (arenaOverride) => {
     if (!playerName.trim()) { setMessage("Adını yaz!"); return; }
     if (!authUid) { setMessage("Bağlantı bekleniyor..."); return; }
-    if (!myProfile?.nameLocked && !isTestMode()) await lockUsername(authUid, playerName.trim());
     try { const p = await ensureProfile(authUid, playerName.trim()); setMyProfile(p); } catch (e) { console.error(e); }
     const arena = arenaOverride || null;
     if (arena) { const cg = myProfile?.gold || 0; if (cg < arena.entryFee) { setMessage("Yeterli altının yok!"); return; } await update(ref(db, `profiles/${authUid}`), { gold: cg - arena.entryFee }); setMyProfile(prev => prev ? { ...prev, gold: cg - arena.entryFee } : prev); setEntryFeeDeducted(arena.entryFee); }
@@ -695,14 +699,13 @@ export default function Game() {
 
   if (phase === "lobby") {
     const rank = myProfile ? getRankInfo(myProfile.elo) : null;
-    const nameIsLocked = myProfile?.nameLocked === true;
     return (<div style={appStyle}><style>{ANIMS}</style>
       <div style={{ fontSize:30,fontWeight:700,letterSpacing:5,color:t.accent,textShadow:`0 0 30px ${t.accentGlow}`,marginBottom:4,fontFamily:warrior,animation:"fadeUp 0.4s ease-out" }}>AMİRAL BATTI</div>
       <div style={{ fontSize:10,color:t.textDim,letterSpacing:6,marginBottom:16,fontFamily:warrior }}>ONLINE DENİZ SAVAŞI</div>
       {isTestMode() && <div style={{ background:"rgba(251,191,36,0.15)",border:`1px solid ${t.gold}`,borderRadius:8,padding:"8px 16px",marginBottom:12,fontSize:11,color:t.gold,fontFamily:warrior,letterSpacing:2,textAlign:"center",width:"100%",maxWidth:340 }}>🧪 TEST MODU — 2 tab aç, oda koduyla oyna</div>}
       {myProfile && (<div style={{ background:`linear-gradient(135deg,${t.surface},rgba(17,24,39,0.9))`,border:`1px solid ${rank?.color||t.border}`,borderRadius:10,padding:"12px 20px",marginBottom:14,width:"100%",maxWidth:340,animation:"fadeUp 0.3s ease-out",boxShadow:`0 0 15px ${rank?.color?rank.color+"33":"transparent"}` }}>
         <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
-          <div><div style={{ display:"flex",alignItems:"center",gap:6 }}><div style={{ fontSize:14,fontWeight:700,color:t.text,fontFamily:warrior }}>{myProfile.displayName}</div>{nameIsLocked&&<span style={{ fontSize:10,color:t.textDim }} title="İsim kilitli">🔒</span>}</div><div style={{ fontSize:10,color:rank?.color||t.textDim,fontFamily:warrior,letterSpacing:2,marginTop:2 }}>{rank?.icon} {rank?.title}</div></div>
+          <div><div style={{ fontSize:14,fontWeight:700,color:t.text,fontFamily:warrior }}>{myProfile.displayName}</div><div style={{ fontSize:10,color:rank?.color||t.textDim,fontFamily:warrior,letterSpacing:2,marginTop:2 }}>{rank?.icon} {rank?.title}</div></div>
           <div style={{ textAlign:"right" }}><div style={{ fontSize:22,fontWeight:800,color:rank?.color||t.accent,fontFamily:warrior }}>{myProfile.elo}</div><div style={{ fontSize:8,color:t.textDim,letterSpacing:1 }}>ELO</div></div>
         </div>
         <div style={{ display:"flex",gap:16,marginTop:8,justifyContent:"center" }}>
@@ -716,8 +719,7 @@ export default function Game() {
         </div>
       </div>)}
       <div style={{ background:`linear-gradient(135deg,${t.surface},rgba(17,24,39,0.9))`,border:`1px solid ${t.border}`,borderRadius:14,padding:"28px 20px",textAlign:"center",width:"100%",maxWidth:340,animation:"fadeUp 0.5s ease-out",boxShadow:"0 8px 32px rgba(0,0,0,0.3)" }}>
-        <input style={{ ...inputStyle,opacity:nameIsLocked?0.6:1 }} placeholder="Adın" value={playerName} onChange={e=>{if(!nameIsLocked)setPlayerName(e.target.value);}} disabled={nameIsLocked} />
-        {nameIsLocked && <div style={{ fontSize:9,color:t.textDim,marginTop:4,fontFamily:mono }}>🔒 İsmin kilitli</div>}
+        <input style={inputStyle} placeholder="Adın" value={playerName} onChange={e=>setPlayerName(e.target.value)} />
         <div style={{ height:16 }} />
         <button style={{ ...btnStyle,width:"100%" }} onClick={createRoom}>YENİ ODA OLUŞTUR</button>
         <div style={{ margin:"18px 0",color:t.textDim,fontSize:10,letterSpacing:3,fontFamily:warrior }}>— VEYA —</div>
