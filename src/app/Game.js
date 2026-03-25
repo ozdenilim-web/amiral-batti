@@ -173,7 +173,10 @@ async function ensureProfile(uid, displayName) {
     return profile;
   }
   const existing = snap.val();
-  if (existing.gold === undefined) { await update(profileRef, { gold:STARTING_GOLD, loginStreak:0, lastDailyReward:null }); existing.gold=STARTING_GOLD; existing.loginStreak=0; existing.lastDailyReward=null; }
+  // Fix any NaN/undefined/null gold values
+  const safeGold = (typeof existing.gold === "number" && !isNaN(existing.gold)) ? existing.gold : (isTestMode() ? 5000 : STARTING_GOLD);
+  if (safeGold !== existing.gold) { await update(profileRef, { gold: safeGold }); existing.gold = safeGold; }
+  if (existing.loginStreak === undefined) { await update(profileRef, { loginStreak:0, lastDailyReward:null }); existing.loginStreak=0; existing.lastDailyReward=null; }
   if (displayName && existing.displayName !== displayName) { await update(profileRef, { displayName }); existing.displayName = displayName; }
   return existing;
 }
