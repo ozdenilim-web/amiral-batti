@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { db, auth, ref, set, get, onValue, update, runTransaction, query, orderByChild, limitToLast, signInAnonymously, onAuthStateChanged } from "../lib/firebase";
+import { db, auth, ref, set, get, onValue, update, remove, onDisconnect, runTransaction, query, orderByChild, limitToLast, signInAnonymously, onAuthStateChanged } from "../lib/firebase";
 
 const ROWS = 11;
 const COLS = 11;
@@ -599,6 +599,273 @@ function BoardReview({ defenseBoard, shipColorMap, defenseOverlay, attackOverlay
   );
 }
 
+// ═══ ONLINE LOBBY ═══
+function OnlineLobby({ myUid, myName, myElo, onChallenge, onBack }) {
+  const [players, setPlayers] = useState([]);
+  const [invites, setInvites] = useState([]);
+  const [sentInvite, setSentInvite] = useState(null);
+
+  // Listen online players
+  useEffect(() => {
+    const unsub = onValue(ref(db, "online_players"), (snap) => {
+      if (!snap.exists()) { setPlayers([]); return; }
+      const list = [];
+      snap.forEach(child => {
+        const data = child.val();
+        if (child.key !== myUid && data.status === "idle") {
+          list.push({ uid: child.key, ...data });
+        }
+      });
+      list.sort((a, b) => (b.elo || 1200) - (a.elo || 1200));
+      setPlayers(list);
+    });
+    return () => unsub();
+  }, [myUid]);
+
+  // Listen for incoming invites
+  useEffect(() => {
+    const unsub = onValue(ref(db, `invites/${myUid}`), (snap) => {
+      if (!snap.exists()) { setInvites([]); return; }
+      const list = [];
+      snap.forEach(child => {
+        list.push({ id: child.key, ...child.val() });
+      });
+      setInvites(list);
+    });
+    return () => unsub();
+  }, [myUid]);
+
+  // Listen for sent invite acceptance
+  useEffect(() => {
+    if (!sentInvite) return;
+    const unsub = onValue(ref(db, `invites/${sentInvite.targetUid}/${myUid}`), (snap) => {
+      if (!snap.exists()) { setSentInvite(null); return; }
+      const data = snap.val();
+      if (data.status === "accepted" && data.roomId) {
+        // Opponent accepted — join the game
+        remove(ref(db, `invites/${sentInvite.targetUid}/${myUid}`));
+        setSentInvite(null);
+        onChallenge(data.roomId, 1);
+      } else if (data.status === "rejected") {
+        remove(ref(db, `invites/${sentInvite.targetUid}/${myUid}`));
+        setSentInvite(null);
+      }
+    });
+    return () => unsub();
+  }, [sentInvite, myUid, onChallenge]);
+
+  const sendInvite = async (targetUid, targetName) => {
+    if (sentInvite) return;
+    await set(ref(db, `invites/${targetUid}/${myUid}`), {
+      fromName: myName, fromElo: myElo || 1200, status: "pending", time: Date.now(),
+    });
+    setSentInvite({ targetUid, targetName });
+  };
+
+  const cancelInvite = async () => {
+    if (!sentInvite) return;
+    await remove(ref(db, `invites/${sentInvite.targetUid}/${myUid}`));
+    setSentInvite(null);
+  };
+
+  const acceptInvite = async (invite) => {
+    // Create room
+    const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    await set(ref(db, `rooms/${roomId}`), {
+      p1_name: invite.fromName, p1_uid: invite.id,
+      p2_name: myName, p2_uid: myUid, phase: "placing",
+      p1_board: null, p2_board: null, p1_ships: null, p2_ships: null,
+      attacks: null, turn: 1, clocks: { p1: 300, p2: 300 },
+      winner: null, winReason: null, eloProcessed: false, created: Date.now(),
+    });
+    // Update invite with room id
+    await update(ref(db, `invites/${myUid}/${invite.id}`), { status: "accepted", roomId });
+    // Clean up
+    setTimeout(() => remove(ref(db, `invites/${myUid}/${invite.id}`)), 3000);
+    onChallenge(roomId, 2);
+  };
+
+  const rejectInvite = async (invite) => {
+    await update(ref(db, `invites/${myUid}/${invite.id}`), { status: "rejected" });
+    setTimeout(() => remove(ref(db, `invites/${myUid}/${invite.id}`)), 2000);
+  };
+
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center",
+      minHeight: "100vh", minHeight: "100dvh", background: t.bg, padding: "20px 12px",
+      fontFamily: "'JetBrains Mono', monospace", color: t.text,
+    }}>
+      <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: 5, color: t.accent, marginBottom: 4, fontFamily: "'Oswald', sans-serif", textShadow: `0 0 20px ${t.accentGlow}` }}>ONLİNE SALON</div>
+      <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 4, marginBottom: 16, fontFamily: "'Oswald', sans-serif" }}>AKTİF DENİZCİLER</div>
+
+      {/* Incoming invites */}
+      {invites.filter(inv => inv.status === "pending").map(invite => (
+        <div key={invite.id} style={{
+          width: "100%", maxWidth: 420, marginBottom: 8, padding: "12px 16px",
+          background: "rgba(6,182,212,0.1)", border: `1px solid ${t.accent}`,
+          borderRadius: 10, animation: "borderGlow 2s infinite",
+        }}>
+          <div style={{ fontSize: 12, color: t.accent, fontWeight: 700, fontFamily: "'Oswald', sans-serif", letterSpacing: 2, marginBottom: 6 }}>⚔ DÜELLO DAVETİ</div>
+          <div style={{ fontSize: 13, color: t.text, marginBottom: 8 }}>
+            <span style={{ fontWeight: 700 }}>{invite.fromName}</span>
+            <span style={{ color: t.textDim, fontSize: 10, marginLeft: 8 }}>ELO: {invite.fromElo}</span>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => acceptInvite(invite)} style={{
+              flex: 1, padding: "8px 0", background: `linear-gradient(135deg, ${t.accent}, #0891b2)`,
+              color: t.bg, border: "none", borderRadius: 6, fontSize: 12, fontWeight: 700,
+              letterSpacing: 2, cursor: "pointer", fontFamily: "'Oswald', sans-serif",
+            }}>KABUL</button>
+            <button onClick={() => rejectInvite(invite)} style={{
+              flex: 1, padding: "8px 0", background: "transparent",
+              color: t.hit, border: `1px solid ${t.hit}`, borderRadius: 6, fontSize: 12, fontWeight: 700,
+              letterSpacing: 2, cursor: "pointer", fontFamily: "'Oswald', sans-serif",
+            }}>REDDET</button>
+          </div>
+        </div>
+      ))}
+
+      {/* Sent invite pending */}
+      {sentInvite && (
+        <div style={{
+          width: "100%", maxWidth: 420, marginBottom: 8, padding: "12px 16px",
+          background: "rgba(251,191,36,0.08)", border: `1px solid ${t.gold}`, borderRadius: 10,
+        }}>
+          <div style={{ fontSize: 11, color: t.gold, fontFamily: "'Oswald', sans-serif", letterSpacing: 2, marginBottom: 4 }}>DAVETİN GÖNDERİLDİ</div>
+          <div style={{ fontSize: 13, color: t.text, marginBottom: 8 }}>
+            <span style={{ fontWeight: 700 }}>{sentInvite.targetName}</span> yanıt bekliyor...
+            <span style={{ display: "inline-block", marginLeft: 6, animation: "pulse 1.5s infinite" }}>⏳</span>
+          </div>
+          <button onClick={cancelInvite} style={{
+            padding: "6px 16px", background: "transparent", color: t.textDim,
+            border: `1px solid ${t.border}`, borderRadius: 6, fontSize: 10, cursor: "pointer",
+            fontFamily: "'Oswald', sans-serif", letterSpacing: 1,
+          }}>İPTAL</button>
+        </div>
+      )}
+
+      {/* Online players list */}
+      {players.length === 0 ? (
+        <div style={{
+          width: "100%", maxWidth: 420, padding: "30px 20px", textAlign: "center",
+          background: t.surface, border: `1px solid ${t.border}`, borderRadius: 10, marginTop: 8,
+        }}>
+          <div style={{ fontSize: 24, marginBottom: 8 }}>🌊</div>
+          <div style={{ fontSize: 12, color: t.textDim }}>Şu an salonda kimse yok</div>
+          <div style={{ fontSize: 10, color: t.textDim, marginTop: 4 }}>Hızlı Oyun ile otomatik eşleşebilirsin</div>
+        </div>
+      ) : (
+        <div style={{ width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ fontSize: 9, color: t.textDim, letterSpacing: 2, marginBottom: 4 }}>{players.length} DENİZCİ AKTİF</div>
+          {players.map(p => {
+            const rank = getRankInfo(p.elo || 1200);
+            const alreadySent = sentInvite?.targetUid === p.uid;
+            return (
+              <div key={p.uid} style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
+                background: t.surface, border: `1px solid ${t.border}`, borderRadius: 8,
+              }}>
+                <div style={{
+                  width: 8, height: 8, borderRadius: "50%", background: "#34d399",
+                  boxShadow: "0 0 6px rgba(52,211,153,0.5)",
+                }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.displayName}</span>
+                    <span style={{ fontSize: 9, color: rank.color, fontFamily: "'Oswald', sans-serif", letterSpacing: 1 }}>{rank.icon} {rank.title}</span>
+                  </div>
+                  <div style={{ fontSize: 9, color: t.textDim, marginTop: 1 }}>
+                    ELO: {p.elo || 1200} • {p.wins || 0}G/{p.losses || 0}M
+                  </div>
+                </div>
+                <button onClick={() => sendInvite(p.uid, p.displayName)} disabled={!!sentInvite}
+                  style={{
+                    padding: "6px 14px", background: alreadySent ? t.surfaceLight : `linear-gradient(135deg, ${t.hit}, #dc2626)`,
+                    color: alreadySent ? t.textDim : "#fff", border: "none", borderRadius: 6,
+                    fontSize: 10, fontWeight: 700, letterSpacing: 1, cursor: sentInvite ? "default" : "pointer",
+                    fontFamily: "'Oswald', sans-serif", opacity: sentInvite && !alreadySent ? 0.4 : 1,
+                  }}>
+                  {alreadySent ? "BEKLENİYOR" : "⚔ DÜELLO"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <button onClick={onBack} style={{
+        marginTop: 20, padding: "12px 32px", background: `linear-gradient(135deg, ${t.accent}, #0891b2)`,
+        color: t.bg, border: "none", borderRadius: 8,
+        fontSize: 13, fontWeight: 700, letterSpacing: 2, cursor: "pointer",
+        fontFamily: "'Oswald', sans-serif", textTransform: "uppercase",
+      }}>GERİ DÖN</button>
+    </div>
+  );
+}
+
+// ═══ MATCHMAKING ═══
+function findMatch(myUid, myName, myElo) {
+  return new Promise(async (resolve) => {
+    // Add self to queue
+    await set(ref(db, `matchmaking/${myUid}`), {
+      displayName: myName, elo: myElo || 1200, time: Date.now(),
+    });
+    // Remove self on disconnect
+    onDisconnect(ref(db, `matchmaking/${myUid}`)).remove();
+
+    // Listen for match
+    const unsub = onValue(ref(db, `matchmaking`), async (snap) => {
+      if (!snap.exists()) return;
+      const queue = [];
+      snap.forEach(child => {
+        if (child.key !== myUid) queue.push({ uid: child.key, ...child.val() });
+      });
+      if (queue.length === 0) return;
+
+      // Find closest ELO
+      queue.sort((a, b) => Math.abs((a.elo || 1200) - (myElo || 1200)) - Math.abs((b.elo || 1200) - (myElo || 1200)));
+      const opponent = queue[0];
+
+      // Lower UID creates room to avoid race condition
+      if (myUid < opponent.uid) {
+        const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+        await set(ref(db, `rooms/${roomId}`), {
+          p1_name: myName, p1_uid: myUid,
+          p2_name: opponent.displayName, p2_uid: opponent.uid, phase: "placing",
+          p1_board: null, p2_board: null, p1_ships: null, p2_ships: null,
+          attacks: null, turn: 1, clocks: { p1: 300, p2: 300 },
+          winner: null, winReason: null, eloProcessed: false, created: Date.now(),
+        });
+        // Write match result for both
+        await set(ref(db, `match_found/${myUid}`), { roomId, playerNum: 1, oppName: opponent.displayName });
+        await set(ref(db, `match_found/${opponent.uid}`), { roomId, playerNum: 2, oppName: myName });
+        // Remove from queue
+        await remove(ref(db, `matchmaking/${myUid}`));
+        await remove(ref(db, `matchmaking/${opponent.uid}`));
+      }
+    });
+
+    // Listen for match_found
+    const matchUnsub = onValue(ref(db, `match_found/${myUid}`), async (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.val();
+      matchUnsub(); // stop listening
+      unsub(); // stop matchmaking listener
+      await remove(ref(db, `match_found/${myUid}`));
+      await remove(ref(db, `matchmaking/${myUid}`));
+      resolve(data);
+    });
+
+    // Return cancel function
+    resolve._cancel = async () => {
+      unsub();
+      matchUnsub();
+      await remove(ref(db, `matchmaking/${myUid}`));
+    };
+  });
+}
+
 // ═══ MAIN ═══
 export default function Game() {
   const [phase, setPhase] = useState("splash");
@@ -615,6 +882,9 @@ export default function Game() {
   const [myProfile, setMyProfile] = useState(null);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [eloChange, setEloChange] = useState(null); // { myOld, myNew, oppOld, oppNew }
+  const [showOnlineLobby, setShowOnlineLobby] = useState(false);
+  const [matchmaking, setMatchmaking] = useState(false);
+  const [matchCancelFn, setMatchCancelFn] = useState(null);
   const [defenseBoard, setDefenseBoard] = useState(emptyGrid);
   const [shipColorMap, setShipColorMap] = useState(() => Array.from({ length: ROWS }, () => Array(COLS).fill(null)));
   const [attackOverlay, setAttackOverlay] = useState(() => emptyGrid().map(r => r.map(() => null)));
@@ -681,6 +951,28 @@ export default function Game() {
     });
     return () => unsub();
   }, []);
+
+  // ═══ ONLINE PRESENCE ═══
+  useEffect(() => {
+    if (!authUid || !playerName.trim()) return;
+    if (phase !== "lobby") {
+      // Remove from online when not in lobby
+      remove(ref(db, `online_players/${authUid}`));
+      return;
+    }
+    const presenceRef = ref(db, `online_players/${authUid}`);
+    const profileData = {
+      displayName: playerName.trim(),
+      elo: myProfile?.elo || 1200,
+      wins: myProfile?.wins || 0,
+      losses: myProfile?.losses || 0,
+      status: "idle",
+      lastSeen: Date.now(),
+    };
+    set(presenceRef, profileData);
+    onDisconnect(presenceRef).remove();
+    return () => { remove(presenceRef); };
+  }, [authUid, playerName, phase, myProfile?.elo]);
 
   // Placement timer
   useEffect(() => {
@@ -1028,6 +1320,7 @@ export default function Game() {
     setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false)));
     lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false);
     setEloChange(null); eloUpdatedRef.current = false;
+    setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null);
     // Refresh profile
     if (authUid) { ensureProfile(authUid).then(p => setMyProfile(p)).catch(() => {}); }
   };
@@ -1040,6 +1333,15 @@ export default function Game() {
   if (phase === "splash") return <><style>{ANIMS}</style><LoadingScreen onReady={() => setPhase("lobby")} /></>;
   if (phase === "ready") return <><style>{ANIMS}</style><ReadyScreen opponentName={opponentName} onStart={() => setPhase("playing")} /></>;
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} /></>;
+  if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myElo={myProfile?.elo} onBack={() => setShowOnlineLobby(false)} onChallenge={(rid, pNum) => {
+    setShowOnlineLobby(false);
+    roomIdRef.current = rid; setRoomId(rid); setPlayerNum(pNum); playerNumRef.current = pNum;
+    if (pNum === 2) setPhase("placing");
+    else setPhase("placing");
+    listenToRoom(rid, pNum);
+    // Remove from online
+    if (authUid) remove(ref(db, `online_players/${authUid}`));
+  }} /></>;
 
   if (phase === "gameover") {
     if (showReview) return <BoardReview defenseBoard={defenseBoard} shipColorMap={shipColorMap} defenseOverlay={defenseOverlay} attackOverlay={attackOverlay} oppShipsData={oppShipsData} myShipsData={myShipsData} defHitMap={defHitMap} atkHitMap={atkHitMap} cellSize={cellSize} onBack={() => setShowReview(false)} />;
@@ -1139,6 +1441,63 @@ export default function Game() {
           <button style={{ ...btnStyle, width: "100%" }} onClick={joinRoom}>ODAYA KATIL</button>
           {message && <div style={{ marginTop: 14, color: t.hit, fontSize: 11 }}>{message}</div>}
         </div>
+
+        {/* Quick Match + Online Salon buttons */}
+        <div style={{ display: "flex", gap: 8, marginTop: 14, width: "100%", maxWidth: 340, animation: "fadeUp 0.6s ease-out" }}>
+          <button onClick={async () => {
+            if (!playerName.trim()) { setMessage("Adını yaz!"); return; }
+            if (!authUid) { setMessage("Bağlantı bekleniyor..."); return; }
+            try { const p = await ensureProfile(authUid, playerName.trim()); setMyProfile(p); } catch (e) { console.error(e); }
+            setMatchmaking(true);
+            const matchPromise = findMatch(authUid, playerName.trim(), myProfile?.elo || 1200);
+            setMatchCancelFn(() => matchPromise._cancel);
+            matchPromise.then(data => {
+              if (data && data.roomId) {
+                setMatchmaking(false); setMatchCancelFn(null);
+                roomIdRef.current = data.roomId; setRoomId(data.roomId);
+                setPlayerNum(data.playerNum); playerNumRef.current = data.playerNum;
+                setOpponentName(data.oppName);
+                setPhase("placing"); listenToRoom(data.roomId, data.playerNum);
+                if (authUid) remove(ref(db, `online_players/${authUid}`));
+              }
+            });
+          }} disabled={matchmaking} style={{
+            flex: 1, padding: "14px 0",
+            background: matchmaking ? t.surfaceLight : `linear-gradient(135deg, #34d399, #059669)`,
+            color: matchmaking ? t.textDim : "#fff", border: "none", borderRadius: 8,
+            fontSize: 13, fontWeight: 700, letterSpacing: 2, cursor: matchmaking ? "default" : "pointer",
+            fontFamily: warrior, textTransform: "uppercase",
+            boxShadow: matchmaking ? "none" : "0 0 15px rgba(52,211,153,0.3)",
+          }}>
+            {matchmaking ? "EŞLEŞTİRİLİYOR..." : "⚡ HIZLI OYUN"}
+          </button>
+          <button onClick={() => {
+            if (!playerName.trim()) { setMessage("Adını yaz!"); return; }
+            if (!authUid) { setMessage("Bağlantı bekleniyor..."); return; }
+            ensureProfile(authUid, playerName.trim()).then(p => setMyProfile(p)).catch(() => {});
+            setShowOnlineLobby(true);
+          }} style={{
+            flex: 1, padding: "14px 0",
+            background: "transparent", color: t.accent, border: `1px solid ${t.accent}`,
+            borderRadius: 8, fontSize: 13, fontWeight: 700, letterSpacing: 2,
+            cursor: "pointer", fontFamily: warrior, textTransform: "uppercase",
+          }}>
+            🌐 ONLİNE SALON
+          </button>
+        </div>
+
+        {/* Matchmaking cancel */}
+        {matchmaking && (
+          <button onClick={async () => {
+            if (matchCancelFn) await matchCancelFn();
+            setMatchmaking(false); setMatchCancelFn(null);
+          }} style={{
+            marginTop: 8, padding: "8px 20px", background: "transparent",
+            color: t.hit, border: `1px solid ${t.hit}`, borderRadius: 6,
+            fontSize: 10, fontWeight: 700, letterSpacing: 1, cursor: "pointer",
+            fontFamily: warrior, animation: "fadeUp 0.3s ease-out",
+          }}>İPTAL</button>
+        )}
 
         {/* Leaderboard Button */}
         <button onClick={() => setShowLeaderboard(true)} style={{
