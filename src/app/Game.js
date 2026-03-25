@@ -79,6 +79,191 @@ function getRankInfo(elo) {
   return { title: "ER", color: "#9ca3af", icon: "🔰" };
 }
 
+// ═══ ARENA SYSTEM ═══
+const ARENAS = [
+  { id: "liman", name: "LİMAN", minElo: 0, entryFee: 50, winGold: 120, loseGold: 30, color: "#9ca3af", icon: "⚓" },
+  { id: "kiyi", name: "KIYI", minElo: 1000, entryFee: 100, winGold: 250, loseGold: 50, color: "#60a5fa", icon: "🌊" },
+  { id: "acikdeniz", name: "AÇIK DENİZ", minElo: 1200, entryFee: 200, winGold: 520, loseGold: 80, color: "#06b6d4", icon: "🚢" },
+  { id: "firtina", name: "FIRTINA", minElo: 1400, entryFee: 500, winGold: 1300, loseGold: 150, color: "#a78bfa", icon: "⛈" },
+  { id: "amiral", name: "AMİRAL", minElo: 1600, entryFee: 1000, winGold: 2700, loseGold: 250, color: "#fbbf24", icon: "👑" },
+];
+const STARTING_GOLD = 500;
+
+// ═══ EMOJI CHAT ═══
+const QUICK_EMOJIS = [
+  { id: "niceshot", emoji: "🎯", label: "İyi atış!" },
+  { id: "fire", emoji: "🔥", label: "Yanıyorsun!" },
+  { id: "gg", emoji: "👏", label: "Tebrikler" },
+  { id: "oops", emoji: "😤", label: "Eyvah!" },
+  { id: "salute", emoji: "🫡", label: "Saygılar" },
+  { id: "skull", emoji: "💀", label: "Battın!" },
+  { id: "hurry", emoji: "⏳", label: "Acele et!" },
+  { id: "lucky", emoji: "🍀", label: "Şanslısın" },
+];
+
+// ═══ DAILY REWARD ═══
+function calculateDailyReward(streak) {
+  const base = 50;
+  const max = 200;
+  let multiplier = 1;
+  if (streak >= 7) multiplier = 2;
+  else if (streak >= 3) multiplier = 1.5;
+  else if (streak >= 2) multiplier = 1.25;
+  // Variable reward: base * multiplier + random bonus
+  const bonus = Math.floor(Math.random() * (max - base));
+  return Math.floor((base + bonus) * multiplier);
+}
+
+function isSameDay(ts1, ts2) {
+  const d1 = new Date(ts1); const d2 = new Date(ts2);
+  return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
+}
+
+function isConsecutiveDay(lastTs, nowTs) {
+  const last = new Date(lastTs); const now = new Date(nowTs);
+  const lastDay = new Date(last.getFullYear(), last.getMonth(), last.getDate());
+  const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = (nowDay - lastDay) / (1000 * 60 * 60 * 24);
+  return diff === 1;
+}
+
+async function checkDailyReward(uid) {
+  const profileRef = ref(db, `profiles/${uid}`);
+  const snap = await get(profileRef);
+  if (!snap.exists()) return null;
+  const profile = snap.val();
+  const now = Date.now();
+
+  if (profile.lastDailyReward && isSameDay(profile.lastDailyReward, now)) {
+    return null; // Already claimed today
+  }
+
+  let streak = profile.loginStreak || 0;
+  if (profile.lastDailyReward && isConsecutiveDay(profile.lastDailyReward, now)) {
+    streak += 1;
+  } else {
+    streak = 1;
+  }
+
+  const reward = calculateDailyReward(streak);
+  const newGold = (profile.gold || STARTING_GOLD) + reward;
+
+  await update(profileRef, {
+    gold: newGold,
+    loginStreak: streak,
+    lastDailyReward: now,
+  });
+
+  return { reward, streak, newGold };
+}
+
+// ═══ DAILY REWARD POPUP ═══
+function DailyRewardPopup({ reward, streak, onClose }) {
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex",
+      alignItems: "center", justifyContent: "center", zIndex: 9999,
+    }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: `linear-gradient(135deg, ${t.surface}, rgba(17,24,39,0.98))`,
+        border: `2px solid ${t.gold}`, borderRadius: 16, padding: "30px 36px",
+        textAlign: "center", maxWidth: 320, width: "90%",
+        boxShadow: `0 0 60px ${t.goldGlow}, 0 0 120px rgba(251,191,36,0.15)`,
+        animation: "scaleUp 0.4s ease-out",
+      }}>
+        <div style={{ fontSize: 48, marginBottom: 8, animation: "popIn 0.5s ease-out" }}>🎁</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: t.gold, fontFamily: "'Oswald', sans-serif", letterSpacing: 3, marginBottom: 4 }}>GÜNLÜK ÖDÜL</div>
+        <div style={{ fontSize: 36, fontWeight: 800, color: t.gold, fontFamily: "'Oswald', sans-serif", marginBottom: 8, textShadow: `0 0 20px ${t.goldGlow}` }}>+{reward} 🪙</div>
+        {streak > 1 && (
+          <div style={{ fontSize: 12, color: t.accent, fontFamily: "'JetBrains Mono', monospace", marginBottom: 8 }}>
+            🔥 {streak} gün üst üste! {streak >= 7 ? "x2 bonus!" : streak >= 3 ? "x1.5 bonus!" : streak >= 2 ? "x1.25 bonus!" : ""}
+          </div>
+        )}
+        <button onClick={onClose} style={{
+          marginTop: 12, padding: "12px 36px",
+          background: `linear-gradient(135deg, ${t.gold}, #d97706)`,
+          color: t.bg, border: "none", borderRadius: 8,
+          fontSize: 14, fontWeight: 700, letterSpacing: 2, cursor: "pointer",
+          fontFamily: "'Oswald', sans-serif",
+        }}>TOPLA</button>
+      </div>
+    </div>
+  );
+}
+
+// ═══ ARENA SELECT ═══
+function ArenaSelect({ myElo, myGold, onSelect, onBack }) {
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center",
+      minHeight: "100vh", minHeight: "100dvh", background: t.bg, padding: "20px 12px",
+      fontFamily: "'JetBrains Mono', monospace", color: t.text,
+    }}>
+      <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: 5, color: t.accent, marginBottom: 4, fontFamily: "'Oswald', sans-serif", textShadow: `0 0 20px ${t.accentGlow}` }}>ARENA SEÇ</div>
+      <div style={{ fontSize: 12, color: t.gold, fontFamily: "'Oswald', sans-serif", marginBottom: 16 }}>🪙 {myGold} Altın</div>
+
+      <div style={{ width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 8 }}>
+        {ARENAS.map(arena => {
+          const locked = (myElo || 1200) < arena.minElo;
+          const cantAfford = (myGold || 0) < arena.entryFee;
+          const disabled = locked || cantAfford;
+          return (
+            <button key={arena.id} onClick={() => !disabled && onSelect(arena)} disabled={disabled} style={{
+              display: "flex", alignItems: "center", gap: 14, padding: "16px 18px",
+              background: disabled ? t.surfaceLight : `linear-gradient(135deg, ${t.surface}, rgba(17,24,39,0.9))`,
+              border: `1px solid ${disabled ? t.border : arena.color}`,
+              borderRadius: 12, cursor: disabled ? "not-allowed" : "pointer",
+              opacity: disabled ? 0.5 : 1, textAlign: "left", width: "100%",
+              boxShadow: disabled ? "none" : `0 0 12px ${arena.color}33`,
+              transition: "all 0.2s ease",
+            }}>
+              <div style={{ fontSize: 28 }}>{arena.icon}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: arena.color, fontFamily: "'Oswald', sans-serif", letterSpacing: 3 }}>{arena.name}</div>
+                <div style={{ fontSize: 9, color: t.textDim, marginTop: 2 }}>
+                  {locked ? `🔒 ELO ${arena.minElo} gerekli` : `Min ELO: ${arena.minElo}`}
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: cantAfford ? t.hit : t.gold, fontFamily: "'Oswald', sans-serif" }}>{arena.entryFee} 🪙</div>
+                <div style={{ fontSize: 8, color: t.textDim }}>GİRİŞ</div>
+                <div style={{ fontSize: 10, color: "#34d399", fontFamily: "'Oswald', sans-serif", marginTop: 2 }}>🏆 {arena.winGold} 🪙</div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <button onClick={onBack} style={{
+        marginTop: 20, padding: "12px 32px", background: `linear-gradient(135deg, ${t.accent}, #0891b2)`,
+        color: t.bg, border: "none", borderRadius: 8,
+        fontSize: 13, fontWeight: 700, letterSpacing: 2, cursor: "pointer",
+        fontFamily: "'Oswald', sans-serif", textTransform: "uppercase",
+      }}>GERİ DÖN</button>
+    </div>
+  );
+}
+
+// ═══ EMOJI TOAST ═══
+function EmojiToast({ emoji, label }) {
+  return (
+    <div style={{
+      position: "fixed", top: 80, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 300,
+      animation: "slideIn 0.3s ease-out",
+      pointerEvents: "none",
+    }}>
+      <div style={{
+        background: "rgba(17,24,39,0.95)", border: `1px solid ${t.accent}`,
+        borderRadius: 12, padding: "10px 20px", display: "flex", alignItems: "center", gap: 8,
+        boxShadow: `0 0 20px ${t.accentGlow}`,
+      }}>
+        <span style={{ fontSize: 28 }}>{emoji}</span>
+        <span style={{ fontSize: 12, color: t.text, fontFamily: "'Oswald', sans-serif", letterSpacing: 1 }}>{label}</span>
+      </div>
+    </div>
+  );
+}
+
 // ═══ PROFILE HELPERS ═══
 async function ensureProfile(uid, displayName) {
   const profileRef = ref(db, `profiles/${uid}`);
@@ -90,6 +275,9 @@ async function ensureProfile(uid, displayName) {
       wins: 0,
       losses: 0,
       totalGames: 0,
+      gold: STARTING_GOLD,
+      loginStreak: 0,
+      lastDailyReward: null,
       createdAt: Date.now(),
       lastGameAt: null,
     };
@@ -97,6 +285,12 @@ async function ensureProfile(uid, displayName) {
     return profile;
   }
   const existing = snap.val();
+  if (existing.gold === undefined) {
+    await update(profileRef, { gold: STARTING_GOLD, loginStreak: 0, lastDailyReward: null });
+    existing.gold = STARTING_GOLD;
+    existing.loginStreak = 0;
+    existing.lastDailyReward = null;
+  }
   if (displayName && existing.displayName !== displayName) {
     await update(profileRef, { displayName });
     existing.displayName = displayName;
@@ -104,7 +298,7 @@ async function ensureProfile(uid, displayName) {
   return existing;
 }
 
-async function updateEloAfterGame(winnerUid, loserUid) {
+async function updateEloAfterGame(winnerUid, loserUid, arena) {
   const winnerSnap = await get(ref(db, `profiles/${winnerUid}`));
   const loserSnap = await get(ref(db, `profiles/${loserUid}`));
   if (!winnerSnap.exists() || !loserSnap.exists()) return;
@@ -113,19 +307,23 @@ async function updateEloAfterGame(winnerUid, loserUid) {
   const winnerNewElo = calculateElo(winnerData.elo, loserData.elo, true);
   const loserNewElo = calculateElo(loserData.elo, winnerData.elo, false);
   const now = Date.now();
+  const winGold = arena ? arena.winGold : 0;
+  const loseGold = arena ? arena.loseGold : 0;
   await update(ref(db, `profiles/${winnerUid}`), {
     elo: winnerNewElo,
     wins: (winnerData.wins || 0) + 1,
     totalGames: (winnerData.totalGames || 0) + 1,
+    gold: (winnerData.gold || 0) + winGold,
     lastGameAt: now,
   });
   await update(ref(db, `profiles/${loserUid}`), {
     elo: loserNewElo,
     losses: (loserData.losses || 0) + 1,
     totalGames: (loserData.totalGames || 0) + 1,
+    gold: (loserData.gold || 0) + loseGold,
     lastGameAt: now,
   });
-  return { winnerNewElo, loserNewElo, winnerOldElo: winnerData.elo, loserOldElo: loserData.elo };
+  return { winnerNewElo, loserNewElo, winnerOldElo: winnerData.elo, loserOldElo: loserData.elo, winGold, loseGold };
 }
 
 async function fetchLeaderboard(count = 50) {
@@ -885,6 +1083,12 @@ export default function Game() {
   const [showOnlineLobby, setShowOnlineLobby] = useState(false);
   const [matchmaking, setMatchmaking] = useState(false);
   const [matchCancelFn, setMatchCancelFn] = useState(null);
+  const [selectedArena, setSelectedArena] = useState(null);
+  const [showArenaSelect, setShowArenaSelect] = useState(false);
+  const [goldChange, setGoldChange] = useState(null); // { amount }
+  const [dailyReward, setDailyReward] = useState(null); // { reward, streak, newGold }
+  const [emojiToast, setEmojiToast] = useState(null);
+  const [showEmojiBar, setShowEmojiBar] = useState(false);
   const [defenseBoard, setDefenseBoard] = useState(emptyGrid);
   const [shipColorMap, setShipColorMap] = useState(() => Array.from({ length: ROWS }, () => Array(COLS).fill(null)));
   const [attackOverlay, setAttackOverlay] = useState(() => emptyGrid().map(r => r.map(() => null)));
@@ -933,24 +1137,6 @@ export default function Game() {
 
   useEffect(() => { myTurnRef.current = myTurn; }, [myTurn]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
-
-  // ═══ AUTH: Anonim giriş ═══
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setAuthUid(user.uid);
-        setAuthReady(true);
-      } else {
-        try {
-          await signInAnonymously(auth);
-        } catch (err) {
-          console.error("Auth error:", err);
-          setAuthReady(true); // yine de devam et
-        }
-      }
-    });
-    return () => unsub();
-  }, []);
 
   // ═══ ONLINE PRESENCE ═══
   useEffect(() => {
@@ -1118,20 +1304,23 @@ export default function Game() {
         if (!game.eloProcessed && game.p1_uid && game.p2_uid) {
           const winnerUid = game.winner === 1 ? game.p1_uid : game.p2_uid;
           const loserUid = game.winner === 1 ? game.p2_uid : game.p1_uid;
+          const gameArena = game.arena ? ARENAS.find(a => a.id === game.arena) : null;
           // Only the winner's client processes ELO to avoid double-update
           if (iW) {
             update(ref(db, `rooms/${roomIdRef.current}`), { eloProcessed: true }).then(() => {
-              updateEloAfterGame(winnerUid, loserUid).then(result => {
+              updateEloAfterGame(winnerUid, loserUid, gameArena).then(result => {
                 if (result) {
                   // Write ELO results to room so loser can read exact values
                   update(ref(db, `rooms/${roomIdRef.current}`), {
                     eloResult: {
                       winnerOldElo: result.winnerOldElo, winnerNewElo: result.winnerNewElo,
                       loserOldElo: result.loserOldElo, loserNewElo: result.loserNewElo,
+                      winGold: result.winGold || 0, loseGold: result.loseGold || 0,
                     }
                   });
                   setEloChange({ myOld: result.winnerOldElo, myNew: result.winnerNewElo, oppOld: result.loserOldElo, oppNew: result.loserNewElo });
-                  setMyProfile(prev => prev ? { ...prev, elo: result.winnerNewElo, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1 } : prev);
+                  setGoldChange({ amount: result.winGold || 0 });
+                  setMyProfile(prev => prev ? { ...prev, elo: result.winnerNewElo, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: (prev.gold || 0) + (result.winGold || 0) } : prev);
                 }
               }).catch(e => console.error("ELO update error:", e));
             });
@@ -1143,9 +1332,9 @@ export default function Game() {
                 if (roomSnap.exists()) {
                   const er = roomSnap.val();
                   setEloChange({ myOld: er.loserOldElo, myNew: er.loserNewElo, oppOld: er.winnerOldElo, oppNew: er.winnerNewElo });
-                  setMyProfile(prev => prev ? { ...prev, elo: er.loserNewElo, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1 } : prev);
+                  setGoldChange({ amount: er.loseGold || 0 });
+                  setMyProfile(prev => prev ? { ...prev, elo: er.loserNewElo, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: (prev.gold || 0) + (er.loseGold || 0) } : prev);
                 } else {
-                  // Fallback: read profile directly
                   const myUidKey = pNum === 1 ? 'p1_uid' : 'p2_uid';
                   const snap = await get(ref(db, `profiles/${game[myUidKey]}`));
                   if (snap.exists()) {
@@ -1159,6 +1348,21 @@ export default function Game() {
       }
     });
   }, [placementConfirmed]);
+
+  // ═══ EMOJI LISTENER ═══
+  useEffect(() => {
+    if (!roomId || (phase !== "playing" && phase !== "placing")) return;
+    const emojiRef = ref(db, `emojis/${roomId}`);
+    const unsub = onValue(emojiRef, (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.val();
+      if (data.from !== playerNumRef.current && Date.now() - data.time < 5000) {
+        setEmojiToast({ emoji: data.emoji, label: data.label });
+        setTimeout(() => setEmojiToast(null), 3000);
+      }
+    });
+    return () => unsub();
+  }, [roomId, phase]);
 
   useEffect(() => () => {
     if (unsubRef.current) unsubRef.current();
@@ -1193,11 +1397,18 @@ export default function Game() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  const createRoom = async () => {
+  const createRoom = async (arenaOverride) => {
     if (!playerName.trim()) { setMessage("Adını yaz!"); return; }
     if (!authUid) { setMessage("Bağlantı bekleniyor..."); return; }
-    // Update profile displayName
     try { const p = await ensureProfile(authUid, playerName.trim()); setMyProfile(p); } catch (e) { console.error(e); }
+    const arena = arenaOverride || selectedArena;
+    // Deduct entry fee if arena selected
+    if (arena) {
+      const currentGold = myProfile?.gold || 0;
+      if (currentGold < arena.entryFee) { setMessage("Yeterli altının yok!"); return; }
+      await update(ref(db, `profiles/${authUid}`), { gold: currentGold - arena.entryFee });
+      setMyProfile(prev => prev ? { ...prev, gold: currentGold - arena.entryFee } : prev);
+    }
     const id = Math.random().toString(36).substring(2, 8).toUpperCase();
     roomIdRef.current = id; setRoomId(id); setPlayerNum(1); playerNumRef.current = 1;
     await set(ref(db, `rooms/${id}`), {
@@ -1205,20 +1416,30 @@ export default function Game() {
       p2_name: null, p2_uid: null, phase: "waiting",
       p1_board: null, p2_board: null, p1_ships: null, p2_ships: null,
       attacks: null, turn: 1, clocks: { p1: CLOCK_SECONDS, p2: CLOCK_SECONDS },
-      winner: null, winReason: null, eloProcessed: false, created: Date.now(),
+      winner: null, winReason: null, eloProcessed: false,
+      arena: arena?.id || null, created: Date.now(),
     });
     setPhase("waiting"); listenToRoom(id, 1);
   };
   const joinRoom = async () => {
     if (!playerName.trim() || !inputRoomId.trim()) { setMessage("Adını ve oda kodunu yaz!"); return; }
     if (!authUid) { setMessage("Bağlantı bekleniyor..."); return; }
-    // Update profile displayName
     try { const p = await ensureProfile(authUid, playerName.trim()); setMyProfile(p); } catch (e) { console.error(e); }
     const rid = inputRoomId.trim().toUpperCase();
     const snapshot = await get(ref(db, `rooms/${rid}`));
     if (!snapshot.exists()) { setMessage("Oda bulunamadı!"); return; }
     const game = snapshot.val();
     if (game.p2_name) { setMessage("Oda dolu!"); return; }
+    // Deduct entry fee if room has arena
+    if (game.arena) {
+      const arena = ARENAS.find(a => a.id === game.arena);
+      if (arena) {
+        const currentGold = myProfile?.gold || 0;
+        if (currentGold < arena.entryFee) { setMessage(`Bu arena için ${arena.entryFee} 🪙 gerekli!`); return; }
+        await update(ref(db, `profiles/${authUid}`), { gold: currentGold - arena.entryFee });
+        setMyProfile(prev => prev ? { ...prev, gold: currentGold - arena.entryFee } : prev);
+      }
+    }
     roomIdRef.current = rid; setRoomId(rid); setPlayerNum(2); playerNumRef.current = 2;
     setOpponentName(game.p1_name);
     await update(ref(db, `rooms/${rid}`), { p2_name: playerName.trim(), p2_uid: authUid, phase: "placing" });
@@ -1321,6 +1542,8 @@ export default function Game() {
     lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false);
     setEloChange(null); eloUpdatedRef.current = false;
     setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null);
+    setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null);
+    setEmojiToast(null); setShowEmojiBar(false);
     // Refresh profile
     if (authUid) { ensureProfile(authUid).then(p => setMyProfile(p)).catch(() => {}); }
   };
@@ -1330,9 +1553,27 @@ export default function Game() {
   const btnSecStyle = { padding: "8px 16px", background: "transparent", color: t.accent, border: `1px solid ${t.accent}`, borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: 1, cursor: "pointer", fontFamily: warrior };
   const inputStyle = { padding: "12px 16px", background: t.surface, color: t.text, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 15, fontFamily: mono, outline: "none", textAlign: "center", width: "100%", maxWidth: 260, boxSizing: "border-box" };
 
-  if (phase === "splash") return <><style>{ANIMS}</style><LoadingScreen onReady={() => setPhase("lobby")} /></>;
+  if (phase === "splash") return <><style>{ANIMS}</style><LoadingScreen onReady={() => {
+    setPhase("lobby");
+    // Check daily reward after a small delay for auth to settle
+    setTimeout(async () => {
+      if (auth.currentUser) {
+        try {
+          const p = await ensureProfile(auth.currentUser.uid);
+          setMyProfile(p);
+          const reward = await checkDailyReward(auth.currentUser.uid);
+          if (reward) setDailyReward(reward);
+        } catch (e) { console.error(e); }
+      }
+    }, 1000);
+  }} /></>;
   if (phase === "ready") return <><style>{ANIMS}</style><ReadyScreen opponentName={opponentName} onStart={() => setPhase("playing")} /></>;
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} /></>;
+  if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myElo={myProfile?.elo || 1200} myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => {
+    setSelectedArena(arena);
+    setShowArenaSelect(false);
+    createRoom(arena);
+  }} /></>;
   if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myElo={myProfile?.elo} onBack={() => setShowOnlineLobby(false)} onChallenge={(rid, pNum) => {
     setShowOnlineLobby(false);
     roomIdRef.current = rid; setRoomId(rid); setPlayerNum(pNum); playerNumRef.current = pNum;
@@ -1376,6 +1617,11 @@ export default function Game() {
             {myRank && (
               <div style={{ fontSize: 11, color: myRank.color, marginTop: 6, fontFamily: warrior, letterSpacing: 2 }}>
                 {myRank.icon} {myRank.title}
+              </div>
+            )}
+            {goldChange && goldChange.amount > 0 && (
+              <div style={{ fontSize: 14, color: t.gold, marginTop: 8, fontWeight: 700, fontFamily: warrior, textShadow: `0 0 10px ${t.goldGlow}` }}>
+                +{goldChange.amount} 🪙
               </div>
             )}
           </div>
@@ -1426,6 +1672,11 @@ export default function Game() {
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: t.accent, fontFamily: mono }}>{myProfile.totalGames || 0}</div>
                 <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 1 }}>TOPLAM</div>
+              </div>
+              <div style={{ width: 1, background: t.border }} />
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: t.gold, fontFamily: mono }}>{myProfile.gold || 0}</div>
+                <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 1 }}>🪙 ALTIN</div>
               </div>
             </div>
           </div>
@@ -1499,15 +1750,34 @@ export default function Game() {
           }}>İPTAL</button>
         )}
 
-        {/* Leaderboard Button */}
-        <button onClick={() => setShowLeaderboard(true)} style={{
-          marginTop: 16, padding: "10px 28px",
-          background: "transparent", color: t.gold, border: `1px solid ${t.gold}`,
-          borderRadius: 8, fontSize: 12, fontWeight: 700, letterSpacing: 3,
-          cursor: "pointer", fontFamily: warrior, textTransform: "uppercase",
-          boxShadow: `0 0 10px ${t.goldGlow}`,
-          animation: "fadeUp 0.7s ease-out",
-        }}>🏆 SIRALAMA TABLOSU</button>
+        {/* Arena + Leaderboard Buttons */}
+        <div style={{ display: "flex", gap: 8, marginTop: 16, width: "100%", maxWidth: 340, animation: "fadeUp 0.7s ease-out" }}>
+          <button onClick={() => {
+            if (!playerName.trim()) { setMessage("Adını yaz!"); return; }
+            if (!authUid) { setMessage("Bağlantı bekleniyor..."); return; }
+            ensureProfile(authUid, playerName.trim()).then(p => setMyProfile(p)).catch(() => {});
+            setShowArenaSelect(true);
+          }} style={{
+            flex: 1, padding: "10px 0",
+            background: "transparent", color: "#a78bfa", border: "1px solid #a78bfa",
+            borderRadius: 8, fontSize: 12, fontWeight: 700, letterSpacing: 2,
+            cursor: "pointer", fontFamily: warrior, textTransform: "uppercase",
+            boxShadow: "0 0 10px rgba(167,139,250,0.3)",
+          }}>⚔ ARENA</button>
+          <button onClick={() => setShowLeaderboard(true)} style={{
+            flex: 1, padding: "10px 0",
+            background: "transparent", color: t.gold, border: `1px solid ${t.gold}`,
+            borderRadius: 8, fontSize: 12, fontWeight: 700, letterSpacing: 2,
+            cursor: "pointer", fontFamily: warrior, textTransform: "uppercase",
+            boxShadow: `0 0 10px ${t.goldGlow}`,
+          }}>🏆 SIRALAMA</button>
+        </div>
+
+        {/* Daily Reward Popup */}
+        {dailyReward && <DailyRewardPopup reward={dailyReward.reward} streak={dailyReward.streak} onClose={() => {
+          setMyProfile(prev => prev ? { ...prev, gold: dailyReward.newGold, loginStreak: dailyReward.streak } : prev);
+          setDailyReward(null);
+        }} />}
       </div>
     );
   }
@@ -1688,6 +1958,32 @@ export default function Game() {
             </button>
           </div>
         )}
+
+        {/* Emoji Toast */}
+        {emojiToast && <EmojiToast emoji={emojiToast.emoji} label={emojiToast.label} />}
+
+        {/* Emoji Chat Bar */}
+        <div style={{
+          position: "fixed", bottom: myTurn && activeBoard === "attack" && !markMode ? 64 : 0,
+          left: 0, right: 0, display: "flex", justifyContent: "center", gap: 2,
+          background: "rgba(10,14,23,0.92)", backdropFilter: "blur(8px)",
+          borderTop: `1px solid ${t.border}`, padding: "6px 4px", zIndex: 90,
+        }}>
+          {QUICK_EMOJIS.map(qe => (
+            <button key={qe.id} onClick={async () => {
+              if (!roomIdRef.current) return;
+              const emojiData = { emoji: qe.emoji, label: qe.label, from: playerNumRef.current, time: Date.now() };
+              const emojiRef = ref(db, `emojis/${roomIdRef.current}`);
+              await set(emojiRef, emojiData);
+            }} style={{
+              padding: "4px 6px", background: "transparent", border: "none",
+              fontSize: 18, cursor: "pointer", borderRadius: 6,
+              transition: "transform 0.1s",
+            }} title={qe.label}>
+              {qe.emoji}
+            </button>
+          ))}
+        </div>
       </div>
     );
   }
