@@ -614,17 +614,52 @@ export default function Game() {
         let winMsg = iW ? (reason === "timeout" ? "Süre bitti — Rakip elendi!" : "Tüm gemileri batırdın!") : (reason === "timeout" ? "Süren doldu!" : "Gemilerin battı!");
         setWinner(winMsg); setIsWin(iW); setPhase("gameover");
         if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
-        if (!game.eloProcessed && game.p1_uid && game.p2_uid) {
+
+        // ELO güncelleme — sadece bir kez, sadece kazanan tarafından
+        if (!eloUpdatedRef.current && game.p1_uid && game.p2_uid) {
           const winnerUid = game.winner === 1 ? game.p1_uid : game.p2_uid, loserUid = game.winner === 1 ? game.p2_uid : game.p1_uid;
           const gameArena = game.arena ? ARENAS.find(a => a.id === game.arena) : null;
-          if (iW) {
-            update(ref(db, `rooms/${roomIdRef.current}`), { eloProcessed: true }).then(() => {
-              updateEloAfterGame(winnerUid, loserUid, gameArena).then(result => {
-                if (result) { update(ref(db, `rooms/${roomIdRef.current}`), { eloResult: { winnerOldElo: result.winnerOldElo, winnerNewElo: result.winnerNewElo, loserOldElo: result.loserOldElo, loserNewElo: result.loserNewElo, winGold: result.winGold || 0, loseGold: result.loseGold || 0 } }); setEloChange({ myOld: result.winnerOldElo, myNew: result.winnerNewElo, oppOld: result.loserOldElo, oppNew: result.loserNewElo }); setGoldChange({ amount: result.winGold || 0 }); setMyProfile(prev => prev ? { ...prev, elo: result.winnerNewElo, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: safeGold(prev.gold) + (result.winGold || 0) } : prev); }
-              }).catch(e => console.error("ELO update error:", e));
+
+          if (iW && !game.eloProcessed) {
+            eloUpdatedRef.current = true;
+            // runTransaction ile atomik kontrol — iki tab aynı anda yazamaz
+            runTransaction(ref(db, `rooms/${roomIdRef.current}/eloProcessed`), (current) => {
+              if (current === true) return; // Zaten işlendi, iptal
+              return true;
+            }).then(async (txResult) => {
+              if (!txResult.committed) return; // Başka biri zaten işledi
+              try {
+                const result = await updateEloAfterGame(winnerUid, loserUid, gameArena);
+                if (result) {
+                  await update(ref(db, `rooms/${roomIdRef.current}`), { eloResult: { winnerOldElo: result.winnerOldElo, winnerNewElo: result.winnerNewElo, loserOldElo: result.loserOldElo, loserNewElo: result.loserNewElo, winGold: result.winGold || 0, loseGold: result.loseGold || 0 } });
+                  setEloChange({ myOld: result.winnerOldElo, myNew: result.winnerNewElo, oppOld: result.loserOldElo, oppNew: result.loserNewElo });
+                  setGoldChange({ amount: result.winGold || 0 });
+                  setMyProfile(prev => prev ? { ...prev, elo: result.winnerNewElo, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: safeGold(prev.gold) + (result.winGold || 0) } : prev);
+                }
+              } catch (e) { console.error("ELO update error:", e); }
+            }).catch(e => console.error("ELO transaction error:", e));
+
+          } else if (!iW) {
+            eloUpdatedRef.current = true;
+            // Kaybeden: eloResult'ı dinle (setTimeout yerine listener — daha güvenilir)
+            const eloResultRef = ref(db, `rooms/${roomIdRef.current}/eloResult`);
+            const unsubElo = onValue(eloResultRef, (eloSnap) => {
+              if (!eloSnap.exists()) return;
+              const er = eloSnap.val();
+              unsubElo(); // Bir kez oku, kapat
+              setEloChange({ myOld: er.loserOldElo, myNew: er.loserNewElo, oppOld: er.winnerOldElo, oppNew: er.winnerNewElo });
+              setGoldChange({ amount: er.loseGold || 0 });
+              setMyProfile(prev => prev ? { ...prev, elo: er.loserNewElo, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: safeGold(prev.gold) + (er.loseGold || 0) } : prev);
             });
-          } else {
-            setTimeout(async () => { try { const roomSnap = await get(ref(db, `rooms/${roomIdRef.current}/eloResult`)); if (roomSnap.exists()) { const er = roomSnap.val(); setEloChange({ myOld: er.loserOldElo, myNew: er.loserNewElo, oppOld: er.winnerOldElo, oppNew: er.winnerNewElo }); setGoldChange({ amount: er.loseGold || 0 }); setMyProfile(prev => prev ? { ...prev, elo: er.loserNewElo, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: safeGold(prev.gold) + (er.loseGold || 0) } : prev); } else { const myUidKey = pNum === 1 ? 'p1_uid' : 'p2_uid'; const snap = await get(ref(db, `profiles/${game[myUidKey]}`)); if (snap.exists()) setMyProfile(prev => prev ? { ...prev, ...snap.val() } : prev); } } catch (e) { console.error("ELO read error:", e); } }, 2500);
+            // 10 saniye timeout — kazanan çökerse sonsuza kadar beklemesin
+            setTimeout(() => {
+              unsubElo();
+              if (!eloChange) {
+                get(ref(db, `profiles/${pNum === 1 ? game.p1_uid : game.p2_uid}`)).then(snap => {
+                  if (snap.exists()) setMyProfile(prev => prev ? { ...prev, ...snap.val() } : prev);
+                }).catch(() => {});
+              }
+            }, 10000);
           }
         }
       }
