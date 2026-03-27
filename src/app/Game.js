@@ -772,9 +772,11 @@ export default function Game() {
 
   if (phase === "lobby") {
     const rank = myProfile ? getRankInfo(myProfile.elo) : null;
+    const authLoading = !authReady || !authUid;
     return (<div style={appStyle}><style>{ANIMS}</style>
       <div style={{ fontSize:30,fontWeight:700,letterSpacing:5,color:t.accent,textShadow:`0 0 30px ${t.accentGlow}`,marginBottom:4,fontFamily:warrior,animation:"fadeUp 0.4s ease-out" }}>AMİRAL BATTI</div>
       <div style={{ fontSize:10,color:t.textDim,letterSpacing:6,marginBottom:16,fontFamily:warrior }}>ONLINE DENİZ SAVAŞI</div>
+      {authLoading && <div style={{ background:"rgba(239,68,68,0.12)",border:`1px solid ${t.hit}`,borderRadius:8,padding:"10px 16px",marginBottom:12,fontSize:11,color:t.hit,fontFamily:mono,textAlign:"center",width:"100%",maxWidth:340,animation:"pulse 1.5s infinite" }}>Sunucuya bağlanılıyor...</div>}
       {isTestMode() && <div style={{ background:"rgba(251,191,36,0.15)",border:`1px solid ${t.gold}`,borderRadius:8,padding:"8px 16px",marginBottom:12,fontSize:11,color:t.gold,fontFamily:warrior,letterSpacing:2,textAlign:"center",width:"100%",maxWidth:340 }}>🧪 TEST MODU — 2 tab aç, oda koduyla oyna</div>}
       {myProfile && (<div style={{ background:`linear-gradient(135deg,${t.surface},rgba(17,24,39,0.9))`,border:`1px solid ${rank?.color||t.border}`,borderRadius:10,padding:"12px 20px",marginBottom:14,width:"100%",maxWidth:340,animation:"fadeUp 0.3s ease-out",boxShadow:`0 0 15px ${rank?.color?rank.color+"33":"transparent"}` }}>
         <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
@@ -794,15 +796,15 @@ export default function Game() {
       <div style={{ background:`linear-gradient(135deg,${t.surface},rgba(17,24,39,0.9))`,border:`1px solid ${t.border}`,borderRadius:14,padding:"28px 20px",textAlign:"center",width:"100%",maxWidth:340,animation:"fadeUp 0.5s ease-out",boxShadow:"0 8px 32px rgba(0,0,0,0.3)" }}>
         <input style={inputStyle} placeholder="Adın" value={playerName} onChange={e=>setPlayerName(e.target.value)} />
         <div style={{ height:16 }} />
-        <button style={{ ...btnStyle,width:"100%" }} onClick={createRoom}>YENİ ODA OLUŞTUR</button>
+        <button style={{ ...btnStyle,width:"100%",opacity:authLoading?0.4:1,cursor:authLoading?"not-allowed":"pointer" }} onClick={createRoom} disabled={authLoading}>YENİ ODA OLUŞTUR</button>
         <div style={{ margin:"18px 0",color:t.textDim,fontSize:10,letterSpacing:3,fontFamily:warrior }}>— VEYA —</div>
         <input style={inputStyle} placeholder="Oda Kodu" value={inputRoomId} onChange={e=>setInputRoomId(e.target.value.toUpperCase())} />
         <div style={{ height:10 }} />
-        <button style={{ ...btnStyle,width:"100%" }} onClick={joinRoom}>ODAYA KATIL</button>
+        <button style={{ ...btnStyle,width:"100%",opacity:authLoading?0.4:1,cursor:authLoading?"not-allowed":"pointer" }} onClick={joinRoom} disabled={authLoading}>ODAYA KATIL</button>
         {message && <div style={{ marginTop:14,color:t.hit,fontSize:11 }}>{message}</div>}
       </div>
       <div style={{ display:"flex",gap:8,marginTop:14,width:"100%",maxWidth:340,animation:"fadeUp 0.6s ease-out" }}>
-        <button onClick={()=>startQuickMatch(null)} disabled={matchmaking} style={{ flex:1,padding:"14px 0",background:matchmaking?t.surfaceLight:`linear-gradient(135deg,#34d399,#059669)`,color:matchmaking?t.textDim:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,letterSpacing:2,cursor:matchmaking?"default":"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:matchmaking?"none":"0 0 15px rgba(52,211,153,0.3)" }}>{matchmaking?"EŞLEŞTİRİLİYOR...":"⚡ HIZLI OYUN"}</button>
+        <button onClick={()=>startQuickMatch(null)} disabled={matchmaking||authLoading} style={{ flex:1,padding:"14px 0",background:(matchmaking||authLoading)?t.surfaceLight:`linear-gradient(135deg,#34d399,#059669)`,color:(matchmaking||authLoading)?t.textDim:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,letterSpacing:2,cursor:(matchmaking||authLoading)?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:(matchmaking||authLoading)?"none":"0 0 15px rgba(52,211,153,0.3)" }}>{matchmaking?"EŞLEŞTİRİLİYOR...":"⚡ HIZLI OYUN"}</button>
         <button onClick={()=>{if(!playerName.trim()){setMessage("Adını yaz!");return;}if(!authUid){setMessage("Bağlantı bekleniyor...");return;}ensureProfile(authUid,playerName.trim()).then(p=>setMyProfile(p)).catch(()=>{});setShowOnlineLobby(true);}} style={{ flex:1,padding:"14px 0",background:"transparent",color:t.accent,border:`1px solid ${t.accent}`,borderRadius:8,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🌐 ONLİNE SALON</button>
       </div>
       {matchmaking && <button onClick={async()=>{if(matchCancelFn)await matchCancelFn();setMatchmaking(false);setMatchCancelFn(null);}} style={{ marginTop:8,padding:"8px 20px",background:"transparent",color:t.hit,border:`1px solid ${t.hit}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior,animation:"fadeUp 0.3s ease-out" }}>İPTAL</button>}
