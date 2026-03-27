@@ -92,6 +92,11 @@ const ARENAS = [
 ];
 const STARTING_GOLD = 500;
 
+function safeGold(val) {
+  if (typeof val === "number" && !isNaN(val) && isFinite(val)) return Math.max(0, Math.floor(val));
+  return isTestMode() ? 5000 : STARTING_GOLD;
+}
+
 const QUICK_EMOJIS = [
   { id: "niceshot", emoji: "🎯", label: "İyi atış!" },
   { id: "fire", emoji: "🔥", label: "Yanıyorsun!" },
@@ -120,7 +125,7 @@ async function checkDailyReward(uid) {
   if (profile.lastDailyReward && isSameDay(profile.lastDailyReward, now)) return null;
   let streak = (profile.lastDailyReward && isConsecutiveDay(profile.lastDailyReward, now)) ? (profile.loginStreak || 0) + 1 : 1;
   const reward = calculateDailyReward(streak);
-  const newGold = (profile.gold || STARTING_GOLD) + reward;
+  const newGold = safeGold(profile.gold) + reward;
   await update(profileRef, { gold: newGold, loginStreak: streak, lastDailyReward: now });
   return { reward, streak, newGold };
 }
@@ -174,8 +179,8 @@ async function ensureProfile(uid, displayName) {
   }
   const existing = snap.val();
   // Fix any NaN/undefined/null gold values
-  const safeGold = (typeof existing.gold === "number" && !isNaN(existing.gold)) ? existing.gold : (isTestMode() ? 5000 : STARTING_GOLD);
-  if (safeGold !== existing.gold) { await update(profileRef, { gold: safeGold }); existing.gold = safeGold; }
+  const fixedGold = safeGold(existing.gold);
+  if (fixedGold !== existing.gold) { await update(profileRef, { gold: fixedGold }); existing.gold = fixedGold; }
   if (existing.loginStreak === undefined) { await update(profileRef, { loginStreak:0, lastDailyReward:null }); existing.loginStreak=0; existing.lastDailyReward=null; }
   if (displayName && existing.displayName !== displayName) { await update(profileRef, { displayName }); existing.displayName = displayName; }
   return existing;
@@ -188,11 +193,13 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
   const loserSnap = await get(ref(db, `profiles/${loserUid}`));
   if (!winnerSnap.exists() || !loserSnap.exists()) return;
   const wd = winnerSnap.val(), ld = loserSnap.val();
-  const wNew = calculateElo(wd.elo, ld.elo, true), lNew = calculateElo(ld.elo, wd.elo, false);
+  const wNew = calculateElo(wd.elo||1200, ld.elo||1200, true), lNew = calculateElo(ld.elo||1200, wd.elo||1200, false);
   const now = Date.now(), winGold = arena?arena.winGold:0, loseGold = arena?arena.loseGold:0;
-  await update(ref(db, `profiles/${winnerUid}`), { elo:wNew, wins:(wd.wins||0)+1, totalGames:(wd.totalGames||0)+1, gold:(wd.gold||0)+winGold, lastGameAt:now });
-  await update(ref(db, `profiles/${loserUid}`), { elo:lNew, losses:(ld.losses||0)+1, totalGames:(ld.totalGames||0)+1, gold:(ld.gold||0)+loseGold, lastGameAt:now });
-  return { winnerNewElo:wNew, loserNewElo:lNew, winnerOldElo:wd.elo, loserOldElo:ld.elo, winGold, loseGold };
+  const wGoldFinal = safeGold(wd.gold) + winGold;
+  const lGoldFinal = safeGold(ld.gold) + loseGold;
+  await update(ref(db, `profiles/${winnerUid}`), { elo:wNew, wins:(wd.wins||0)+1, totalGames:(wd.totalGames||0)+1, gold:wGoldFinal, lastGameAt:now });
+  await update(ref(db, `profiles/${loserUid}`), { elo:lNew, losses:(ld.losses||0)+1, totalGames:(ld.totalGames||0)+1, gold:lGoldFinal, lastGameAt:now });
+  return { winnerNewElo:wNew, loserNewElo:lNew, winnerOldElo:wd.elo||1200, loserOldElo:ld.elo||1200, winGold, loseGold };
 }
 
 async function fetchLeaderboard(count=50) {
@@ -566,11 +573,11 @@ export default function Game() {
           if (iW) {
             update(ref(db, `rooms/${roomIdRef.current}`), { eloProcessed: true }).then(() => {
               updateEloAfterGame(winnerUid, loserUid, gameArena).then(result => {
-                if (result) { update(ref(db, `rooms/${roomIdRef.current}`), { eloResult: { winnerOldElo: result.winnerOldElo, winnerNewElo: result.winnerNewElo, loserOldElo: result.loserOldElo, loserNewElo: result.loserNewElo, winGold: result.winGold || 0, loseGold: result.loseGold || 0 } }); setEloChange({ myOld: result.winnerOldElo, myNew: result.winnerNewElo, oppOld: result.loserOldElo, oppNew: result.loserNewElo }); setGoldChange({ amount: result.winGold || 0 }); setMyProfile(prev => prev ? { ...prev, elo: result.winnerNewElo, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: (prev.gold || 0) + (result.winGold || 0) } : prev); }
+                if (result) { update(ref(db, `rooms/${roomIdRef.current}`), { eloResult: { winnerOldElo: result.winnerOldElo, winnerNewElo: result.winnerNewElo, loserOldElo: result.loserOldElo, loserNewElo: result.loserNewElo, winGold: result.winGold || 0, loseGold: result.loseGold || 0 } }); setEloChange({ myOld: result.winnerOldElo, myNew: result.winnerNewElo, oppOld: result.loserOldElo, oppNew: result.loserNewElo }); setGoldChange({ amount: result.winGold || 0 }); setMyProfile(prev => prev ? { ...prev, elo: result.winnerNewElo, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: safeGold(prev.gold) + (result.winGold || 0) } : prev); }
               }).catch(e => console.error("ELO update error:", e));
             });
           } else {
-            setTimeout(async () => { try { const roomSnap = await get(ref(db, `rooms/${roomIdRef.current}/eloResult`)); if (roomSnap.exists()) { const er = roomSnap.val(); setEloChange({ myOld: er.loserOldElo, myNew: er.loserNewElo, oppOld: er.winnerOldElo, oppNew: er.winnerNewElo }); setGoldChange({ amount: er.loseGold || 0 }); setMyProfile(prev => prev ? { ...prev, elo: er.loserNewElo, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: (prev.gold || 0) + (er.loseGold || 0) } : prev); } else { const myUidKey = pNum === 1 ? 'p1_uid' : 'p2_uid'; const snap = await get(ref(db, `profiles/${game[myUidKey]}`)); if (snap.exists()) setMyProfile(prev => prev ? { ...prev, ...snap.val() } : prev); } } catch (e) { console.error("ELO read error:", e); } }, 2500);
+            setTimeout(async () => { try { const roomSnap = await get(ref(db, `rooms/${roomIdRef.current}/eloResult`)); if (roomSnap.exists()) { const er = roomSnap.val(); setEloChange({ myOld: er.loserOldElo, myNew: er.loserNewElo, oppOld: er.winnerOldElo, oppNew: er.winnerNewElo }); setGoldChange({ amount: er.loseGold || 0 }); setMyProfile(prev => prev ? { ...prev, elo: er.loserNewElo, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: safeGold(prev.gold) + (er.loseGold || 0) } : prev); } else { const myUidKey = pNum === 1 ? 'p1_uid' : 'p2_uid'; const snap = await get(ref(db, `profiles/${game[myUidKey]}`)); if (snap.exists()) setMyProfile(prev => prev ? { ...prev, ...snap.val() } : prev); } } catch (e) { console.error("ELO read error:", e); } }, 2500);
           }
         }
       }
@@ -609,7 +616,7 @@ export default function Game() {
     if (!authUid) { setMessage("Bağlantı bekleniyor..."); return; }
     try { const p = await ensureProfile(authUid, playerName.trim()); setMyProfile(p); } catch (e) { console.error(e); }
     const arena = arenaOverride || selectedArena;
-    if (arena) { const cg = myProfile?.gold || 0; if (cg < arena.entryFee) { setMessage("Yeterli altının yok!"); return; } await update(ref(db, `profiles/${authUid}`), { gold: cg - arena.entryFee }); setMyProfile(prev => prev ? { ...prev, gold: cg - arena.entryFee } : prev); setEntryFeeDeducted(arena.entryFee); }
+    if (arena) { const cg = safeGold(myProfile?.gold); if (cg < arena.entryFee) { setMessage("Yeterli altının yok!"); return; } const newGold = cg - arena.entryFee; await update(ref(db, `profiles/${authUid}`), { gold: newGold }); setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev); setEntryFeeDeducted(arena.entryFee); }
     const id = Math.random().toString(36).substring(2, 8).toUpperCase();
     roomIdRef.current = id; setRoomId(id); setPlayerNum(1); playerNumRef.current = 1;
     await set(ref(db, `rooms/${id}`), { p1_name: playerName.trim(), p1_uid: authUid, p2_name: null, p2_uid: null, phase: "waiting", p1_board: null, p2_board: null, p1_ships: null, p2_ships: null, attacks: null, turn: 1, clocks: { p1: CLOCK_SECONDS, p2: CLOCK_SECONDS }, winner: null, winReason: null, eloProcessed: false, arena: arena?.id || null, created: Date.now() });
@@ -623,7 +630,7 @@ export default function Game() {
     const rid = inputRoomId.trim().toUpperCase();
     const snapshot = await get(ref(db, `rooms/${rid}`)); if (!snapshot.exists()) { setMessage("Oda bulunamadı!"); return; }
     const game = snapshot.val(); if (game.p2_name) { setMessage("Oda dolu!"); return; }
-    if (game.arena) { const arena = ARENAS.find(a => a.id === game.arena); if (arena) { const cg = myProfile?.gold || 0; if (cg < arena.entryFee) { setMessage(`Bu arena için ${arena.entryFee} 🪙 gerekli!`); return; } await update(ref(db, `profiles/${authUid}`), { gold: cg - arena.entryFee }); setMyProfile(prev => prev ? { ...prev, gold: cg - arena.entryFee } : prev); setEntryFeeDeducted(arena.entryFee); } }
+    if (game.arena) { const arena = ARENAS.find(a => a.id === game.arena); if (arena) { const cg = safeGold(myProfile?.gold); if (cg < arena.entryFee) { setMessage(`Bu arena için ${arena.entryFee} 🪙 gerekli!`); return; } const newGold = cg - arena.entryFee; await update(ref(db, `profiles/${authUid}`), { gold: newGold }); setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev); setEntryFeeDeducted(arena.entryFee); } }
     roomIdRef.current = rid; setRoomId(rid); setPlayerNum(2); playerNumRef.current = 2; setOpponentName(game.p1_name);
     await update(ref(db, `rooms/${rid}`), { p2_name: playerName.trim(), p2_uid: authUid, phase: "placing" });
     setPhase("placing"); listenToRoom(rid, 2);
@@ -654,7 +661,7 @@ export default function Game() {
     if (!authUid) { setMessage("Bağlantı bekleniyor..."); return; }
     try { const p = await ensureProfile(authUid, playerName.trim()); setMyProfile(p); } catch (e) { console.error(e); }
     const arena = arenaOverride || null;
-    if (arena) { const cg = myProfile?.gold || 0; if (cg < arena.entryFee) { setMessage("Yeterli altının yok!"); return; } await update(ref(db, `profiles/${authUid}`), { gold: cg - arena.entryFee }); setMyProfile(prev => prev ? { ...prev, gold: cg - arena.entryFee } : prev); setEntryFeeDeducted(arena.entryFee); }
+    if (arena) { const cg = safeGold(myProfile?.gold); if (cg < arena.entryFee) { setMessage("Yeterli altının yok!"); return; } const newGold = cg - arena.entryFee; await update(ref(db, `profiles/${authUid}`), { gold: newGold }); setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev); setEntryFeeDeducted(arena.entryFee); }
     setMatchmaking(true);
     const matchPromise = findMatch(authUid, playerName.trim(), myProfile?.elo || 1200, arena?.id || null);
     setMatchCancelFn(() => matchPromise._cancel);
@@ -718,7 +725,7 @@ export default function Game() {
           <div style={{ width:1,background:t.border }} />
           <div style={{ textAlign:"center" }}><div style={{ fontSize:14,fontWeight:700,color:t.accent,fontFamily:mono }}>{myProfile.totalGames||0}</div><div style={{ fontSize:8,color:t.textDim,letterSpacing:1 }}>TOPLAM</div></div>
           <div style={{ width:1,background:t.border }} />
-          <div style={{ textAlign:"center" }}><div style={{ fontSize:14,fontWeight:700,color:t.gold,fontFamily:mono }}>{myProfile.gold||0}</div><div style={{ fontSize:8,color:t.textDim,letterSpacing:1 }}>🪙 ALTIN</div></div>
+          <div style={{ textAlign:"center" }}><div style={{ fontSize:14,fontWeight:700,color:t.gold,fontFamily:mono }}>{safeGold(myProfile.gold)}</div><div style={{ fontSize:8,color:t.textDim,letterSpacing:1 }}>🪙 ALTIN</div></div>
         </div>
       </div>)}
       <div style={{ background:`linear-gradient(135deg,${t.surface},rgba(17,24,39,0.9))`,border:`1px solid ${t.border}`,borderRadius:14,padding:"28px 20px",textAlign:"center",width:"100%",maxWidth:340,animation:"fadeUp 0.5s ease-out",boxShadow:"0 8px 32px rgba(0,0,0,0.3)" }}>
