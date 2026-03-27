@@ -178,12 +178,28 @@ async function ensureProfile(uid, displayName) {
     return profile;
   }
   const existing = snap.val();
-  // Fix any NaN/undefined/null gold values
-  const fixedGold = safeGold(existing.gold);
-  if (fixedGold !== existing.gold) { await update(profileRef, { gold: fixedGold }); existing.gold = fixedGold; }
-  if (existing.loginStreak === undefined) { await update(profileRef, { loginStreak:0, lastDailyReward:null }); existing.loginStreak=0; existing.lastDailyReward=null; }
-  if (displayName && existing.displayName !== displayName) { await update(profileRef, { displayName }); existing.displayName = displayName; }
-  return existing;
+  // Sanitize all numeric fields — any NaN/undefined corrupts the whole update
+  const sanitized = {
+    displayName: existing.displayName || displayName || "Denizci",
+    elo: (typeof existing.elo === "number" && !isNaN(existing.elo)) ? existing.elo : 1200,
+    wins: (typeof existing.wins === "number" && !isNaN(existing.wins)) ? existing.wins : 0,
+    losses: (typeof existing.losses === "number" && !isNaN(existing.losses)) ? existing.losses : 0,
+    totalGames: (typeof existing.totalGames === "number" && !isNaN(existing.totalGames)) ? existing.totalGames : 0,
+    gold: safeGold(existing.gold),
+    loginStreak: (typeof existing.loginStreak === "number" && !isNaN(existing.loginStreak)) ? existing.loginStreak : 0,
+    lastDailyReward: existing.lastDailyReward || null,
+    createdAt: existing.createdAt || Date.now(),
+    lastGameAt: existing.lastGameAt || null,
+  };
+  // Check if any field was corrupted
+  const needsFix = sanitized.gold !== existing.gold || sanitized.elo !== existing.elo || sanitized.wins !== existing.wins || sanitized.losses !== existing.losses || sanitized.totalGames !== existing.totalGames || existing.loginStreak === undefined;
+  if (needsFix) {
+    await set(profileRef, sanitized); // set() overwrites everything — no NaN contamination
+  } else if (displayName && existing.displayName !== displayName) {
+    await update(profileRef, { displayName });
+    sanitized.displayName = displayName;
+  }
+  return sanitized;
 }
 
 
