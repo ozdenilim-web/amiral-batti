@@ -389,39 +389,86 @@ function OnlineLobby({ myUid, myName, myElo, onChallenge, onBack }) {
 
 function findMatch(myUid, myName, myElo, arenaId) {
   const queuePath = arenaId ? `matchmaking_arena/${arenaId}` : "matchmaking";
-  let cancelled = false, unsubQueue = null, unsubMatch = null;
+  let cancelled = false, creating = false, resolved = false;
+  let unsubQueue = null, unsubMatch = null, timeoutId = null;
+
+  const cleanup = () => {
+    if (unsubQueue) { unsubQueue(); unsubQueue = null; }
+    if (unsubMatch) { unsubMatch(); unsubMatch = null; }
+    if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
+  };
+
+  const finish = (data) => {
+    if (resolved) return;
+    resolved = true;
+    cleanup();
+    return data;
+  };
+
   const promise = new Promise(async (resolve) => {
     await set(ref(db, `${queuePath}/${myUid}`), { displayName: myName, elo: myElo || 1200, time: Date.now() });
     onDisconnect(ref(db, `${queuePath}/${myUid}`)).remove();
+
+    // Timeout: 60 saniye sonra eşleşme bulunamazsa iptal
+    timeoutId = setTimeout(() => {
+      if (!resolved && !cancelled) {
+        cancelled = true;
+        cleanup();
+        remove(ref(db, `${queuePath}/${myUid}`)).catch(() => {});
+        remove(ref(db, `match_found/${myUid}`)).catch(() => {});
+        resolve(null);
+      }
+    }, 60000);
+
+    // match_found dinle — biri bizi eşleştirirse buradan öğreniriz
+    unsubMatch = onValue(ref(db, `match_found/${myUid}`), async (snap) => {
+      if (cancelled || resolved || !snap.exists()) return;
+      const data = snap.val();
+      if (!data.roomId) return;
+      await remove(ref(db, `match_found/${myUid}`)).catch(() => {});
+      await remove(ref(db, `${queuePath}/${myUid}`)).catch(() => {});
+      resolve(finish(data));
+    });
+
+    // Kuyruğu dinle — uid sıralaması ile sadece bir taraf oda oluşturur
     unsubQueue = onValue(ref(db, queuePath), async (snap) => {
-      if (cancelled || !snap.exists()) return;
+      if (cancelled || resolved || creating || !snap.exists()) return;
       const queue = [];
       snap.forEach(child => { if (child.key !== myUid) queue.push({ uid: child.key, ...child.val() }); });
       if (queue.length === 0) return;
       queue.sort((a, b) => Math.abs((a.elo || 1200) - (myElo || 1200)) - Math.abs((b.elo || 1200) - (myElo || 1200)));
       const opponent = queue[0];
+
+      // Sadece küçük uid olan taraf oda oluşturur (deterministik)
       if (myUid < opponent.uid) {
+        creating = true; // Guard: bu listener tekrar çalışsa bile tekrar oda oluşturmaz
         const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
         try {
+          // Önce rakibin hâlâ kuyrukta olduğunu doğrula
+          const oppCheck = await get(ref(db, `${queuePath}/${opponent.uid}`));
+          if (!oppCheck.exists()) { creating = false; return; }
+
           await set(ref(db, `rooms/${roomId}`), { p1_name: myName, p1_uid: myUid, p2_name: opponent.displayName, p2_uid: opponent.uid, phase: "placing", p1_board: null, p2_board: null, p1_ships: null, p2_ships: null, attacks: null, turn: 1, clocks: { p1: CLOCK_SECONDS, p2: CLOCK_SECONDS }, winner: null, winReason: null, eloProcessed: false, arena: arenaId || null, created: Date.now() });
+
+          // Önce iki tarafın match_found'unu yaz, sonra kuyruktan sil
           await set(ref(db, `match_found/${myUid}`), { roomId, playerNum: 1, oppName: opponent.displayName });
           await set(ref(db, `match_found/${opponent.uid}`), { roomId, playerNum: 2, oppName: myName });
-          await remove(ref(db, `${queuePath}/${myUid}`));
-          await remove(ref(db, `${queuePath}/${opponent.uid}`));
-        } catch (e) { console.error("Match creation error:", e); }
+          await remove(ref(db, `${queuePath}/${myUid}`)).catch(() => {});
+          await remove(ref(db, `${queuePath}/${opponent.uid}`)).catch(() => {});
+        } catch (e) {
+          console.error("Match creation error:", e);
+          creating = false;
+        }
       }
     });
-    unsubMatch = onValue(ref(db, `match_found/${myUid}`), async (snap) => {
-      if (cancelled || !snap.exists()) return;
-      const data = snap.val();
-      if (unsubMatch) unsubMatch();
-      if (unsubQueue) unsubQueue();
-      await remove(ref(db, `match_found/${myUid}`));
-      await remove(ref(db, `${queuePath}/${myUid}`));
-      resolve(data);
-    });
   });
-  promise._cancel = async () => { cancelled = true; if (unsubQueue) unsubQueue(); if (unsubMatch) unsubMatch(); await remove(ref(db, `${queuePath}/${myUid}`)); await remove(ref(db, `match_found/${myUid}`)); };
+
+  promise._cancel = async () => {
+    cancelled = true;
+    cleanup();
+    await remove(ref(db, `${queuePath}/${myUid}`)).catch(() => {});
+    await remove(ref(db, `match_found/${myUid}`)).catch(() => {});
+  };
   return promise;
 }
 
@@ -665,7 +712,23 @@ export default function Game() {
     setMatchmaking(true);
     const matchPromise = findMatch(authUid, playerName.trim(), myProfile?.elo || 1200, arena?.id || null);
     setMatchCancelFn(() => matchPromise._cancel);
-    matchPromise.then(data => { if (data && data.roomId) { setMatchmaking(false); setMatchCancelFn(null); roomIdRef.current = data.roomId; setRoomId(data.roomId); setPlayerNum(data.playerNum); playerNumRef.current = data.playerNum; setOpponentName(data.oppName); setPhase("placing"); listenToRoom(data.roomId, data.playerNum); if (authUid) remove(ref(db, `online_players/${authUid}`)); } });
+    matchPromise.then(data => {
+      if (data && data.roomId) {
+        setMatchmaking(false); setMatchCancelFn(null); roomIdRef.current = data.roomId; setRoomId(data.roomId); setPlayerNum(data.playerNum); playerNumRef.current = data.playerNum; setOpponentName(data.oppName); setPhase("placing"); listenToRoom(data.roomId, data.playerNum); if (authUid) remove(ref(db, `online_players/${authUid}`));
+      } else {
+        // Eşleşme bulunamadı (timeout) — arena ücreti varsa iade et
+        setMatchmaking(false); setMatchCancelFn(null);
+        if (arena && entryFeeDeducted) {
+          const refundGold = safeGold(myProfile?.gold) + arena.entryFee;
+          update(ref(db, `profiles/${authUid}`), { gold: refundGold }).catch(() => {});
+          setMyProfile(prev => prev ? { ...prev, gold: refundGold } : prev);
+          setEntryFeeDeducted(null);
+          setMessage("Rakip bulunamadı — altının iade edildi!");
+        } else {
+          setMessage("Rakip bulunamadı, tekrar dene!");
+        }
+      }
+    });
   };
 
   const appStyle = { minHeight: "100vh", minHeight: "100dvh", background: t.bg, color: t.text, fontFamily: mono, display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 8px", boxSizing: "border-box" };
