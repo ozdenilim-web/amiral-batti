@@ -58,6 +58,61 @@ function isTestMode() {
 }
 function getTestGold() { return isTestMode() ? 5000 : STARTING_GOLD; }
 
+// === BOT AI ===
+const BOT_NAMES = ["Kaptan Yıldız","Denizci Ali","Amiral Fırtına","Korsan Barış","Teğmen Dalga","Yüzbaşı Rüzgar","Kaptan Bulut","Denizci Efe"];
+
+function botPlaceShips() {
+  const board = emptyGrid();
+  const placed = [];
+  for (const ship of SHIPS) {
+    let attempts = 0;
+    while (attempts < 200) {
+      const rot = Math.floor(Math.random() * 4);
+      const r = Math.floor(Math.random() * ROWS);
+      const c = Math.floor(Math.random() * COLS);
+      const cells = getShipCells(ship, r, c, rot);
+      if (isValidPlacement(cells, board) && !getNeighborCells(cells).some(([nr, nc]) => nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && board[nr][nc] > 0)) {
+        cells.forEach(([cr, cc]) => { board[cr][cc] = 1; });
+        placed.push({ id: ship.id, cells });
+        break;
+      }
+      attempts++;
+    }
+  }
+  return { board, ships: placed };
+}
+
+function botChooseShots(attackOverlay, lastHits, shotCount) {
+  const available = [];
+  const priority = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (!attackOverlay[r][c]) {
+        available.push([r, c]);
+        // Check if adjacent to a hit (hunt mode)
+        const adjHit = [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].some(([ar,ac]) => ar >= 0 && ar < ROWS && ac >= 0 && ac < COLS && attackOverlay[ar][ac] === "hit");
+        if (adjHit) priority.push([r, c]);
+      }
+    }
+  }
+  const shots = [];
+  const pool = priority.length > 0 ? priority : available;
+  for (let i = 0; i < shotCount && pool.length > 0; i++) {
+    // Medium difficulty: 60% smart, 40% random
+    let usePool = pool;
+    if (priority.length > 0 && Math.random() < 0.4) usePool = available;
+    const idx = Math.floor(Math.random() * usePool.length);
+    const shot = usePool.splice(idx, 1)[0];
+    // Also remove from the other pool
+    const aidx = available.findIndex(([r,c]) => r === shot[0] && c === shot[1]);
+    if (aidx !== -1) available.splice(aidx, 1);
+    const pidx = priority.findIndex(([r,c]) => r === shot[0] && c === shot[1]);
+    if (pidx !== -1) priority.splice(pidx, 1);
+    shots.push(shot);
+  }
+  return shots;
+}
+
 const t = {
   bg: "#0a0e17", surface: "#111827", surfaceLight: "#1f2937",
   border: "#374151", text: "#e5e7eb", textDim: "#6b7280",
@@ -556,6 +611,11 @@ export default function Game() {
   const [markMode, setMarkMode] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [isWin, setIsWin] = useState(false);
+  const [isBotGame, setIsBotGame] = useState(false);
+  const [botBoard, setBotBoard] = useState(null);
+  const [botShips, setBotShips] = useState(null);
+  const [botAttackOverlay, setBotAttackOverlay] = useState(() => emptyGrid().map(r => r.map(() => null)));
+  const [botName, setBotName] = useState("");
 
   const unsubRef = useRef(null);
   const playerNumRef = useRef(null);
@@ -755,22 +815,145 @@ export default function Game() {
   const handleDefenseClick = (r, c) => { if (phase !== "placing" || !selectedShip || placementConfirmed) return; const ship = SHIPS.find(s => s.id === selectedShip); if (!ship) return; const cells = getShipCells(ship, r, c, rotation); const bc = defenseBoard.map(row => [...row]); if (!isValidPlacement(cells, bc)) return; if (getNeighborCells(cells).some(([nr, nc]) => nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && bc[nr][nc] > 0)) return; const nb = bc.map(row => [...row]); const nc = shipColorMap.map(row => [...row]); cells.forEach(([cr, cc]) => { nb[cr][cc] = 1; nc[cr][cc] = ship.color; }); setDefenseBoard(nb); setShipColorMap(nc); setPlacedShips([...placedShips, { id: ship.id, cells, color: ship.color }]); setSelectedShip(null); setHoverCells([]); setRotation(0); };
   const handleDefenseHover = (r, c) => { if (phase !== "placing" || !selectedShip || placementConfirmed) { setHoverCells([]); return; } const ship = SHIPS.find(s => s.id === selectedShip); if (!ship) return; setHoverCells(getShipCells(ship, r, c, rotation)); };
   const undoLastShip = () => { if (placedShips.length === 0) return; const last = placedShips[placedShips.length - 1]; const nb = defenseBoard.map(row => [...row]); const nc = shipColorMap.map(row => [...row]); last.cells.forEach(([r, c]) => { nb[r][c] = 0; nc[r][c] = null; }); setDefenseBoard(nb); setShipColorMap(nc); setPlacedShips(placedShips.slice(0, -1)); };
-  const confirmPlacement = async () => { if (placedShips.length !== SHIPS.length) return; if (placementTimerRef.current) clearInterval(placementTimerRef.current); const pNum = playerNumRef.current, myKey = pNum === 1 ? "p1" : "p2", oppKey = pNum === 1 ? "p2" : "p1"; const shipData = {}; placedShips.forEach((s, i) => { shipData[i] = { id: s.id, cells: s.cells }; }); await update(ref(db, `rooms/${roomIdRef.current}`), { [`${myKey}_board`]: defenseBoard, [`${myKey}_ships`]: shipData }); const snapshot = await get(ref(db, `rooms/${roomIdRef.current}`)); if (snapshot.val()?.[`${oppKey}_board`]) await update(ref(db, `rooms/${roomIdRef.current}`), { phase: "playing" }); setPlacementConfirmed(true); };
+  const confirmPlacement = async () => {
+    if (placedShips.length !== SHIPS.length) return;
+    if (placementTimerRef.current) clearInterval(placementTimerRef.current);
+    const shipData = {}; placedShips.forEach((s, i) => { shipData[i] = { id: s.id, cells: s.cells }; });
+    setMyShipsData(shipData);
+    setPlacementConfirmed(true);
+    if (isBotGame) {
+      setPhase("playing"); setMyTurn(true); setActiveBoard("attack");
+      return;
+    }
+    const pNum = playerNumRef.current, myKey = pNum === 1 ? "p1" : "p2", oppKey = pNum === 1 ? "p2" : "p1";
+    await update(ref(db, `rooms/${roomIdRef.current}`), { [`${myKey}_board`]: defenseBoard, [`${myKey}_ships`]: shipData });
+    const snapshot = await get(ref(db, `rooms/${roomIdRef.current}`));
+    if (snapshot.val()?.[`${oppKey}_board`]) await update(ref(db, `rooms/${roomIdRef.current}`), { phase: "playing" });
+  };
   const handleAttackClick = (r, c) => { if (!myTurn || phase !== "playing") return; if (markMode) { handleAttackMark(r, c); return; } if (attackOverlay[r][c]) return; if (manualMarks[r][c]) return; const existing = currentShots.findIndex(([sr, sc]) => sr === r && sc === c); if (existing !== -1) { setCurrentShots(currentShots.filter((_, i) => i !== existing)); return; } if (currentShots.length >= SHOTS_PER_TURN) return; setCurrentShots([...currentShots, [r, c]]); };
   const handleAttackRightClick = (r, c) => { handleAttackMark(r, c); };
   const handleAttackMark = (r, c) => { if (phase !== "playing") return; if (attackOverlay[r][c]) return; const nm = manualMarks.map(row => [...row]); nm[r][c] = !nm[r][c]; setManualMarks(nm); };
   const handleAttackLongPress = (r, c) => { handleAttackMark(r, c); };
-  const fireShots = async () => { if (currentShots.length === 0) return; const pNum = playerNumRef.current, myKey = pNum === 1 ? "p1" : "p2"; const snapshot = await get(ref(db, `rooms/${roomIdRef.current}`)); const game = snapshot.val(); if (!game || game.turn !== pNum) return; const targetKey = pNum === 1 ? "p2" : "p1"; const shotResults = currentShots.map(([r, c]) => ({ r, c, result: game[`${targetKey}_board`][r][c] > 0 ? "hit" : "miss" })); const existingAttacks = game.attacks ? Object.values(game.attacks) : []; const prevHits = existingAttacks.filter(a => a.target === targetKey).reduce((sum, a) => sum + (a.shots ? a.shots.filter(s => s.result === "hit").length : 0), 0); const totalHits = prevHits + shotResults.filter(s => s.result === "hit").length; const updates = {}; updates[`attacks/${existingAttacks.length}`] = { by: pNum, target: targetKey, shots: shotResults, time: Date.now() }; updates[`clocks/${myKey}`] = myClockRef.current; if (totalHits >= 20) { updates.winner = pNum; updates.winReason = "hits"; } else { updates.turn = pNum === 1 ? 2 : 1; } await update(ref(db, `rooms/${roomIdRef.current}`), updates); setCurrentShots([]); };
+  const fireShots = async () => {
+    if (currentShots.length === 0) return;
+    if (isBotGame) { botHandlePlayerShots(); return; }
+    const pNum = playerNumRef.current, myKey = pNum === 1 ? "p1" : "p2"; const snapshot = await get(ref(db, `rooms/${roomIdRef.current}`)); const game = snapshot.val(); if (!game || game.turn !== pNum) return; const targetKey = pNum === 1 ? "p2" : "p1"; const shotResults = currentShots.map(([r, c]) => ({ r, c, result: game[`${targetKey}_board`][r][c] > 0 ? "hit" : "miss" })); const existingAttacks = game.attacks ? Object.values(game.attacks) : []; const prevHits = existingAttacks.filter(a => a.target === targetKey).reduce((sum, a) => sum + (a.shots ? a.shots.filter(s => s.result === "hit").length : 0), 0); const totalHits = prevHits + shotResults.filter(s => s.result === "hit").length; const updates = {}; updates[`attacks/${existingAttacks.length}`] = { by: pNum, target: targetKey, shots: shotResults, time: Date.now() }; updates[`clocks/${myKey}`] = myClockRef.current; if (totalHits >= 20) { updates.winner = pNum; updates.winReason = "hits"; } else { updates.turn = pNum === 1 ? 2 : 1; } await update(ref(db, `rooms/${roomIdRef.current}`), updates); setCurrentShots([]);
+  };
   const getAttackDisplayOverlay = () => { const ovr = attackOverlay.map(row => [...row]); currentShots.forEach(([r, c]) => { if (!ovr[r][c]) ovr[r][c] = "selected"; }); return ovr; };
   const forceEndGame = async () => { if (!roomIdRef.current) return; await update(ref(db, `rooms/${roomIdRef.current}`), { winner: playerNumRef.current, winReason: "test_force" }); };
 
   const resetGame = () => {
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
-    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null);
+    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName("");
     if (authUid) { get(ref(db, `profiles/${authUid}`)).then(snap => { if (snap.exists()) setMyProfile(snap.val()); }).catch(() => {}); }
   };
 
   const sendEmoji = async (qe) => { if (!roomIdRef.current) return; setMyEmojiToast({ emoji: qe.emoji, label: qe.label }); setTimeout(() => setMyEmojiToast(null), 3000); await set(ref(db, `emojis/${roomIdRef.current}`), { emoji: qe.emoji, label: qe.label, from: playerNumRef.current, time: Date.now() }); };
+
+  const startBotGame = () => {
+    if (!playerName.trim()) { setMessage("Adını yaz!"); return; }
+    const bot = botPlaceShips();
+    const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+    setIsBotGame(true);
+    setBotBoard(bot.board);
+    const shipData = {};
+    bot.ships.forEach((s, i) => { shipData[i] = { id: s.id, cells: s.cells }; });
+    setBotShips(shipData);
+    setOppShipsData(shipData);
+    setBotAttackOverlay(emptyGrid().map(r => r.map(() => null)));
+    setBotName(name);
+    setOpponentName(name);
+    setMyTurn(true);
+    setMyClock(CLOCK_SECONDS);
+    setOppClock(CLOCK_SECONDS);
+    setPhase("placing");
+  };
+
+  const botFireShots = () => {
+    const shots = botChooseShots(botAttackOverlay, [], SHOTS_PER_TURN);
+    const newBotOverlay = botAttackOverlay.map(row => [...row]);
+    const newDefOverlay = defenseOverlay.map(row => [...row]);
+    const newDefHit = defHitMap.map(row => [...row]);
+    let newOppHits = oppHits;
+    const reports = [];
+    shots.forEach(([r, c]) => {
+      const isHit = defenseBoard[r][c] > 0;
+      newBotOverlay[r][c] = isHit ? "hit" : "miss";
+      newDefOverlay[r][c] = isHit ? "hit" : "miss";
+      if (isHit) {
+        newOppHits++;
+        newDefHit[r][c] = true;
+        if (myShipsData) {
+          const hitShip = Object.values(myShipsData).find(sh => sh.cells.some(([sr, sc]) => sr === r && sc === c));
+          if (hitShip) {
+            const shipDef = SHIPS.find(sd => sd.id === hitShip.id);
+            const totalH = hitShip.cells.filter(([hr, hc]) => newDefHit[hr][hc]).length;
+            reports.push(totalH === hitShip.cells.length ? `${shipDef?.name} battı!` : `${shipDef?.name} ${totalH} yara aldı`);
+          }
+        }
+      }
+    });
+    setBotAttackOverlay(newBotOverlay);
+    setDefenseOverlay(newDefOverlay);
+    setDefHitMap(newDefHit);
+    setOppHits(newOppHits);
+    setBlinkCells(shots);
+    setTimeout(() => setBlinkCells([]), 3000);
+    if (reports.length > 0) { setDamageReport(reports.join(" • ")); setTimeout(() => setDamageReport(""), 8000); }
+    setActiveBoard("defense");
+    // Check if bot won
+    if (newOppHits >= 20) {
+      setWinner("Gemilerin battı!"); setIsWin(false); setPhase("gameover");
+    } else {
+      setTimeout(() => { setMyTurn(true); setActiveBoard("attack"); }, 1500);
+    }
+  };
+
+  const botHandlePlayerShots = () => {
+    if (currentShots.length === 0) return;
+    const newAtkOverlay = attackOverlay.map(row => [...row]);
+    const newAtkHit = atkHitMap.map(row => [...row]);
+    let newMyHits = myHits;
+    currentShots.forEach(([r, c]) => {
+      const isHit = botBoard[r][c] > 0;
+      newAtkOverlay[r][c] = isHit ? "hit" : "miss";
+      if (isHit) { newMyHits++; newAtkHit[r][c] = true; }
+    });
+    // Check for sunk ships
+    if (botShips) {
+      Object.values(botShips).forEach(ship => {
+        if (ship.cells.every(([r, c]) => newAtkOverlay[r][c] === "hit" || newAtkOverlay[r][c] === "sunk")) {
+          ship.cells.forEach(([r, c]) => { newAtkOverlay[r][c] = "sunk"; });
+        }
+      });
+    }
+    setAttackOverlay(newAtkOverlay);
+    setAtkHitMap(newAtkHit);
+    setMyHits(newMyHits);
+    setBlinkCells(currentShots.map(([r,c]) => [r,c]));
+    setTimeout(() => setBlinkCells([]), 3000);
+    setCurrentShots([]);
+    // Check if player won
+    if (newMyHits >= 20) {
+      setWinner("Tüm gemileri batırdın!"); setIsWin(true); setPhase("gameover");
+      // +2 gold for bot win
+      if (authUid && myProfile) {
+        const newGold = safeGold(myProfile.gold) + 2;
+        get(ref(db, `profiles/${authUid}`)).then(snap => {
+          if (snap.exists()) {
+            const p = snap.val();
+            const clean = { ...p, gold: safeGold(p.gold) + 2 };
+            set(ref(db, `profiles/${authUid}`), clean);
+            setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev);
+          }
+        }).catch(() => {});
+        setGoldChange({ amount: 2 });
+      }
+    } else {
+      setMyTurn(false);
+      setTimeout(() => botFireShots(), 1200 + Math.random() * 800);
+    }
+  };
 
   const startQuickMatch = async (arenaOverride) => {
     if (!playerName.trim()) { setMessage("Adını yaz!"); return; }
@@ -875,6 +1058,7 @@ export default function Game() {
         <button onClick={()=>{if(!playerName.trim()){setMessage("Adını yaz!");return;}if(!authUid){setMessage("Bağlantı bekleniyor...");return;}setShowArenaSelect(true);}} disabled={authLoading} style={{ flex:1,padding:"14px 0",background:authLoading?"transparent":`linear-gradient(135deg,rgba(167,139,250,0.15),rgba(167,139,250,0.05))`,color:"#a78bfa",border:"1px solid #a78bfa",borderRadius:8,fontSize:14,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:"0 0 10px rgba(167,139,250,0.3)",opacity:authLoading?0.4:1 }}>⚔ ARENA</button>
         <button onClick={()=>setShowLeaderboard(true)} style={{ flex:1,padding:"14px 0",background:"transparent",color:t.gold,border:`1px solid ${t.gold}`,borderRadius:8,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 0 10px ${t.goldGlow}` }}>🏆 SIRALAMA</button>
       </div>
+      <button onClick={startBotGame} style={{ marginTop:10,padding:"14px 0",width:"100%",maxWidth:340,background:`linear-gradient(135deg,rgba(52,211,153,0.12),rgba(52,211,153,0.04))`,color:"#34d399",border:"1px solid #34d399",borderRadius:8,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:"0 0 10px rgba(52,211,153,0.2)",animation:"fadeUp 0.8s ease-out" }}>🤖 BOTLARLA OYNA</button>
       {dailyReward && <DailyRewardPopup reward={dailyReward.reward} streak={dailyReward.streak} onClose={() => { setMyProfile(prev => prev ? { ...prev, gold: dailyReward.newGold, loginStreak: dailyReward.streak } : prev); setDailyReward(null); }} />}
     </div>);
   }
@@ -929,7 +1113,7 @@ export default function Game() {
           <EmojiDisplay emoji={emojiToast?.emoji} label={emojiToast?.label} />
         </div>
       </div>
-      <div style={{ fontSize:16,fontWeight:700,marginBottom:6,textAlign:"center",fontFamily:warrior,letterSpacing:3,textTransform:"uppercase",color:myTurn?t.accent:t.textDim,textShadow:myTurn?`0 0 20px ${t.accentGlow}`:"none",animation:myTurn?"fadeUp 0.3s ease-out":"none" }}>{myTurn?"⚡ SENİN SIRAN ⚡":"Rakibin sırası..."}</div>
+      <div style={{ fontSize:16,fontWeight:700,marginBottom:6,textAlign:"center",fontFamily:warrior,letterSpacing:3,textTransform:"uppercase",color:myTurn?t.accent:t.textDim,textShadow:myTurn?`0 0 20px ${t.accentGlow}`:"none",animation:myTurn?"fadeUp 0.3s ease-out":"none" }}>{myTurn?"⚡ SENİN SIRAN ⚡":(isBotGame?"🤖 Bot düşünüyor...":"Rakibin sırası...")}</div>
       <div style={{ fontSize:10,color:t.textDim,marginBottom:6,fontFamily:mono }}>İsabet: {myHits}/20 • Karavana: {oppHits}/20</div>
       {damageReport && <div style={{ background:"rgba(239,68,68,0.1)",border:`1px solid ${t.hit}`,borderRadius:8,padding:"6px 14px",marginBottom:6,fontSize:11,color:t.hit,fontWeight:700,textAlign:"center",width:"100%",maxWidth:400,animation:"slideIn 0.3s ease-out",fontFamily:warrior,letterSpacing:1 }}>⚠ {damageReport}</div>}
       <div style={{ display:"flex",gap:0,marginBottom:6,width:"100%",maxWidth:400 }}>
@@ -945,9 +1129,9 @@ export default function Game() {
         <div style={{ display:"flex",gap:5 }}>{[0,1,2].map(i=><div key={i} style={{ width:14,height:14,borderRadius:"50%",background:i<currentShots.length?t.hit:t.accent,opacity:i<currentShots.length?0.3:1,animation:i<currentShots.length?"popIn 0.3s ease-out":"none" }} />)}</div>
         <button onClick={fireShots} disabled={currentShots.length===0} style={{ padding:"12px 36px",background:currentShots.length>0?`linear-gradient(135deg,${t.hit},#dc2626)`:t.surfaceLight,color:currentShots.length>0?"#fff":t.textDim,border:"none",borderRadius:10,fontSize:16,fontWeight:700,letterSpacing:3,cursor:currentShots.length===0?"default":"pointer",fontFamily:warrior,boxShadow:currentShots.length>0?`0 0 24px ${t.hitGlow}`:"none",opacity:currentShots.length===0?0.5:1 }}>ATEŞ 🔥</button>
       </div>)}
-      <div style={{ position:"fixed",bottom:myTurn&&activeBoard==="attack"&&!markMode?64:0,left:0,right:0,display:"flex",justifyContent:"center",gap:2,background:"rgba(10,14,23,0.92)",backdropFilter:"blur(8px)",borderTop:`1px solid ${t.border}`,padding:"6px 4px",zIndex:90 }}>
+      {!isBotGame && <div style={{ position:"fixed",bottom:myTurn&&activeBoard==="attack"&&!markMode?64:0,left:0,right:0,display:"flex",justifyContent:"center",gap:2,background:"rgba(10,14,23,0.92)",backdropFilter:"blur(8px)",borderTop:`1px solid ${t.border}`,padding:"6px 4px",zIndex:90 }}>
         {QUICK_EMOJIS.map(qe=><button key={qe.id} onClick={()=>sendEmoji(qe)} style={{ padding:"4px 6px",background:"transparent",border:"none",fontSize:18,cursor:"pointer",borderRadius:6,transition:"transform 0.1s" }} title={qe.label}>{qe.emoji}</button>)}
-      </div>
+      </div>}
     </div>);
   }
 
