@@ -150,13 +150,13 @@ function botChooseShots(attackOverlay, lastHits, shotCount) {
 }
 
 const t = {
-  bg: "#0a0e17", surface: "#111827", surfaceLight: "#1f2937",
-  border: "#374151", text: "#e5e7eb", textDim: "#6b7280",
-  accent: "#06b6d4", accentGlow: "rgba(6,182,212,0.3)",
-  hit: "#ef4444", hitGlow: "rgba(239,68,68,0.4)",
-  miss: "#4b5563", sunk: "#f97316",
-  water: "rgba(6,182,212,0.06)", shipCell: "rgba(6,182,212,0.25)",
-  gold: "#fbbf24", goldGlow: "rgba(251,191,36,0.3)",
+  bg: "#050b18", surface: "#0c1529", surfaceLight: "#162040",
+  border: "#1e3a5f", text: "#e8edf5", textDim: "#7a8ba8",
+  accent: "#00d4ff", accentGlow: "rgba(0,212,255,0.35)",
+  hit: "#ff4757", hitGlow: "rgba(255,71,87,0.45)",
+  miss: "#3d4f6f", sunk: "#ff8c42",
+  water: "rgba(0,212,255,0.04)", shipCell: "rgba(0,212,255,0.2)",
+  gold: "#ffd700", goldGlow: "rgba(255,215,0,0.35)",
 };
 
 function calculateElo(myElo, oppElo, didWin, k = 32) {
@@ -371,16 +371,19 @@ const ANIMS = `
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700;800&display=swap');
 @keyframes blink3s{0%,100%{opacity:1}50%{opacity:.15}}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
-@keyframes borderGlow{0%,100%{border-color:#06b6d4;box-shadow:0 0 8px rgba(6,182,212,.4)}50%{border-color:#22d3ee;box-shadow:0 0 24px rgba(6,182,212,.8)}}
+@keyframes borderGlow{0%,100%{border-color:#00d4ff;box-shadow:0 0 8px rgba(0,212,255,.4)}50%{border-color:#38f0ff;box-shadow:0 0 24px rgba(0,212,255,.7)}}
 @keyframes popIn{0%{transform:scale(0)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
 @keyframes fadeUp{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:translateY(0)}}
 @keyframes slideIn{0%{opacity:0;transform:translateY(-20px)}100%{opacity:1;transform:translateY(0)}}
 @keyframes loadDots{0%,80%,100%{opacity:.3}40%{opacity:1}}
-@keyframes victoryGlow{0%{text-shadow:0 0 20px rgba(6,182,212,.5)}50%{text-shadow:0 0 60px rgba(6,182,212,1),0 0 100px rgba(6,182,212,.5)}100%{text-shadow:0 0 20px rgba(6,182,212,.5)}}
+@keyframes victoryGlow{0%{text-shadow:0 0 20px rgba(0,212,255,.5)}50%{text-shadow:0 0 60px rgba(0,212,255,1),0 0 100px rgba(0,212,255,.5)}100%{text-shadow:0 0 20px rgba(0,212,255,.5)}}
 @keyframes defeatShake{0%,100%{transform:translateX(0)}10%,30%,50%,70%,90%{transform:translateX(-4px)}20%,40%,60%,80%{transform:translateX(4px)}}
 @keyframes scaleUp{0%{transform:scale(0.3);opacity:0}100%{transform:scale(1);opacity:1}}
 @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-@keyframes cellHover{0%{box-shadow:inset 0 0 0 rgba(6,182,212,0)}100%{box-shadow:inset 0 0 14px rgba(6,182,212,.5)}}
+@keyframes cellHover{0%{box-shadow:inset 0 0 0 rgba(0,212,255,0)}100%{box-shadow:inset 0 0 14px rgba(0,212,255,.5)}}
+@keyframes wave{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes goldShine{0%{filter:brightness(1)}50%{filter:brightness(1.4)}100%{filter:brightness(1)}}
 `;
 const warrior = "'Oswald', sans-serif";
 const mono = "'JetBrains Mono', monospace";
@@ -1138,24 +1141,31 @@ export default function Game() {
   if (phase === "lobby") {
     const rank = myProfile ? getRankInfo(myProfile.elo) : null;
     const authLoading = !authReady || !authUid;
-    return (<div style={appStyle}><style>{ANIMS}</style>
-      <div style={{ fontSize:30,fontWeight:700,letterSpacing:5,color:t.accent,textShadow:`0 0 30px ${t.accentGlow}`,marginBottom:4,fontFamily:warrior,animation:"fadeUp 0.4s ease-out" }}>AMİRAL BATTI</div>
-      <div style={{ fontSize:10,color:t.textDim,letterSpacing:6,marginBottom:16,fontFamily:warrior }}>ONLINE DENİZ SAVAŞI</div>
+    const winRate = myProfile && myProfile.totalGames > 0 ? Math.round((myProfile.wins / myProfile.totalGames) * 100) : 0;
+    return (<div style={{ ...appStyle, background:`linear-gradient(180deg, ${t.bg} 0%, #071428 50%, #0a1a35 100%)`,position:"relative",overflow:"hidden" }}><style>{ANIMS}</style>
+      <div style={{ position:"absolute",top:0,left:0,right:0,height:200,opacity:0.04,overflow:"hidden",pointerEvents:"none" }}><div style={{ position:"absolute",bottom:0,left:"-50%",width:"200%",height:60,borderRadius:"50%",background:t.accent,animation:"wave 8s linear infinite" }} /><div style={{ position:"absolute",bottom:20,left:"-50%",width:"200%",height:40,borderRadius:"50%",background:t.accent,opacity:0.5,animation:"wave 12s linear infinite reverse" }} /></div>
+      <div style={{ fontSize:34,fontWeight:700,letterSpacing:8,color:t.accent,textShadow:`0 0 40px ${t.accentGlow}, 0 2px 10px rgba(0,0,0,0.5)`,marginBottom:2,fontFamily:warrior,animation:"fadeUp 0.4s ease-out",zIndex:1 }}>AMİRAL BATTI</div>
+      <div style={{ fontSize:10,color:t.textDim,letterSpacing:8,marginBottom:20,fontFamily:warrior,zIndex:1 }}>DENİZ SAVAŞI</div>
       {authLoading && <div style={{ background:"rgba(239,68,68,0.12)",border:`1px solid ${t.hit}`,borderRadius:8,padding:"10px 16px",marginBottom:12,fontSize:11,color:t.hit,fontFamily:mono,textAlign:"center",width:"100%",maxWidth:340,animation:"pulse 1.5s infinite" }}>Sunucuya bağlanılıyor...</div>}
       {isTestMode() && <div style={{ background:"rgba(251,191,36,0.15)",border:`1px solid ${t.gold}`,borderRadius:8,padding:"8px 16px",marginBottom:12,fontSize:11,color:t.gold,fontFamily:warrior,letterSpacing:2,textAlign:"center",width:"100%",maxWidth:340 }}>🧪 TEST MODU — 2 tab aç, oda koduyla oyna</div>}
-      {myProfile && (<div style={{ background:`linear-gradient(135deg,${t.surface},rgba(17,24,39,0.9))`,border:`1px solid ${rank?.color||t.border}`,borderRadius:10,padding:"12px 20px",marginBottom:14,width:"100%",maxWidth:340,animation:"fadeUp 0.3s ease-out",boxShadow:`0 0 15px ${rank?.color?rank.color+"33":"transparent"}` }}>
-        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
-          <div><div style={{ fontSize:14,fontWeight:700,color:t.text,fontFamily:warrior }}>{myProfile.displayName}</div><div style={{ fontSize:10,color:rank?.color||t.textDim,fontFamily:warrior,letterSpacing:2,marginTop:2 }}>{rank?.icon} {rank?.title}</div></div>
-          <div style={{ textAlign:"right" }}><div style={{ fontSize:22,fontWeight:800,color:rank?.color||t.accent,fontFamily:warrior }}>{myProfile.elo}</div><div style={{ fontSize:8,color:t.textDim,letterSpacing:1 }}>ELO</div></div>
+      {myProfile && (<div style={{ background:`linear-gradient(145deg, ${t.surface}, ${t.surfaceLight})`,border:`1px solid ${rank?.color||t.border}`,borderRadius:16,padding:"18px 22px",marginBottom:16,width:"100%",maxWidth:360,animation:"fadeUp 0.3s ease-out",boxShadow:`0 4px 20px rgba(0,0,0,0.4), 0 0 20px ${rank?.color?rank.color+"22":"transparent"}`,zIndex:1 }}>
+        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12 }}>
+          <div>
+            <div style={{ fontSize:18,fontWeight:700,color:t.text,fontFamily:warrior,letterSpacing:1 }}>{myProfile.displayName}</div>
+            <div style={{ display:"flex",alignItems:"center",gap:6,marginTop:4 }}>
+              <span style={{ fontSize:12,color:rank?.color||t.textDim,fontFamily:warrior,letterSpacing:2 }}>{rank?.icon} {rank?.title}</span>
+              <span style={{ fontSize:10,color:t.gold,fontFamily:mono,background:"rgba(255,215,0,0.1)",padding:"2px 8px",borderRadius:10 }}>🪙 {safeGold(myProfile.gold)}</span>
+            </div>
+          </div>
+          <div style={{ textAlign:"center",background:"rgba(0,212,255,0.08)",borderRadius:12,padding:"8px 14px" }}>
+            <div style={{ fontSize:26,fontWeight:800,color:rank?.color||t.accent,fontFamily:warrior,lineHeight:1 }}>{myProfile.elo}</div>
+            <div style={{ fontSize:7,color:t.textDim,letterSpacing:2,marginTop:2,fontFamily:warrior }}>ELO</div>
+          </div>
         </div>
-        <div style={{ display:"flex",gap:16,marginTop:8,justifyContent:"center" }}>
-          <div style={{ textAlign:"center" }}><div style={{ fontSize:14,fontWeight:700,color:"#34d399",fontFamily:mono }}>{myProfile.wins||0}</div><div style={{ fontSize:8,color:t.textDim,letterSpacing:1 }}>GALİBİYET</div></div>
-          <div style={{ width:1,background:t.border }} />
-          <div style={{ textAlign:"center" }}><div style={{ fontSize:14,fontWeight:700,color:t.hit,fontFamily:mono }}>{myProfile.losses||0}</div><div style={{ fontSize:8,color:t.textDim,letterSpacing:1 }}>MAĞLUBİYET</div></div>
-          <div style={{ width:1,background:t.border }} />
-          <div style={{ textAlign:"center" }}><div style={{ fontSize:14,fontWeight:700,color:t.accent,fontFamily:mono }}>{myProfile.totalGames||0}</div><div style={{ fontSize:8,color:t.textDim,letterSpacing:1 }}>TOPLAM</div></div>
-          <div style={{ width:1,background:t.border }} />
-          <div style={{ textAlign:"center" }}><div style={{ fontSize:14,fontWeight:700,color:t.gold,fontFamily:mono }}>{safeGold(myProfile.gold)}</div><div style={{ fontSize:8,color:t.textDim,letterSpacing:1 }}>🪙 ALTIN</div></div>
+        <div style={{ display:"flex",gap:0,background:t.bg,borderRadius:10,overflow:"hidden" }}>
+          <div style={{ flex:1,textAlign:"center",padding:"8px 0",borderRight:`1px solid ${t.border}` }}><div style={{ fontSize:16,fontWeight:700,color:"#34d399",fontFamily:mono }}>{myProfile.wins||0}</div><div style={{ fontSize:7,color:t.textDim,letterSpacing:1,fontFamily:warrior }}>GALİBİYET</div></div>
+          <div style={{ flex:1,textAlign:"center",padding:"8px 0",borderRight:`1px solid ${t.border}` }}><div style={{ fontSize:16,fontWeight:700,color:t.hit,fontFamily:mono }}>{myProfile.losses||0}</div><div style={{ fontSize:7,color:t.textDim,letterSpacing:1,fontFamily:warrior }}>MAĞLUBİYET</div></div>
+          <div style={{ flex:1,textAlign:"center",padding:"8px 0" }}><div style={{ fontSize:16,fontWeight:700,color:t.accent,fontFamily:mono }}>%{winRate}</div><div style={{ fontSize:7,color:t.textDim,letterSpacing:1,fontFamily:warrior }}>ORAN</div></div>
         </div>
       </div>)}
       <div style={{ background:`linear-gradient(135deg,${t.surface},rgba(17,24,39,0.9))`,border:`1px solid ${t.border}`,borderRadius:14,padding:"28px 20px",textAlign:"center",width:"100%",maxWidth:340,animation:"fadeUp 0.5s ease-out",boxShadow:"0 8px 32px rgba(0,0,0,0.3)" }}>
