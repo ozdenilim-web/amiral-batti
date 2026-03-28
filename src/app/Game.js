@@ -699,6 +699,8 @@ export default function Game() {
   const [chestReward, setChestReward] = useState(null);
   const [chestClaimed, setChestClaimed] = useState(false);
   const [gameStartTime, setGameStartTime] = useState(null);
+  const [hitStreak, setHitStreak] = useState(0);
+  const [streakToast, setStreakToast] = useState(null);
 
   const unsubRef = useRef(null);
   const playerNumRef = useRef(null);
@@ -934,7 +936,7 @@ export default function Game() {
 
   const resetGame = () => {
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
-    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null);
+    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null);
     if (authUid) { get(ref(db, `profiles/${authUid}`)).then(snap => { if (snap.exists()) setMyProfile(snap.val()); }).catch(() => {}); }
   };
 
@@ -1029,6 +1031,16 @@ export default function Game() {
     const allHit = currentShots.every(([r,c]) => botBoard[r][c] > 0);
     const sunkNow = botShips ? Object.values(botShips).filter(ship => ship.cells.every(([r,c]) => newAtkOverlay[r][c] === "hit" || newAtkOverlay[r][c] === "sunk")).length : 0;
     setMissionStats(prev => ({ ...prev, totalHits: prev.totalHits + currentShots.filter(([r,c]) => botBoard[r][c] > 0).length, perfectTurn: prev.perfectTurn || allHit, shipsSunk: Math.max(prev.shipsSunk, sunkNow) }));
+    // Streak tracking
+    const hitCount = currentShots.filter(([r,c]) => botBoard[r][c] > 0).length;
+    if (hitCount === currentShots.length && hitCount > 0) {
+      const newStreak = hitStreak + hitCount;
+      setHitStreak(newStreak);
+      const mult = newStreak >= 9 ? 4 : newStreak >= 6 ? 3 : newStreak >= 3 ? 2 : 1;
+      if (mult > 1) { setStreakToast({ streak: newStreak, mult }); setTimeout(() => setStreakToast(null), 2500); }
+    } else {
+      setHitStreak(0); setStreakToast(null);
+    }
     // Check if player won
     if (newMyHits >= 20) {
       setWinner("Tüm gemileri batırdın!"); setIsWin(true); setPhase("gameover");
@@ -1036,18 +1048,20 @@ export default function Game() {
       const sunkCount = botShips ? Object.values(botShips).filter(ship => ship.cells.every(([r,c]) => newAtkOverlay[r][c] === "hit" || newAtkOverlay[r][c] === "sunk")).length : 0;
       const elapsed = gameStartTime ? (Date.now() - gameStartTime) / 1000 : 999;
       setMissionStats(prev => ({ ...prev, wins: prev.wins + 1, botWin: true, gamesPlayed: prev.gamesPlayed + 1, totalHits: prev.totalHits + newMyHits, shipsSunk: prev.shipsSunk + sunkCount, fastWin: elapsed < 180 }));
-      // +2 gold for bot win
+      // +2 gold for bot win (with streak multiplier)
+      const streakMult = hitStreak >= 9 ? 4 : hitStreak >= 6 ? 3 : hitStreak >= 3 ? 2 : 1;
+      const botWinGold = 2 * streakMult;
       if (authUid && myProfile) {
-        const newGold = safeGold(myProfile.gold) + 2;
+        const newGold = safeGold(myProfile.gold) + botWinGold;
         get(ref(db, `profiles/${authUid}`)).then(snap => {
           if (snap.exists()) {
             const p = snap.val();
-            const clean = { ...p, gold: safeGold(p.gold) + 2 };
+            const clean = { ...p, gold: safeGold(p.gold) + botWinGold };
             set(ref(db, `profiles/${authUid}`), clean);
             setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev);
           }
         }).catch(() => {});
-        setGoldChange({ amount: 2 });
+        setGoldChange({ amount: botWinGold });
       }
     } else {
       setMyTurn(false);
@@ -1230,6 +1244,8 @@ export default function Game() {
       </div>
       <div style={{ fontSize:16,fontWeight:700,marginBottom:6,textAlign:"center",fontFamily:warrior,letterSpacing:3,textTransform:"uppercase",color:myTurn?t.accent:t.textDim,textShadow:myTurn?`0 0 20px ${t.accentGlow}`:"none",animation:myTurn?"fadeUp 0.3s ease-out":"none" }}>{myTurn?"⚡ SENİN SIRAN ⚡":(isBotGame?"🤖 Bot düşünüyor...":"Rakibin sırası...")}</div>
       <div style={{ fontSize:10,color:t.textDim,marginBottom:6,fontFamily:mono }}>İsabet: {myHits}/20 • Karavana: {oppHits}/20</div>
+      {streakToast && <div style={{ background:"rgba(251,191,36,0.15)",border:`1px solid ${t.gold}`,borderRadius:8,padding:"6px 14px",marginBottom:6,fontSize:14,color:t.gold,fontWeight:700,textAlign:"center",width:"100%",maxWidth:400,animation:"popIn 0.3s ease-out",fontFamily:warrior,letterSpacing:2 }}>🔥 {streakToast.streak} İSABET SERİSİ — x{streakToast.mult} ÇARPAN</div>}
+      {hitStreak > 0 && !streakToast && <div style={{ fontSize:10,color:t.gold,marginBottom:4,fontFamily:warrior,letterSpacing:1,textAlign:"center" }}>🔥 Seri: {hitStreak}</div>}
       {damageReport && <div style={{ background:"rgba(239,68,68,0.1)",border:`1px solid ${t.hit}`,borderRadius:8,padding:"6px 14px",marginBottom:6,fontSize:11,color:t.hit,fontWeight:700,textAlign:"center",width:"100%",maxWidth:400,animation:"slideIn 0.3s ease-out",fontFamily:warrior,letterSpacing:1 }}>⚠ {damageReport}</div>}
       <div style={{ display:"flex",gap:0,marginBottom:6,width:"100%",maxWidth:400 }}>
         <button onClick={()=>{setActiveBoard("attack");setMarkMode(false);}} style={{ flex:1,padding:"10px 0",fontSize:14,fontWeight:700,fontFamily:warrior,cursor:"pointer",background:isAttack?`linear-gradient(135deg,${t.accent},#0891b2)`:t.surfaceLight,color:isAttack?t.bg:t.textDim,border:`2px solid ${isAttack?t.accent:t.border}`,borderRadius:"10px 0 0 10px",letterSpacing:3,animation:myTurn&&isAttack?"borderGlow 2s infinite":"none" }}>⚔ SALDIRI</button>
