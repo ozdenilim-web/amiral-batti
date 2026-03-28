@@ -126,7 +126,20 @@ async function checkDailyReward(uid) {
   let streak = (profile.lastDailyReward && isConsecutiveDay(profile.lastDailyReward, now)) ? (profile.loginStreak || 0) + 1 : 1;
   const reward = calculateDailyReward(streak);
   const newGold = safeGold(profile.gold) + reward;
-  await update(profileRef, { gold: newGold, loginStreak: streak, lastDailyReward: now });
+  // Use set() with full clean profile to avoid NaN contamination from other fields
+  const cleanProfile = {
+    displayName: profile.displayName || "Denizci",
+    elo: (typeof profile.elo === "number" && !isNaN(profile.elo) && isFinite(profile.elo)) ? profile.elo : 1200,
+    wins: (typeof profile.wins === "number" && !isNaN(profile.wins) && isFinite(profile.wins)) ? profile.wins : 0,
+    losses: (typeof profile.losses === "number" && !isNaN(profile.losses) && isFinite(profile.losses)) ? profile.losses : 0,
+    totalGames: (typeof profile.totalGames === "number" && !isNaN(profile.totalGames) && isFinite(profile.totalGames)) ? profile.totalGames : 0,
+    gold: newGold,
+    loginStreak: streak,
+    lastDailyReward: now,
+    createdAt: profile.createdAt || Date.now(),
+    lastGameAt: profile.lastGameAt || null,
+  };
+  await set(profileRef, cleanProfile);
   return { reward, streak, newGold };
 }
 
@@ -178,27 +191,21 @@ async function ensureProfile(uid, displayName) {
     return profile;
   }
   const existing = snap.val();
-  // Sanitize all numeric fields — any NaN/undefined corrupts the whole update
+  // ALWAYS build a clean profile — never trust existing data
   const sanitized = {
-    displayName: existing.displayName || displayName || "Denizci",
-    elo: (typeof existing.elo === "number" && !isNaN(existing.elo)) ? existing.elo : 1200,
-    wins: (typeof existing.wins === "number" && !isNaN(existing.wins)) ? existing.wins : 0,
-    losses: (typeof existing.losses === "number" && !isNaN(existing.losses)) ? existing.losses : 0,
-    totalGames: (typeof existing.totalGames === "number" && !isNaN(existing.totalGames)) ? existing.totalGames : 0,
+    displayName: (displayName && displayName.trim()) || existing.displayName || "Denizci",
+    elo: (typeof existing.elo === "number" && !isNaN(existing.elo) && isFinite(existing.elo)) ? existing.elo : 1200,
+    wins: (typeof existing.wins === "number" && !isNaN(existing.wins) && isFinite(existing.wins)) ? existing.wins : 0,
+    losses: (typeof existing.losses === "number" && !isNaN(existing.losses) && isFinite(existing.losses)) ? existing.losses : 0,
+    totalGames: (typeof existing.totalGames === "number" && !isNaN(existing.totalGames) && isFinite(existing.totalGames)) ? existing.totalGames : 0,
     gold: safeGold(existing.gold),
-    loginStreak: (typeof existing.loginStreak === "number" && !isNaN(existing.loginStreak)) ? existing.loginStreak : 0,
+    loginStreak: (typeof existing.loginStreak === "number" && !isNaN(existing.loginStreak) && isFinite(existing.loginStreak)) ? existing.loginStreak : 0,
     lastDailyReward: existing.lastDailyReward || null,
     createdAt: existing.createdAt || Date.now(),
     lastGameAt: existing.lastGameAt || null,
   };
-  // Check if any field was corrupted
-  const needsFix = sanitized.gold !== existing.gold || sanitized.elo !== existing.elo || sanitized.wins !== existing.wins || sanitized.losses !== existing.losses || sanitized.totalGames !== existing.totalGames || existing.loginStreak === undefined;
-  if (needsFix) {
-    await set(profileRef, sanitized); // set() overwrites everything — no NaN contamination
-  } else if (displayName && existing.displayName !== displayName) {
-    await update(profileRef, { displayName });
-    sanitized.displayName = displayName;
-  }
+  // ALWAYS overwrite with set() — kills any hidden NaN in any field
+  await set(profileRef, sanitized);
   return sanitized;
 }
 
@@ -209,13 +216,32 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
   const loserSnap = await get(ref(db, `profiles/${loserUid}`));
   if (!winnerSnap.exists() || !loserSnap.exists()) return;
   const wd = winnerSnap.val(), ld = loserSnap.val();
-  const wNew = calculateElo(wd.elo||1200, ld.elo||1200, true), lNew = calculateElo(ld.elo||1200, wd.elo||1200, false);
+  const wOldElo = (typeof wd.elo === "number" && !isNaN(wd.elo)) ? wd.elo : 1200;
+  const lOldElo = (typeof ld.elo === "number" && !isNaN(ld.elo)) ? ld.elo : 1200;
+  const wNew = calculateElo(wOldElo, lOldElo, true), lNew = calculateElo(lOldElo, wOldElo, false);
   const now = Date.now(), winGold = arena?arena.winGold:0, loseGold = arena?arena.loseGold:0;
-  const wGoldFinal = safeGold(wd.gold) + winGold;
-  const lGoldFinal = safeGold(ld.gold) + loseGold;
-  await update(ref(db, `profiles/${winnerUid}`), { elo:wNew, wins:(wd.wins||0)+1, totalGames:(wd.totalGames||0)+1, gold:wGoldFinal, lastGameAt:now });
-  await update(ref(db, `profiles/${loserUid}`), { elo:lNew, losses:(ld.losses||0)+1, totalGames:(ld.totalGames||0)+1, gold:lGoldFinal, lastGameAt:now });
-  return { winnerNewElo:wNew, loserNewElo:lNew, winnerOldElo:wd.elo||1200, loserOldElo:ld.elo||1200, winGold, loseGold };
+  // Full clean profiles with set() — no NaN can survive
+  const winnerProfile = {
+    displayName: wd.displayName || "Denizci", elo: wNew,
+    wins: ((typeof wd.wins === "number" && !isNaN(wd.wins)) ? wd.wins : 0) + 1,
+    losses: (typeof wd.losses === "number" && !isNaN(wd.losses)) ? wd.losses : 0,
+    totalGames: ((typeof wd.totalGames === "number" && !isNaN(wd.totalGames)) ? wd.totalGames : 0) + 1,
+    gold: safeGold(wd.gold) + winGold,
+    loginStreak: (typeof wd.loginStreak === "number" && !isNaN(wd.loginStreak)) ? wd.loginStreak : 0,
+    lastDailyReward: wd.lastDailyReward || null, createdAt: wd.createdAt || now, lastGameAt: now,
+  };
+  const loserProfile = {
+    displayName: ld.displayName || "Denizci", elo: lNew,
+    wins: (typeof ld.wins === "number" && !isNaN(ld.wins)) ? ld.wins : 0,
+    losses: ((typeof ld.losses === "number" && !isNaN(ld.losses)) ? ld.losses : 0) + 1,
+    totalGames: ((typeof ld.totalGames === "number" && !isNaN(ld.totalGames)) ? ld.totalGames : 0) + 1,
+    gold: safeGold(ld.gold) + loseGold,
+    loginStreak: (typeof ld.loginStreak === "number" && !isNaN(ld.loginStreak)) ? ld.loginStreak : 0,
+    lastDailyReward: ld.lastDailyReward || null, createdAt: ld.createdAt || now, lastGameAt: now,
+  };
+  await set(ref(db, `profiles/${winnerUid}`), winnerProfile);
+  await set(ref(db, `profiles/${loserUid}`), loserProfile);
+  return { winnerNewElo:wNew, loserNewElo:lNew, winnerOldElo:wOldElo, loserOldElo:lOldElo, winGold, loseGold };
 }
 
 async function fetchLeaderboard(count=50) {
@@ -714,7 +740,7 @@ export default function Game() {
     if (!authUid) { setMessage("Bağlantı bekleniyor..."); return; }
     try { const p = await ensureProfile(authUid, playerName.trim()); setMyProfile(p); } catch (e) { console.error(e); }
     const arena = arenaOverride || selectedArena;
-    if (arena) { const cg = safeGold(myProfile?.gold); if (cg < arena.entryFee) { setMessage("Yeterli altının yok!"); return; } const newGold = cg - arena.entryFee; await update(ref(db, `profiles/${authUid}`), { gold: newGold }); setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev); setEntryFeeDeducted(arena.entryFee); }
+    if (arena) { const cg = safeGold(myProfile?.gold); if (cg < arena.entryFee) { setMessage("Yeterli altının yok!"); return; } const newGold = cg - arena.entryFee; const cleanP = await ensureProfile(authUid); cleanP.gold = newGold; await set(ref(db, `profiles/${authUid}`), cleanP); setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev); setEntryFeeDeducted(arena.entryFee); }
     const id = Math.random().toString(36).substring(2, 8).toUpperCase();
     roomIdRef.current = id; setRoomId(id); setPlayerNum(1); playerNumRef.current = 1;
     await set(ref(db, `rooms/${id}`), { p1_name: playerName.trim(), p1_uid: authUid, p2_name: null, p2_uid: null, phase: "waiting", p1_board: null, p2_board: null, p1_ships: null, p2_ships: null, attacks: null, turn: 1, clocks: { p1: CLOCK_SECONDS, p2: CLOCK_SECONDS }, winner: null, winReason: null, eloProcessed: false, arena: arena?.id || null, created: Date.now() });
@@ -728,7 +754,7 @@ export default function Game() {
     const rid = inputRoomId.trim().toUpperCase();
     const snapshot = await get(ref(db, `rooms/${rid}`)); if (!snapshot.exists()) { setMessage("Oda bulunamadı!"); return; }
     const game = snapshot.val(); if (game.p2_name) { setMessage("Oda dolu!"); return; }
-    if (game.arena) { const arena = ARENAS.find(a => a.id === game.arena); if (arena) { const cg = safeGold(myProfile?.gold); if (cg < arena.entryFee) { setMessage(`Bu arena için ${arena.entryFee} 🪙 gerekli!`); return; } const newGold = cg - arena.entryFee; await update(ref(db, `profiles/${authUid}`), { gold: newGold }); setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev); setEntryFeeDeducted(arena.entryFee); } }
+    if (game.arena) { const arena = ARENAS.find(a => a.id === game.arena); if (arena) { const cg = safeGold(myProfile?.gold); if (cg < arena.entryFee) { setMessage(`Bu arena için ${arena.entryFee} 🪙 gerekli!`); return; } const newGold = cg - arena.entryFee; const cleanP = await ensureProfile(authUid); cleanP.gold = newGold; await set(ref(db, `profiles/${authUid}`), cleanP); setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev); setEntryFeeDeducted(arena.entryFee); } }
     roomIdRef.current = rid; setRoomId(rid); setPlayerNum(2); playerNumRef.current = 2; setOpponentName(game.p1_name);
     await update(ref(db, `rooms/${rid}`), { p2_name: playerName.trim(), p2_uid: authUid, phase: "placing" });
     setPhase("placing"); listenToRoom(rid, 2);
@@ -759,7 +785,7 @@ export default function Game() {
     if (!authUid) { setMessage("Bağlantı bekleniyor..."); return; }
     try { const p = await ensureProfile(authUid, playerName.trim()); setMyProfile(p); } catch (e) { console.error(e); }
     const arena = arenaOverride || null;
-    if (arena) { const cg = safeGold(myProfile?.gold); if (cg < arena.entryFee) { setMessage("Yeterli altının yok!"); return; } const newGold = cg - arena.entryFee; await update(ref(db, `profiles/${authUid}`), { gold: newGold }); setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev); setEntryFeeDeducted(arena.entryFee); }
+    if (arena) { const cg = safeGold(myProfile?.gold); if (cg < arena.entryFee) { setMessage("Yeterli altının yok!"); return; } const newGold = cg - arena.entryFee; const cleanP = await ensureProfile(authUid); cleanP.gold = newGold; await set(ref(db, `profiles/${authUid}`), cleanP); setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev); setEntryFeeDeducted(arena.entryFee); }
     setMatchmaking(true);
     const matchPromise = findMatch(authUid, playerName.trim(), myProfile?.elo || 1200, arena?.id || null);
     setMatchCancelFn(() => matchPromise._cancel);
@@ -771,7 +797,7 @@ export default function Game() {
         setMatchmaking(false); setMatchCancelFn(null);
         if (arena && entryFeeDeducted) {
           const refundGold = safeGold(myProfile?.gold) + arena.entryFee;
-          update(ref(db, `profiles/${authUid}`), { gold: refundGold }).catch(() => {});
+          ensureProfile(authUid).then(cleanP => { cleanP.gold = refundGold; set(ref(db, `profiles/${authUid}`), cleanP); }).catch(() => {});
           setMyProfile(prev => prev ? { ...prev, gold: refundGold } : prev);
           setEntryFeeDeducted(null);
           setMessage("Rakip bulunamadı — altının iade edildi!");
