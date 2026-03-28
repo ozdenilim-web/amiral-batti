@@ -219,7 +219,7 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
   const wOldElo = (typeof wd.elo === "number" && !isNaN(wd.elo)) ? wd.elo : 1200;
   const lOldElo = (typeof ld.elo === "number" && !isNaN(ld.elo)) ? ld.elo : 1200;
   const wNew = calculateElo(wOldElo, lOldElo, true), lNew = calculateElo(lOldElo, wOldElo, false);
-  const now = Date.now(), winGold = arena?arena.winGold:0, loseGold = arena?arena.loseGold:0;
+  const now = Date.now(), winGold = arena?arena.winGold:100, loseGold = arena?arena.loseGold:20;
   // Full clean profiles with set() — no NaN can survive
   const winnerProfile = {
     displayName: wd.displayName || "Denizci", elo: wNew,
@@ -317,21 +317,11 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, ov
 function ShipStatusPanel({ title, ships, hitCells, color }) {
   if(!ships)return null;
   const shipList = Object.values(ships);
-  return (<div style={{ background:t.surface,border:`1px solid ${t.border}`,borderRadius:8,padding:"8px 10px",marginTop:6 }}>
-    <div style={{ fontSize:10,letterSpacing:3,color:t.textDim,marginBottom:4,fontWeight:700,fontFamily:warrior,textTransform:"uppercase" }}>{title}</div>
-    <div style={{ display:"flex",flexWrap:"wrap",gap:4 }}>
-      {shipList.map((ship,idx)=>{const shipDef=SHIPS.find(s=>s.id===ship.id);const cells=ship.cells||[];const hits=cells.filter(([r,c])=>hitCells?.[r]?.[c]).length;const sunk=hits===cells.length&&cells.length>0;return(<div key={idx} style={{ display:"flex",alignItems:"center",gap:3 }}><span style={{ fontSize:9,color:sunk?t.sunk:t.text,textDecoration:sunk?"line-through":"none",fontFamily:mono }}>{shipDef?.name?.charAt(0)||"?"}</span><div style={{ display:"flex",gap:1 }}>{cells.map((_,i)=><div key={i} style={{ width:7,height:7,borderRadius:1,background:i<hits?(sunk?t.sunk:t.hit):color||t.accent,opacity:i<hits?1:0.3 }} />)}</div></div>);})}
+  return (<div style={{ background:t.surface,border:`1px solid ${t.border}`,borderRadius:10,padding:"12px 14px",marginTop:8 }}>
+    <div style={{ fontSize:12,letterSpacing:3,color:t.textDim,marginBottom:6,fontWeight:700,fontFamily:warrior,textTransform:"uppercase" }}>{title}</div>
+    <div style={{ display:"flex",flexWrap:"wrap",gap:8 }}>
+      {shipList.map((ship,idx)=>{const shipDef=SHIPS.find(s=>s.id===ship.id);const cells=ship.cells||[];const hits=cells.filter(([r,c])=>hitCells?.[r]?.[c]).length;const sunk=hits===cells.length&&cells.length>0;return(<div key={idx} style={{ display:"flex",alignItems:"center",gap:5 }}><span style={{ fontSize:12,fontWeight:700,color:sunk?t.sunk:t.text,textDecoration:sunk?"line-through":"none",fontFamily:mono }}>{shipDef?.name||"?"}</span><div style={{ display:"flex",gap:2 }}>{cells.map((_,i)=><div key={i} style={{ width:10,height:10,borderRadius:2,background:i<hits?(sunk?t.sunk:t.hit):color||t.accent,opacity:i<hits?1:0.3 }} />)}</div></div>);})}
     </div>
-  </div>);
-}
-
-function NotationLog({ entries }) {
-  const logRef = useRef(null);
-  useEffect(()=>{if(logRef.current)logRef.current.scrollTop=logRef.current.scrollHeight;},[entries]);
-  return (<div ref={logRef} style={{ background:t.surface,border:`1px solid ${t.border}`,borderRadius:8,padding:"8px 10px",maxHeight:100,overflowY:"auto",marginTop:6 }}>
-    <div style={{ fontSize:9,letterSpacing:2,color:t.textDim,marginBottom:4,fontWeight:700,fontFamily:warrior }}>NOTASYON</div>
-    {entries.length===0&&<div style={{ fontSize:9,color:t.textDim,fontFamily:mono }}>Henüz atış yok</div>}
-    <div style={{ display:"flex",flexWrap:"wrap",gap:4 }}>{entries.map((entry,i)=><div key={i} style={{ fontSize:9,color:entry.isMine?t.accent:t.hit,fontFamily:mono }}><span style={{ fontWeight:700 }}>{entry.name?.charAt(0)}#{entry.turnNum}</span> {entry.coords.join(",")}</div>)}</div>
   </div>);
 }
 
@@ -882,13 +872,8 @@ export default function Game() {
         {message && <div style={{ marginTop:14,color:t.hit,fontSize:11 }}>{message}</div>}
       </div>
       <div style={{ display:"flex",gap:8,marginTop:14,width:"100%",maxWidth:340,animation:"fadeUp 0.6s ease-out" }}>
-        <button onClick={()=>startQuickMatch(null)} disabled={matchmaking||authLoading} style={{ flex:1,padding:"14px 0",background:(matchmaking||authLoading)?t.surfaceLight:`linear-gradient(135deg,#34d399,#059669)`,color:(matchmaking||authLoading)?t.textDim:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,letterSpacing:2,cursor:(matchmaking||authLoading)?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:(matchmaking||authLoading)?"none":"0 0 15px rgba(52,211,153,0.3)" }}>{matchmaking?"EŞLEŞTİRİLİYOR...":"⚡ HIZLI OYUN"}</button>
-        <button onClick={()=>{if(!playerName.trim()){setMessage("Adını yaz!");return;}if(!authUid){setMessage("Bağlantı bekleniyor...");return;}ensureProfile(authUid,playerName.trim()).then(p=>setMyProfile(p)).catch(()=>{});setShowOnlineLobby(true);}} style={{ flex:1,padding:"14px 0",background:"transparent",color:t.accent,border:`1px solid ${t.accent}`,borderRadius:8,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🌐 ONLİNE SALON</button>
-      </div>
-      {matchmaking && <button onClick={async()=>{if(matchCancelFn)await matchCancelFn();setMatchmaking(false);setMatchCancelFn(null);}} style={{ marginTop:8,padding:"8px 20px",background:"transparent",color:t.hit,border:`1px solid ${t.hit}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior,animation:"fadeUp 0.3s ease-out" }}>İPTAL</button>}
-      <div style={{ display:"flex",gap:8,marginTop:16,width:"100%",maxWidth:340,animation:"fadeUp 0.7s ease-out" }}>
-        <button onClick={()=>{if(!playerName.trim()){setMessage("Adını yaz!");return;}if(!authUid){setMessage("Bağlantı bekleniyor...");return;}ensureProfile(authUid,playerName.trim()).then(p=>setMyProfile(p)).catch(()=>{});setShowArenaSelect(true);}} style={{ flex:1,padding:"10px 0",background:"transparent",color:"#a78bfa",border:"1px solid #a78bfa",borderRadius:8,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:"0 0 10px rgba(167,139,250,0.3)" }}>⚔ ARENA</button>
-        <button onClick={()=>setShowLeaderboard(true)} style={{ flex:1,padding:"10px 0",background:"transparent",color:t.gold,border:`1px solid ${t.gold}`,borderRadius:8,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 0 10px ${t.goldGlow}` }}>🏆 SIRALAMA</button>
+        <button onClick={()=>{if(!playerName.trim()){setMessage("Adını yaz!");return;}if(!authUid){setMessage("Bağlantı bekleniyor...");return;}setShowArenaSelect(true);}} disabled={authLoading} style={{ flex:1,padding:"14px 0",background:authLoading?"transparent":`linear-gradient(135deg,rgba(167,139,250,0.15),rgba(167,139,250,0.05))`,color:"#a78bfa",border:"1px solid #a78bfa",borderRadius:8,fontSize:14,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:"0 0 10px rgba(167,139,250,0.3)",opacity:authLoading?0.4:1 }}>⚔ ARENA</button>
+        <button onClick={()=>setShowLeaderboard(true)} style={{ flex:1,padding:"14px 0",background:"transparent",color:t.gold,border:`1px solid ${t.gold}`,borderRadius:8,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 0 10px ${t.goldGlow}` }}>🏆 SIRALAMA</button>
       </div>
       {dailyReward && <DailyRewardPopup reward={dailyReward.reward} streak={dailyReward.streak} onClose={() => { setMyProfile(prev => prev ? { ...prev, gold: dailyReward.newGold, loginStreak: dailyReward.streak } : prev); setDailyReward(null); }} />}
     </div>);
@@ -955,7 +940,6 @@ export default function Game() {
       <div style={{ width:"100%",maxWidth:400,border:myTurn&&isAttack?`2px solid ${t.accent}`:"1px solid transparent",borderRadius:12,padding:2,animation:myTurn&&isAttack?"borderGlow 2s infinite":"none" }}>
         {isAttack?<><Grid board={emptyGrid()} cellSize={cellSize} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} /><ShipStatusPanel title="RAKİP GEMİLER" ships={oppShipsData} hitCells={atkHitMap} color={t.hit} /></>:<><Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} /><ShipStatusPanel title="GEMİLERİM" ships={myShipsData} hitCells={defHitMap} color={t.accent} /></>}
       </div>
-      <NotationLog entries={notationEntries} />
       {isTestMode() && <button onClick={forceEndGame} style={{ marginTop:8,padding:"8px 16px",background:"rgba(251,191,36,0.2)",color:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>🧪 OYUNU BİTİR (TEST)</button>}
       {myTurn && isAttack && !markMode && (<div style={{ position:"fixed",bottom:0,left:0,right:0,background:"rgba(10,14,23,0.96)",backdropFilter:"blur(10px)",borderTop:`1px solid ${t.border}`,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"center",gap:14,zIndex:100 }}>
         <div style={{ display:"flex",gap:5 }}>{[0,1,2].map(i=><div key={i} style={{ width:14,height:14,borderRadius:"50%",background:i<currentShots.length?t.hit:t.accent,opacity:i<currentShots.length?0.3:1,animation:i<currentShots.length?"popIn 0.3s ease-out":"none" }} />)}</div>
