@@ -61,6 +61,42 @@ function getTestGold() { return isTestMode() ? 5000 : STARTING_GOLD; }
 // === BOT AI ===
 const BOT_NAMES = ["Kaptan Yıldız","Denizci Ali","Amiral Fırtına","Korsan Barış","Teğmen Dalga","Yüzbaşı Rüzgar","Kaptan Bulut","Denizci Efe"];
 
+// === GÖREV SİSTEMİ ===
+const ALL_MISSIONS = [
+  { id: "sink3", text: "3 gemi batır", icon: "🚢", check: (stats) => stats.shipsSunk >= 3 },
+  { id: "sink5", text: "5 gemi batır", icon: "🔥", check: (stats) => stats.shipsSunk >= 5 },
+  { id: "win1", text: "1 oyun kazan", icon: "🏆", check: (stats) => stats.wins >= 1 },
+  { id: "win2", text: "2 oyun kazan", icon: "⭐", check: (stats) => stats.wins >= 2 },
+  { id: "hit10", text: "10 isabet yap", icon: "🎯", check: (stats) => stats.totalHits >= 10 },
+  { id: "hit15", text: "15 isabet yap", icon: "💥", check: (stats) => stats.totalHits >= 15 },
+  { id: "noMiss", text: "Turda karavana yeme", icon: "🛡", check: (stats) => stats.perfectTurn },
+  { id: "fast", text: "3 dakikada kazan", icon: "⚡", check: (stats) => stats.fastWin },
+  { id: "botWin", text: "Bot'u yen", icon: "🤖", check: (stats) => stats.botWin },
+  { id: "play3", text: "3 oyun oyna", icon: "⚓", check: (stats) => stats.gamesPlayed >= 3 },
+];
+
+function pickDailyMissions(seed) {
+  // Günlük seed ile her gün aynı 3 görev
+  const day = Math.floor(seed / 86400000);
+  const shuffled = [...ALL_MISSIONS];
+  let rng = day * 2654435761;
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    rng = (rng * 1664525 + 1013904223) & 0x7fffffff;
+    const j = rng % (i + 1);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled.slice(0, 3);
+}
+
+function generateChestReward() {
+  // Belirsiz ödül — dopaminerjik tahmin hatası
+  const roll = Math.random();
+  if (roll < 0.05) return { gold: 500, label: "EFSANE", color: "#fbbf24", icon: "👑" };
+  if (roll < 0.20) return { gold: 200, label: "NADİR", color: "#a78bfa", icon: "💎" };
+  if (roll < 0.50) return { gold: 100, label: "İYİ", color: "#06b6d4", icon: "🎁" };
+  return { gold: 50, label: "NORMAL", color: "#34d399", icon: "📦" };
+}
+
 function botPlaceShips() {
   const board = emptyGrid();
   const placed = [];
@@ -380,6 +416,47 @@ function ShipStatusPanel({ title, ships, hitCells, color }) {
   </div>);
 }
 
+function MissionPanel({ missions, missionProgress, onClose }) {
+  const completed = missions.filter(m => missionProgress[m.id]);
+  const allDone = completed.length === 3;
+  return (<div style={{ background:`linear-gradient(135deg,${t.surface},rgba(17,24,39,0.95))`,border:`1px solid ${allDone?"#fbbf24":t.border}`,borderRadius:12,padding:"14px 16px",width:"100%",maxWidth:340,marginTop:10,boxShadow:allDone?`0 0 20px ${t.goldGlow}`:"none",animation:"fadeUp 0.4s ease-out" }}>
+    <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10 }}>
+      <div style={{ fontSize:13,fontWeight:700,color:t.accent,fontFamily:warrior,letterSpacing:2 }}>GÜNLÜK GÖREVLER</div>
+      <div style={{ fontSize:10,color:t.textDim,fontFamily:mono }}>{completed.length}/3</div>
+    </div>
+    {missions.map((m, i) => {
+      const done = missionProgress[m.id];
+      return (<div key={m.id} style={{ display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:done?"rgba(52,211,153,0.08)":"transparent",borderRadius:6,marginBottom:4,border:`1px solid ${done?"rgba(52,211,153,0.3)":t.border}` }}>
+        <span style={{ fontSize:18 }}>{m.icon}</span>
+        <span style={{ flex:1,fontSize:12,color:done?t.text:t.textDim,fontFamily:mono,textDecoration:done?"line-through":"none" }}>{m.text}</span>
+        {done ? <span style={{ fontSize:14,color:"#34d399" }}>✓</span> : <span style={{ fontSize:10,color:t.textDim }}>○</span>}
+      </div>);
+    })}
+    {allDone && <div style={{ marginTop:8,textAlign:"center" }}><div style={{ fontSize:11,color:t.gold,fontFamily:warrior,letterSpacing:2,animation:"pulse 1.5s infinite" }}>SANDIK HAZIR! Lobiye dön ve aç!</div></div>}
+  </div>);
+}
+
+function ChestPopup({ reward, onClose }) {
+  const [opened, setOpened] = useState(false);
+  const [shake, setShake] = useState(true);
+  useEffect(() => { const t1 = setTimeout(() => setShake(false), 1500); return () => clearTimeout(t1); }, []);
+  return (<div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999 }} onClick={opened ? onClose : undefined}>
+    <div onClick={e=>e.stopPropagation()} style={{ background:`linear-gradient(135deg,${t.surface},rgba(17,24,39,0.98))`,border:`2px solid ${reward?reward.color:t.gold}`,borderRadius:16,padding:"30px 36px",textAlign:"center",maxWidth:320,width:"90%",boxShadow:`0 0 60px ${t.goldGlow}`,animation:"scaleUp 0.5s ease-out" }}>
+      {!opened ? (<>
+        <div style={{ fontSize:64,marginBottom:12,animation:shake?"defeatShake 0.5s ease-in-out infinite":"popIn 0.3s ease-out",cursor:"pointer" }} onClick={()=>setOpened(true)}>🎁</div>
+        <div style={{ fontSize:18,fontWeight:700,color:t.gold,fontFamily:warrior,letterSpacing:3,marginBottom:8 }}>GİZEMLİ SANDIK</div>
+        <div style={{ fontSize:12,color:t.textDim,fontFamily:mono,marginBottom:12 }}>3 görevi tamamladın!</div>
+        <button onClick={()=>setOpened(true)} style={{ padding:"12px 36px",background:`linear-gradient(135deg,${t.gold},#d97706)`,color:t.bg,border:"none",borderRadius:8,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,animation:"borderGlow 2s infinite" }}>SANDIĞI AÇ</button>
+      </>) : (<>
+        <div style={{ fontSize:56,marginBottom:8,animation:"popIn 0.5s ease-out" }}>{reward.icon}</div>
+        <div style={{ fontSize:14,fontWeight:700,color:reward.color,fontFamily:warrior,letterSpacing:3,marginBottom:4,animation:"fadeUp 0.3s ease-out" }}>{reward.label}</div>
+        <div style={{ fontSize:42,fontWeight:800,color:t.gold,fontFamily:warrior,marginBottom:8,textShadow:`0 0 30px ${t.goldGlow}`,animation:"scaleUp 0.6s ease-out" }}>+{reward.gold} 🪙</div>
+        <button onClick={onClose} style={{ marginTop:8,padding:"12px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:8,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>TOPLA</button>
+      </>)}
+    </div>
+  </div>);
+}
+
 function LoadingScreen({ onReady }) {
   const [step,setStep] = useState(0);
   const msgs = ["Gemiler denize indiriliyor...","Toplar hazırlanıyor...","Radarlar aktif ediliyor...","Düşman hattı taranıyor...","Savaş pozisyonu alınıyor..."];
@@ -616,6 +693,12 @@ export default function Game() {
   const [botShips, setBotShips] = useState(null);
   const [botAttackOverlay, setBotAttackOverlay] = useState(() => emptyGrid().map(r => r.map(() => null)));
   const [botName, setBotName] = useState("");
+  const [dailyMissions, setDailyMissions] = useState(() => pickDailyMissions(Date.now()));
+  const [missionProgress, setMissionProgress] = useState({});
+  const [missionStats, setMissionStats] = useState({ shipsSunk:0, wins:0, totalHits:0, perfectTurn:false, fastWin:false, botWin:false, gamesPlayed:0 });
+  const [chestReward, setChestReward] = useState(null);
+  const [chestClaimed, setChestClaimed] = useState(false);
+  const [gameStartTime, setGameStartTime] = useState(null);
 
   const unsubRef = useRef(null);
   const playerNumRef = useRef(null);
@@ -634,6 +717,13 @@ export default function Game() {
   const cellSize = typeof window !== "undefined" ? Math.min(30, Math.floor((Math.min(window.innerWidth - 24, 400)) / 12)) : 28;
   useEffect(() => { myTurnRef.current = myTurn; }, [myTurn]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
+
+  // Mission progress checker
+  useEffect(() => {
+    const newProgress = {};
+    dailyMissions.forEach(m => { if (m.check(missionStats)) newProgress[m.id] = true; });
+    setMissionProgress(newProgress);
+  }, [missionStats, dailyMissions]);
 
   useEffect(() => {
     if (!authUid || !playerName.trim()) return;
@@ -844,7 +934,7 @@ export default function Game() {
 
   const resetGame = () => {
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
-    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName("");
+    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null);
     if (authUid) { get(ref(db, `profiles/${authUid}`)).then(snap => { if (snap.exists()) setMyProfile(snap.val()); }).catch(() => {}); }
   };
 
@@ -856,6 +946,7 @@ export default function Game() {
     const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
     setIsBotGame(true);
     setBotBoard(bot.board);
+    setGameStartTime(Date.now());
     const shipData = {};
     bot.ships.forEach((s, i) => { shipData[i] = { id: s.id, cells: s.cells }; });
     setBotShips(shipData);
@@ -904,6 +995,7 @@ export default function Game() {
     // Check if bot won
     if (newOppHits >= 20) {
       setWinner("Gemilerin battı!"); setIsWin(false); setPhase("gameover");
+      setMissionStats(prev => ({ ...prev, gamesPlayed: prev.gamesPlayed + 1 }));
     } else {
       setTimeout(() => { setMyTurn(true); setActiveBoard("attack"); }, 1500);
     }
@@ -933,9 +1025,17 @@ export default function Game() {
     setBlinkCells(currentShots.map(([r,c]) => [r,c]));
     setTimeout(() => setBlinkCells([]), 3000);
     setCurrentShots([]);
+    // Track mission stats
+    const allHit = currentShots.every(([r,c]) => botBoard[r][c] > 0);
+    const sunkNow = botShips ? Object.values(botShips).filter(ship => ship.cells.every(([r,c]) => newAtkOverlay[r][c] === "hit" || newAtkOverlay[r][c] === "sunk")).length : 0;
+    setMissionStats(prev => ({ ...prev, totalHits: prev.totalHits + currentShots.filter(([r,c]) => botBoard[r][c] > 0).length, perfectTurn: prev.perfectTurn || allHit, shipsSunk: Math.max(prev.shipsSunk, sunkNow) }));
     // Check if player won
     if (newMyHits >= 20) {
       setWinner("Tüm gemileri batırdın!"); setIsWin(true); setPhase("gameover");
+      // Count sunk ships
+      const sunkCount = botShips ? Object.values(botShips).filter(ship => ship.cells.every(([r,c]) => newAtkOverlay[r][c] === "hit" || newAtkOverlay[r][c] === "sunk")).length : 0;
+      const elapsed = gameStartTime ? (Date.now() - gameStartTime) / 1000 : 999;
+      setMissionStats(prev => ({ ...prev, wins: prev.wins + 1, botWin: true, gamesPlayed: prev.gamesPlayed + 1, totalHits: prev.totalHits + newMyHits, shipsSunk: prev.shipsSunk + sunkCount, fastWin: elapsed < 180 }));
       // +2 gold for bot win
       if (authUid && myProfile) {
         const newGold = safeGold(myProfile.gold) + 2;
@@ -1059,6 +1159,21 @@ export default function Game() {
         <button onClick={()=>setShowLeaderboard(true)} style={{ flex:1,padding:"14px 0",background:"transparent",color:t.gold,border:`1px solid ${t.gold}`,borderRadius:8,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 0 10px ${t.goldGlow}` }}>🏆 SIRALAMA</button>
       </div>
       <button onClick={startBotGame} style={{ marginTop:10,padding:"14px 0",width:"100%",maxWidth:340,background:`linear-gradient(135deg,rgba(52,211,153,0.12),rgba(52,211,153,0.04))`,color:"#34d399",border:"1px solid #34d399",borderRadius:8,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:"0 0 10px rgba(52,211,153,0.2)",animation:"fadeUp 0.8s ease-out" }}>🤖 BOTLARLA OYNA</button>
+      <MissionPanel missions={dailyMissions} missionProgress={missionProgress} />
+      {Object.keys(missionProgress).length >= 3 && !chestClaimed && (
+        <button onClick={() => { const reward = generateChestReward(); setChestReward(reward); }} style={{ marginTop:10,padding:"16px 0",width:"100%",maxWidth:340,background:`linear-gradient(135deg,rgba(251,191,36,0.2),rgba(251,191,36,0.05))`,color:t.gold,border:`2px solid ${t.gold}`,borderRadius:10,fontSize:16,fontWeight:700,letterSpacing:3,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 0 25px ${t.goldGlow}`,animation:"borderGlow 2s infinite" }}>🎁 SANDIĞI AÇ</button>
+      )}
+      {chestReward && <ChestPopup reward={chestReward} onClose={() => {
+        // Gold'u Firebase'e yaz
+        if (authUid) {
+          const newGold = safeGold(myProfile?.gold) + chestReward.gold;
+          get(ref(db, `profiles/${authUid}`)).then(snap => {
+            if (snap.exists()) { const p = snap.val(); set(ref(db, `profiles/${authUid}`), { ...p, gold: safeGold(p.gold) + chestReward.gold }); }
+          }).catch(() => {});
+          setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev);
+        }
+        setChestClaimed(true); setChestReward(null);
+      }} />}
       {dailyReward && <DailyRewardPopup reward={dailyReward.reward} streak={dailyReward.streak} onClose={() => { setMyProfile(prev => prev ? { ...prev, gold: dailyReward.newGold, loginStreak: dailyReward.streak } : prev); setDailyReward(null); }} />}
     </div>);
   }
