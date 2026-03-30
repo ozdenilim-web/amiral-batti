@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { db, auth, ref, set, get, onValue, update, remove, onDisconnect, runTransaction, query, orderByChild, limitToLast, signInAnonymously, onAuthStateChanged } from "../lib/firebase";
+import { db, auth, googleProvider, ref, set, get, onValue, update, remove, onDisconnect, runTransaction, query, orderByChild, limitToLast, signInAnonymously, onAuthStateChanged, signInWithPopup, signOut } from "../lib/firebase";
 
 const ROWS = 11;
 const COLS = 11;
@@ -872,11 +872,57 @@ export default function Game() {
       return;
     }
     const unsub = onAuthStateChanged(auth, async (user) => {
-      if (user) { setAuthUid(user.uid); try { const profile = await ensureProfile(user.uid, null); setMyProfile(profile); if (profile.displayName) setPlayerName(profile.displayName); } catch (e) { console.error("Profile error:", e); } setAuthReady(true); }
-      else { try { await signInAnonymously(auth); } catch (e) { console.error("Auth error:", e); setAuthReady(true); } }
+      if (user) {
+        setAuthUid(user.uid);
+        try {
+          const profile = await ensureProfile(user.uid, null);
+          setMyProfile(profile);
+          if (profile.displayName && profile.displayName !== "Denizci") {
+            setPlayerName(profile.displayName);
+            setPhase(prev => prev === "splash" ? prev : "lobby");
+          }
+        } catch (e) { console.error("Profile error:", e); }
+        setAuthReady(true);
+      } else {
+        setAuthUid(null); setMyProfile(null); setAuthReady(true);
+      }
     });
     return () => unsub();
   }, []);
+
+  const handleGoogleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (e) {
+      console.error("Google login error:", e);
+      setMessage("Giriş başarısız: " + (e.code === "auth/popup-closed-by-user" ? "Pencere kapatıldı" : e.message));
+    }
+  };
+
+  const handleSetUsername = async () => {
+    const name = playerName.trim();
+    if (!name || name.length < 2) { setMessage("En az 2 karakter!"); return; }
+    if (name.length > 16) { setMessage("En fazla 16 karakter!"); return; }
+    // Check if username is taken
+    const profilesSnap = await get(ref(db, "profiles"));
+    if (profilesSnap.exists()) {
+      let taken = false;
+      profilesSnap.forEach(child => {
+        if (child.key !== authUid && child.val().displayName?.toLowerCase() === name.toLowerCase()) taken = true;
+      });
+      if (taken) { setMessage("Bu isim zaten alınmış!"); return; }
+    }
+    const profile = await ensureProfile(authUid, name);
+    setMyProfile(profile);
+    setPlayerName(name);
+    setPhase("lobby");
+  };
+
+  const handleLogout = async () => {
+    if (authUid) { remove(ref(db, `online_players/${authUid}`)).catch(() => {}); }
+    await signOut(auth);
+    setAuthUid(null); setMyProfile(null); setPlayerName(""); setPhase("splash");
+  };
 
   useEffect(() => { const handler = (e) => { if (e.key === "r" || e.key === "R") setRotation(prev => (prev + 1) % 4); }; window.addEventListener("keydown", handler); return () => window.removeEventListener("keydown", handler); }, []);
 
@@ -1104,7 +1150,45 @@ export default function Game() {
   const btnSecStyle = { padding: "8px 16px", background: "transparent", color: t.accent, border: `1px solid ${t.accent}`, borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: 1, cursor: "pointer", fontFamily: warrior };
   const inputStyle = { padding: "12px 16px", background: t.surface, color: t.text, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 15, fontFamily: mono, outline: "none", textAlign: "center", width: "100%", maxWidth: 260, boxSizing: "border-box" };
 
-  if (phase === "splash") return <><style>{ANIMS}</style><LoadingScreen onReady={() => { setPhase("lobby"); setTimeout(async () => { if (isTestMode()) return; if (auth.currentUser) { try { const p = await ensureProfile(auth.currentUser.uid); setMyProfile(p); const reward = await checkDailyReward(auth.currentUser.uid); if (reward) setDailyReward(reward); } catch (e) { console.error(e); } } }, 1000); }} /></>;
+  if (phase === "splash") {
+    // Show loading screen, then check auth state
+    const splashDone = authReady;
+    if (!splashDone) return <><style>{ANIMS}</style><LoadingScreen onReady={() => {}} /></>;
+    
+    // Not logged in — show Google login
+    if (!authUid) return (<div style={appStyle}><style>{ANIMS}</style>
+      <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"80vh" }}>
+        <div style={{ fontSize:38,fontWeight:700,letterSpacing:6,color:t.accent,textShadow:`0 0 40px ${t.accentGlow}`,marginBottom:6,fontFamily:warrior,animation:"fadeUp 0.4s ease-out" }}>AMİRAL BATTI</div>
+        <div style={{ fontSize:10,color:t.textDim,letterSpacing:8,marginBottom:40,fontFamily:warrior }}>DENİZ SAVAŞI</div>
+        <button onClick={handleGoogleLogin} style={{ padding:"16px 36px",background:"#fff",color:"#333",border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:warrior,letterSpacing:1,display:"flex",alignItems:"center",gap:12,boxShadow:"0 4px 20px rgba(0,0,0,0.3)",animation:"scaleUp 0.5s ease-out" }}>
+          <svg width="20" height="20" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          Google ile Giriş Yap
+        </button>
+        {message && <div style={{ marginTop:16,color:t.hit,fontSize:11,fontFamily:mono }}>{message}</div>}
+      </div>
+    </div>);
+    
+    // Logged in but no username set
+    if (myProfile && (!myProfile.displayName || myProfile.displayName === "Denizci")) return (<div style={appStyle}><style>{ANIMS}</style>
+      <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"80vh" }}>
+        <div style={{ fontSize:30,fontWeight:700,letterSpacing:5,color:t.accent,textShadow:`0 0 30px ${t.accentGlow}`,marginBottom:6,fontFamily:warrior,animation:"fadeUp 0.4s ease-out" }}>HOŞ GELDİN!</div>
+        <div style={{ fontSize:11,color:t.textDim,letterSpacing:2,marginBottom:30,fontFamily:mono }}>Denizci adını seç</div>
+        <input style={{ ...inputStyle,maxWidth:280,borderRadius:10,fontSize:16 }} placeholder="Kullanıcı adın" value={playerName} onChange={e=>setPlayerName(e.target.value)} maxLength={16} />
+        <div style={{ fontSize:9,color:t.textDim,marginTop:6,fontFamily:mono }}>2-16 karakter • değiştirilemez</div>
+        <button onClick={handleSetUsername} style={{ ...btnStyle,marginTop:16,padding:"14px 40px",borderRadius:10,fontSize:15 }}>ONAYLA</button>
+        {message && <div style={{ marginTop:12,color:t.hit,fontSize:11,fontFamily:mono }}>{message}</div>}
+      </div>
+    </div>);
+    
+    // Logged in with username — go to lobby
+    setTimeout(async () => {
+      if (authUid && myProfile) {
+        try { const reward = await checkDailyReward(authUid); if (reward) setDailyReward(reward); } catch(e) { console.error(e); }
+      }
+      setPhase("lobby");
+    }, 500);
+    return <><style>{ANIMS}</style><LoadingScreen onReady={() => {}} /></>;
+  }
   if (phase === "ready") return <><style>{ANIMS}</style><ReadyScreen opponentName={opponentName} onStart={() => setPhase("playing")} /></>;
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} /></>;
   if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myElo={myProfile?.elo || 1200} myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => { setSelectedArena(arena); setShowArenaSelect(false); startQuickMatch(arena); }} /></>;
@@ -1168,21 +1252,33 @@ export default function Game() {
           <div style={{ flex:1,textAlign:"center",padding:"8px 0" }}><div style={{ fontSize:16,fontWeight:700,color:t.accent,fontFamily:mono }}>%{winRate}</div><div style={{ fontSize:7,color:t.textDim,letterSpacing:1,fontFamily:warrior }}>ORAN</div></div>
         </div>
       </div>)}
-      <div style={{ background:`linear-gradient(135deg,${t.surface},rgba(17,24,39,0.9))`,border:`1px solid ${t.border}`,borderRadius:14,padding:"28px 20px",textAlign:"center",width:"100%",maxWidth:340,animation:"fadeUp 0.5s ease-out",boxShadow:"0 8px 32px rgba(0,0,0,0.3)" }}>
-        <input style={inputStyle} placeholder="Adın" value={playerName} onChange={e=>setPlayerName(e.target.value)} />
-        <div style={{ height:16 }} />
-        <button style={{ ...btnStyle,width:"100%",opacity:authLoading?0.4:1,cursor:authLoading?"not-allowed":"pointer" }} onClick={createRoom} disabled={authLoading}>YENİ ODA OLUŞTUR</button>
-        <div style={{ margin:"18px 0",color:t.textDim,fontSize:10,letterSpacing:3,fontFamily:warrior }}>— VEYA —</div>
-        <input style={inputStyle} placeholder="Oda Kodu" value={inputRoomId} onChange={e=>setInputRoomId(e.target.value.toUpperCase())} />
-        <div style={{ height:10 }} />
-        <button style={{ ...btnStyle,width:"100%",opacity:authLoading?0.4:1,cursor:authLoading?"not-allowed":"pointer" }} onClick={joinRoom} disabled={authLoading}>ODAYA KATIL</button>
-        {message && <div style={{ marginTop:14,color:t.hit,fontSize:11 }}>{message}</div>}
+      {/* Main action buttons */}
+      <button onClick={()=>startQuickMatch(null)} disabled={matchmaking||authLoading} style={{ width:"100%",maxWidth:360,padding:"16px 0",background:matchmaking?t.surfaceLight:`linear-gradient(135deg, ${t.accent}, #0088cc)`,color:matchmaking?t.textDim:t.bg,border:"none",borderRadius:12,fontSize:16,fontWeight:700,letterSpacing:3,cursor:(matchmaking||authLoading)?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:matchmaking?"none":`0 0 20px ${t.accentGlow}`,opacity:authLoading?0.4:1,animation:"fadeUp 0.5s ease-out",zIndex:1 }}>{matchmaking?"EŞLEŞTİRİLİYOR...":"⚡ OYNA"}</button>
+      {matchmaking && <button onClick={async()=>{if(matchCancelFn)await matchCancelFn();setMatchmaking(false);setMatchCancelFn(null);}} style={{ marginTop:6,padding:"8px 20px",background:"transparent",color:t.hit,border:`1px solid ${t.hit}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior,zIndex:1 }}>İPTAL</button>}
+      <div style={{ display:"flex",gap:8,marginTop:10,width:"100%",maxWidth:360,animation:"fadeUp 0.6s ease-out",zIndex:1 }}>
+        <button onClick={()=>{if(!authUid){setMessage("Bağlantı bekleniyor...");return;}setShowOnlineLobby(true);}} disabled={authLoading} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(0,212,255,0.1),rgba(0,212,255,0.03))`,color:t.accent,border:`1px solid rgba(0,212,255,0.3)`,borderRadius:10,fontSize:13,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}>🌐 SALON</button>
+        <button onClick={()=>{if(!authUid){setMessage("Bağlantı bekleniyor...");return;}setShowArenaSelect(true);}} disabled={authLoading} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(167,139,250,0.1),rgba(167,139,250,0.03))`,color:"#a78bfa",border:"1px solid rgba(167,139,250,0.3)",borderRadius:10,fontSize:13,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}>⚔ ARENA</button>
       </div>
-      <div style={{ display:"flex",gap:8,marginTop:14,width:"100%",maxWidth:340,animation:"fadeUp 0.6s ease-out" }}>
-        <button onClick={()=>{if(!playerName.trim()){setMessage("Adını yaz!");return;}if(!authUid){setMessage("Bağlantı bekleniyor...");return;}setShowArenaSelect(true);}} disabled={authLoading} style={{ flex:1,padding:"14px 0",background:authLoading?"transparent":`linear-gradient(135deg,rgba(167,139,250,0.15),rgba(167,139,250,0.05))`,color:"#a78bfa",border:"1px solid #a78bfa",borderRadius:8,fontSize:14,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:"0 0 10px rgba(167,139,250,0.3)",opacity:authLoading?0.4:1 }}>⚔ ARENA</button>
-        <button onClick={()=>setShowLeaderboard(true)} style={{ flex:1,padding:"14px 0",background:"transparent",color:t.gold,border:`1px solid ${t.gold}`,borderRadius:8,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 0 10px ${t.goldGlow}` }}>🏆 SIRALAMA</button>
+      <div style={{ display:"flex",gap:8,marginTop:8,width:"100%",maxWidth:360,animation:"fadeUp 0.7s ease-out",zIndex:1 }}>
+        <button onClick={startBotGame} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(52,211,153,0.1),rgba(52,211,153,0.03))`,color:"#34d399",border:"1px solid rgba(52,211,153,0.3)",borderRadius:10,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🤖 BOT</button>
+        <button onClick={()=>setShowLeaderboard(true)} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(255,215,0,0.08),rgba(255,215,0,0.02))`,color:t.gold,border:`1px solid rgba(255,215,0,0.3)`,borderRadius:10,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🏆 SIRALAMA</button>
       </div>
-      <button onClick={startBotGame} style={{ marginTop:10,padding:"14px 0",width:"100%",maxWidth:340,background:`linear-gradient(135deg,rgba(52,211,153,0.12),rgba(52,211,153,0.04))`,color:"#34d399",border:"1px solid #34d399",borderRadius:8,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:"0 0 10px rgba(52,211,153,0.2)",animation:"fadeUp 0.8s ease-out" }}>🤖 BOTLARLA OYNA</button>
+      {/* Room code - collapsible */}
+      <div style={{ marginTop:10,width:"100%",maxWidth:360,zIndex:1 }}>
+        <details style={{ background:t.surface,border:`1px solid ${t.border}`,borderRadius:10,overflow:"hidden" }}>
+          <summary style={{ padding:"12px 16px",cursor:"pointer",fontSize:12,color:t.textDim,fontFamily:warrior,letterSpacing:2,listStyle:"none",display:"flex",alignItems:"center",gap:8 }}>
+            <span style={{ fontSize:14 }}>🔗</span> ODA KODU İLE OYNA
+          </summary>
+          <div style={{ padding:"12px 16px",borderTop:`1px solid ${t.border}`,display:"flex",gap:8,alignItems:"center" }}>
+            <input style={{ ...inputStyle,flex:1,maxWidth:"none",padding:"10px 12px",fontSize:13,borderRadius:8 }} placeholder="Oda Kodu" value={inputRoomId} onChange={e=>setInputRoomId(e.target.value.toUpperCase())} />
+            <button onClick={joinRoom} disabled={authLoading} style={{ padding:"10px 16px",background:`linear-gradient(135deg, ${t.accent}, #0088cc)`,color:t.bg,border:"none",borderRadius:8,fontSize:12,fontWeight:700,letterSpacing:1,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,whiteSpace:"nowrap" }}>KATIL</button>
+          </div>
+          <div style={{ padding:"0 16px 12px",display:"flex",justifyContent:"center" }}>
+            <button onClick={createRoom} disabled={authLoading} style={{ padding:"8px 20px",background:"transparent",color:t.accent,border:`1px solid ${t.accent}`,borderRadius:8,fontSize:11,fontWeight:700,letterSpacing:1,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior }}>+ YENİ ODA OLUŞTUR</button>
+          </div>
+        </details>
+      </div>
+      {message && <div style={{ marginTop:8,color:t.hit,fontSize:11,fontFamily:mono,zIndex:1 }}>{message}</div>}
       <MissionPanel missions={dailyMissions} missionProgress={missionProgress} />
       {Object.keys(missionProgress).length >= 3 && !chestClaimed && (
         <button onClick={() => { const reward = generateChestReward(); setChestReward(reward); }} style={{ marginTop:10,padding:"16px 0",width:"100%",maxWidth:340,background:`linear-gradient(135deg,rgba(251,191,36,0.2),rgba(251,191,36,0.05))`,color:t.gold,border:`2px solid ${t.gold}`,borderRadius:10,fontSize:16,fontWeight:700,letterSpacing:3,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 0 25px ${t.goldGlow}`,animation:"borderGlow 2s infinite" }}>🎁 SANDIĞI AÇ</button>
@@ -1199,6 +1295,7 @@ export default function Game() {
         setChestClaimed(true); setChestReward(null);
       }} />}
       {dailyReward && <DailyRewardPopup reward={dailyReward.reward} streak={dailyReward.streak} onClose={() => { setMyProfile(prev => prev ? { ...prev, gold: dailyReward.newGold, loginStreak: dailyReward.streak } : prev); setDailyReward(null); }} />}
+      <button onClick={handleLogout} style={{ marginTop:16,padding:"8px 20px",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:8,fontSize:10,fontWeight:600,letterSpacing:1,cursor:"pointer",fontFamily:warrior,zIndex:1,opacity:0.6 }}>ÇIKIŞ YAP</button>
     </div>);
   }
 
