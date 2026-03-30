@@ -879,16 +879,26 @@ export default function Game() {
           setMyProfile(profile);
           if (profile.displayName && profile.displayName !== "Denizci") {
             setPlayerName(profile.displayName);
-            setPhase(prev => prev === "splash" ? prev : "lobby");
+          } else {
+            // Set email as default display name suggestion
+            const emailName = user.email ? user.email.split("@")[0] : "";
+            setPlayerName(emailName);
           }
         } catch (e) { console.error("Profile error:", e); }
         setAuthReady(true);
       } else {
-        setAuthUid(null); setMyProfile(null); setAuthReady(true);
+        setAuthUid(null); setMyProfile(null); setPlayerName(""); setAuthReady(true);
       }
     });
     return () => unsub();
   }, []);
+
+  const BANNED_WORDS = ["amk","aq","oç","orospu","sikerim","sik","yarrak","piç","göt","bok","mal","gerizekalı","aptal","salak","fuck","shit","ass","dick","bitch","damn","cunt","bastard","idiot","stupid","pussy","cock","whore","slut","nigger","faggot"];
+
+  const containsBadWord = (name) => {
+    const lower = name.toLowerCase().replace(/[^a-züöçşığ]/g, "");
+    return BANNED_WORDS.some(w => lower.includes(w));
+  };
 
   const handleGoogleLogin = async () => {
     try {
@@ -903,6 +913,7 @@ export default function Game() {
     const name = playerName.trim();
     if (!name || name.length < 2) { setMessage("En az 2 karakter!"); return; }
     if (name.length > 16) { setMessage("En fazla 16 karakter!"); return; }
+    if (containsBadWord(name)) { setMessage("Bu isim uygun değil!"); return; }
     // Check if username is taken
     const profilesSnap = await get(ref(db, "profiles"));
     if (profilesSnap.exists()) {
@@ -912,7 +923,19 @@ export default function Game() {
       });
       if (taken) { setMessage("Bu isim zaten alınmış!"); return; }
     }
+    // Check 14-day name lock
+    if (myProfile && myProfile.nameSetAt) {
+      const daysSince = (Date.now() - myProfile.nameSetAt) / (1000 * 60 * 60 * 24);
+      if (daysSince < 14 && myProfile.displayName !== "Denizci") {
+        const remaining = Math.ceil(14 - daysSince);
+        setMessage(`İsim ${remaining} gün sonra değiştirilebilir!`);
+        return;
+      }
+    }
     const profile = await ensureProfile(authUid, name);
+    // Save nameSetAt timestamp
+    await set(ref(db, `profiles/${authUid}/nameSetAt`), Date.now());
+    profile.nameSetAt = Date.now();
     setMyProfile(profile);
     setPlayerName(name);
     setPhase("lobby");
@@ -922,6 +945,13 @@ export default function Game() {
     if (authUid) { remove(ref(db, `online_players/${authUid}`)).catch(() => {}); }
     await signOut(auth);
     setAuthUid(null); setMyProfile(null); setPlayerName(""); setPhase("splash");
+  };
+
+  const canChangeName = () => {
+    if (!myProfile) return true;
+    if (!myProfile.displayName || myProfile.displayName === "Denizci") return true;
+    if (!myProfile.nameSetAt) return true;
+    return (Date.now() - myProfile.nameSetAt) / (1000 * 60 * 60 * 24) >= 14;
   };
 
   useEffect(() => { const handler = (e) => { if (e.key === "r" || e.key === "R") setRotation(prev => (prev + 1) % 4); }; window.addEventListener("keydown", handler); return () => window.removeEventListener("keydown", handler); }, []);
@@ -1154,7 +1184,7 @@ export default function Game() {
     const splashDone = authReady;
     if (!splashDone) return <><style>{ANIMS}</style><LoadingScreen onReady={() => {}} /></>;
     
-    // Not logged in — show Google login
+    // Not logged in — Google login required
     if (!authUid) return (<div style={appStyle}><style>{ANIMS}</style>
       <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"80vh" }}>
         <div style={{ fontSize:38,fontWeight:700,letterSpacing:6,color:t.accent,textShadow:`0 0 40px ${t.accentGlow}`,marginBottom:6,fontFamily:warrior,animation:"fadeUp 0.4s ease-out" }}>AMİRAL BATTI</div>
@@ -1167,16 +1197,16 @@ export default function Game() {
       </div>
     </div>);
     
-    // Logged in but no username set — show username picker
+    // Logged in but needs username
     const needsUsername = !myProfile || !myProfile.displayName || myProfile.displayName === "Denizci";
     if (needsUsername) return (<div style={appStyle}><style>{ANIMS}</style>
       <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"80vh" }}>
         <div style={{ fontSize:30,fontWeight:700,letterSpacing:5,color:t.accent,textShadow:`0 0 30px ${t.accentGlow}`,marginBottom:6,fontFamily:warrior,animation:"fadeUp 0.4s ease-out" }}>HOŞ GELDİN!</div>
-        <div style={{ fontSize:11,color:t.textDim,letterSpacing:2,marginBottom:30,fontFamily:mono }}>Denizci adını seç</div>
-        <input style={{ ...inputStyle,maxWidth:280,borderRadius:10,fontSize:16 }} placeholder="Kullanıcı adın" value={playerName} onChange={e=>setPlayerName(e.target.value)} maxLength={16} />
-        <div style={{ fontSize:9,color:t.textDim,marginTop:6,fontFamily:mono }}>2-16 karakter • değiştirilemez</div>
+        <div style={{ fontSize:11,color:t.textDim,letterSpacing:2,marginBottom:24,fontFamily:mono }}>Denizci adını seç</div>
+        <input style={{ ...inputStyle,maxWidth:300,borderRadius:10,fontSize:16 }} placeholder="Kullanıcı adın" value={playerName} onChange={e=>setPlayerName(e.target.value)} maxLength={16} />
+        <div style={{ fontSize:9,color:t.textDim,marginTop:6,fontFamily:mono,textAlign:"center" }}>2-16 karakter • 14 gün boyunca değiştirilemez</div>
         <button onClick={handleSetUsername} style={{ ...btnStyle,marginTop:16,padding:"14px 40px",borderRadius:10,fontSize:15 }}>ONAYLA</button>
-        {message && <div style={{ marginTop:12,color:t.hit,fontSize:11,fontFamily:mono }}>{message}</div>}
+        {message && <div style={{ marginTop:12,color:t.hit,fontSize:11,fontFamily:mono,textAlign:"center",maxWidth:300 }}>{message}</div>}
       </div>
     </div>);
     
@@ -1237,6 +1267,7 @@ export default function Game() {
             <div style={{ display:"flex",alignItems:"center",gap:6,marginTop:4 }}>
               <span style={{ fontSize:12,color:rank?.color||t.textDim,fontFamily:warrior,letterSpacing:2 }}>{rank?.icon} {rank?.title}</span>
               <span style={{ fontSize:10,color:t.gold,fontFamily:mono,background:"rgba(255,215,0,0.1)",padding:"2px 8px",borderRadius:10 }}>🪙 {safeGold(myProfile.gold)}</span>
+              {canChangeName() && <button onClick={()=>{setPhase("splash");}} style={{ fontSize:8,color:t.textDim,background:"transparent",border:`1px solid ${t.border}`,borderRadius:4,padding:"2px 6px",cursor:"pointer",fontFamily:mono }}>✏</button>}
             </div>
           </div>
           <div style={{ textAlign:"center",background:"rgba(0,212,255,0.08)",borderRadius:12,padding:"8px 14px" }}>
