@@ -1151,7 +1151,6 @@ export default function Game() {
   const inputStyle = { padding: "12px 16px", background: t.surface, color: t.text, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 15, fontFamily: mono, outline: "none", textAlign: "center", width: "100%", maxWidth: 260, boxSizing: "border-box" };
 
   if (phase === "splash") {
-    // Show loading screen, then check auth state
     const splashDone = authReady;
     if (!splashDone) return <><style>{ANIMS}</style><LoadingScreen onReady={() => {}} /></>;
     
@@ -1168,8 +1167,9 @@ export default function Game() {
       </div>
     </div>);
     
-    // Logged in but no username set
-    if (myProfile && (!myProfile.displayName || myProfile.displayName === "Denizci")) return (<div style={appStyle}><style>{ANIMS}</style>
+    // Logged in but no username set — show username picker
+    const needsUsername = !myProfile || !myProfile.displayName || myProfile.displayName === "Denizci";
+    if (needsUsername) return (<div style={appStyle}><style>{ANIMS}</style>
       <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"80vh" }}>
         <div style={{ fontSize:30,fontWeight:700,letterSpacing:5,color:t.accent,textShadow:`0 0 30px ${t.accentGlow}`,marginBottom:6,fontFamily:warrior,animation:"fadeUp 0.4s ease-out" }}>HOŞ GELDİN!</div>
         <div style={{ fontSize:11,color:t.textDim,letterSpacing:2,marginBottom:30,fontFamily:mono }}>Denizci adını seç</div>
@@ -1180,13 +1180,11 @@ export default function Game() {
       </div>
     </div>);
     
-    // Logged in with username — go to lobby
-    setTimeout(async () => {
-      if (authUid && myProfile) {
-        try { const reward = await checkDailyReward(authUid); if (reward) setDailyReward(reward); } catch(e) { console.error(e); }
-      }
-      setPhase("lobby");
-    }, 500);
+    // Logged in with valid username — go to lobby
+    if (!isTestMode() && authUid && myProfile) {
+      checkDailyReward(authUid).then(reward => { if (reward) setDailyReward(reward); }).catch(() => {});
+    }
+    setPhase("lobby");
     return <><style>{ANIMS}</style><LoadingScreen onReady={() => {}} /></>;
   }
   if (phase === "ready") return <><style>{ANIMS}</style><ReadyScreen opponentName={opponentName} onStart={() => setPhase("playing")} /></>;
