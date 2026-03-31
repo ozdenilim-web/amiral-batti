@@ -174,6 +174,131 @@ function getRankInfo(elo) {
   return { title: "ER", color: "#9ca3af", icon: "🔰" };
 }
 
+// === SES MOTORU (Web Audio API — dosyasız) ===
+class SoundEngine {
+  constructor() { this.ctx = null; this.enabled = true; }
+  init() { if (this.ctx) return; try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { this.enabled = false; } }
+  play(type) {
+    if (!this.enabled || !this.ctx) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.connect(gain); gain.connect(this.ctx.destination);
+      switch(type) {
+        case 'click': osc.frequency.value=800; gain.gain.setValueAtTime(0.08,now); gain.gain.exponentialRampToValueAtTime(0.001,now+0.08); osc.type='sine'; osc.start(now); osc.stop(now+0.08); break;
+        case 'hit': osc.frequency.value=200; osc.frequency.exponentialRampToValueAtTime(80,now+0.3); gain.gain.setValueAtTime(0.15,now); gain.gain.exponentialRampToValueAtTime(0.001,now+0.3); osc.type='sawtooth'; osc.start(now); osc.stop(now+0.3); break;
+        case 'miss': osc.frequency.value=300; osc.frequency.exponentialRampToValueAtTime(150,now+0.15); gain.gain.setValueAtTime(0.06,now); gain.gain.exponentialRampToValueAtTime(0.001,now+0.15); osc.type='sine'; osc.start(now); osc.stop(now+0.15); break;
+        case 'sunk': { // Multi-tone explosion
+          const o2=this.ctx.createOscillator(),g2=this.ctx.createGain(); o2.connect(g2); g2.connect(this.ctx.destination);
+          osc.frequency.value=150; osc.frequency.exponentialRampToValueAtTime(40,now+0.5); gain.gain.setValueAtTime(0.2,now); gain.gain.exponentialRampToValueAtTime(0.001,now+0.5); osc.type='sawtooth'; osc.start(now); osc.stop(now+0.5);
+          o2.frequency.value=80; g2.gain.setValueAtTime(0.15,now+0.05); g2.gain.exponentialRampToValueAtTime(0.001,now+0.6); o2.type='square'; o2.start(now+0.05); o2.stop(now+0.6); break; }
+        case 'chest': { // Magical reveal
+          [400,500,600,800].forEach((f,i)=>{ const o=this.ctx.createOscillator(),g=this.ctx.createGain(); o.connect(g); g.connect(this.ctx.destination); o.frequency.value=f; g.gain.setValueAtTime(0.08,now+i*0.1); g.gain.exponentialRampToValueAtTime(0.001,now+i*0.1+0.3); o.type='sine'; o.start(now+i*0.1); o.stop(now+i*0.1+0.3); }); break; }
+        case 'gold': { // Coin clink
+          osc.frequency.value=1200; osc.frequency.exponentialRampToValueAtTime(1800,now+0.05); osc.frequency.exponentialRampToValueAtTime(1400,now+0.15); gain.gain.setValueAtTime(0.1,now); gain.gain.exponentialRampToValueAtTime(0.001,now+0.2); osc.type='sine'; osc.start(now); osc.stop(now+0.2); break; }
+        case 'win': { [523,659,784,1047].forEach((f,i)=>{ const o=this.ctx.createOscillator(),g=this.ctx.createGain(); o.connect(g); g.connect(this.ctx.destination); o.frequency.value=f; g.gain.setValueAtTime(0.1,now+i*0.15); g.gain.exponentialRampToValueAtTime(0.001,now+i*0.15+0.4); o.type='sine'; o.start(now+i*0.15); o.stop(now+i*0.15+0.4); }); break; }
+        case 'lose': { [400,350,300,200].forEach((f,i)=>{ const o=this.ctx.createOscillator(),g=this.ctx.createGain(); o.connect(g); g.connect(this.ctx.destination); o.frequency.value=f; g.gain.setValueAtTime(0.08,now+i*0.2); g.gain.exponentialRampToValueAtTime(0.001,now+i*0.2+0.3); o.type='sine'; o.start(now+i*0.2); o.stop(now+i*0.2+0.3); }); break; }
+        default: osc.frequency.value=600; gain.gain.setValueAtTime(0.05,now); gain.gain.exponentialRampToValueAtTime(0.001,now+0.05); osc.type='sine'; osc.start(now); osc.stop(now+0.05);
+      }
+    } catch(e) {}
+  }
+}
+const sfx = typeof window !== 'undefined' ? new SoundEngine() : { init(){}, play(){}, enabled:true };
+
+// === CONFETTI SİSTEMİ ===
+function launchConfetti(canvasId, duration=3000) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  const particles = [];
+  const colors = ['#ffd700','#00d4ff','#ff4757','#34d399','#a78bfa','#ff8c42','#fbbf24'];
+  for (let i = 0; i < 120; i++) {
+    particles.push({ x: Math.random()*canvas.width, y: canvas.height+10, vx: (Math.random()-0.5)*8, vy: -(Math.random()*16+8), size: Math.random()*6+3, color: colors[Math.floor(Math.random()*colors.length)], rotation: Math.random()*360, rotSpeed: (Math.random()-0.5)*12, gravity: 0.15+Math.random()*0.1, opacity: 1 });
+  }
+  const start = Date.now();
+  function animate() {
+    const elapsed = Date.now()-start;
+    if (elapsed > duration) { ctx.clearRect(0,0,canvas.width,canvas.height); return; }
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    particles.forEach(p => {
+      p.x+=p.vx; p.y+=p.vy; p.vy+=p.gravity; p.rotation+=p.rotSpeed;
+      if (elapsed > duration*0.6) p.opacity = Math.max(0, 1-(elapsed-duration*0.6)/(duration*0.4));
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rotation*Math.PI/180); ctx.globalAlpha=p.opacity;
+      ctx.fillStyle=p.color; ctx.fillRect(-p.size/2,-p.size/3,p.size,p.size/1.5); ctx.restore();
+    });
+    requestAnimationFrame(animate);
+  }
+  animate();
+}
+
+// === PATLAMA EFEKTİ ===
+function launchExplosion(canvasId, x, y, duration=1200) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  const particles = [];
+  const colors = ['#ff4757','#ff8c42','#ffd700','#ff6b6b','#e74c3c'];
+  for (let i = 0; i < 40; i++) {
+    const angle = (Math.PI*2/40)*i + (Math.random()-0.5)*0.5;
+    const speed = Math.random()*6+2;
+    particles.push({ x, y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, size: Math.random()*4+2, color: colors[Math.floor(Math.random()*colors.length)], life: 1 });
+  }
+  const start = Date.now();
+  function animate() {
+    const elapsed = Date.now()-start;
+    if (elapsed > duration) { ctx.clearRect(0,0,canvas.width,canvas.height); return; }
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    particles.forEach(p => {
+      p.x+=p.vx; p.y+=p.vy; p.vx*=0.96; p.vy*=0.96; p.life=Math.max(0,1-elapsed/duration);
+      ctx.globalAlpha=p.life; ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.size*p.life,0,Math.PI*2); ctx.fill();
+    });
+    requestAnimationFrame(animate);
+  }
+  animate();
+}
+
+// === GOLD COİN ANİMASYONU ===
+function GoldCoinAnim({ amount, onDone }) {
+  const [coins] = useState(() => Array.from({length: Math.min(amount > 100 ? 12 : amount > 20 ? 8 : 5, 15)}, (_,i) => ({
+    id: i, delay: i*80, x: 50+(Math.random()-0.5)*60, endY: -80-Math.random()*40
+  })));
+  useEffect(() => { const timer = setTimeout(()=>onDone?.(), coins.length*80+1200); return ()=>clearTimeout(timer); }, []);
+  return (<div style={{ position:'fixed',bottom:120,left:'50%',transform:'translateX(-50%)',zIndex:10000,pointerEvents:'none' }}>
+    {coins.map(c => (
+      <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, fontSize:28, animation:`coinFly 1s ease-out ${c.delay}ms forwards`, opacity:0 }}>🪙</div>
+    ))}
+    <div style={{ position:'absolute',left:'50%',transform:'translateX(-50%)',bottom:60,fontSize:24,fontWeight:800,color:t.gold,fontFamily:warrior,textShadow:`0 0 20px ${t.goldGlow}`,animation:'scaleUp 0.5s ease-out 200ms forwards',opacity:0,whiteSpace:'nowrap',letterSpacing:3 }}>+{amount} 🪙</div>
+  </div>);
+}
+
+// === RİPPLE BUTON ===
+function RippleButton({ children, onClick, style, disabled, ...props }) {
+  const [ripples, setRipples] = useState([]);
+  const handleClick = (e) => {
+    if (disabled) return;
+    sfx.init(); sfx.play('click');
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+    const id = Date.now();
+    setRipples(prev => [...prev, { id, x, y }]);
+    setTimeout(() => setRipples(prev => prev.filter(r => r.id !== id)), 600);
+    onClick?.(e);
+  };
+  return (<button onClick={handleClick} disabled={disabled} style={{ ...style, position:'relative', overflow:'hidden' }} {...props}>
+    {ripples.map(r => <span key={r.id} style={{ position:'absolute', left:r.x-20, top:r.y-20, width:40, height:40, borderRadius:'50%', background:'rgba(255,255,255,0.3)', animation:'rippleExpand 0.6s ease-out forwards', pointerEvents:'none' }} />)}
+    {children}
+  </button>);
+}
+
+// === MİKRO FEEDBACK ===
+function MicroFeedback({ text, color, onDone }) {
+  useEffect(() => { const t = setTimeout(()=>onDone?.(), 800); return ()=>clearTimeout(t); }, []);
+  return (<div style={{ position:'fixed',top:'30%',left:'50%',transform:'translateX(-50%)',zIndex:10001,fontSize:16,fontWeight:800,color:color||t.gold,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 15px ${color||t.gold}`,animation:'microFloat 0.8s ease-out forwards',pointerEvents:'none' }}>{text}</div>);
+}
+
 const ARENAS = [
   { id: "liman", name: "LİMAN", minElo: 0, entryFee: 50, winGold: 120, loseGold: 30, color: "#9ca3af", icon: "⚓" },
   { id: "kiyi", name: "KIYI", minElo: 1000, entryFee: 100, winGold: 250, loseGold: 50, color: "#60a5fa", icon: "🌊" },
@@ -384,14 +509,20 @@ const ANIMS = `
 @keyframes wave{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 @keyframes goldShine{0%{filter:brightness(1)}50%{filter:brightness(1.4)}100%{filter:brightness(1)}}
+@keyframes coinFly{0%{opacity:1;transform:translateY(0) scale(1)}50%{opacity:1;transform:translateY(-60px) scale(1.2)}100%{opacity:0;transform:translateY(-120px) scale(0.5)}}
+@keyframes rippleExpand{0%{transform:scale(0);opacity:0.6}100%{transform:scale(4);opacity:0}}
+@keyframes microFloat{0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-40px) scale(1.3)}}
+@keyframes rankGlow{0%,100%{box-shadow:0 0 8px var(--rank-color,rgba(0,212,255,0.3))}50%{box-shadow:0 0 24px var(--rank-color,rgba(0,212,255,0.6)),0 0 48px var(--rank-color,rgba(0,212,255,0.2))}}
+@keyframes coinSpin{0%{transform:rotateY(0deg)}100%{transform:rotateY(360deg)}}
+@keyframes flyToProfile{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--fly-x,0px),var(--fly-y,-200px)) scale(0.3)}}
 `;
 const warrior = "'Oswald', sans-serif";
 const mono = "'JetBrains Mono', monospace";
 
-function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, overlay, hoverCells, isDefense, shipColors, disabled, blinkCells, manualMarks }) {
+function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, overlay, hoverCells, isDefense, shipColors, disabled, blinkCells, manualMarks, showShipStatus }) {
   const longPressRef = useRef(null);
   const [rippleCell, setRippleCell] = useState(null);
-  const handleClick = (r,c) => { if(disabled)return; setRippleCell(`${r},${c}`); setTimeout(()=>setRippleCell(null),400); onClick?.(r,c); };
+  const handleClick = (r,c) => { if(disabled)return; sfx.init(); setRippleCell(`${r},${c}`); setTimeout(()=>setRippleCell(null),400); onClick?.(r,c); };
   const handleTouchStart = (r,c) => { longPressRef.current = setTimeout(()=>{ onLongPress?.(r,c); longPressRef.current=null; },500); };
   const handleTouchEnd = () => { if(longPressRef.current){clearTimeout(longPressRef.current);longPressRef.current=null;} };
   return (<div style={{ background:`linear-gradient(135deg,${t.surface} 0%,rgba(17,24,39,0.95) 100%)`,border:"1px solid rgba(55,65,81,0.6)",borderRadius:10,padding:4,overflow:"hidden",boxShadow:"0 4px 20px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.03)" }}>
@@ -400,10 +531,16 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, ov
       {row.map((val,c) => {
         const ovr=overlay?.[r]?.[c], isHov=hoverCells?.some(([hr,hc])=>hr===r&&hc===c), shipColor=shipColors?.[r]?.[c], isBlink=blinkCells?.some(([br,bc])=>br===r&&bc===c), isManual=manualMarks?.[r]?.[c], isRipple=rippleCell===`${r},${c}`;
         let bg=t.water,content="",shadow="none",clr=t.textDim;
-        if(isDefense){if(val>0&&shipColor)bg=shipColor;else if(val>0)bg=t.shipCell;if(ovr==="hit"){bg=t.hit;content="✕";shadow=`inset 0 0 12px ${t.hitGlow}`;clr="#fff";}else if(ovr==="miss"){bg=t.miss;content="•";}}
-        else{if(ovr==="hit"){bg=t.hit;content="✕";shadow=`inset 0 0 12px ${t.hitGlow}`;clr="#fff";}else if(ovr==="miss"){bg=t.miss;content="•";}else if(ovr==="sunk"){bg=t.sunk;content="✕";shadow="inset 0 0 12px rgba(249,115,22,0.4)";clr="#fff";}else if(ovr==="selected"){bg="rgba(6,182,212,0.45)";content="◎";shadow=`inset 0 0 12px ${t.accentGlow}`;clr=t.accent;}if(!ovr&&isManual){bg="rgba(251,191,36,0.15)";content="⚑";clr=t.gold;}}
+        if(isDefense){
+          if(val>0&&shipColor)bg=shipColor;else if(val>0)bg=t.shipCell;
+          if(ovr==="hit"){bg=t.hit;content="✕";shadow=`inset 0 0 12px ${t.hitGlow}`;clr="#fff";}
+          else if(ovr==="miss"){bg=t.miss;content="•";}
+          // showShipStatus: savaş haritasında vurulan gemi hücreleri farklı gösterilir
+          else if(showShipStatus&&val>0&&shipColor){bg=shipColor;content="■";clr="rgba(255,255,255,0.6)";}
+        }
+        else{if(ovr==="hit"){bg=t.hit;content="✕";shadow=`inset 0 0 12px ${t.hitGlow}`;clr="#fff";}else if(ovr==="miss"){bg=t.miss;content="•";}else if(ovr==="sunk"){bg=t.sunk;content="💀";shadow="inset 0 0 12px rgba(249,115,22,0.4)";clr="#fff";}else if(ovr==="selected"){bg="rgba(6,182,212,0.45)";content="◎";shadow=`inset 0 0 12px ${t.accentGlow}`;clr=t.accent;}if(!ovr&&isManual){bg="rgba(251,191,36,0.15)";content="⚑";clr=t.gold;}}
         if(isHov){bg="rgba(6,182,212,0.35)";shadow=`inset 0 0 10px ${t.accentGlow}`;}
-        return <div key={c} onClick={()=>handleClick(r,c)} onMouseEnter={()=>onHover?.(r,c)} onContextMenu={e=>{e.preventDefault();onRightClick?.(r,c);}} onTouchStart={()=>handleTouchStart(r,c)} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={{ width:cellSize,height:cellSize,border:"1px solid rgba(55,65,81,0.5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,cursor:disabled?"default":"pointer",background:bg,boxShadow:shadow,color:clr,transition:"all 0.15s ease",boxSizing:"border-box",animation:isBlink?"blink3s 0.5s ease-in-out 6":isRipple?"popIn 0.3s ease-out":"none",borderRadius:1 }}>{content}</div>;
+        return <div key={c} onClick={()=>handleClick(r,c)} onMouseEnter={()=>onHover?.(r,c)} onContextMenu={e=>{e.preventDefault();onRightClick?.(r,c);}} onTouchStart={()=>handleTouchStart(r,c)} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={{ width:cellSize,height:cellSize,border:"1px solid rgba(55,65,81,0.5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:ovr==="sunk"?10:8,fontWeight:700,cursor:disabled?"default":"pointer",background:bg,boxShadow:shadow,color:clr,transition:"all 0.15s ease",boxSizing:"border-box",animation:isBlink?"blink3s 0.5s ease-in-out 6":isRipple?"popIn 0.3s ease-out":"none",borderRadius:1 }}>{content}</div>;
       })}</div>))}
   </div>);
 }
@@ -446,7 +583,7 @@ function ChestPopup({ reward, onClose }) {
   return (<div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999 }} onClick={opened ? onClose : undefined}>
     <div onClick={e=>e.stopPropagation()} style={{ background:`linear-gradient(135deg,${t.surface},rgba(17,24,39,0.98))`,border:`2px solid ${reward?reward.color:t.gold}`,borderRadius:16,padding:"30px 36px",textAlign:"center",maxWidth:320,width:"90%",boxShadow:`0 0 60px ${t.goldGlow}`,animation:"scaleUp 0.5s ease-out" }}>
       {!opened ? (<>
-        <div style={{ fontSize:64,marginBottom:12,animation:shake?"defeatShake 0.5s ease-in-out infinite":"popIn 0.3s ease-out",cursor:"pointer" }} onClick={()=>setOpened(true)}>🎁</div>
+        <div style={{ fontSize:64,marginBottom:12,animation:shake?"defeatShake 0.5s ease-in-out infinite":"popIn 0.3s ease-out",cursor:"pointer" }} onClick={()=>{setOpened(true);sfx.init();sfx.play('chest');}}>🎁</div>
         <div style={{ fontSize:18,fontWeight:700,color:t.gold,fontFamily:warrior,letterSpacing:3,marginBottom:8 }}>GİZEMLİ SANDIK</div>
         <div style={{ fontSize:12,color:t.textDim,fontFamily:mono,marginBottom:12 }}>3 görevi tamamladın!</div>
         <button onClick={()=>setOpened(true)} style={{ padding:"12px 36px",background:`linear-gradient(135deg,${t.gold},#d97706)`,color:t.bg,border:"none",borderRadius:8,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,animation:"borderGlow 2s infinite" }}>SANDIĞI AÇ</button>
@@ -509,7 +646,7 @@ function BoardReview({ defenseBoard, shipColorMap, defenseOverlay, attackOverlay
       <button onClick={()=>setView("defense")} style={{ flex:1,padding:"8px 0",fontSize:12,fontWeight:700,fontFamily:warrior,cursor:"pointer",background:view==="defense"?t.accent:t.surfaceLight,color:view==="defense"?t.bg:t.textDim,border:`1px solid ${view==="defense"?t.accent:t.border}`,borderRadius:"0 8px 8px 0",letterSpacing:2 }}>BENİM SAHAM</button>
     </div>
     <div style={{ width:"100%",maxWidth:400 }}>
-      {view==="attack"?<><Grid board={oppBoard} cellSize={cellSize} isDefense shipColors={oppColors} overlay={attackOverlay} disabled /><ShipStatusPanel title="RAKİP GEMİLER" ships={oppShipsData} hitCells={atkHitMap} color={t.hit} /></>:<><Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled /><ShipStatusPanel title="GEMİLERİM" ships={myShipsData} hitCells={defHitMap} color={t.accent} /></>}
+      {view==="attack"?<><Grid board={oppBoard} cellSize={cellSize} isDefense shipColors={oppColors} overlay={attackOverlay} disabled showShipStatus /><ShipStatusPanel title="RAKİP GEMİLER" ships={oppShipsData} hitCells={atkHitMap} color={t.hit} /></>:<><Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled showShipStatus /><ShipStatusPanel title="GEMİLERİM" ships={myShipsData} hitCells={defHitMap} color={t.accent} /></>}
     </div>
     <button onClick={onBack} style={{ marginTop:16,padding:"12px 32px",background:t.accent,color:t.bg,border:"none",borderRadius:8,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>GERİ DÖN</button>
   </div>);
@@ -704,6 +841,9 @@ export default function Game() {
   const [gameStartTime, setGameStartTime] = useState(null);
   const [hitStreak, setHitStreak] = useState(0);
   const [streakToast, setStreakToast] = useState(null);
+  const [onlineCount, setOnlineCount] = useState(0);
+  const [goldAnim, setGoldAnim] = useState(null);
+  const [microFeedback, setMicroFeedback] = useState(null);
 
   const unsubRef = useRef(null);
   const playerNumRef = useRef(null);
@@ -729,6 +869,16 @@ export default function Game() {
     dailyMissions.forEach(m => { if (m.check(missionStats)) newProgress[m.id] = true; });
     setMissionProgress(newProgress);
   }, [missionStats, dailyMissions]);
+
+  // Online player counter (update #9)
+  useEffect(() => {
+    const unsub = onValue(ref(db, "online_players"), (snap) => {
+      if (!snap.exists()) { setOnlineCount(0); return; }
+      let count = 0; snap.forEach(() => { count++; });
+      setOnlineCount(count);
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     if (!authUid || !playerName.trim()) return;
@@ -791,15 +941,25 @@ export default function Game() {
           const lastAtk = attacks[attacks.length - 1]; lastAttackCountRef.current = attacks.length;
           if (lastAtk.target === myKey && lastAtk.shots) {
             setBlinkCells(lastAtk.shots.map(s => [s.r, s.c])); if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current); blinkTimerRef.current = setTimeout(() => setBlinkCells([]), 3000); setActiveBoard("defense");
-            if (game[`${myKey}_ships`]) { const myShips = Object.values(game[`${myKey}_ships`]); const reports = []; lastAtk.shots.forEach(s => { if (s.result === "hit") { const hitShip = myShips.find(sh => sh.cells.some(([r, c]) => r === s.r && c === s.c)); if (hitShip) { const shipDef = SHIPS.find(sd => sd.id === hitShip.id); const totalH = hitShip.cells.filter(([r, c]) => dHitMap[r][c]).length; reports.push(totalH === hitShip.cells.length ? `${shipDef?.name} battı!` : `${shipDef?.name} ${totalH} yara aldı`); } } }); if (reports.length > 0) { setDamageReport(reports.join(" • ")); if (damageTimerRef.current) clearTimeout(damageTimerRef.current); damageTimerRef.current = setTimeout(() => setDamageReport(""), 8000); } }
+            // Sound for incoming hits
+            const incomingHits = lastAtk.shots.filter(s => s.result === "hit").length;
+            sfx.init(); if (incomingHits > 0) sfx.play('hit');
+            if (game[`${myKey}_ships`]) { const myShips = Object.values(game[`${myKey}_ships`]); const reports = []; lastAtk.shots.forEach(s => { if (s.result === "hit") { const hitShip = myShips.find(sh => sh.cells.some(([r, c]) => r === s.r && c === s.c)); if (hitShip) { const shipDef = SHIPS.find(sd => sd.id === hitShip.id); const totalH = hitShip.cells.filter(([r, c]) => dHitMap[r][c]).length; reports.push(totalH === hitShip.cells.length ? `${shipDef?.name} battı!` : `${shipDef?.name} ${totalH} yara aldı`); } } }); if (reports.length > 0) { setDamageReport(reports.join(" • ")); if (damageTimerRef.current) clearTimeout(damageTimerRef.current); damageTimerRef.current = setTimeout(() => setDamageReport(""), 8000); if (reports.some(r => r.includes('battı'))) setTimeout(() => { sfx.play('sunk'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2); }, 200); } }
           }
-          if (lastAtk.by === pNum && lastAtk.shots) { setBlinkCells(lastAtk.shots.map(s => [s.r, s.c])); if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current); blinkTimerRef.current = setTimeout(() => setBlinkCells([]), 3000); }
+          if (lastAtk.by === pNum && lastAtk.shots) {
+            setBlinkCells(lastAtk.shots.map(s => [s.r, s.c])); if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current); blinkTimerRef.current = setTimeout(() => setBlinkCells([]), 3000);
+            // Sound for own shots landing
+            const myHitCount = lastAtk.shots.filter(s => s.result === "hit").length;
+            sfx.init(); if (myHitCount > 0) { sfx.play('hit'); setMicroFeedback({ text: myHitCount === 3 ? 'MÜKEMMEL!' : myHitCount === 2 ? 'GÜZEL!' : 'İSABET!', color: myHitCount === 3 ? t.gold : t.accent }); } else { sfx.play('miss'); setMicroFeedback({ text: 'KARAVANA', color: t.miss }); }
+          }
         }
       }
       if (game.winner) {
         const reason = game.winReason || "hits", iW = game.winner === pNum;
         let winMsg = iW ? (reason === "timeout" ? "Süre bitti — Rakip elendi!" : "Tüm gemileri batırdın!") : (reason === "timeout" ? "Süren doldu!" : "Gemilerin battı!");
         setWinner(winMsg); setIsWin(iW); setPhase("gameover");
+        sfx.init(); sfx.play(iW ? 'win' : 'lose');
+        if (iW) setTimeout(() => launchConfetti('confetti-canvas'), 300);
         if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
 
         // ELO güncelleme — sadece bir kez, sadece kazanan tarafından
@@ -821,6 +981,7 @@ export default function Game() {
                   await update(ref(db, `rooms/${roomIdRef.current}`), { eloResult: { winnerOldElo: result.winnerOldElo, winnerNewElo: result.winnerNewElo, loserOldElo: result.loserOldElo, loserNewElo: result.loserNewElo, winGold: result.winGold || 0, loseGold: result.loseGold || 0 } });
                   setEloChange({ myOld: result.winnerOldElo, myNew: result.winnerNewElo, oppOld: result.loserOldElo, oppNew: result.loserNewElo });
                   setGoldChange({ amount: result.winGold || 0 });
+                  if (result.winGold > 0) { sfx.play('gold'); setGoldAnim({ amount: result.winGold }); }
                   setMyProfile(prev => prev ? { ...prev, elo: result.winnerNewElo, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: safeGold(prev.gold) + (result.winGold || 0) } : prev);
                 }
               } catch (e) { console.error("ELO update error:", e); }
@@ -1015,7 +1176,7 @@ export default function Game() {
 
   const resetGame = () => {
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
-    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null);
+    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null);
     if (authUid) { get(ref(db, `profiles/${authUid}`)).then(snap => { if (snap.exists()) setMyProfile(snap.val()); }).catch(() => {}); }
   };
 
@@ -1071,11 +1232,16 @@ export default function Game() {
     setOppHits(newOppHits);
     setBlinkCells(shots);
     setTimeout(() => setBlinkCells([]), 3000);
+    // Sound for incoming damage
+    const botHitCount = shots.filter(([r,c]) => defenseBoard[r][c] > 0).length;
+    if (botHitCount > 0) sfx.play('hit');
+    if (reports.some(r => r.includes('battı'))) setTimeout(() => sfx.play('sunk'), 200);
     if (reports.length > 0) { setDamageReport(reports.join(" • ")); setTimeout(() => setDamageReport(""), 8000); }
     setActiveBoard("defense");
     // Check if bot won
     if (newOppHits >= 20) {
       setWinner("Gemilerin battı!"); setIsWin(false); setPhase("gameover");
+      sfx.init(); sfx.play('lose');
       setMissionStats(prev => ({ ...prev, gamesPlayed: prev.gamesPlayed + 1 }));
     } else {
       setTimeout(() => { setMyTurn(true); setActiveBoard("attack"); }, 1500);
@@ -1092,14 +1258,23 @@ export default function Game() {
       newAtkOverlay[r][c] = isHit ? "hit" : "miss";
       if (isHit) { newMyHits++; newAtkHit[r][c] = true; }
     });
+    // Sound effects for shots
+    sfx.init();
+    const hitCount0 = currentShots.filter(([r,c]) => botBoard[r][c] > 0).length;
+    if (hitCount0 > 0) { sfx.play('hit'); setMicroFeedback({ text: hitCount0 === 3 ? 'MÜKEMMEl!' : hitCount0 === 2 ? 'GÜZEL!' : 'İSABET!', color: hitCount0 === 3 ? t.gold : t.accent }); }
+    else { sfx.play('miss'); setMicroFeedback({ text: 'KARAVANA', color: t.miss }); }
     // Check for sunk ships
+    let sunkThisTurn = false;
     if (botShips) {
       Object.values(botShips).forEach(ship => {
+        const wasSunk = ship.cells.every(([r, c]) => attackOverlay[r][c] === "hit" || attackOverlay[r][c] === "sunk");
         if (ship.cells.every(([r, c]) => newAtkOverlay[r][c] === "hit" || newAtkOverlay[r][c] === "sunk")) {
           ship.cells.forEach(([r, c]) => { newAtkOverlay[r][c] = "sunk"; });
+          if (!wasSunk) { sunkThisTurn = true; }
         }
       });
     }
+    if (sunkThisTurn) { setTimeout(() => { sfx.play('sunk'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2); setMicroFeedback({ text: 'BATTI! 💀', color: t.sunk }); }, 300); }
     setAttackOverlay(newAtkOverlay);
     setAtkHitMap(newAtkHit);
     setMyHits(newMyHits);
@@ -1123,6 +1298,7 @@ export default function Game() {
     // Check if player won
     if (newMyHits >= 20) {
       setWinner("Tüm gemileri batırdın!"); setIsWin(true); setPhase("gameover");
+      sfx.init(); sfx.play('win'); setTimeout(() => launchConfetti('confetti-canvas'), 300);
       // Count sunk ships
       const sunkCount = botShips ? Object.values(botShips).filter(ship => ship.cells.every(([r,c]) => newAtkOverlay[r][c] === "hit" || newAtkOverlay[r][c] === "sunk")).length : 0;
       const elapsed = gameStartTime ? (Date.now() - gameStartTime) / 1000 : 999;
@@ -1141,6 +1317,7 @@ export default function Game() {
           }
         }).catch(() => {});
         setGoldChange({ amount: botWinGold });
+        sfx.play('gold'); setGoldAnim({ amount: botWinGold });
       }
     } else {
       setMyTurn(false);
@@ -1228,6 +1405,8 @@ export default function Game() {
     const myRank = eloChange ? getRankInfo(eloChange.myNew) : (myProfile ? getRankInfo(myProfile.elo) : null);
     return (<><style>{ANIMS}</style>
       <GameOverScreen winner={winner} myHits={myHits} oppHits={oppHits} isWin={isWin} onNewGame={resetGame} onViewBoard={() => setShowReview(true)} />
+      <canvas id="confetti-canvas" style={{ position:'fixed',inset:0,pointerEvents:'none',zIndex:10002 }} />
+      {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
       {eloChange && (<div style={{ position:"fixed",bottom:80,left:0,right:0,display:"flex",justifyContent:"center",zIndex:200,animation:"fadeUp 0.6s ease-out" }}>
         <div style={{ background:"rgba(17,24,39,0.95)",border:`1px solid ${isWin?t.accent:t.hit}`,borderRadius:12,padding:"14px 24px",textAlign:"center",boxShadow:`0 0 30px ${isWin?t.accentGlow:t.hitGlow}` }}>
           <div style={{ fontSize:10,letterSpacing:3,color:t.textDim,marginBottom:6,fontFamily:warrior }}>ELO DEĞİŞİMİ</div>
@@ -1257,10 +1436,11 @@ export default function Game() {
     return (<div style={{ ...appStyle, background:`linear-gradient(180deg, ${t.bg} 0%, #071428 50%, #0a1a35 100%)`,position:"relative",overflow:"hidden" }}><style>{ANIMS}</style>
       <div style={{ position:"absolute",top:0,left:0,right:0,height:200,opacity:0.04,overflow:"hidden",pointerEvents:"none" }}><div style={{ position:"absolute",bottom:0,left:"-50%",width:"200%",height:60,borderRadius:"50%",background:t.accent,animation:"wave 8s linear infinite" }} /><div style={{ position:"absolute",bottom:20,left:"-50%",width:"200%",height:40,borderRadius:"50%",background:t.accent,opacity:0.5,animation:"wave 12s linear infinite reverse" }} /></div>
       <div style={{ fontSize:34,fontWeight:700,letterSpacing:8,color:t.accent,textShadow:`0 0 40px ${t.accentGlow}, 0 2px 10px rgba(0,0,0,0.5)`,marginBottom:2,fontFamily:warrior,animation:"fadeUp 0.4s ease-out",zIndex:1 }}>AMİRAL BATTI</div>
-      <div style={{ fontSize:10,color:t.textDim,letterSpacing:8,marginBottom:20,fontFamily:warrior,zIndex:1 }}>DENİZ SAVAŞI</div>
+      <div style={{ fontSize:10,color:t.textDim,letterSpacing:8,marginBottom:12,fontFamily:warrior,zIndex:1 }}>DENİZ SAVAŞI</div>
+      {onlineCount > 0 && <div style={{ display:'flex',alignItems:'center',gap:6,marginBottom:14,zIndex:1,animation:'fadeUp 0.5s ease-out' }}><div style={{ width:8,height:8,borderRadius:'50%',background:'#34d399',boxShadow:'0 0 8px rgba(52,211,153,0.6)',animation:'pulse 2s infinite' }} /><span style={{ fontSize:11,color:'#34d399',fontFamily:warrior,letterSpacing:2 }}>{onlineCount} KİŞİ OYNUYOR</span></div>}
       {authLoading && <div style={{ background:"rgba(239,68,68,0.12)",border:`1px solid ${t.hit}`,borderRadius:8,padding:"10px 16px",marginBottom:12,fontSize:11,color:t.hit,fontFamily:mono,textAlign:"center",width:"100%",maxWidth:340,animation:"pulse 1.5s infinite" }}>Sunucuya bağlanılıyor...</div>}
       {isTestMode() && <div style={{ background:"rgba(251,191,36,0.15)",border:`1px solid ${t.gold}`,borderRadius:8,padding:"8px 16px",marginBottom:12,fontSize:11,color:t.gold,fontFamily:warrior,letterSpacing:2,textAlign:"center",width:"100%",maxWidth:340 }}>🧪 TEST MODU — 2 tab aç, oda koduyla oyna</div>}
-      {myProfile && (<div style={{ background:`linear-gradient(145deg, ${t.surface}, ${t.surfaceLight})`,border:`1px solid ${rank?.color||t.border}`,borderRadius:16,padding:"18px 22px",marginBottom:16,width:"100%",maxWidth:360,animation:"fadeUp 0.3s ease-out",boxShadow:`0 4px 20px rgba(0,0,0,0.4), 0 0 20px ${rank?.color?rank.color+"22":"transparent"}`,zIndex:1 }}>
+      {myProfile && (<div style={{ background:`linear-gradient(145deg, ${t.surface}, ${t.surfaceLight})`,border:`2px solid ${rank?.color||t.border}`,borderRadius:16,padding:"18px 22px",marginBottom:16,width:"100%",maxWidth:360,animation:"fadeUp 0.3s ease-out, rankGlow 3s ease-in-out infinite",boxShadow:`0 4px 20px rgba(0,0,0,0.4), 0 0 20px ${rank?.color?rank.color+"22":"transparent"}`,zIndex:1,'--rank-color':(rank?.color||t.accent)+"55" }}>
         <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12 }}>
           <div>
             <div style={{ fontSize:18,fontWeight:700,color:t.text,fontFamily:warrior,letterSpacing:1 }}>{myProfile.displayName}</div>
@@ -1282,15 +1462,15 @@ export default function Game() {
         </div>
       </div>)}
       {/* Main action buttons */}
-      <button onClick={()=>startQuickMatch(null)} disabled={matchmaking||authLoading} style={{ width:"100%",maxWidth:360,padding:"16px 0",background:matchmaking?t.surfaceLight:`linear-gradient(135deg, ${t.accent}, #0088cc)`,color:matchmaking?t.textDim:t.bg,border:"none",borderRadius:12,fontSize:16,fontWeight:700,letterSpacing:3,cursor:(matchmaking||authLoading)?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:matchmaking?"none":`0 0 20px ${t.accentGlow}`,opacity:authLoading?0.4:1,animation:"fadeUp 0.5s ease-out",zIndex:1 }}>{matchmaking?"EŞLEŞTİRİLİYOR...":"⚡ OYNA"}</button>
+      <RippleButton onClick={()=>startQuickMatch(null)} disabled={matchmaking||authLoading} style={{ width:"100%",maxWidth:360,padding:"16px 0",background:matchmaking?t.surfaceLight:`linear-gradient(135deg, ${t.accent}, #0088cc)`,color:matchmaking?t.textDim:t.bg,border:"none",borderRadius:12,fontSize:16,fontWeight:700,letterSpacing:3,cursor:(matchmaking||authLoading)?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:matchmaking?"none":`0 0 20px ${t.accentGlow}`,opacity:authLoading?0.4:1,animation:"fadeUp 0.5s ease-out",zIndex:1 }}>{matchmaking?"EŞLEŞTİRİLİYOR...":"⚡ OYNA"}</RippleButton>
       {matchmaking && <button onClick={async()=>{if(matchCancelFn)await matchCancelFn();setMatchmaking(false);setMatchCancelFn(null);}} style={{ marginTop:6,padding:"8px 20px",background:"transparent",color:t.hit,border:`1px solid ${t.hit}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior,zIndex:1 }}>İPTAL</button>}
       <div style={{ display:"flex",gap:8,marginTop:10,width:"100%",maxWidth:360,animation:"fadeUp 0.6s ease-out",zIndex:1 }}>
-        <button onClick={()=>{if(!authUid){setMessage("Bağlantı bekleniyor...");return;}setShowOnlineLobby(true);}} disabled={authLoading} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(0,212,255,0.1),rgba(0,212,255,0.03))`,color:t.accent,border:`1px solid rgba(0,212,255,0.3)`,borderRadius:10,fontSize:13,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}>🌐 SALON</button>
-        <button onClick={()=>{if(!authUid){setMessage("Bağlantı bekleniyor...");return;}setShowArenaSelect(true);}} disabled={authLoading} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(167,139,250,0.1),rgba(167,139,250,0.03))`,color:"#a78bfa",border:"1px solid rgba(167,139,250,0.3)",borderRadius:10,fontSize:13,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}>⚔ ARENA</button>
+        <RippleButton onClick={()=>{if(!authUid){setMessage("Bağlantı bekleniyor...");return;}setShowOnlineLobby(true);}} disabled={authLoading} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(0,212,255,0.1),rgba(0,212,255,0.03))`,color:t.accent,border:`1px solid rgba(0,212,255,0.3)`,borderRadius:10,fontSize:13,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}>🌐 SALON</RippleButton>
+        <RippleButton onClick={()=>{if(!authUid){setMessage("Bağlantı bekleniyor...");return;}setShowArenaSelect(true);}} disabled={authLoading} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(167,139,250,0.1),rgba(167,139,250,0.03))`,color:"#a78bfa",border:"1px solid rgba(167,139,250,0.3)",borderRadius:10,fontSize:13,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}>⚔ ARENA</RippleButton>
       </div>
       <div style={{ display:"flex",gap:8,marginTop:8,width:"100%",maxWidth:360,animation:"fadeUp 0.7s ease-out",zIndex:1 }}>
-        <button onClick={startBotGame} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(52,211,153,0.1),rgba(52,211,153,0.03))`,color:"#34d399",border:"1px solid rgba(52,211,153,0.3)",borderRadius:10,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🤖 BOT</button>
-        <button onClick={()=>setShowLeaderboard(true)} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(255,215,0,0.08),rgba(255,215,0,0.02))`,color:t.gold,border:`1px solid rgba(255,215,0,0.3)`,borderRadius:10,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🏆 SIRALAMA</button>
+        <RippleButton onClick={startBotGame} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(52,211,153,0.1),rgba(52,211,153,0.03))`,color:"#34d399",border:"1px solid rgba(52,211,153,0.3)",borderRadius:10,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🤖 BOT</RippleButton>
+        <RippleButton onClick={()=>setShowLeaderboard(true)} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(255,215,0,0.08),rgba(255,215,0,0.02))`,color:t.gold,border:`1px solid rgba(255,215,0,0.3)`,borderRadius:10,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🏆 SIRALAMA</RippleButton>
       </div>
       {/* Room code - collapsible */}
       <div style={{ marginTop:10,width:"100%",maxWidth:360,zIndex:1 }}>
@@ -1394,11 +1574,14 @@ export default function Game() {
       {isTestMode() && <button onClick={forceEndGame} style={{ marginTop:8,padding:"8px 16px",background:"rgba(251,191,36,0.2)",color:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>🧪 OYUNU BİTİR (TEST)</button>}
       {myTurn && isAttack && !markMode && (<div style={{ position:"fixed",bottom:0,left:0,right:0,background:"rgba(10,14,23,0.96)",backdropFilter:"blur(10px)",borderTop:`1px solid ${t.border}`,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"center",gap:14,zIndex:100 }}>
         <div style={{ display:"flex",gap:5 }}>{[0,1,2].map(i=><div key={i} style={{ width:14,height:14,borderRadius:"50%",background:i<currentShots.length?t.hit:t.accent,opacity:i<currentShots.length?0.3:1,animation:i<currentShots.length?"popIn 0.3s ease-out":"none" }} />)}</div>
-        <button onClick={fireShots} disabled={currentShots.length===0} style={{ padding:"12px 36px",background:currentShots.length>0?`linear-gradient(135deg,${t.hit},#dc2626)`:t.surfaceLight,color:currentShots.length>0?"#fff":t.textDim,border:"none",borderRadius:10,fontSize:16,fontWeight:700,letterSpacing:3,cursor:currentShots.length===0?"default":"pointer",fontFamily:warrior,boxShadow:currentShots.length>0?`0 0 24px ${t.hitGlow}`:"none",opacity:currentShots.length===0?0.5:1 }}>ATEŞ 🔥</button>
+        <RippleButton onClick={fireShots} disabled={currentShots.length===0} style={{ padding:"12px 36px",background:currentShots.length>0?`linear-gradient(135deg,${t.hit},#dc2626)`:t.surfaceLight,color:currentShots.length>0?"#fff":t.textDim,border:"none",borderRadius:10,fontSize:16,fontWeight:700,letterSpacing:3,cursor:currentShots.length===0?"default":"pointer",fontFamily:warrior,boxShadow:currentShots.length>0?`0 0 24px ${t.hitGlow}`:"none",opacity:currentShots.length===0?0.5:1 }}>ATEŞ 🔥</RippleButton>
       </div>)}
       {!isBotGame && <div style={{ position:"fixed",bottom:myTurn&&activeBoard==="attack"&&!markMode?64:0,left:0,right:0,display:"flex",justifyContent:"center",gap:2,background:"rgba(10,14,23,0.92)",backdropFilter:"blur(8px)",borderTop:`1px solid ${t.border}`,padding:"6px 4px",zIndex:90 }}>
         {QUICK_EMOJIS.map(qe=><button key={qe.id} onClick={()=>sendEmoji(qe)} style={{ padding:"4px 6px",background:"transparent",border:"none",fontSize:18,cursor:"pointer",borderRadius:6,transition:"transform 0.1s" }} title={qe.label}>{qe.emoji}</button>)}
       </div>}
+      <canvas id="confetti-canvas" style={{ position:'fixed',inset:0,pointerEvents:'none',zIndex:10002 }} />
+      {microFeedback && <MicroFeedback text={microFeedback.text} color={microFeedback.color} onDone={()=>setMicroFeedback(null)} />}
+      {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
     </div>);
   }
 
