@@ -1,8 +1,8 @@
 {
   "rules": {
     "profiles": {
+      ".read": "auth != null",
       "$uid": {
-        ".read": true,
         ".write": "auth != null && auth.uid === $uid",
         "elo": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5000" },
         "gold": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999999" },
@@ -17,19 +17,15 @@
         ".read": "auth != null",
         ".write": "auth != null",
         "p1_board": {
-          ".read": "auth != null && (data.parent().child('winner').val() != null || auth.uid === data.parent().child('p1_uid').val())",
           ".write": "auth != null && auth.uid === data.parent().child('p1_uid').val() && data.val() === null"
         },
         "p2_board": {
-          ".read": "auth != null && (data.parent().child('winner').val() != null || auth.uid === data.parent().child('p2_uid').val())",
           ".write": "auth != null && auth.uid === data.parent().child('p2_uid').val() && data.val() === null"
         },
         "p1_ships": {
-          ".read": "auth != null && (data.parent().child('winner').val() != null || auth.uid === data.parent().child('p1_uid').val())",
           ".write": "auth != null && auth.uid === data.parent().child('p1_uid').val() && data.val() === null"
         },
         "p2_ships": {
-          ".read": "auth != null && (data.parent().child('winner').val() != null || auth.uid === data.parent().child('p2_uid').val())",
           ".write": "auth != null && auth.uid === data.parent().child('p2_uid').val() && data.val() === null"
         },
         "winner": {
@@ -41,21 +37,21 @@
       }
     },
     "online_players": {
+      ".read": true,
       "$uid": {
-        ".read": true,
         ".write": "auth != null && auth.uid === $uid"
       }
     },
     "matchmaking": {
+      ".read": "auth != null",
       "$uid": {
-        ".read": true,
         ".write": "auth != null && (auth.uid === $uid || !data.exists())"
       }
     },
     "matchmaking_arena": {
+      ".read": "auth != null",
       "$arenaId": {
         "$uid": {
-          ".read": true,
           ".write": "auth != null && (auth.uid === $uid || !data.exists())"
         }
       }
