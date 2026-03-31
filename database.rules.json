@@ -1,0 +1,84 @@
+{
+  "rules": {
+    "profiles": {
+      "$uid": {
+        ".read": true,
+        ".write": "auth != null && auth.uid === $uid",
+        "elo": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5000" },
+        "gold": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999999" },
+        "wins": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "losses": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "totalGames": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "displayName": { ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 16" }
+      }
+    },
+    "rooms": {
+      "$roomId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "p1_board": {
+          ".read": "auth != null && (data.parent().child('winner').val() != null || auth.uid === data.parent().child('p1_uid').val())",
+          ".write": "auth != null && auth.uid === data.parent().child('p1_uid').val() && data.val() === null"
+        },
+        "p2_board": {
+          ".read": "auth != null && (data.parent().child('winner').val() != null || auth.uid === data.parent().child('p2_uid').val())",
+          ".write": "auth != null && auth.uid === data.parent().child('p2_uid').val() && data.val() === null"
+        },
+        "p1_ships": {
+          ".read": "auth != null && (data.parent().child('winner').val() != null || auth.uid === data.parent().child('p1_uid').val())",
+          ".write": "auth != null && auth.uid === data.parent().child('p1_uid').val() && data.val() === null"
+        },
+        "p2_ships": {
+          ".read": "auth != null && (data.parent().child('winner').val() != null || auth.uid === data.parent().child('p2_uid').val())",
+          ".write": "auth != null && auth.uid === data.parent().child('p2_uid').val() && data.val() === null"
+        },
+        "winner": {
+          ".write": "auth != null && data.val() === null"
+        },
+        "eloProcessed": {
+          ".write": "auth != null && data.val() !== true"
+        }
+      }
+    },
+    "online_players": {
+      "$uid": {
+        ".read": true,
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "matchmaking": {
+      "$uid": {
+        ".read": true,
+        ".write": "auth != null && (auth.uid === $uid || !data.exists())"
+      }
+    },
+    "matchmaking_arena": {
+      "$arenaId": {
+        "$uid": {
+          ".read": true,
+          ".write": "auth != null && (auth.uid === $uid || !data.exists())"
+        }
+      }
+    },
+    "match_found": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null"
+      }
+    },
+    "invites": {
+      "$targetUid": {
+        "$fromUid": {
+          ".read": "auth != null && (auth.uid === $targetUid || auth.uid === $fromUid)",
+          ".write": "auth != null && (auth.uid === $targetUid || auth.uid === $fromUid)"
+        }
+      }
+    },
+    "emojis": {
+      "$roomId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}
