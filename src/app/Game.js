@@ -1084,7 +1084,7 @@ export default function Game() {
       }
       if (game.winner) {
         const reason = game.winReason || "hits", iW = game.winner === pNum;
-        let winMsg = iW ? (reason === "timeout" ? "Süre bitti — Rakip elendi!" : reason === "placement_timeout" ? "Rakip gemileri zamanında yerleştiremediği için kazandın!" : "Tüm gemileri batırdın!") : (reason === "timeout" ? "Süren doldu!" : reason === "placement_timeout" ? "Gemileri zamanında yerleştiremediğin için kaybettin!" : "Gemilerin battı!");
+        let winMsg = iW ? (reason === "timeout" ? "Süre bitti — Rakip elendi!" : reason === "placement_timeout" ? "Rakip gemileri zamanında yerleştiremediği için kazandın!" : reason === "surrender" ? "Rakip teslim oldu!" : "Tüm gemileri batırdın!") : (reason === "timeout" ? "Süren doldu!" : reason === "placement_timeout" ? "Gemileri zamanında yerleştiremediğin için kaybettin!" : reason === "surrender" ? "Teslim oldun!" : "Gemilerin battı!");
         setWinner(winMsg); setIsWin(iW); setPhase("gameover");
         sfx.init(); sfx.play(iW ? 'win' : 'lose');
         if (iW) setTimeout(() => launchConfetti('confetti-canvas'), 300);
@@ -1327,6 +1327,18 @@ export default function Game() {
   const getAttackDisplayOverlay = () => { const ovr = attackOverlay.map(row => [...row]); currentShots.forEach(([r, c]) => { if (!ovr[r][c]) ovr[r][c] = "selected"; }); return ovr; };
   const forceEndGame = async () => { if (!roomIdRef.current) return; await update(ref(db, `rooms/${roomIdRef.current}`), { winner: playerNumRef.current, winReason: "test_force" }); };
 
+  const surrenderGame = async () => {
+    if (isBotGame) {
+      setWinner("Oyundan ayrıldın!"); setIsWin(false); setPhase("gameover");
+      sfx.init(); sfx.play('lose');
+      return;
+    }
+    if (roomIdRef.current) {
+      const oppNum = playerNumRef.current === 1 ? 2 : 1;
+      await update(ref(db, `rooms/${roomIdRef.current}`), { winner: oppNum, winReason: "surrender" }).catch(() => {});
+    }
+  };
+
   const resetGame = () => {
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
     setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false });
@@ -1356,25 +1368,46 @@ export default function Game() {
   };
 
   const startOnboarding = () => {
-    const bot = botPlaceShips();
-    setIsBotGame(true);
-    setIsOnboarding(true);
-    setOnboardingStep(0);
-    setOnboardingMilestones({ firstHit: false, firstSunk: false });
-    setBotBoard(bot.board);
-    setGameStartTime(Date.now());
-    const shipData = {};
-    bot.ships.forEach((s, i) => { shipData[i] = { id: s.id, cells: s.cells }; });
-    setBotShips(shipData);
-    setOppShipsData(shipData);
-    setBotAttackOverlay(emptyGrid().map(r => r.map(() => null)));
-    setBotName("Acemi Korsan");
-    setOpponentName("Acemi Korsan");
-    setMyTurn(true);
-    setMyClock(CLOCK_SECONDS);
-    setOppClock(CLOCK_SECONDS);
-    setPlacementTimer(120); // Onboarding'de daha uzun süre
-    setPhase("placing");
+    // Mini 7x7 oyun — gemiler otomatik yerleştirilmiş
+    const MINI = 7;
+    // Oyuncunun gemileri — otomatik yerleştir (küçük set: 1 üçlü, 2 ikili, 2 tekli = 9 hücre)
+    const miniShips = [
+      { id: "uclu1", name: "Üçlü", cells: [[1,1],[1,2],[1,3]], color: "#3498db" },
+      { id: "ikili1", name: "İkili-1", cells: [[3,5],[4,5]], color: "#2ecc71" },
+      { id: "ikili2", name: "İkili-2", cells: [[5,1],[5,2]], color: "#27ae60" },
+      { id: "tekli1", name: "Tekli-1", cells: [[0,5]], color: "#f39c12" },
+      { id: "tekli2", name: "Tekli-2", cells: [[6,3]], color: "#e67e22" },
+    ];
+    const myBoard = Array.from({length:MINI}, () => Array(MINI).fill(0));
+    const myColors = Array.from({length:MINI}, () => Array(MINI).fill(null));
+    miniShips.forEach(s => s.cells.forEach(([r,c]) => { myBoard[r][c] = 1; myColors[r][c] = s.color; }));
+    // Bot gemileri — kolay hedefler
+    const botMiniShips = [
+      { id: "uclu1", name: "Üçlü", cells: [[0,0],[0,1],[0,2]], color: "#e74c3c" },
+      { id: "ikili1", name: "İkili-1", cells: [[2,4],[2,5]], color: "#e74c3c" },
+      { id: "ikili2", name: "İkili-2", cells: [[4,1],[4,2]], color: "#e74c3c" },
+      { id: "tekli1", name: "Tekli-1", cells: [[6,6]], color: "#e74c3c" },
+      { id: "tekli2", name: "Tekli-2", cells: [[3,3]], color: "#e74c3c" },
+    ];
+    const botBrd = Array.from({length:MINI}, () => Array(MINI).fill(0));
+    botMiniShips.forEach(s => s.cells.forEach(([r,c]) => { botBrd[r][c] = 1; }));
+    const shipData = {}; miniShips.forEach((s,i) => { shipData[i] = { id: s.id, cells: s.cells }; });
+    const botShipData = {}; botMiniShips.forEach((s,i) => { botShipData[i] = { id: s.id, cells: s.cells }; });
+    setIsBotGame(true); setIsOnboarding(true);
+    setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false });
+    setDefenseBoard(myBoard); setShipColorMap(myColors);
+    setBotBoard(botBrd); setBotShips(botShipData); setOppShipsData(botShipData);
+    setMyShipsData(shipData); setPlacedShips(miniShips);
+    setBotAttackOverlay(Array.from({length:MINI}, () => Array(MINI).fill(null)));
+    setAttackOverlay(Array.from({length:MINI}, () => Array(MINI).fill(null)));
+    setDefenseOverlay(Array.from({length:MINI}, () => Array(MINI).fill(null)));
+    setAtkHitMap(Array.from({length:MINI}, () => Array(MINI).fill(false)));
+    setDefHitMap(Array.from({length:MINI}, () => Array(MINI).fill(false)));
+    setManualMarks(Array.from({length:MINI}, () => Array(MINI).fill(false)));
+    setBotName("Acemi Korsan"); setOpponentName("Acemi Korsan");
+    setMyTurn(true); setMyClock(999); setOppClock(999);
+    setPlacementConfirmed(true); setGameStartTime(Date.now());
+    setPhase("onboarding_intro");
   };
 
   const botFireShots = () => {
@@ -1477,7 +1510,8 @@ export default function Game() {
       setHitStreak(0); setStreakToast(null);
     }
     // Check if player won
-    if (newMyHits >= 20) {
+    const winTarget = isOnboarding ? 9 : 20;
+    if (newMyHits >= winTarget) {
       if (isOnboarding) {
         setWinner("Bu sadece başlangıçtı... Gerçek rakipler seni bekliyor!");
         // Mark onboarding done in Firebase
@@ -1587,6 +1621,25 @@ export default function Game() {
     return <><style>{ANIMS}</style><LoadingScreen onReady={() => {}} /></>;
   }
   if (phase === "ready") return <><style>{ANIMS}</style><ReadyScreen opponentName={opponentName} onStart={() => setPhase("playing")} /></>;
+
+  // === ONBOARDING INTRO — Karizmatik karşılama ===
+  if (phase === "onboarding_intro") {
+    return (<div style={{ ...appStyle, justifyContent:"center",background:`radial-gradient(ellipse at 50% 30%, rgba(0,229,255,0.08) 0%, ${t.bg} 70%)` }}><style>{ANIMS}</style>
+      {onboardingStep === 0 && <div style={{ textAlign:"center",animation:"fadeUp 0.8s ease-out" }}>
+        <div style={{ fontSize:48,marginBottom:16,animation:"float 3s ease-in-out infinite" }}>⚔</div>
+        <div style={{ fontSize:28,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:6,textShadow:`0 0 40px ${t.accentGlow}`,marginBottom:8 }}>AMİRAL BATTI</div>
+        <div style={{ fontSize:14,fontWeight:700,color:t.text,fontFamily:warrior,letterSpacing:3,marginBottom:4 }}>DENİZLER SENİ ÇAĞIRIYOR</div>
+        <div style={{ fontSize:12,color:t.textDim,fontFamily:mono,marginBottom:32,maxWidth:280,margin:"0 auto 32px" }}>Strateji kur. Ateş et. Batır.</div>
+        <button onClick={() => setOnboardingStep(1)} style={{ padding:"18px 48px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:14,fontSize:18,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 30px ${t.accentGlow}`,animation:"scaleUp 0.5s ease-out" }}>BAŞLA</button>
+      </div>}
+      {onboardingStep === 1 && <div style={{ textAlign:"center",animation:"arSlideIn 0.6s ease-out" }}>
+        <div style={{ fontSize:36,marginBottom:16 }}>🏴‍☠️</div>
+        <div style={{ fontSize:22,fontWeight:800,color:t.text,fontFamily:warrior,letterSpacing:3,marginBottom:12 }}>KAZANMAK İSTER MİSİN?</div>
+        <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:32,maxWidth:300,margin:"0 auto 32px",lineHeight:1.6 }}>Bir korsan seni bekliyor.<br/>Haritada gemilerini bul ve batır!</div>
+        <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); }} style={{ padding:"18px 48px",background:`linear-gradient(135deg,${t.hit},#dc2626)`,color:"#fff",border:"none",borderRadius:14,fontSize:18,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 30px ${t.hitGlow}`,animation:"borderGlow 2s infinite" }}>SAVAŞA GİR</button>
+      </div>}
+    </div>);
+  }
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} /></>;
   if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myElo={myProfile?.elo || 1200} myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => { setSelectedArena(arena); setShowArenaSelect(false); startQuickMatch(arena); }} /></>;
   if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myElo={myProfile?.elo} onBack={() => setShowOnlineLobby(false)} onChallenge={(rid, pNum) => { setShowOnlineLobby(false); roomIdRef.current = rid; setRoomId(rid); setPlayerNum(pNum); playerNumRef.current = pNum; setPhase("placing"); listenToRoom(rid, pNum); if (authUid) remove(ref(db, `online_players/${authUid}`)); }} /></>;
@@ -1796,8 +1849,23 @@ export default function Game() {
 
   if (phase === "playing") {
     const myLow = myClock <= 30, oppLow = oppClock <= 30, isAttack = activeBoard === "attack";
+    const miniGrid = isOnboarding; // 7x7 grid for onboarding
+    const gridSize = miniGrid ? Math.min(38, Math.floor((Math.min((typeof window !== "undefined" ? window.innerWidth : 400) - 24, 320)) / 8)) : cellSize;
     return (<div style={{ ...appStyle, paddingBottom: 74 }}><style>{ANIMS}</style>
-      <div style={{ display:"flex",gap:8,alignItems:"stretch",marginBottom:6,width:"100%",maxWidth:400,justifyContent:"center" }}>
+      {/* PES ET / OYUNDAN AYRIL butonu */}
+      <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-end",marginBottom:4 }}>
+        <button onClick={() => { if(confirm(isOnboarding?"Eğitim savaşından çıkmak istediğine emin misin?":"Oyundan ayrılırsan kaybedersin! Emin misin?")) { surrenderGame(); } }} style={{ padding:"4px 12px",background:"transparent",color:t.textDim,border:`1px solid rgba(255,71,87,0.2)`,borderRadius:6,fontSize:9,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior,opacity:0.7 }}>OYUNDAN AYRIL</button>
+      </div>
+      {/* Onboarding mini guide */}
+      {isOnboarding && !onboardingMilestones.firstHit && <div style={{ background:"rgba(0,229,255,0.08)",border:`2px solid rgba(0,229,255,0.2)`,borderRadius:12,padding:"10px 16px",marginBottom:8,width:"100%",maxWidth:400,textAlign:"center",animation:"fadeUp 0.5s ease-out" }}>
+        <div style={{ fontSize:14,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:2 }}>HAritadaki karelere dokun!</div>
+        <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginTop:4 }}>3 kare seç → ATEŞ bas → gemileri bul</div>
+      </div>}
+      {isOnboarding && onboardingMilestones.firstHit && !onboardingMilestones.firstSunk && <div style={{ background:"rgba(255,215,0,0.08)",border:`2px solid rgba(255,215,0,0.2)`,borderRadius:12,padding:"10px 16px",marginBottom:8,width:"100%",maxWidth:400,textAlign:"center",animation:"fadeUp 0.5s ease-out" }}>
+        <div style={{ fontSize:14,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:2 }}>İSABET ETTİN!</div>
+        <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginTop:4 }}>Kırmızı karelerin etrafını dene → gemiyi batır!</div>
+      </div>}
+      {!isOnboarding && <div style={{ display:"flex",gap:8,alignItems:"stretch",marginBottom:6,width:"100%",maxWidth:400,justifyContent:"center" }}>
         <div style={{ flex:1,padding:"4px 10px",borderRadius:6,background:myTurn?(myLow?"rgba(239,68,68,0.15)":"rgba(6,182,212,0.12)"):t.surfaceLight,border:`1px solid ${myTurn?(myLow?t.hit:t.accent):t.border}`,textAlign:"center" }}>
           <div style={{ fontSize:13,fontWeight:700,fontFamily:warrior,color:myTurn?(myLow?t.hit:t.accent):t.textDim,letterSpacing:1 }}>{playerName}: {formatTime(myClock)}</div>
           <EmojiDisplay emoji={myEmojiToast?.emoji} label={myEmojiToast?.label} />
@@ -1806,19 +1874,23 @@ export default function Game() {
           <div style={{ fontSize:13,fontWeight:700,fontFamily:warrior,color:!myTurn?(oppLow?t.hit:t.accent):t.textDim,letterSpacing:1 }}>{opponentName}: {formatTime(oppClock)}</div>
           <EmojiDisplay emoji={emojiToast?.emoji} label={emojiToast?.label} />
         </div>
-      </div>
+      </div>}
+      {isOnboarding && <div style={{ fontSize:14,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:3,marginBottom:6,textAlign:"center" }}>🏴‍☠️ ACEMİ KORSAN ile SAVAŞ</div>}
       <div style={{ fontSize:18,fontWeight:800,marginBottom:6,textAlign:"center",fontFamily:warrior,letterSpacing:4,textTransform:"uppercase",color:myTurn?t.accent:t.textDim,textShadow:myTurn?`0 0 25px ${t.accentGlow}`:"none",animation:myTurn?"fadeUp 0.3s ease-out":"none" }}>{myTurn?"⚡ SENİN SIRAN ⚡":(isBotGame?"🤖 Bot düşünüyor...":"Rakibin sırası...")}</div>
-      <div style={{ fontSize:12,color:t.text,marginBottom:6,fontFamily:mono,fontWeight:700 }}>İsabet: <span style={{ color:t.accent }}>{myHits}/20</span> • Karavana: <span style={{ color:t.hit }}>{oppHits}/20</span></div>
+      {!isOnboarding && <div style={{ fontSize:12,color:t.text,marginBottom:6,fontFamily:mono,fontWeight:700 }}>İsabet: <span style={{ color:t.accent }}>{myHits}/20</span> • Karavana: <span style={{ color:t.hit }}>{oppHits}/20</span></div>}
+      {isOnboarding && <div style={{ fontSize:12,color:t.text,marginBottom:6,fontFamily:mono,fontWeight:700 }}>İsabet: <span style={{ color:t.accent }}>{myHits}/9</span></div>}
       {streakToast && <div style={{ background:"rgba(251,191,36,0.15)",border:`1px solid ${t.gold}`,borderRadius:8,padding:"6px 14px",marginBottom:6,fontSize:14,color:t.gold,fontWeight:700,textAlign:"center",width:"100%",maxWidth:400,animation:"popIn 0.3s ease-out",fontFamily:warrior,letterSpacing:2 }}>🔥 {streakToast.streak} İSABET SERİSİ — x{streakToast.mult} ÇARPAN</div>}
       {hitStreak > 0 && !streakToast && <div style={{ fontSize:10,color:t.gold,marginBottom:4,fontFamily:warrior,letterSpacing:1,textAlign:"center" }}>🔥 Seri: {hitStreak}</div>}
       {damageReport && <div style={{ background:"rgba(239,68,68,0.1)",border:`1px solid ${t.hit}`,borderRadius:8,padding:"6px 14px",marginBottom:6,fontSize:11,color:t.hit,fontWeight:700,textAlign:"center",width:"100%",maxWidth:400,animation:"slideIn 0.3s ease-out",fontFamily:warrior,letterSpacing:1 }}>⚠ {damageReport}</div>}
+      {!isOnboarding && <>
       <div style={{ display:"flex",gap:0,marginBottom:6,width:"100%",maxWidth:400 }}>
         <button onClick={()=>{setActiveBoard("attack");setMarkMode(false);}} style={{ flex:1,padding:"12px 0",fontSize:15,fontWeight:800,fontFamily:warrior,cursor:"pointer",background:isAttack?`linear-gradient(135deg,${t.accent},#0891b2)`:t.surfaceLight,color:isAttack?t.bg:t.textDim,border:`2px solid ${isAttack?t.accent:t.border}`,borderRadius:"10px 0 0 10px",letterSpacing:4,animation:myTurn&&isAttack?"borderGlow 2s infinite":"none" }}>⚔ SALDIRI</button>
         <button onClick={()=>{setActiveBoard("defense");setMarkMode(false);}} style={{ flex:1,padding:"12px 0",fontSize:15,fontWeight:800,fontFamily:warrior,cursor:"pointer",background:!isAttack?`linear-gradient(135deg,${t.accent},#0891b2)`:t.surfaceLight,color:!isAttack?t.bg:t.textDim,border:`2px solid ${!isAttack?t.accent:t.border}`,borderRadius:"0 10px 10px 0",letterSpacing:4 }}>🛡 SAVUNMA</button>
       </div>
       {isAttack && <button onClick={()=>setMarkMode(!markMode)} style={{ marginBottom:6,padding:"6px 16px",fontSize:10,fontWeight:700,fontFamily:warrior,background:markMode?t.gold:"transparent",color:markMode?t.bg:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,cursor:"pointer",letterSpacing:2 }}>{markMode?"⚑ İŞARETLEME MODU: AÇIK":"⚑ İŞARETLE"}</button>}
+      </>}
       <div style={{ width:"100%",maxWidth:400,border:myTurn&&isAttack?`2px solid ${t.accent}`:"1px solid transparent",borderRadius:12,padding:2,animation:myTurn&&isAttack?"borderGlow 2s infinite":"none" }}>
-        {isAttack?<><Grid board={emptyGrid()} cellSize={cellSize} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} /><ShipStatusPanel title="RAKİP GEMİLER" ships={oppShipsData} hitCells={atkHitMap} color={t.hit} /></>:<><Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} /><ShipStatusPanel title="GEMİLERİM" ships={myShipsData} hitCells={defHitMap} color={t.accent} /></>}
+        {isAttack?<><Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:cellSize} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} />{!isOnboarding&&<ShipStatusPanel title="RAKİP GEMİLER" ships={oppShipsData} hitCells={atkHitMap} color={t.hit} />}</>:<><Grid board={defenseBoard} cellSize={isOnboarding?gridSize:cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />{!isOnboarding&&<ShipStatusPanel title="GEMİLERİM" ships={myShipsData} hitCells={defHitMap} color={t.accent} />}</>}
       </div>
       {isTestMode() && <button onClick={forceEndGame} style={{ marginTop:8,padding:"8px 16px",background:"rgba(251,191,36,0.2)",color:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>🧪 OYUNU BİTİR (TEST)</button>}
       {myTurn && isAttack && !markMode && (<div style={{ position:"fixed",bottom:0,left:0,right:0,background:"rgba(10,14,23,0.96)",backdropFilter:"blur(10px)",borderTop:`1px solid ${t.border}`,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"center",gap:14,zIndex:100 }}>
