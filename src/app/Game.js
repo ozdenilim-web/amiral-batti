@@ -119,6 +119,24 @@ function botPlaceShips() {
 }
 
 function botChooseShots(attackOverlay, lastHits, shotCount) {
+  return botChooseShotsInternal(attackOverlay, lastHits, shotCount, false);
+}
+function botChooseShotsOnboarding(attackOverlay, defBoard, shotCount) {
+  // Onboarding bot: ALWAYS miss — only picks empty water cells
+  const safeCells = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (!attackOverlay[r][c] && defBoard[r][c] === 0) safeCells.push([r, c]);
+    }
+  }
+  const shots = [];
+  for (let i = 0; i < shotCount && safeCells.length > 0; i++) {
+    const idx = Math.floor(Math.random() * safeCells.length);
+    shots.push(safeCells.splice(idx, 1)[0]);
+  }
+  return shots;
+}
+function botChooseShotsInternal(attackOverlay, lastHits, shotCount, alwaysMiss) {
   const available = [];
   const priority = [];
   for (let r = 0; r < ROWS; r++) {
@@ -403,7 +421,7 @@ async function ensureProfile(uid, displayName) {
   const snap = await get(profileRef);
   if (!snap.exists()) {
     const startGold = isTestMode() ? 5000 : STARTING_GOLD;
-    const profile = { displayName: displayName||"Denizci", elo:1200, wins:0, losses:0, totalGames:0, gold:startGold, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null };
+    const profile = { displayName: displayName||"Denizci", elo:1200, wins:0, losses:0, totalGames:0, gold:startGold, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false };
     await set(profileRef, profile);
     return profile;
   }
@@ -936,6 +954,9 @@ export default function Game() {
   const [microFeedback, setMicroFeedback] = useState(null);
   const [extraTimeUsed, setExtraTimeUsed] = useState(false);
   const [placementPreview, setPlacementPreview] = useState(false);
+  const [isOnboarding, setIsOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
+  const [onboardingMilestones, setOnboardingMilestones] = useState({ firstHit: false, firstSunk: false });
 
   const unsubRef = useRef(null);
   const playerNumRef = useRef(null);
@@ -1206,6 +1227,11 @@ export default function Game() {
     profile.nameSetAt = Date.now();
     setMyProfile(profile);
     setPlayerName(name);
+    // Check if onboarding needed
+    if (!profile.onboardingDone) {
+      setTimeout(() => startOnboarding(), 100);
+      return;
+    }
     setPhase("lobby");
   };
 
@@ -1303,7 +1329,7 @@ export default function Game() {
 
   const resetGame = () => {
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
-    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false);
+    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false });
     if (authUid) { get(ref(db, `profiles/${authUid}`)).then(snap => { if (snap.exists()) setMyProfile(snap.val()); }).catch(() => {}); }
   };
 
@@ -1329,8 +1355,30 @@ export default function Game() {
     setPhase("placing");
   };
 
+  const startOnboarding = () => {
+    const bot = botPlaceShips();
+    setIsBotGame(true);
+    setIsOnboarding(true);
+    setOnboardingStep(0);
+    setOnboardingMilestones({ firstHit: false, firstSunk: false });
+    setBotBoard(bot.board);
+    setGameStartTime(Date.now());
+    const shipData = {};
+    bot.ships.forEach((s, i) => { shipData[i] = { id: s.id, cells: s.cells }; });
+    setBotShips(shipData);
+    setOppShipsData(shipData);
+    setBotAttackOverlay(emptyGrid().map(r => r.map(() => null)));
+    setBotName("Acemi Korsan");
+    setOpponentName("Acemi Korsan");
+    setMyTurn(true);
+    setMyClock(CLOCK_SECONDS);
+    setOppClock(CLOCK_SECONDS);
+    setPlacementTimer(120); // Onboarding'de daha uzun süre
+    setPhase("placing");
+  };
+
   const botFireShots = () => {
-    const shots = botChooseShots(botAttackOverlay, [], SHOTS_PER_TURN);
+    const shots = isOnboarding ? botChooseShotsOnboarding(botAttackOverlay, defenseBoard, SHOTS_PER_TURN) : botChooseShots(botAttackOverlay, [], SHOTS_PER_TURN);
     const newBotOverlay = botAttackOverlay.map(row => [...row]);
     const newDefOverlay = defenseOverlay.map(row => [...row]);
     const newDefHit = defHitMap.map(row => [...row]);
@@ -1388,7 +1436,10 @@ export default function Game() {
     // Sound effects for shots
     sfx.init();
     const hitCount0 = currentShots.filter(([r,c]) => botBoard[r][c] > 0).length;
-    if (hitCount0 > 0) { sfx.play('hit'); setMicroFeedback({ text: hitCount0 === 3 ? 'MÜKEMMEl!' : hitCount0 === 2 ? 'GÜZEL!' : 'İSABET!', color: hitCount0 === 3 ? t.gold : t.accent }); }
+    if (hitCount0 > 0) { sfx.play('hit');
+      if (isOnboarding && !onboardingMilestones.firstHit) { setOnboardingMilestones(prev => ({...prev, firstHit: true})); setMicroFeedback({ text: 'İLK İSABET! 🎯', color: t.gold }); setTimeout(() => launchConfetti('confetti-canvas', 1500), 200); }
+      else { setMicroFeedback({ text: hitCount0 === 3 ? 'MÜKEMMEL!' : hitCount0 === 2 ? 'GÜZEL!' : 'İSABET!', color: hitCount0 === 3 ? t.gold : t.accent }); }
+    }
     else { sfx.play('miss'); setMicroFeedback({ text: 'KARAVANA', color: t.miss }); }
     // Check for sunk ships
     let sunkThisTurn = false;
@@ -1401,7 +1452,10 @@ export default function Game() {
         }
       });
     }
-    if (sunkThisTurn) { setTimeout(() => { sfx.play('sunk'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2); setMicroFeedback({ text: 'BATTI! 💀', color: t.sunk }); }, 300); }
+    if (sunkThisTurn) { setTimeout(() => { sfx.play('sunk'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2);
+      if (isOnboarding && !onboardingMilestones.firstSunk) { setOnboardingMilestones(prev => ({...prev, firstSunk: true})); setMicroFeedback({ text: 'İLK BATIŞ! 💀', color: t.sunk }); setTimeout(() => launchConfetti('confetti-canvas', 2000), 500); }
+      else { setMicroFeedback({ text: 'BATTI! 💀', color: t.sunk }); }
+    }, 300); }
     setAttackOverlay(newAtkOverlay);
     setAtkHitMap(newAtkHit);
     setMyHits(newMyHits);
@@ -1424,7 +1478,14 @@ export default function Game() {
     }
     // Check if player won
     if (newMyHits >= 20) {
-      setWinner("Tüm gemileri batırdın!"); setIsWin(true); setPhase("gameover");
+      if (isOnboarding) {
+        setWinner("Bu sadece başlangıçtı... Gerçek rakipler seni bekliyor!");
+        // Mark onboarding done in Firebase
+        if (authUid) { update(ref(db, `profiles/${authUid}`), { onboardingDone: true }).catch(() => {}); }
+      } else {
+        setWinner("Tüm gemileri batırdın!");
+      }
+      setIsWin(true); setPhase("gameover");
       sfx.init(); sfx.play('win'); setTimeout(() => launchConfetti('confetti-canvas'), 300);
       // Count sunk ships
       const sunkCount = botShips ? Object.values(botShips).filter(ship => ship.cells.every(([r,c]) => newAtkOverlay[r][c] === "hit" || newAtkOverlay[r][c] === "sunk")).length : 0;
@@ -1514,8 +1575,12 @@ export default function Game() {
       </div>
     </div>);
     
-    // Logged in with valid username — go to lobby
+    // Logged in with valid username — check onboarding
     if (!isTestMode() && authUid && myProfile) {
+      if (!myProfile.onboardingDone) {
+        setTimeout(() => startOnboarding(), 100);
+        return <><style>{ANIMS}</style><LoadingScreen onReady={() => {}} /></>;
+      }
       checkDailyReward(authUid).then(reward => { if (reward) setDailyReward(reward); }).catch(() => {});
     }
     setPhase("lobby");
@@ -1528,6 +1593,39 @@ export default function Game() {
 
   if (phase === "gameover") {
     if (showReview) return <BoardReview defenseBoard={defenseBoard} shipColorMap={shipColorMap} defenseOverlay={defenseOverlay} attackOverlay={attackOverlay} oppShipsData={oppShipsData} myShipsData={myShipsData} defHitMap={defHitMap} atkHitMap={atkHitMap} cellSize={cellSize} onBack={() => setShowReview(false)} />;
+    // ONBOARDING VICTORY — Special rank reveal ceremony
+    if (isOnboarding && isWin) {
+      return (<><style>{ANIMS}</style>
+        <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",minHeight:"100dvh",background:`radial-gradient(ellipse at 50% 30%, rgba(0,229,255,0.15) 0%, rgba(255,215,0,0.05) 30%, ${t.bg} 70%)`,padding:20,perspective:"800px" }}>
+          <div style={{ animation:"arSlideIn 1s ease-out forwards",transformStyle:"preserve-3d",textAlign:"center",maxWidth:380,width:"90vw" }}>
+            {/* Rank card */}
+            <div style={{ background:`linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))`,border:`3px solid ${t.accent}`,borderRadius:24,padding:"44px 32px",boxShadow:`0 20px 80px rgba(0,0,0,0.7), 0 0 60px ${t.accentGlow}`,animation:"arGlow 3s ease-in-out infinite",'--ar-color':t.accentGlow }}>
+              <div style={{ fontSize:72,marginBottom:12,animation:"float 2s ease-in-out infinite" }}>⚔</div>
+              <div style={{ fontSize:18,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:6,marginBottom:8 }}>TEBRIKLER, DENİZCİ!</div>
+              <div style={{ fontSize:48,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 40px ${t.accentGlow}`,marginBottom:16,animation:"victoryGlow 2s ease-in-out infinite" }}>ZAFER</div>
+              <div style={{ fontSize:14,fontWeight:700,color:"rgba(0,229,255,0.7)",fontFamily:warrior,letterSpacing:2,marginBottom:24 }}>{winner}</div>
+              {/* Rank badge */}
+              <div style={{ background:"rgba(0,229,255,0.08)",border:`2px solid rgba(0,229,255,0.25)`,borderRadius:16,padding:"20px 24px",marginBottom:20,animation:"arSlideIn 1s ease-out 0.5s both" }}>
+                <div style={{ fontSize:11,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:3,marginBottom:8 }}>RÜTBEN BELİRLENDİ</div>
+                <div style={{ fontSize:20,marginBottom:4 }}>🔰</div>
+                <div style={{ fontSize:28,fontWeight:800,color:"#60a5fa",fontFamily:warrior,letterSpacing:4 }}>TEĞMEN</div>
+                <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginTop:8 }}>
+                  <div style={{ fontSize:36,fontWeight:800,color:t.accent,fontFamily:warrior }}>1200</div>
+                  <div style={{ fontSize:10,fontWeight:700,color:t.textDim,fontFamily:mono }}>ELO</div>
+                </div>
+              </div>
+              {/* Gold reward */}
+              <div style={{ background:"rgba(255,215,0,0.08)",border:`1px solid rgba(255,215,0,0.2)`,borderRadius:12,padding:"12px 20px",marginBottom:20,animation:"arSlideIn 1s ease-out 0.8s both" }}>
+                <div style={{ fontSize:11,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:2 }}>İLK ÖDÜLÜN</div>
+                <div style={{ fontSize:24,fontWeight:800,color:t.gold,fontFamily:warrior,textShadow:`0 0 15px ${t.goldGlow}`,marginTop:4 }}>500 💰</div>
+              </div>
+              <button onClick={() => { setIsOnboarding(false); resetGame(); }} style={{ padding:"18px 40px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:14,fontSize:18,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 30px ${t.accentGlow}`,animation:"arSlideIn 1s ease-out 1.1s both" }}>SAVAŞA HAZIRIM</button>
+            </div>
+          </div>
+        </div>
+        <canvas id="confetti-canvas" style={{ position:'fixed',inset:0,pointerEvents:'none',zIndex:10002 }} />
+      </>);
+    }
     const myEloDiff = eloChange ? eloChange.myNew - eloChange.myOld : null;
     const myRank = eloChange ? getRankInfo(eloChange.myNew) : (myProfile ? getRankInfo(myProfile.elo) : null);
     return (<><style>{ANIMS}</style>
