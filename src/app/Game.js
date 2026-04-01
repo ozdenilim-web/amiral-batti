@@ -516,6 +516,10 @@ const ANIMS = `
 @keyframes rankGlow{0%,100%{box-shadow:0 0 8px var(--rank-color,rgba(0,212,255,0.3))}50%{box-shadow:0 0 24px var(--rank-color,rgba(0,212,255,0.6)),0 0 48px var(--rank-color,rgba(0,212,255,0.2))}}
 @keyframes coinSpin{0%{transform:rotateY(0deg)}100%{transform:rotateY(360deg)}}
 @keyframes flyToProfile{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--fly-x,0px),var(--fly-y,-200px)) scale(0.3)}}
+@keyframes arSlideIn{0%{opacity:0;transform:perspective(800px) rotateX(25deg) translateY(80px) scale(0.7)}40%{opacity:1;transform:perspective(800px) rotateX(-5deg) translateY(-10px) scale(1.05)}70%{transform:perspective(800px) rotateX(2deg) translateY(5px) scale(0.98)}100%{transform:perspective(800px) rotateX(0deg) translateY(0) scale(1)}}
+@keyframes arGlow{0%,100%{box-shadow:0 10px 40px rgba(0,0,0,0.5),0 0 30px var(--ar-color,rgba(0,229,255,0.3))}50%{box-shadow:0 15px 60px rgba(0,0,0,0.6),0 0 50px var(--ar-color,rgba(0,229,255,0.5))}}
+@keyframes previewZoom{0%{opacity:0;transform:scale(0.5) perspective(600px) rotateY(15deg)}50%{opacity:1;transform:scale(1.08) perspective(600px) rotateY(-3deg)}100%{transform:scale(1) perspective(600px) rotateY(0deg)}}
+@keyframes floatShadow{0%,100%{transform:translateY(0);filter:drop-shadow(0 8px 20px rgba(0,0,0,0.4))}50%{transform:translateY(-8px);filter:drop-shadow(0 16px 30px rgba(0,0,0,0.6))}}
 `;
 const warrior = "'Oswald', sans-serif";
 const mono = "'JetBrains Mono', monospace";
@@ -640,17 +644,22 @@ function ReadyScreen({ onStart, opponentName }) {
 }
 
 function GameOverScreen({ winner, myHits, oppHits, onNewGame, onViewBoard, isWin }) {
-  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",minHeight:"100dvh",background:isWin?`radial-gradient(ellipse at center,rgba(0,229,255,0.1) 0%,${t.bg} 70%)`:`radial-gradient(ellipse at center,rgba(255,71,87,0.08) 0%,${t.bg} 70%)`,padding:20 }}>
-    <div style={{ fontSize:14,letterSpacing:10,color:t.textDim,marginBottom:16,fontFamily:warrior,textTransform:"uppercase",animation:"fadeUp 0.3s ease-out",fontWeight:700 }}>SAVAŞ BİTTİ</div>
-    <div style={{ fontSize:48,fontWeight:800,letterSpacing:6,textAlign:"center",color:isWin?t.accent:t.hit,fontFamily:warrior,textTransform:"uppercase",animation:isWin?"victoryGlow 2s ease-in-out infinite,scaleUp 0.6s ease-out":"defeatShake 0.6s ease-out,fadeUp 0.6s ease-out",textShadow:isWin?`0 0 50px ${t.accentGlow},0 0 100px rgba(0,229,255,0.2)`:`0 0 40px ${t.hitGlow}`,marginBottom:10 }}>{isWin?"ZAFER":"BOZGUN"}</div>
-    <div style={{ fontSize:16,fontWeight:700,color:isWin?t.accent:t.hit,fontFamily:warrior,letterSpacing:3,marginBottom:28,animation:"fadeUp 0.8s ease-out",opacity:0.8 }}>{winner}</div>
-    <div style={{ display:"flex",gap:32,marginBottom:36,animation:"fadeUp 1s ease-out" }}>
-      <div style={{ textAlign:"center",padding:"12px 20px",background:"rgba(0,229,255,0.06)",borderRadius:12,border:"1px solid rgba(0,229,255,0.15)" }}><div style={{ fontSize:32,fontWeight:800,color:t.accent,fontFamily:mono }}>{myHits}</div><div style={{ fontSize:11,color:t.textDim,letterSpacing:3,fontFamily:warrior,fontWeight:700,marginTop:2 }}>İSABET</div></div>
-      <div style={{ textAlign:"center",padding:"12px 20px",background:"rgba(255,71,87,0.06)",borderRadius:12,border:"1px solid rgba(255,71,87,0.15)" }}><div style={{ fontSize:32,fontWeight:800,color:t.hit,fontFamily:mono }}>{oppHits}</div><div style={{ fontSize:11,color:t.textDim,letterSpacing:3,fontFamily:warrior,fontWeight:700,marginTop:2 }}>KARAVANA</div></div>
-    </div>
-    <div style={{ display:"flex",flexDirection:"column",gap:12,width:"100%",maxWidth:300,animation:"fadeUp 1.2s ease-out" }}>
-      <button onClick={onViewBoard} style={{ padding:"14px 24px",background:"transparent",color:t.accent,border:`2px solid ${t.accent}`,borderRadius:10,fontSize:13,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>SAVAŞ HARİTASINI GÖR</button>
-      <button onClick={onNewGame} style={{ padding:"16px 24px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:16,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 0 25px ${t.accentGlow}` }}>YENİ SAVAŞ</button>
+  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",minHeight:"100dvh",background:isWin?`radial-gradient(ellipse at center,rgba(0,229,255,0.1) 0%,${t.bg} 70%)`:`radial-gradient(ellipse at center,rgba(255,71,87,0.08) 0%,${t.bg} 70%)`,padding:20,perspective:"800px" }}>
+    {/* 3D AR-style result card */}
+    <div style={{ animation:"arSlideIn 0.8s ease-out forwards",transformStyle:"preserve-3d",'--ar-color':isWin?t.accentGlow:t.hitGlow }}>
+      <div style={{ background:`linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))`,border:`3px solid ${isWin?t.accent:t.hit}`,borderRadius:20,padding:"36px 32px",textAlign:"center",maxWidth:340,width:"90vw",animation:"arGlow 3s ease-in-out infinite",'--ar-color':isWin?t.accentGlow:t.hitGlow,boxShadow:`0 20px 60px rgba(0,0,0,0.6)` }}>
+        <div style={{ fontSize:13,letterSpacing:10,color:t.textDim,marginBottom:12,fontFamily:warrior,textTransform:"uppercase",fontWeight:700 }}>SAVAŞ BİTTİ</div>
+        <div style={{ fontSize:52,fontWeight:800,letterSpacing:6,color:isWin?t.accent:t.hit,fontFamily:warrior,textTransform:"uppercase",textShadow:isWin?`0 0 50px ${t.accentGlow},0 0 100px rgba(0,229,255,0.2)`:`0 0 40px ${t.hitGlow}`,marginBottom:8,animation:isWin?"victoryGlow 2s ease-in-out infinite":"defeatShake 0.6s ease-out" }}>{isWin?"ZAFER":"BOZGUN"}</div>
+        <div style={{ fontSize:14,fontWeight:700,color:isWin?t.accent:t.hit,fontFamily:warrior,letterSpacing:2,marginBottom:24,opacity:0.9 }}>{winner}</div>
+        <div style={{ display:"flex",gap:16,justifyContent:"center",marginBottom:24 }}>
+          <div style={{ padding:"14px 24px",background:"rgba(0,229,255,0.08)",borderRadius:14,border:`2px solid rgba(0,229,255,0.2)`,animation:"arSlideIn 0.8s ease-out 0.2s both" }}><div style={{ fontSize:36,fontWeight:800,color:t.accent,fontFamily:mono }}>{myHits}</div><div style={{ fontSize:10,color:t.textDim,letterSpacing:3,fontFamily:warrior,fontWeight:700,marginTop:4 }}>İSABET</div></div>
+          <div style={{ padding:"14px 24px",background:"rgba(255,71,87,0.08)",borderRadius:14,border:`2px solid rgba(255,71,87,0.2)`,animation:"arSlideIn 0.8s ease-out 0.4s both" }}><div style={{ fontSize:36,fontWeight:800,color:t.hit,fontFamily:mono }}>{oppHits}</div><div style={{ fontSize:10,color:t.textDim,letterSpacing:3,fontFamily:warrior,fontWeight:700,marginTop:4 }}>KARAVANA</div></div>
+        </div>
+        <div style={{ display:"flex",flexDirection:"column",gap:10,animation:"arSlideIn 0.8s ease-out 0.6s both" }}>
+          <button onClick={onViewBoard} style={{ padding:"14px 24px",background:"transparent",color:t.accent,border:`2px solid ${t.accent}`,borderRadius:12,fontSize:13,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>SAVAŞ HARİTASINI GÖR</button>
+          <button onClick={onNewGame} style={{ padding:"16px 24px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:16,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 4px 25px ${t.accentGlow}` }}>YENİ SAVAŞ</button>
+        </div>
+      </div>
     </div>
   </div>);
 }
@@ -680,7 +689,7 @@ function OnlineLobby({ myUid, myName, myElo, onChallenge, onBack }) {
   useEffect(()=>{if(!sentInvite)return;const unsub=onValue(ref(db,`invites/${sentInvite.targetUid}/${myUid}`),snap=>{if(!snap.exists()){setSentInvite(null);return;}const d=snap.val();if(d.status==="accepted"&&d.roomId){remove(ref(db,`invites/${sentInvite.targetUid}/${myUid}`));setSentInvite(null);onChallenge(d.roomId,1);}else if(d.status==="rejected"){remove(ref(db,`invites/${sentInvite.targetUid}/${myUid}`));setSentInvite(null);}});return()=>unsub();},[sentInvite,myUid,onChallenge]);
   const sendInvite=async(targetUid,targetName)=>{if(sentInvite)return;await set(ref(db,`invites/${targetUid}/${myUid}`),{fromName:myName,fromElo:myElo||1200,status:"pending",time:Date.now()});setSentInvite({targetUid,targetName});};
   const cancelInvite=async()=>{if(!sentInvite)return;await remove(ref(db,`invites/${sentInvite.targetUid}/${myUid}`));setSentInvite(null);};
-  const acceptInvite=async(invite)=>{const roomId=Math.random().toString(36).substring(2,8).toUpperCase();await set(ref(db,`rooms/${roomId}`),{p1_name:invite.fromName,p1_uid:invite.id,p2_name:myName,p2_uid:myUid,phase:"placing",p1_board:null,p2_board:null,p1_ships:null,p2_ships:null,attacks:null,turn:1,clocks:{p1:300,p2:300},winner:null,winReason:null,eloProcessed:false,created:Date.now()});await update(ref(db,`invites/${myUid}/${invite.id}`),{status:"accepted",roomId});setTimeout(()=>remove(ref(db,`invites/${myUid}/${invite.id}`)),3000);onChallenge(roomId,2);};
+  const acceptInvite=async(invite)=>{const roomId=Math.random().toString(36).substring(2,8).toUpperCase();await set(ref(db,`rooms/${roomId}`),{p1_name:invite.fromName,p1_uid:invite.id,p2_name:myName,p2_uid:myUid,phase:"placing",p1_board:null,p2_board:null,p1_ships:null,p2_ships:null,attacks:null,turn:1,clocks:{p1:CLOCK_SECONDS,p2:CLOCK_SECONDS},winner:null,winReason:null,eloProcessed:false,created:Date.now()});await update(ref(db,`invites/${myUid}/${invite.id}`),{status:"accepted",roomId});setTimeout(()=>remove(ref(db,`invites/${myUid}/${invite.id}`)),3000);onChallenge(roomId,2);};
   const rejectInvite=async(invite)=>{await update(ref(db,`invites/${myUid}/${invite.id}`),{status:"rejected"});setTimeout(()=>remove(ref(db,`invites/${myUid}/${invite.id}`)),2000);};
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:t.bg,padding:"20px 12px",fontFamily:"'JetBrains Mono',monospace",color:t.text }}>
     <div style={{ fontSize:22,fontWeight:700,letterSpacing:5,color:t.accent,marginBottom:4,fontFamily:"'Oswald',sans-serif",textShadow:`0 0 20px ${t.accentGlow}` }}>ONLİNE SALON</div>
@@ -865,6 +874,8 @@ export default function Game() {
   const [onlineCount, setOnlineCount] = useState(0);
   const [goldAnim, setGoldAnim] = useState(null);
   const [microFeedback, setMicroFeedback] = useState(null);
+  const [extraTimeUsed, setExtraTimeUsed] = useState(false);
+  const [placementPreview, setPlacementPreview] = useState(false);
 
   const unsubRef = useRef(null);
   const playerNumRef = useRef(null);
@@ -913,7 +924,22 @@ export default function Game() {
   useEffect(() => {
     if (phase === "placing" && !placementConfirmed) {
       if (placementTimerRef.current) clearInterval(placementTimerRef.current);
-      placementTimerRef.current = setInterval(() => { setPlacementTimer(prev => { if (prev <= 1) { clearInterval(placementTimerRef.current); if (typeof window !== "undefined") window.location.reload(); return 0; } return prev - 1; }); }, 1000);
+      placementTimerRef.current = setInterval(() => { setPlacementTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(placementTimerRef.current);
+          // Süre bitti — kaybettin
+          if (isBotGame) {
+            setWinner("Gemileri zamanında yerleştiremediğin için kaybettin!"); setIsWin(false); setPhase("gameover");
+            sfx.init(); sfx.play('lose');
+          } else if (roomIdRef.current) {
+            // Online: rakip kazansın
+            const oppNum = playerNumRef.current === 1 ? 2 : 1;
+            update(ref(db, `rooms/${roomIdRef.current}`), { winner: oppNum, winReason: "placement_timeout" }).catch(() => {});
+          }
+          return 0;
+        }
+        return prev - 1;
+      }); }, 1000);
     }
     return () => { if (placementTimerRef.current) clearInterval(placementTimerRef.current); };
   }, [phase, placementConfirmed]);
@@ -977,7 +1003,7 @@ export default function Game() {
       }
       if (game.winner) {
         const reason = game.winReason || "hits", iW = game.winner === pNum;
-        let winMsg = iW ? (reason === "timeout" ? "Süre bitti — Rakip elendi!" : "Tüm gemileri batırdın!") : (reason === "timeout" ? "Süren doldu!" : "Gemilerin battı!");
+        let winMsg = iW ? (reason === "timeout" ? "Süre bitti — Rakip elendi!" : reason === "placement_timeout" ? "Rakip gemileri zamanında yerleştiremediği için kazandın!" : "Tüm gemileri batırdın!") : (reason === "timeout" ? "Süren doldu!" : reason === "placement_timeout" ? "Gemileri zamanında yerleştiremediğin için kaybettin!" : "Gemilerin battı!");
         setWinner(winMsg); setIsWin(iW); setPhase("gameover");
         sfx.init(); sfx.play(iW ? 'win' : 'lose');
         if (iW) setTimeout(() => launchConfetti('confetti-canvas'), 300);
@@ -1165,15 +1191,35 @@ export default function Game() {
     setPhase("placing"); listenToRoom(rid, 2);
   };
 
-  const handleDefenseClick = (r, c) => { if (phase !== "placing" || !selectedShip || placementConfirmed) return; const ship = SHIPS.find(s => s.id === selectedShip); if (!ship) return; const cells = getShipCells(ship, r, c, rotation); const bc = defenseBoard.map(row => [...row]); if (!isValidPlacement(cells, bc)) return; if (getNeighborCells(cells).some(([nr, nc]) => nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && bc[nr][nc] > 0)) return; const nb = bc.map(row => [...row]); const nc = shipColorMap.map(row => [...row]); cells.forEach(([cr, cc]) => { nb[cr][cc] = 1; nc[cr][cc] = ship.color; }); setDefenseBoard(nb); setShipColorMap(nc); setPlacedShips([...placedShips, { id: ship.id, cells, color: ship.color }]); setSelectedShip(null); setHoverCells([]); setRotation(0); };
+  const handleDefenseClick = (r, c) => { if (phase !== "placing" || !selectedShip || placementConfirmed) return; const ship = SHIPS.find(s => s.id === selectedShip); if (!ship) return; const cells = getShipCells(ship, r, c, rotation); const bc = defenseBoard.map(row => [...row]); if (!isValidPlacement(cells, bc) || getNeighborCells(cells).some(([nr, nc]) => nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && bc[nr][nc] > 0)) { /* Invalid placement — try next rotation */ const nextRot = (rotation + 1) % 4; const cells2 = getShipCells(ship, r, c, nextRot); if (isValidPlacement(cells2, bc) && !getNeighborCells(cells2).some(([nr, nc]) => nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && bc[nr][nc] > 0)) { setRotation(nextRot); return; } return; } const nb = bc.map(row => [...row]); const nc = shipColorMap.map(row => [...row]); cells.forEach(([cr, cc]) => { nb[cr][cc] = 1; nc[cr][cc] = ship.color; }); setDefenseBoard(nb); setShipColorMap(nc); setPlacedShips([...placedShips, { id: ship.id, cells, color: ship.color }]); setSelectedShip(null); setHoverCells([]); setRotation(0); sfx.init(); sfx.play('click'); };
   const handleDefenseHover = (r, c) => { if (phase !== "placing" || !selectedShip || placementConfirmed) { setHoverCells([]); return; } const ship = SHIPS.find(s => s.id === selectedShip); if (!ship) return; setHoverCells(getShipCells(ship, r, c, rotation)); };
   const undoLastShip = () => { if (placedShips.length === 0) return; const last = placedShips[placedShips.length - 1]; const nb = defenseBoard.map(row => [...row]); const nc = shipColorMap.map(row => [...row]); last.cells.forEach(([r, c]) => { nb[r][c] = 0; nc[r][c] = null; }); setDefenseBoard(nb); setShipColorMap(nc); setPlacedShips(placedShips.slice(0, -1)); };
+  const buyExtraTime = async () => {
+    if (extraTimeUsed) return;
+    const cost = 10;
+    if (safeGold(myProfile?.gold) < cost) { setMessage("Yeterli altının yok!"); return; }
+    setExtraTimeUsed(true);
+    setPlacementTimer(prev => prev + 10);
+    const newGold = safeGold(myProfile?.gold) - cost;
+    setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev);
+    if (authUid) {
+      try {
+        const snap = await get(ref(db, `profiles/${authUid}`));
+        if (snap.exists()) { const p = snap.val(); await set(ref(db, `profiles/${authUid}`), { ...p, gold: safeGold(p.gold) - cost }); }
+      } catch(e) { console.error(e); }
+    }
+    sfx.init(); sfx.play('gold');
+  };
   const confirmPlacement = async () => {
     if (placedShips.length !== SHIPS.length) return;
+    // Show preview first
+    if (!placementPreview) { setPlacementPreview(true); return; }
     if (placementTimerRef.current) clearInterval(placementTimerRef.current);
     const shipData = {}; placedShips.forEach((s, i) => { shipData[i] = { id: s.id, cells: s.cells }; });
     setMyShipsData(shipData);
     setPlacementConfirmed(true);
+    setPlacementPreview(false);
+    sfx.init(); sfx.play('click');
     if (isBotGame) {
       setPhase("playing"); setMyTurn(true); setActiveBoard("attack");
       return;
@@ -1197,7 +1243,7 @@ export default function Game() {
 
   const resetGame = () => {
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
-    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null);
+    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false);
     if (authUid) { get(ref(db, `profiles/${authUid}`)).then(snap => { if (snap.exists()) setMyProfile(snap.val()); }).catch(() => {}); }
   };
 
@@ -1428,21 +1474,21 @@ export default function Game() {
       <GameOverScreen winner={winner} myHits={myHits} oppHits={oppHits} isWin={isWin} onNewGame={resetGame} onViewBoard={() => setShowReview(true)} />
       <canvas id="confetti-canvas" style={{ position:'fixed',inset:0,pointerEvents:'none',zIndex:10002 }} />
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
-      {eloChange && (<div style={{ position:"fixed",bottom:80,left:0,right:0,display:"flex",justifyContent:"center",zIndex:200,animation:"fadeUp 0.6s ease-out" }}>
-        <div style={{ background:"rgba(17,24,39,0.95)",border:`1px solid ${isWin?t.accent:t.hit}`,borderRadius:12,padding:"14px 24px",textAlign:"center",boxShadow:`0 0 30px ${isWin?t.accentGlow:t.hitGlow}` }}>
-          <div style={{ fontSize:10,letterSpacing:3,color:t.textDim,marginBottom:6,fontFamily:warrior }}>ELO DEĞİŞİMİ</div>
-          <div style={{ display:"flex",alignItems:"center",gap:12,justifyContent:"center" }}>
-            <span style={{ fontSize:20,fontWeight:700,color:t.textDim,fontFamily:warrior }}>{eloChange.myOld}</span>
-            <span style={{ fontSize:20,color:t.textDim }}>→</span>
-            <span style={{ fontSize:24,fontWeight:800,color:myRank?.color||t.accent,fontFamily:warrior }}>{eloChange.myNew}</span>
-            <span style={{ fontSize:16,fontWeight:800,fontFamily:warrior,color:myEloDiff>=0?"#34d399":t.hit }}>{myEloDiff>=0?`+${myEloDiff}`:myEloDiff}</span>
+      {eloChange && (<div style={{ position:"fixed",bottom:80,left:0,right:0,display:"flex",justifyContent:"center",zIndex:200,perspective:"600px" }}>
+        <div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))",border:`2px solid ${isWin?t.accent:t.hit}`,borderRadius:16,padding:"18px 28px",textAlign:"center",animation:"arSlideIn 0.7s ease-out forwards",'--ar-color':isWin?t.accentGlow:t.hitGlow,boxShadow:`0 15px 50px rgba(0,0,0,0.6), 0 0 30px ${isWin?t.accentGlow:t.hitGlow}` }}>
+          <div style={{ fontSize:12,letterSpacing:4,color:t.textDim,marginBottom:8,fontFamily:warrior,fontWeight:700 }}>ELO DEĞİŞİMİ</div>
+          <div style={{ display:"flex",alignItems:"center",gap:14,justifyContent:"center" }}>
+            <span style={{ fontSize:22,fontWeight:700,color:t.textDim,fontFamily:warrior }}>{eloChange.myOld}</span>
+            <span style={{ fontSize:22,color:t.accent }}>→</span>
+            <span style={{ fontSize:28,fontWeight:800,color:myRank?.color||t.accent,fontFamily:warrior,textShadow:`0 0 12px ${myRank?.color||t.accent}44` }}>{eloChange.myNew}</span>
+            <span style={{ fontSize:20,fontWeight:800,fontFamily:warrior,color:myEloDiff>=0?"#4ade80":t.hit,padding:"4px 12px",background:myEloDiff>=0?"rgba(74,222,128,0.1)":"rgba(255,71,87,0.1)",borderRadius:8 }}>{myEloDiff>=0?`+${myEloDiff}`:myEloDiff}</span>
           </div>
-          {myRank && <div style={{ fontSize:11,color:myRank.color,marginTop:6,fontFamily:warrior,letterSpacing:2 }}>{myRank.icon} {myRank.title}</div>}
+          {myRank && <div style={{ fontSize:13,fontWeight:800,color:myRank.color,marginTop:8,fontFamily:warrior,letterSpacing:3 }}>{myRank.icon} {myRank.title}</div>}
           {(entryFeeDeducted || (goldChange && goldChange.amount > 0)) && (
-            <div style={{ marginTop:8,borderTop:`1px solid ${t.border}`,paddingTop:8 }}>
-              {entryFeeDeducted && <div style={{ fontSize:11,color:t.hit,fontFamily:warrior,letterSpacing:1 }}>Giriş: -{entryFeeDeducted} 💰</div>}
-              {goldChange && goldChange.amount > 0 && <div style={{ fontSize:14,color:t.gold,fontWeight:700,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}`,marginTop:2 }}>{isWin?"Kazanç":"Teselli"}: +{goldChange.amount} 💰</div>}
-              {entryFeeDeducted && goldChange && <div style={{ fontSize:12,color:(goldChange.amount-entryFeeDeducted)>=0?"#34d399":t.hit,fontWeight:700,fontFamily:warrior,marginTop:4 }}>Net: {(goldChange.amount-entryFeeDeducted)>=0?"+":""}{goldChange.amount-entryFeeDeducted} 💰</div>}
+            <div style={{ marginTop:10,borderTop:`1px solid rgba(255,255,255,0.06)`,paddingTop:10 }}>
+              {entryFeeDeducted && <div style={{ fontSize:12,fontWeight:700,color:t.hit,fontFamily:warrior,letterSpacing:2 }}>Giriş: -{entryFeeDeducted} 💰</div>}
+              {goldChange && goldChange.amount > 0 && <div style={{ fontSize:16,color:t.gold,fontWeight:800,fontFamily:warrior,textShadow:`0 0 12px ${t.goldGlow}`,marginTop:4 }}>{isWin?"Kazanç":"Teselli"}: +{goldChange.amount} 💰</div>}
+              {entryFeeDeducted && goldChange && <div style={{ fontSize:14,color:(goldChange.amount-entryFeeDeducted)>=0?"#4ade80":t.hit,fontWeight:800,fontFamily:warrior,marginTop:4 }}>Net: {(goldChange.amount-entryFeeDeducted)>=0?"+":""}{goldChange.amount-entryFeeDeducted} 💰</div>}
             </div>
           )}
         </div>
@@ -1545,23 +1591,47 @@ export default function Game() {
 
   if (phase === "placing") {
     const allPlaced = placedShips.length === SHIPS.length, timerLow = placementTimer <= 15, nextShip = SHIPS.find(s => !placedShips.some(p => p.id === s.id));
+    // Placement preview overlay
+    if (placementPreview && allPlaced) {
+      return (<div style={{ ...appStyle, justifyContent:"center" }}><style>{ANIMS}</style>
+        <div style={{ animation:"previewZoom 0.8s ease-out forwards",textAlign:"center",width:"100%",maxWidth:400 }}>
+          <div style={{ fontSize:16,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,marginBottom:12,textShadow:`0 0 15px ${t.accentGlow}` }}>DONANMAN HAZIR!</div>
+          <div style={{ animation:"floatShadow 3s ease-in-out infinite",borderRadius:14,overflow:"hidden",border:`2px solid ${t.accent}`,boxShadow:`0 10px 40px rgba(0,0,0,0.5), 0 0 20px ${t.accentGlow}` }}>
+            <Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled />
+          </div>
+          <div style={{ display:"flex",gap:10,marginTop:16,justifyContent:"center" }}>
+            <button onClick={()=>setPlacementPreview(false)} style={{ padding:"12px 24px",background:"transparent",color:t.textDim,border:`2px solid ${t.border}`,borderRadius:10,fontSize:13,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>↩ DÜZENLE</button>
+            <button onClick={confirmPlacement} style={{ padding:"12px 32px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:14,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 20px ${t.accentGlow}`,animation:"borderGlow 1.5s infinite" }}>✓ SAVAŞA BAŞLA</button>
+          </div>
+        </div>
+      </div>);
+    }
     return (<div style={{ ...appStyle, paddingBottom: 80 }}><style>{ANIMS}</style>
-      <div style={{ fontSize:20,fontWeight:700,letterSpacing:4,color:t.accent,marginBottom:4,fontFamily:warrior }}>GEMİ YERLEŞTİR</div>
-      <div style={{ fontSize:22,fontWeight:700,marginBottom:6,color:timerLow?t.hit:t.accent,animation:timerLow?"blink3s 1s infinite":"none",fontFamily:warrior }}>{formatTime(placementTimer)}</div>
-      <div style={{ fontSize:11,color:t.textDim,marginBottom:8,fontFamily:mono }}>{placedShips.length}/{SHIPS.length} gemi yerleştirildi</div>
-      {entryFeeDeducted && <div style={{ fontSize:10,color:t.gold,fontFamily:warrior,marginBottom:6,letterSpacing:1 }}>💰 Giriş ücreti: {entryFeeDeducted} 💰</div>}
+      <div style={{ fontSize:22,fontWeight:800,letterSpacing:5,color:t.accent,marginBottom:4,fontFamily:warrior,textShadow:`0 0 15px ${t.accentGlow}` }}>GEMİ YERLEŞTİR</div>
+      <div style={{ fontSize:26,fontWeight:800,marginBottom:6,color:timerLow?t.hit:t.accent,animation:timerLow?"blink3s 0.5s infinite":"none",fontFamily:warrior,textShadow:timerLow?`0 0 20px ${t.hitGlow}`:"none" }}>{formatTime(placementTimer)}</div>
+      {/* Extra time button */}
+      {placementTimer <= 15 && !extraTimeUsed && !placementConfirmed && (
+        <button onClick={buyExtraTime} style={{ marginBottom:8,padding:"8px 18px",background:"linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,215,0,0.05))",color:t.gold,border:`2px solid rgba(255,215,0,0.3)`,borderRadius:10,fontSize:12,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior,animation:"borderGlow 1s infinite",boxShadow:`0 0 15px ${t.goldGlow}` }}>⏱ +10 SANİYE (10 💰)</button>
+      )}
+      {extraTimeUsed && <div style={{ fontSize:10,color:t.gold,fontFamily:warrior,marginBottom:6,letterSpacing:2 }}>⏱ Ek süre kullanıldı</div>}
+      <div style={{ fontSize:13,fontWeight:700,color:t.text,marginBottom:8,fontFamily:warrior,letterSpacing:2 }}>{placedShips.length}/{SHIPS.length} GEMİ YERLEŞTİRİLDİ</div>
+      {entryFeeDeducted && <div style={{ fontSize:11,fontWeight:700,color:t.gold,fontFamily:warrior,marginBottom:6,letterSpacing:2 }}>💰 Giriş: {entryFeeDeducted} 💰</div>}
       {!allPlaced && !placementConfirmed && (<>
-        <div style={{ background:t.surface,border:`1px solid ${t.border}`,borderRadius:8,padding:"8px 14px",marginBottom:8,fontSize:11,textAlign:"center",width:"100%",maxWidth:400,fontFamily:mono }}>{selectedShip?<span><span style={{ color:t.accent,fontWeight:800 }}>▸</span> Haritada bir yere dokun</span>:<span><span style={{ color:t.accent,fontWeight:800 }}>▸</span> Aşağıdan bir gemi seç</span>}</div>
-        <div style={{ display:"flex",flexWrap:"wrap",gap:4,justifyContent:"center",marginBottom:8,maxWidth:400,width:"100%" }}>
-          {SHIPS.map(ship=>{const placed=placedShips.some(p=>p.id===ship.id);const sel=selectedShip===ship.id;return(<button key={ship.id} onClick={()=>{if(!placed){setSelectedShip(ship.id);setRotation(0);}}} style={{ padding:"5px 10px",background:placed?t.surfaceLight:sel?t.accent:t.surface,color:placed?t.textDim:sel?t.bg:t.text,border:`1px solid ${placed?t.border:sel?t.accent:t.border}`,borderRadius:4,fontSize:9,cursor:placed?"default":"pointer",fontFamily:mono,opacity:placed?0.4:1,textDecoration:placed?"line-through":"none",fontWeight:sel?700:400,animation:!placed&&!sel&&ship.id===nextShip?.id?"borderGlow 2s infinite":"none" }}>{ship.name}({ship.size})</button>);})}
+        <div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.9), rgba(8,14,30,0.95))",border:`2px solid rgba(0,229,255,0.15)`,borderRadius:10,padding:"10px 16px",marginBottom:8,fontSize:13,textAlign:"center",width:"100%",maxWidth:400,fontFamily:warrior,fontWeight:700,letterSpacing:1 }}>{selectedShip?<span><span style={{ color:t.accent,fontWeight:800 }}>▸</span> Haritada bir yere dokun</span>:<span><span style={{ color:t.accent,fontWeight:800 }}>▸</span> Aşağıdan bir gemi seç</span>}</div>
+        <div style={{ display:"flex",flexWrap:"wrap",gap:6,justifyContent:"center",marginBottom:10,maxWidth:400,width:"100%" }}>
+          {SHIPS.map(ship=>{const placed=placedShips.some(p=>p.id===ship.id);const sel=selectedShip===ship.id;return(<button key={ship.id} onClick={()=>{if(!placed){setSelectedShip(sel?null:ship.id);setRotation(0);}}} style={{ padding:"7px 12px",background:placed?"rgba(22,32,64,0.4)":sel?t.accent:"rgba(12,21,41,0.8)",color:placed?t.textDim:sel?t.bg:t.text,border:`2px solid ${placed?"rgba(30,58,95,0.3)":sel?t.accent:ship.color+"66"}`,borderRadius:8,fontSize:11,cursor:placed?"default":"pointer",fontFamily:warrior,fontWeight:800,opacity:placed?0.35:1,textDecoration:placed?"line-through":"none",letterSpacing:1,animation:!placed&&!sel&&ship.id===nextShip?.id?"borderGlow 2s infinite":"none",transition:"all 0.15s ease" }}>{ship.name}({ship.size})</button>);})}
         </div>
-        <div style={{ display:"flex",gap:8,marginBottom:8 }}>
-          {selectedShip && <button style={btnSecStyle} onClick={() => setRotation((rotation + 1) % 4)}>↻ DÖNDÜR</button>}
-          {placedShips.length > 0 && <button style={{ ...btnSecStyle,color:t.hit,borderColor:t.hit }} onClick={undoLastShip}>↩ GERİ</button>}
+        {/* Mobile-friendly rotate and undo buttons - large touch targets */}
+        <div style={{ display:"flex",gap:10,marginBottom:10,width:"100%",maxWidth:400,justifyContent:"center" }}>
+          {selectedShip && <button onClick={() => setRotation((rotation + 1) % 4)} style={{ flex:1,maxWidth:180,padding:"14px 0",background:"linear-gradient(135deg, rgba(0,229,255,0.12), rgba(0,229,255,0.04))",color:t.accent,border:`2px solid rgba(0,229,255,0.3)`,borderRadius:12,fontSize:20,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:2,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}>
+            <span style={{ fontSize:24,display:"inline-block",transform:`rotate(${rotation*90}deg)`,transition:"transform 0.3s ease" }}>↻</span> DÖNDÜR
+          </button>}
+          {placedShips.length > 0 && <button onClick={undoLastShip} style={{ flex:1,maxWidth:180,padding:"14px 0",background:"rgba(255,71,87,0.08)",color:t.hit,border:`2px solid rgba(255,71,87,0.3)`,borderRadius:12,fontSize:14,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:2 }}>↩ GERİ AL</button>}
         </div>
+        {selectedShip && <div style={{ fontSize:10,color:t.textDim,fontFamily:mono,marginBottom:6,textAlign:"center" }}>Haritaya dokun yerleştir • Döndür butonuna veya tekrar dokun</div>}
       </>)}
-      {allPlaced && !placementConfirmed && <button style={{ ...btnStyle,marginBottom:12,animation:"borderGlow 1.5s infinite" }} onClick={confirmPlacement}>✓ GEMİLERİ ONAYLA</button>}
-      {placementConfirmed && <div style={{ background:t.surface,border:`1px solid ${t.border}`,borderRadius:8,padding:"12px 20px",marginBottom:8,fontSize:12,color:t.accent,textAlign:"center",fontFamily:mono }}>Gemilerin hazır! Rakip bekleniyor...<div style={{ marginTop:8 }}><div style={{ width:12,height:12,borderRadius:"50%",background:t.accent,margin:"0 auto",animation:"pulse 1.5s infinite" }} /></div></div>}
+      {allPlaced && !placementConfirmed && <button style={{ ...btnStyle,marginBottom:12,animation:"borderGlow 1.5s infinite",padding:"14px 36px",fontSize:16,fontWeight:800,letterSpacing:4,borderRadius:12 }} onClick={confirmPlacement}>✓ GEMİLERİ ONAYLA</button>}
+      {placementConfirmed && <div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.9), rgba(8,14,30,0.95))",border:`2px solid rgba(0,229,255,0.2)`,borderRadius:12,padding:"16px 24px",marginBottom:8,fontSize:14,fontWeight:700,color:t.accent,textAlign:"center",fontFamily:warrior,letterSpacing:2 }}>Gemilerin hazır! Rakip bekleniyor...<div style={{ marginTop:10 }}><div style={{ width:14,height:14,borderRadius:"50%",background:t.accent,margin:"0 auto",animation:"pulse 1.5s infinite" }} /></div></div>}
       <div onMouseLeave={() => setHoverCells([])}><Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} hoverCells={hoverCells} onClick={handleDefenseClick} onHover={handleDefenseHover} disabled={placementConfirmed} /></div>
     </div>);
   }
