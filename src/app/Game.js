@@ -123,10 +123,11 @@ function botChooseShots(attackOverlay, lastHits, shotCount) {
 }
 function botChooseShotsOnboarding(attackOverlay, defBoard, shotCount) {
   // Onboarding bot: ALWAYS miss — only picks empty water cells
+  const rows = defBoard.length, cols = defBoard[0]?.length || 0;
   const safeCells = [];
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      if (!attackOverlay[r][c] && defBoard[r][c] === 0) safeCells.push([r, c]);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (!attackOverlay[r]?.[c] && defBoard[r][c] === 0) safeCells.push([r, c]);
     }
   }
   const shots = [];
@@ -578,8 +579,8 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, ov
   const handleTouchStart = (r,c) => { longPressRef.current = setTimeout(()=>{ onLongPress?.(r,c); longPressRef.current=null; },500); };
   const handleTouchEnd = () => { if(longPressRef.current){clearTimeout(longPressRef.current);longPressRef.current=null;} };
   return (<div style={{ background:`linear-gradient(135deg,${t.surface} 0%,rgba(17,24,39,0.95) 100%)`,border:"1px solid rgba(55,65,81,0.6)",borderRadius:10,padding:4,overflow:"hidden",boxShadow:"0 4px 20px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.03)" }}>
-    <div style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize }} />{COL_LABELS.map((l,i) => <div key={i} style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:t.textDim,fontFamily:mono }}>{l}</div>)}</div>
-    {board.map((row,r) => (<div key={r} style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700,color:t.textDim,fontFamily:mono }}>{r+1}</div>
+    <div style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize }} />{board[0]?.map((_,i) => <div key={i} style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:cellSize>30?10:8,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:1 }}>{COL_LABELS[i]||""}</div>)}</div>
+    {board.map((row,r) => (<div key={r} style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:cellSize>30?10:8,fontWeight:800,color:t.textDim,fontFamily:warrior }}>{r+1}</div>
       {row.map((val,c) => {
         const ovr=overlay?.[r]?.[c], isHov=hoverCells?.some(([hr,hc])=>hr===r&&hc===c), shipColor=shipColors?.[r]?.[c], isBlink=blinkCells?.some(([br,bc])=>br===r&&bc===c), isManual=manualMarks?.[r]?.[c], isRipple=rippleCell===`${r},${c}`;
         let bg=t.water,content="",shadow="none",clr=t.textDim;
@@ -1368,9 +1369,8 @@ export default function Game() {
   };
 
   const startOnboarding = () => {
-    // Mini 7x7 oyun — gemiler otomatik yerleştirilmiş
     const MINI = 7;
-    // Oyuncunun gemileri — otomatik yerleştir (küçük set: 1 üçlü, 2 ikili, 2 tekli = 9 hücre)
+    // Oyuncunun gemileri — otomatik
     const miniShips = [
       { id: "uclu1", name: "Üçlü", cells: [[1,1],[1,2],[1,3]], color: "#3498db" },
       { id: "ikili1", name: "İkili-1", cells: [[3,5],[4,5]], color: "#2ecc71" },
@@ -1381,13 +1381,14 @@ export default function Game() {
     const myBoard = Array.from({length:MINI}, () => Array(MINI).fill(0));
     const myColors = Array.from({length:MINI}, () => Array(MINI).fill(null));
     miniShips.forEach(s => s.cells.forEach(([r,c]) => { myBoard[r][c] = 1; myColors[r][c] = s.color; }));
-    // Bot gemileri — kolay hedefler
+    // Bot gemileri — İLK 3 ATIŞTA İSABET GARANTİSİ için üst satıra koyuyoruz
+    // Oyuncu genelde üst-sol köşeden başlar → (0,0), (0,1), (0,2) isabet edecek
     const botMiniShips = [
       { id: "uclu1", name: "Üçlü", cells: [[0,0],[0,1],[0,2]], color: "#e74c3c" },
-      { id: "ikili1", name: "İkili-1", cells: [[2,4],[2,5]], color: "#e74c3c" },
-      { id: "ikili2", name: "İkili-2", cells: [[4,1],[4,2]], color: "#e74c3c" },
-      { id: "tekli1", name: "Tekli-1", cells: [[6,6]], color: "#e74c3c" },
-      { id: "tekli2", name: "Tekli-2", cells: [[3,3]], color: "#e74c3c" },
+      { id: "ikili1", name: "İkili-1", cells: [[3,3],[3,4]], color: "#e74c3c" },
+      { id: "ikili2", name: "İkili-2", cells: [[5,5],[5,6]], color: "#e74c3c" },
+      { id: "tekli1", name: "Tekli-1", cells: [[6,0]], color: "#e74c3c" },
+      { id: "tekli2", name: "Tekli-2", cells: [[2,6]], color: "#e74c3c" },
     ];
     const botBrd = Array.from({length:MINI}, () => Array(MINI).fill(0));
     botMiniShips.forEach(s => s.cells.forEach(([r,c]) => { botBrd[r][c] = 1; }));
@@ -1404,7 +1405,7 @@ export default function Game() {
     setAtkHitMap(Array.from({length:MINI}, () => Array(MINI).fill(false)));
     setDefHitMap(Array.from({length:MINI}, () => Array(MINI).fill(false)));
     setManualMarks(Array.from({length:MINI}, () => Array(MINI).fill(false)));
-    setBotName("Acemi Korsan"); setOpponentName("Acemi Korsan");
+    setBotName("Rakip"); setOpponentName("Rakip");
     setMyTurn(true); setMyClock(999); setOppClock(999);
     setPlacementConfirmed(true); setGameStartTime(Date.now());
     setPhase("onboarding_intro");
@@ -1622,23 +1623,43 @@ export default function Game() {
   }
   if (phase === "ready") return <><style>{ANIMS}</style><ReadyScreen opponentName={opponentName} onStart={() => setPhase("playing")} /></>;
 
-  // === ONBOARDING INTRO — Karizmatik karşılama ===
+  // === ONBOARDING — EPİK INTRO ===
   if (phase === "onboarding_intro") {
-    return (<div style={{ ...appStyle, justifyContent:"center",background:`radial-gradient(ellipse at 50% 30%, rgba(0,229,255,0.08) 0%, ${t.bg} 70%)` }}><style>{ANIMS}</style>
-      {onboardingStep === 0 && <div style={{ textAlign:"center",animation:"fadeUp 0.8s ease-out" }}>
-        <div style={{ fontSize:48,marginBottom:16,animation:"float 3s ease-in-out infinite" }}>⚔</div>
-        <div style={{ fontSize:28,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:6,textShadow:`0 0 40px ${t.accentGlow}`,marginBottom:8 }}>AMİRAL BATTI</div>
-        <div style={{ fontSize:14,fontWeight:700,color:t.text,fontFamily:warrior,letterSpacing:3,marginBottom:4 }}>DENİZLER SENİ ÇAĞIRIYOR</div>
-        <div style={{ fontSize:12,color:t.textDim,fontFamily:mono,marginBottom:32,maxWidth:280,margin:"0 auto 32px" }}>Strateji kur. Ateş et. Batır.</div>
-        <button onClick={() => setOnboardingStep(1)} style={{ padding:"18px 48px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:14,fontSize:18,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 30px ${t.accentGlow}`,animation:"scaleUp 0.5s ease-out" }}>BAŞLA</button>
-      </div>}
-      {onboardingStep === 1 && <div style={{ textAlign:"center",animation:"arSlideIn 0.6s ease-out" }}>
-        <div style={{ fontSize:36,marginBottom:16 }}>🏴‍☠️</div>
-        <div style={{ fontSize:22,fontWeight:800,color:t.text,fontFamily:warrior,letterSpacing:3,marginBottom:12 }}>KAZANMAK İSTER MİSİN?</div>
-        <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:32,maxWidth:300,margin:"0 auto 32px",lineHeight:1.6 }}>Bir korsan seni bekliyor.<br/>Haritada gemilerini bul ve batır!</div>
-        <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); }} style={{ padding:"18px 48px",background:`linear-gradient(135deg,${t.hit},#dc2626)`,color:"#fff",border:"none",borderRadius:14,fontSize:18,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 30px ${t.hitGlow}`,animation:"borderGlow 2s infinite" }}>SAVAŞA GİR</button>
-      </div>}
-    </div>);
+    // Step 0: Title splash — cinematic
+    if (onboardingStep === 0) {
+      return (<div style={{ ...appStyle, justifyContent:"center",background:`radial-gradient(ellipse at 50% 40%, rgba(0,229,255,0.12) 0%, rgba(0,60,120,0.08) 40%, ${t.bg} 80%)`,overflow:"hidden",position:"relative" }}><style>{ANIMS}</style>
+        {/* Animated water waves background */}
+        <div style={{ position:"absolute",bottom:0,left:0,right:0,height:120,opacity:0.06,overflow:"hidden",pointerEvents:"none" }}>
+          <div style={{ position:"absolute",bottom:0,left:"-50%",width:"200%",height:60,borderRadius:"50%",background:t.accent,animation:"wave 6s linear infinite" }} />
+          <div style={{ position:"absolute",bottom:20,left:"-50%",width:"200%",height:40,borderRadius:"50%",background:t.accent,opacity:0.5,animation:"wave 9s linear infinite reverse" }} />
+        </div>
+        {/* Cinematic title */}
+        <div style={{ textAlign:"center",animation:"fadeUp 1s ease-out",zIndex:1 }}>
+          <div style={{ fontSize:80,marginBottom:20,animation:"float 3s ease-in-out infinite",filter:"drop-shadow(0 0 30px rgba(0,229,255,0.4))" }}>⚔</div>
+          <div style={{ fontSize:14,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:12,marginBottom:8,opacity:0.6,animation:"fadeUp 1.2s ease-out" }}>— — —</div>
+          <div style={{ fontSize:52,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:12,textShadow:`0 0 60px ${t.accentGlow}, 0 0 120px rgba(0,229,255,0.2), 0 4px 20px rgba(0,0,0,0.8)`,marginBottom:12,animation:"victoryGlow 3s ease-in-out infinite",lineHeight:1.1 }}>AMİRAL<br/>BATTI</div>
+          <div style={{ fontSize:13,fontWeight:700,color:"rgba(255,215,0,0.7)",fontFamily:warrior,letterSpacing:6,marginBottom:40,animation:"fadeUp 1.5s ease-out",fontStyle:"italic" }}>savaşların atası...</div>
+          <div style={{ animation:"fadeUp 2s ease-out" }}>
+            <button onClick={() => { setOnboardingStep(1); sfx.init(); sfx.play('click'); }} style={{ padding:"20px 60px",background:`linear-gradient(180deg, rgba(0,229,255,0.9) 0%, rgba(0,180,220,0.9) 50%, rgba(0,140,180,0.9) 100%)`,color:"#fff",border:"3px solid rgba(255,255,255,0.3)",borderRadius:16,fontSize:20,fontWeight:800,letterSpacing:6,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 40px ${t.accentGlow}, 0 8px 30px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,0.2), inset 0 -2px 0 rgba(0,0,0,0.2)`,textShadow:"0 2px 4px rgba(0,0,0,0.4)",transition:"transform 0.1s",position:"relative",overflow:"hidden" }}>BAŞLA</button>
+          </div>
+        </div>
+      </div>);
+    }
+    // Step 1: Battle call — görseldeki gibi
+    if (onboardingStep === 1) {
+      return (<div style={{ ...appStyle, justifyContent:"center",background:`radial-gradient(ellipse at 50% 30%, rgba(0,229,255,0.1) 0%, rgba(0,40,80,0.06) 40%, ${t.bg} 80%)`,overflow:"hidden",position:"relative" }}><style>{ANIMS}</style>
+        <div style={{ position:"absolute",bottom:0,left:0,right:0,height:100,opacity:0.04,overflow:"hidden",pointerEvents:"none" }}>
+          <div style={{ position:"absolute",bottom:0,left:"-50%",width:"200%",height:50,borderRadius:"50%",background:t.accent,animation:"wave 7s linear infinite" }} />
+        </div>
+        <div style={{ textAlign:"center",animation:"arSlideIn 0.7s ease-out",zIndex:1 }}>
+          <div style={{ fontSize:60,marginBottom:16,animation:"float 2.5s ease-in-out infinite" }}>⚔</div>
+          <div style={{ fontSize:24,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 30px ${t.accentGlow}`,marginBottom:8 }}>AMİRAL BATTI</div>
+          <div style={{ fontSize:16,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:3,marginBottom:6,textShadow:`0 0 15px ${t.goldGlow}` }}>DENİZLERİN HAKİMİ OL,</div>
+          <div style={{ fontSize:16,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:3,marginBottom:36,textShadow:`0 0 15px ${t.goldGlow}` }}>SAVAŞI KAZAN.</div>
+          <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); }} style={{ padding:"20px 60px",background:`linear-gradient(180deg, rgba(0,229,255,0.9) 0%, rgba(0,180,220,0.9) 50%, rgba(0,140,180,0.9) 100%)`,color:"#fff",border:"3px solid rgba(255,255,255,0.3)",borderRadius:16,fontSize:20,fontWeight:800,letterSpacing:6,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 40px ${t.accentGlow}, 0 8px 30px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,0.2), inset 0 -2px 0 rgba(0,0,0,0.2)`,textShadow:"0 2px 4px rgba(0,0,0,0.4)",animation:"scaleUp 0.5s ease-out" }}>HADİ OYNA</button>
+        </div>
+      </div>);
+    }
   }
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} /></>;
   if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myElo={myProfile?.elo || 1200} myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => { setSelectedArena(arena); setShowArenaSelect(false); startQuickMatch(arena); }} /></>;
@@ -1875,7 +1896,7 @@ export default function Game() {
           <EmojiDisplay emoji={emojiToast?.emoji} label={emojiToast?.label} />
         </div>
       </div>}
-      {isOnboarding && <div style={{ fontSize:14,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:3,marginBottom:6,textAlign:"center" }}>🏴‍☠️ ACEMİ KORSAN ile SAVAŞ</div>}
+      {isOnboarding && <div style={{ fontSize:14,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:3,marginBottom:6,textAlign:"center" }}>⚔ EĞİTİM SAVAŞI</div>}
       <div style={{ fontSize:18,fontWeight:800,marginBottom:6,textAlign:"center",fontFamily:warrior,letterSpacing:4,textTransform:"uppercase",color:myTurn?t.accent:t.textDim,textShadow:myTurn?`0 0 25px ${t.accentGlow}`:"none",animation:myTurn?"fadeUp 0.3s ease-out":"none" }}>{myTurn?"⚡ SENİN SIRAN ⚡":(isBotGame?"🤖 Bot düşünüyor...":"Rakibin sırası...")}</div>
       {!isOnboarding && <div style={{ fontSize:12,color:t.text,marginBottom:6,fontFamily:mono,fontWeight:700 }}>İsabet: <span style={{ color:t.accent }}>{myHits}/20</span> • Karavana: <span style={{ color:t.hit }}>{oppHits}/20</span></div>}
       {isOnboarding && <div style={{ fontSize:12,color:t.text,marginBottom:6,fontFamily:mono,fontWeight:700 }}>İsabet: <span style={{ color:t.accent }}>{myHits}/9</span></div>}
