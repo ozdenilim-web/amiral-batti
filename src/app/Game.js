@@ -195,8 +195,75 @@ function getRankInfo(elo) {
 
 // === SES MOTORU (Web Audio API — dosyasız) ===
 class SoundEngine {
-  constructor() { this.ctx = null; this.enabled = true; }
+  constructor() { this.ctx = null; this.enabled = true; this.musicGain = null; this.musicOscs = []; }
   init() { if (this.ctx) return; try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { this.enabled = false; } }
+  stopMusic() { this.musicOscs.forEach(o => { try { o.stop(); } catch(e) {} }); this.musicOscs = []; if (this.musicGain) { try { this.musicGain.disconnect(); } catch(e) {} this.musicGain = null; } }
+  playEpicMusic() {
+    // Age of Empires tarzı epik-lirik müzik — synthesized
+    if (!this.enabled || !this.ctx) return;
+    this.stopMusic();
+    const ctx = this.ctx, now = ctx.currentTime;
+    this.musicGain = ctx.createGain();
+    this.musicGain.gain.setValueAtTime(0.06, now);
+    this.musicGain.connect(ctx.destination);
+    // Epic melody — D minor pentatonic, heroic feel
+    const melody = [293.66,349.23,392,440,349.23,293.66,261.63,293.66,349.23,440,523.25,440,349.23,293.66,261.63,220,261.63,293.66,349.23,293.66];
+    const durations = [0.6,0.6,0.4,0.8,0.4,0.6,0.6,0.4,0.6,0.4,0.8,0.6,0.4,0.6,0.4,0.8,0.6,0.4,0.6,1.0];
+    let time = now + 0.1;
+    // Pad/drone — low D
+    const drone = ctx.createOscillator(); const droneG = ctx.createGain();
+    drone.type = 'sine'; drone.frequency.value = 146.83;
+    droneG.gain.setValueAtTime(0.03, now); drone.connect(droneG); droneG.connect(this.musicGain);
+    drone.start(now); this.musicOscs.push(drone);
+    // Play melody loop
+    for (let loop = 0; loop < 3; loop++) {
+      melody.forEach((freq, i) => {
+        const osc = ctx.createOscillator(); const g = ctx.createGain();
+        osc.type = loop === 0 ? 'sine' : 'triangle';
+        osc.frequency.value = freq;
+        g.gain.setValueAtTime(0, time);
+        g.gain.linearRampToValueAtTime(0.08, time + 0.05);
+        g.gain.linearRampToValueAtTime(0.04, time + durations[i] * 0.7);
+        g.gain.linearRampToValueAtTime(0, time + durations[i]);
+        osc.connect(g); g.connect(this.musicGain);
+        osc.start(time); osc.stop(time + durations[i] + 0.05);
+        this.musicOscs.push(osc);
+        time += durations[i];
+      });
+    }
+    // Auto-stop drone after melody
+    drone.stop(time + 1);
+    setTimeout(() => { if (this.musicOscs.length > 0) this.playEpicMusic(); }, (time - now) * 1000);
+  }
+  playDefeatMusic() {
+    if (!this.enabled || !this.ctx) return;
+    this.stopMusic();
+    const ctx = this.ctx, now = ctx.currentTime;
+    this.musicGain = ctx.createGain();
+    this.musicGain.gain.setValueAtTime(0.05, now);
+    this.musicGain.connect(ctx.destination);
+    // Dramatic minor descent
+    const notes = [440,415.3,392,349.23,329.63,293.66,261.63,246.94,220];
+    let time = now + 0.1;
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator(); const g = ctx.createGain();
+      osc.type = 'sine'; osc.frequency.value = freq;
+      g.gain.setValueAtTime(0, time);
+      g.gain.linearRampToValueAtTime(0.07, time + 0.1);
+      g.gain.linearRampToValueAtTime(0, time + 1.0);
+      osc.connect(g); g.connect(this.musicGain);
+      osc.start(time); osc.stop(time + 1.1);
+      this.musicOscs.push(osc);
+      time += 0.8;
+    });
+    // Low drone
+    const drone = ctx.createOscillator(); const dg = ctx.createGain();
+    drone.type = 'sine'; drone.frequency.value = 110;
+    dg.gain.setValueAtTime(0.03, now); dg.gain.linearRampToValueAtTime(0, now + 8);
+    drone.connect(dg); dg.connect(this.musicGain);
+    drone.start(now); drone.stop(now + 8.5);
+    this.musicOscs.push(drone);
+  }
   play(type) {
     if (!this.enabled || !this.ctx) return;
     try {
@@ -572,7 +639,7 @@ const ANIMS = `
 const warrior = "'Oswald', sans-serif";
 const mono = "'JetBrains Mono', monospace";
 
-function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, overlay, hoverCells, isDefense, shipColors, disabled, blinkCells, manualMarks, showShipStatus }) {
+function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, overlay, hoverCells, isDefense, shipColors, disabled, blinkCells, manualMarks, showShipStatus, onboardingHint }) {
   const longPressRef = useRef(null);
   const [rippleCell, setRippleCell] = useState(null);
   const handleClick = (r,c) => { if(disabled)return; sfx.init(); setRippleCell(`${r},${c}`); setTimeout(()=>setRippleCell(null),400); onClick?.(r,c); };
@@ -593,6 +660,8 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, ov
         }
         else{if(ovr==="hit"){bg=t.hit;content="✕";shadow=`inset 0 0 12px ${t.hitGlow}`;clr="#fff";}else if(ovr==="miss"){bg=t.miss;content="•";}else if(ovr==="sunk"){bg=t.sunk;content="💀";shadow="inset 0 0 12px rgba(249,115,22,0.4)";clr="#fff";}else if(ovr==="selected"){bg="rgba(6,182,212,0.45)";content="◎";shadow=`inset 0 0 12px ${t.accentGlow}`;clr=t.accent;}if(!ovr&&isManual){bg="rgba(251,191,36,0.15)";content="⚑";clr=t.gold;}}
         if(isHov){bg="rgba(6,182,212,0.35)";shadow=`inset 0 0 10px ${t.accentGlow}`;}
+        const isHint = onboardingHint?.some(([hr,hc])=>hr===r&&hc===c) && !ovr;
+        if(isHint){bg="rgba(255,215,0,0.25)";shadow=`inset 0 0 12px ${t.goldGlow}, 0 0 8px ${t.goldGlow}`;content="◆";clr=t.gold;}
         return <div key={c} onClick={()=>handleClick(r,c)} onMouseEnter={()=>onHover?.(r,c)} onContextMenu={e=>{e.preventDefault();onRightClick?.(r,c);}} onTouchStart={()=>handleTouchStart(r,c)} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={{ width:cellSize,height:cellSize,border:"1px solid rgba(55,65,81,0.5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:ovr==="sunk"?10:8,fontWeight:700,cursor:disabled?"default":"pointer",background:bg,boxShadow:shadow,color:clr,transition:"all 0.15s ease",boxSizing:"border-box",animation:isBlink?"blink3s 0.5s ease-in-out 6":isRipple?"popIn 0.3s ease-out":"none",borderRadius:1 }}>{content}</div>;
       })}</div>))}
   </div>);
@@ -1088,7 +1157,8 @@ export default function Game() {
         let winMsg = iW ? (reason === "timeout" ? "Süre bitti — Rakip elendi!" : reason === "placement_timeout" ? "Rakip gemileri zamanında yerleştiremediği için kazandın!" : reason === "surrender" ? "Rakip teslim oldu!" : "Tüm gemileri batırdın!") : (reason === "timeout" ? "Süren doldu!" : reason === "placement_timeout" ? "Gemileri zamanında yerleştiremediğin için kaybettin!" : reason === "surrender" ? "Teslim oldun!" : "Gemilerin battı!");
         setWinner(winMsg); setIsWin(iW); setPhase("gameover");
         sfx.init(); sfx.play(iW ? 'win' : 'lose');
-        if (iW) setTimeout(() => launchConfetti('confetti-canvas'), 300);
+        if (iW) { setTimeout(() => sfx.playEpicMusic(), 500); setTimeout(() => launchConfetti('confetti-canvas'), 300); }
+        else { setTimeout(() => sfx.playDefeatMusic(), 500); }
         if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
 
         // ELO güncelleme — sadece bir kez, sadece kazanan tarafından
@@ -1341,6 +1411,7 @@ export default function Game() {
   };
 
   const resetGame = () => {
+    sfx.stopMusic();
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
     setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false });
     if (authUid) { get(ref(db, `profiles/${authUid}`)).then(snap => { if (snap.exists()) setMyProfile(snap.val()); }).catch(() => {}); }
@@ -1370,25 +1441,17 @@ export default function Game() {
 
   const startOnboarding = () => {
     const MINI = 7;
-    // Oyuncunun gemileri — otomatik
+    // Oyuncunun gemileri — otomatik (sadece savunma amaçlı, bot miss edecek)
     const miniShips = [
-      { id: "uclu1", name: "Üçlü", cells: [[1,1],[1,2],[1,3]], color: "#3498db" },
-      { id: "ikili1", name: "İkili-1", cells: [[3,5],[4,5]], color: "#2ecc71" },
-      { id: "ikili2", name: "İkili-2", cells: [[5,1],[5,2]], color: "#27ae60" },
-      { id: "tekli1", name: "Tekli-1", cells: [[0,5]], color: "#f39c12" },
-      { id: "tekli2", name: "Tekli-2", cells: [[6,3]], color: "#e67e22" },
+      { id: "ikili1", name: "İkili-1", cells: [[2,2],[2,3]], color: "#2ecc71" },
+      { id: "tekli1", name: "Tekli-1", cells: [[5,5]], color: "#f39c12" },
     ];
     const myBoard = Array.from({length:MINI}, () => Array(MINI).fill(0));
     const myColors = Array.from({length:MINI}, () => Array(MINI).fill(null));
     miniShips.forEach(s => s.cells.forEach(([r,c]) => { myBoard[r][c] = 1; myColors[r][c] = s.color; }));
-    // Bot gemileri — İLK 3 ATIŞTA İSABET GARANTİSİ için üst satıra koyuyoruz
-    // Oyuncu genelde üst-sol köşeden başlar → (0,0), (0,1), (0,2) isabet edecek
+    // Bot: SADECE AMİRAL — L şekli (0,0)(0,1)(0,2)(1,1) — ilk 3 atış (0,0)(0,1)(0,2) isabet, 4. ipucu (1,1)
     const botMiniShips = [
-      { id: "uclu1", name: "Üçlü", cells: [[0,0],[0,1],[0,2]], color: "#e74c3c" },
-      { id: "ikili1", name: "İkili-1", cells: [[3,3],[3,4]], color: "#e74c3c" },
-      { id: "ikili2", name: "İkili-2", cells: [[5,5],[5,6]], color: "#e74c3c" },
-      { id: "tekli1", name: "Tekli-1", cells: [[6,0]], color: "#e74c3c" },
-      { id: "tekli2", name: "Tekli-2", cells: [[2,6]], color: "#e74c3c" },
+      { id: "amiral", name: "Amiral", cells: [[0,0],[0,1],[0,2],[1,1]], color: "#e74c3c" },
     ];
     const botBrd = Array.from({length:MINI}, () => Array(MINI).fill(0));
     botMiniShips.forEach(s => s.cells.forEach(([r,c]) => { botBrd[r][c] = 1; }));
@@ -1511,7 +1574,7 @@ export default function Game() {
       setHitStreak(0); setStreakToast(null);
     }
     // Check if player won
-    const winTarget = isOnboarding ? 9 : 20;
+    const winTarget = isOnboarding ? 4 : 20;
     if (newMyHits >= winTarget) {
       if (isOnboarding) {
         setWinner("Bu sadece başlangıçtı... Gerçek rakipler seni bekliyor!");
@@ -1522,6 +1585,7 @@ export default function Game() {
       }
       setIsWin(true); setPhase("gameover");
       sfx.init(); sfx.play('win'); setTimeout(() => launchConfetti('confetti-canvas'), 300);
+      if (!isOnboarding) setTimeout(() => sfx.playEpicMusic(), 500);
       // Count sunk ships
       const sunkCount = botShips ? Object.values(botShips).filter(ship => ship.cells.every(([r,c]) => newAtkOverlay[r][c] === "hit" || newAtkOverlay[r][c] === "sunk")).length : 0;
       const elapsed = gameStartTime ? (Date.now() - gameStartTime) / 1000 : 999;
@@ -1669,6 +1733,8 @@ export default function Game() {
     if (showReview) return <BoardReview defenseBoard={defenseBoard} shipColorMap={shipColorMap} defenseOverlay={defenseOverlay} attackOverlay={attackOverlay} oppShipsData={oppShipsData} myShipsData={myShipsData} defHitMap={defHitMap} atkHitMap={atkHitMap} cellSize={cellSize} onBack={() => setShowReview(false)} />;
     // ONBOARDING VICTORY — Special rank reveal ceremony
     if (isOnboarding && isWin) {
+      // Play epic victory music
+      sfx.init(); sfx.playEpicMusic(); setTimeout(() => launchConfetti('confetti-canvas', 4000), 300);
       return (<><style>{ANIMS}</style>
         <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",minHeight:"100dvh",background:`radial-gradient(ellipse at 50% 30%, rgba(0,229,255,0.15) 0%, rgba(255,215,0,0.05) 30%, ${t.bg} 70%)`,padding:20,perspective:"800px" }}>
           <div style={{ animation:"arSlideIn 1s ease-out forwards",transformStyle:"preserve-3d",textAlign:"center",maxWidth:380,width:"90vw" }}>
@@ -1678,6 +1744,12 @@ export default function Game() {
               <div style={{ fontSize:18,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:6,marginBottom:8 }}>TEBRIKLER, DENİZCİ!</div>
               <div style={{ fontSize:48,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 40px ${t.accentGlow}`,marginBottom:16,animation:"victoryGlow 2s ease-in-out infinite" }}>ZAFER</div>
               <div style={{ fontSize:14,fontWeight:700,color:"rgba(0,229,255,0.7)",fontFamily:warrior,letterSpacing:2,marginBottom:24 }}>{winner}</div>
+              {/* Gerçek rakipler seni bekliyor */}
+              <div style={{ background:"rgba(255,71,87,0.06)",border:`2px solid rgba(255,71,87,0.2)`,borderRadius:14,padding:"16px 20px",marginBottom:20,animation:"arSlideIn 1s ease-out 0.3s both" }}>
+                <div style={{ fontSize:16,fontWeight:800,color:t.hit,fontFamily:warrior,letterSpacing:3,marginBottom:4 }}>GERÇEK RAKİPLER</div>
+                <div style={{ fontSize:13,fontWeight:700,color:t.text,fontFamily:warrior,letterSpacing:2 }}>SENİ BEKLİYOR!</div>
+                <div style={{ fontSize:10,color:t.textDim,fontFamily:mono,marginTop:6 }}>Altın kazan • ELO yükselt • Zirveye çık</div>
+              </div>
               {/* Rank badge */}
               <div style={{ background:"rgba(0,229,255,0.08)",border:`2px solid rgba(0,229,255,0.25)`,borderRadius:16,padding:"20px 24px",marginBottom:20,animation:"arSlideIn 1s ease-out 0.5s both" }}>
                 <div style={{ fontSize:11,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:3,marginBottom:8 }}>RÜTBEN BELİRLENDİ</div>
@@ -1693,7 +1765,7 @@ export default function Game() {
                 <div style={{ fontSize:11,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:2 }}>İLK ÖDÜLÜN</div>
                 <div style={{ fontSize:24,fontWeight:800,color:t.gold,fontFamily:warrior,textShadow:`0 0 15px ${t.goldGlow}`,marginTop:4 }}>500 💰</div>
               </div>
-              <button onClick={() => { setIsOnboarding(false); resetGame(); }} style={{ padding:"18px 40px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:14,fontSize:18,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 30px ${t.accentGlow}`,animation:"arSlideIn 1s ease-out 1.1s both" }}>SAVAŞA HAZIRIM</button>
+              <button onClick={() => { sfx.stopMusic(); setIsOnboarding(false); resetGame(); }} style={{ padding:"18px 40px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:14,fontSize:18,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 30px ${t.accentGlow}`,animation:"arSlideIn 1s ease-out 1.1s both" }}>SAVAŞA HAZIRIM</button>
             </div>
           </div>
         </div>
@@ -1879,12 +1951,12 @@ export default function Game() {
       </div>
       {/* Onboarding mini guide */}
       {isOnboarding && !onboardingMilestones.firstHit && <div style={{ background:"rgba(0,229,255,0.08)",border:`2px solid rgba(0,229,255,0.2)`,borderRadius:12,padding:"10px 16px",marginBottom:8,width:"100%",maxWidth:400,textAlign:"center",animation:"fadeUp 0.5s ease-out" }}>
-        <div style={{ fontSize:14,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:2 }}>HAritadaki karelere dokun!</div>
-        <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginTop:4 }}>3 kare seç → ATEŞ bas → gemileri bul</div>
+        <div style={{ fontSize:14,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:2 }}>Üst satırdaki karelere dokun!</div>
+        <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginTop:4 }}>3 kare seç → ATEŞ bas</div>
       </div>}
-      {isOnboarding && onboardingMilestones.firstHit && !onboardingMilestones.firstSunk && <div style={{ background:"rgba(255,215,0,0.08)",border:`2px solid rgba(255,215,0,0.2)`,borderRadius:12,padding:"10px 16px",marginBottom:8,width:"100%",maxWidth:400,textAlign:"center",animation:"fadeUp 0.5s ease-out" }}>
-        <div style={{ fontSize:14,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:2 }}>İSABET ETTİN!</div>
-        <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginTop:4 }}>Kırmızı karelerin etrafını dene → gemiyi batır!</div>
+      {isOnboarding && onboardingMilestones.firstHit && !onboardingMilestones.firstSunk && <div style={{ background:"rgba(255,215,0,0.1)",border:`2px solid rgba(255,215,0,0.3)`,borderRadius:12,padding:"10px 16px",marginBottom:8,width:"100%",maxWidth:400,textAlign:"center",animation:"fadeUp 0.5s ease-out" }}>
+        <div style={{ fontSize:14,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:2 }}>Kırmızıların altını dene!</div>
+        <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginTop:4 }}>Parlayan kareye ateş et → gemiyi batır!</div>
       </div>}
       {!isOnboarding && <div style={{ display:"flex",gap:8,alignItems:"stretch",marginBottom:6,width:"100%",maxWidth:400,justifyContent:"center" }}>
         <div style={{ flex:1,padding:"4px 10px",borderRadius:6,background:myTurn?(myLow?"rgba(239,68,68,0.15)":"rgba(6,182,212,0.12)"):t.surfaceLight,border:`1px solid ${myTurn?(myLow?t.hit:t.accent):t.border}`,textAlign:"center" }}>
@@ -1911,7 +1983,7 @@ export default function Game() {
       {isAttack && <button onClick={()=>setMarkMode(!markMode)} style={{ marginBottom:6,padding:"6px 16px",fontSize:10,fontWeight:700,fontFamily:warrior,background:markMode?t.gold:"transparent",color:markMode?t.bg:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,cursor:"pointer",letterSpacing:2 }}>{markMode?"⚑ İŞARETLEME MODU: AÇIK":"⚑ İŞARETLE"}</button>}
       </>}
       <div style={{ width:"100%",maxWidth:400,border:myTurn&&isAttack?`2px solid ${t.accent}`:"1px solid transparent",borderRadius:12,padding:2,animation:myTurn&&isAttack?"borderGlow 2s infinite":"none" }}>
-        {isAttack?<><Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:cellSize} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} />{!isOnboarding&&<ShipStatusPanel title="RAKİP GEMİLER" ships={oppShipsData} hitCells={atkHitMap} color={t.hit} />}</>:<><Grid board={defenseBoard} cellSize={isOnboarding?gridSize:cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />{!isOnboarding&&<ShipStatusPanel title="GEMİLERİM" ships={myShipsData} hitCells={defHitMap} color={t.accent} />}</>}
+        {isAttack?<><Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:cellSize} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} onboardingHint={isOnboarding&&onboardingMilestones.firstHit&&!onboardingMilestones.firstSunk?[[1,1]]:null} />{!isOnboarding&&<ShipStatusPanel title="RAKİP GEMİLER" ships={oppShipsData} hitCells={atkHitMap} color={t.hit} />}</>:<><Grid board={defenseBoard} cellSize={isOnboarding?gridSize:cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />{!isOnboarding&&<ShipStatusPanel title="GEMİLERİM" ships={myShipsData} hitCells={defHitMap} color={t.accent} />}</>}
       </div>
       {isTestMode() && <button onClick={forceEndGame} style={{ marginTop:8,padding:"8px 16px",background:"rgba(251,191,36,0.2)",color:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>🧪 OYUNU BİTİR (TEST)</button>}
       {myTurn && isAttack && !markMode && (<div style={{ position:"fixed",bottom:0,left:0,right:0,background:"rgba(10,14,23,0.96)",backdropFilter:"blur(10px)",borderTop:`1px solid ${t.border}`,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"center",gap:14,zIndex:100 }}>
