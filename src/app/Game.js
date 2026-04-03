@@ -1677,12 +1677,21 @@ export default function Game() {
     // Logged in with valid username — check onboarding
     if (!isTestMode() && authUid && myProfile) {
       if (!myProfile.onboardingDone) {
-        setTimeout(() => startOnboarding(), 100);
-        return <><style>{ANIMS}</style><LoadingScreen onReady={() => {}} /></>;
+        if (phase === "splash") {
+          // Trigger onboarding via state change, not during render
+          Promise.resolve().then(() => startOnboarding());
+          return <><style>{ANIMS}</style><LoadingScreen onReady={() => {}} /></>;
+        }
       }
       checkDailyReward(authUid).then(reward => { if (reward) setDailyReward(reward); }).catch(() => {});
+      if (phase === "splash") {
+        Promise.resolve().then(() => setPhase("lobby"));
+        return <><style>{ANIMS}</style><LoadingScreen onReady={() => {}} /></>;
+      }
     }
-    setPhase("lobby");
+    if (phase === "splash") {
+      Promise.resolve().then(() => setPhase("lobby"));
+    }
     return <><style>{ANIMS}</style><LoadingScreen onReady={() => {}} /></>;
   }
   if (phase === "ready") return <><style>{ANIMS}</style><ReadyScreen opponentName={opponentName} onStart={() => setPhase("playing")} /></>;
