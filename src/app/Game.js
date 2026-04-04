@@ -195,9 +195,72 @@ function getRankInfo(elo) {
 
 // === SES MOTORU (Web Audio API — dosyasız) ===
 class SoundEngine {
-  constructor() { this.ctx = null; this.enabled = true; this.musicGain = null; this.musicOscs = []; this.currentMusic = null; this._loopTimer = null; }
+  constructor() {
+    this.ctx = null; this.enabled = true; this.musicGain = null; this.musicOscs = []; this.currentMusic = null; this._loopTimer = null;
+    // MP3 music system
+    this._audioEl = null;        // current <audio> element
+    this._audioGainNode = null;  // Web Audio gain for mp3
+    this._audioSrc = null;       // MediaElementSourceNode
+    this._mp3Volume = 0.7;       // current target volume for mp3
+    this._dynamicTimer = null;   // for intensity ramp
+  }
   init() { if (this.ctx) return; try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { this.enabled = false; } }
-  stopMusic() { this.currentMusic = null; if (this._loopTimer) { clearTimeout(this._loopTimer); this._loopTimer = null; } this.musicOscs.forEach(o => { try { o.stop(); } catch(e) {} }); this.musicOscs = []; if (this.musicGain) { try { this.musicGain.disconnect(); } catch(e) {} this.musicGain = null; } }
+
+  // --- MP3 helpers ---
+  _stopMp3() {
+    if (this._dynamicTimer) { clearInterval(this._dynamicTimer); this._dynamicTimer = null; }
+    if (this._audioEl) { try { this._audioEl.pause(); this._audioEl.src = ''; } catch(e){} this._audioEl = null; }
+    if (this._audioSrc) { try { this._audioSrc.disconnect(); } catch(e){} this._audioSrc = null; }
+    if (this._audioGainNode) { try { this._audioGainNode.disconnect(); } catch(e){} this._audioGainNode = null; }
+  }
+  _playMp3(src, volume=0.7, loop=true) {
+    this._stopMp3();
+    if (!this.ctx) return;
+    const audio = new Audio(src);
+    audio.loop = loop;
+    audio.crossOrigin = 'anonymous';
+    this._audioEl = audio;
+    const gainNode = this.ctx.createGain();
+    gainNode.gain.setValueAtTime(volume, this.ctx.currentTime);
+    gainNode.connect(this.ctx.destination);
+    this._audioGainNode = gainNode;
+    const srcNode = this.ctx.createMediaElementSource(audio);
+    srcNode.connect(gainNode);
+    this._audioSrc = srcNode;
+    this._mp3Volume = volume;
+    audio.play().catch(()=>{});
+  }
+  // Yavaşça volume değiştir (intensity için)
+  _rampMp3Volume(targetVol, durationMs=2000) {
+    if (!this._audioGainNode || !this.ctx) return;
+    const steps = 30, interval = durationMs / steps;
+    const startVol = this._mp3Volume;
+    let step = 0;
+    if (this._dynamicTimer) clearInterval(this._dynamicTimer);
+    this._dynamicTimer = setInterval(() => {
+      step++;
+      const t = step / steps;
+      const eased = t < 0.5 ? 2*t*t : -1+(4-2*t)*t; // ease in-out
+      const vol = startVol + (targetVol - startVol) * eased;
+      if (this._audioGainNode) this._audioGainNode.gain.setValueAtTime(vol, this.ctx.currentTime);
+      if (step >= steps) { clearInterval(this._dynamicTimer); this._dynamicTimer = null; this._mp3Volume = targetVol; }
+    }, interval);
+  }
+  // Oyun heyecanına göre volume ayarla (dışarıdan çağrılır)
+  setBattleIntensity(level) { // level: 0.0 - 1.0
+    if (this.currentMusic !== 'battle-mp3') return;
+    const minVol = 0.12, maxVol = 0.72;
+    const target = minVol + (maxVol - minVol) * level;
+    this._rampMp3Volume(target, 3000);
+  }
+
+  stopMusic() {
+    this.currentMusic = null;
+    if (this._loopTimer) { clearTimeout(this._loopTimer); this._loopTimer = null; }
+    this.musicOscs.forEach(o => { try { o.stop(); } catch(e) {} }); this.musicOscs = [];
+    if (this.musicGain) { try { this.musicGain.disconnect(); } catch(e) {} this.musicGain = null; }
+    this._stopMp3();
+  }
   // LOBİ — Sakin, gizemli, deniz ambiyansı (Pirates of the Caribbean hissi)
   playLobbyMusic() {
     if (!this.enabled || !this.ctx) return;
@@ -238,9 +301,26 @@ class SoundEngine {
     drone.stop(time + 2); drone2.stop(time + 2);
     this._loopTimer = setTimeout(() => { if (this.currentMusic === 'lobby') this.playLobbyMusic(); }, totalDur - 2000);
   }
-  // SAVAŞ — Aksiyon, yoğun, ritmik (savaş davulları + epik melodi)
-  playBattleMusic() {
+  // SAVAŞ — Iron Tide Rising (mp3) — oyun sırasında alçak, intro'da yüksek
+  // Intro'dan oyuna geçiş: müziği yeniden başlatmadan volume'ü alçalt
+  transitionToBattle() {
     if (!this.enabled || !this.ctx) return;
+    if (this._audioEl && (this.currentMusic === 'intro' || this.currentMusic === 'battle-mp3')) {
+      // Zaten Iron Tide çalıyor — sadece volume'ü alçalt
+      this.currentMusic = 'battle-mp3';
+      this._rampMp3Volume(0.14, 2500);
+    } else {
+      // Çalmıyorsa sıfırdan başlat
+      this.playBattleMusic(false);
+    }
+  }
+  playBattleMusic(introMode=false) {
+    if (!this.enabled || !this.ctx) return;
+    this.stopMusic(); this.currentMusic = 'battle-mp3';
+    const vol = introMode ? 0.72 : 0.14; // intro yüksek, oyun sırasında alçak
+    this._playMp3('/music/iron-tide.mp3', vol);
+    return; // mp3 çalıyor, eski oscillator kodu atlandı
+    if (!this.enabled || !this.ctx) return; // dead code — eski kod korunuyor referans için
     this.stopMusic(); this.currentMusic = 'battle';
     const ctx = this.ctx, now = ctx.currentTime;
     this.musicGain = ctx.createGain();
@@ -290,9 +370,13 @@ class SoundEngine {
     drone.stop(now + totalDur + 1);
     this._loopTimer = setTimeout(() => { if (this.currentMusic === 'battle') this.playBattleMusic(); }, (totalDur - 1) * 1000);
   }
+  // KAZANMA — Sunrise at the Citadel (mp3)
   playEpicMusic() {
     if (!this.enabled || !this.ctx) return;
     this.stopMusic(); this.currentMusic = 'epic';
+    this._playMp3('/music/sunrise.mp3', 0.8, false); // loop=false, bir kere çalar
+  }
+  _playEpicMusic_legacy() { // eski oscillator kodu - artık kullanılmıyor
     const ctx = this.ctx, now = ctx.currentTime;
     this.musicGain = ctx.createGain();
     this.musicGain.gain.setValueAtTime(0.06, now);
@@ -322,9 +406,13 @@ class SoundEngine {
     drone.stop(time + 1);
     this._loopTimer = setTimeout(() => { if (this.currentMusic === 'epic') this.playEpicMusic(); }, (time - now) * 1000);
   }
+  // KAYBETME — Dignity in Ruins (mp3)
   playDefeatMusic() {
     if (!this.enabled || !this.ctx) return;
     this.stopMusic(); this.currentMusic = 'defeat';
+    this._playMp3('/music/dignity.mp3', 0.75, false); // loop=false
+  }
+  _playDefeatMusic_legacy() { // eski oscillator kodu - artık kullanılmıyor
     const ctx = this.ctx, now = ctx.currentTime;
     this.musicGain = ctx.createGain();
     this.musicGain.gain.setValueAtTime(0.05, now);
@@ -349,10 +437,13 @@ class SoundEngine {
     drone.start(now); drone.stop(now + 8.5);
     this.musicOscs.push(drone);
   }
-  // INTRO — Kısa epik fanfare (Angry Birds açılış tarzı)
+  // INTRO — Iron Tide Rising yüksek sesle + kısa fanfare efekti
   playIntroFanfare() {
     if (!this.enabled || !this.ctx) return;
     this.stopMusic(); this.currentMusic = 'intro';
+    // Mp3 yüksek sesle başla
+    this._playMp3('/music/iron-tide.mp3', 0.85);
+    // Üzerine kısa oscillator fanfare katmanı
     const ctx = this.ctx, now = ctx.currentTime;
     this.musicGain = ctx.createGain();
     this.musicGain.gain.setValueAtTime(0.08, now);
@@ -1296,7 +1387,7 @@ export default function Game() {
             setBlinkCells(lastAtk.shots.map(s => [s.r, s.c])); if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current); blinkTimerRef.current = setTimeout(() => setBlinkCells([]), 3000);
             // Sound for own shots landing
             const myHitCount = lastAtk.shots.filter(s => s.result === "hit").length;
-            sfx.init(); if (myHitCount > 0) { sfx.play('hit'); setMicroFeedback({ text: myHitCount === 3 ? 'MÜKEMMEL!' : myHitCount === 2 ? 'GÜZEL!' : 'İSABET!', color: myHitCount === 3 ? t.gold : t.accent }); } else { sfx.play('miss'); setMicroFeedback({ text: 'KARAVANA', color: t.miss }); }
+            sfx.init(); if (myHitCount > 0) { sfx.play('hit'); sfx.setBattleIntensity(0.55 + myHitCount * 0.1); setMicroFeedback({ text: myHitCount === 3 ? 'MÜKEMMEL!' : myHitCount === 2 ? 'GÜZEL!' : 'İSABET!', color: myHitCount === 3 ? t.gold : t.accent }); } else { sfx.play('miss'); sfx.setBattleIntensity(0.18); setMicroFeedback({ text: 'KARAVANA', color: t.miss }); }
           }
         }
       }
@@ -1529,7 +1620,7 @@ export default function Game() {
     sfx.init(); sfx.play('click');
     if (isBotGame) {
       setPhase("playing"); setMyTurn(true); setActiveBoard("attack");
-      sfx.init(); sfx.playBattleMusic();
+      sfx.init(); sfx.playBattleMusic(false); // oyun başladı → alçak volume
       return;
     }
     const pNum = playerNumRef.current, myKey = pNum === 1 ? "p1" : "p2", oppKey = pNum === 1 ? "p2" : "p1";
@@ -1705,7 +1796,15 @@ export default function Game() {
     if (sunkThisTurn) { setTimeout(() => { sfx.play('sunk'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2);
       if (isOnboarding && !onboardingMilestones.firstSunk) { setOnboardingMilestones(prev => ({...prev, firstSunk: true})); setMicroFeedback({ text: 'İLK BATIŞ! 💀', color: t.sunk }); setTimeout(() => launchConfetti('confetti-canvas', 2000), 500); }
       else { setMicroFeedback({ text: 'BATTI! 💀', color: t.sunk }); }
+      // Gemi battı → müzik zirveye çıksın
+      sfx.setBattleIntensity(1.0);
+      setTimeout(() => sfx.setBattleIntensity(0.35), 6000);
     }, 300); }
+    // Dynamic intensity: isabet varsa heyecan artar
+    if (!sunkThisTurn) {
+      if (hitCount0 > 0) sfx.setBattleIntensity(0.55 + hitCount0 * 0.1);
+      else sfx.setBattleIntensity(0.18);
+    }
     setAttackOverlay(newAtkOverlay);
     setAtkHitMap(newAtkHit);
     setMyHits(newMyHits);
@@ -1909,7 +2008,7 @@ export default function Game() {
           <div style={{ fontSize:24,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 30px ${t.accentGlow}`,marginBottom:8 }}>AMİRAL BATTI</div>
           <div style={{ fontSize:16,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:3,marginBottom:6,textShadow:`0 0 15px ${t.goldGlow}` }}>DENİZLERİN HAKİMİ OL,</div>
           <div style={{ fontSize:16,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:3,marginBottom:36,textShadow:`0 0 15px ${t.goldGlow}` }}>SAVAŞI KAZAN.</div>
-          <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); sfx.playBattleMusic(); }} style={{ padding:"22px 70px",background:`linear-gradient(180deg, rgba(0,229,255,1) 0%, rgba(0,180,220,1) 40%, rgba(0,140,180,1) 100%)`,color:"#fff",border:"none",borderRadius:18,fontSize:22,fontWeight:900,letterSpacing:8,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 50px ${t.accentGlow}, 0 10px 40px rgba(0,0,0,0.6), inset 0 2px 0 rgba(255,255,255,0.4), inset 0 -3px 0 rgba(0,0,0,0.3)`,textShadow:"0 2px 6px rgba(0,0,0,0.5)",animation:"scaleUp 0.5s ease-out",position:"relative",overflow:"hidden" }}>
+          <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); sfx.transitionToBattle(); }} style={{ padding:"22px 70px",background:`linear-gradient(180deg, rgba(0,229,255,1) 0%, rgba(0,180,220,1) 40%, rgba(0,140,180,1) 100%)`,color:"#fff",border:"none",borderRadius:18,fontSize:22,fontWeight:900,letterSpacing:8,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 50px ${t.accentGlow}, 0 10px 40px rgba(0,0,0,0.6), inset 0 2px 0 rgba(255,255,255,0.4), inset 0 -3px 0 rgba(0,0,0,0.3)`,textShadow:"0 2px 6px rgba(0,0,0,0.5)",animation:"scaleUp 0.5s ease-out",position:"relative",overflow:"hidden" }}>
             <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent)",animation:"shimmerPass 3s ease-in-out infinite" }} />
             HADİ OYNA
           </button>
