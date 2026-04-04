@@ -195,27 +195,115 @@ function getRankInfo(elo) {
 
 // === SES MOTORU (Web Audio API — dosyasız) ===
 class SoundEngine {
-  constructor() { this.ctx = null; this.enabled = true; this.musicGain = null; this.musicOscs = []; }
+  constructor() { this.ctx = null; this.enabled = true; this.musicGain = null; this.musicOscs = []; this.currentMusic = null; this._loopTimer = null; }
   init() { if (this.ctx) return; try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { this.enabled = false; } }
-  stopMusic() { this.musicOscs.forEach(o => { try { o.stop(); } catch(e) {} }); this.musicOscs = []; if (this.musicGain) { try { this.musicGain.disconnect(); } catch(e) {} this.musicGain = null; } }
-  playEpicMusic() {
-    // Age of Empires tarzı epik-lirik müzik — synthesized
+  stopMusic() { this.currentMusic = null; if (this._loopTimer) { clearTimeout(this._loopTimer); this._loopTimer = null; } this.musicOscs.forEach(o => { try { o.stop(); } catch(e) {} }); this.musicOscs = []; if (this.musicGain) { try { this.musicGain.disconnect(); } catch(e) {} this.musicGain = null; } }
+  // LOBİ — Sakin, gizemli, deniz ambiyansı (Pirates of the Caribbean hissi)
+  playLobbyMusic() {
     if (!this.enabled || !this.ctx) return;
-    this.stopMusic();
+    this.stopMusic(); this.currentMusic = 'lobby';
+    const ctx = this.ctx, now = ctx.currentTime;
+    this.musicGain = ctx.createGain();
+    this.musicGain.gain.setValueAtTime(0.04, now);
+    this.musicGain.connect(ctx.destination);
+    // Ocean drone — low wave
+    const drone = ctx.createOscillator(); const dG = ctx.createGain();
+    drone.type = 'sine'; drone.frequency.value = 73.42; // D2
+    dG.gain.setValueAtTime(0.04, now); drone.connect(dG); dG.connect(this.musicGain);
+    drone.start(now); this.musicOscs.push(drone);
+    // Second drone — fifth above
+    const drone2 = ctx.createOscillator(); const dG2 = ctx.createGain();
+    drone2.type = 'sine'; drone2.frequency.value = 110; // A2
+    dG2.gain.setValueAtTime(0.02, now); drone2.connect(dG2); dG2.connect(this.musicGain);
+    drone2.start(now); this.musicOscs.push(drone2);
+    // Ambient melody — mysterious, slow
+    const melody = [293.66,349.23,440,392,349.23,293.66,261.63,293.66,220,261.63,293.66,349.23,329.63,293.66,261.63,220];
+    const durs = [1.2,1.0,0.8,1.4,1.0,1.2,1.4,0.8,1.2,1.0,0.8,1.4,1.0,1.2,1.4,1.6];
+    let time = now + 0.5;
+    for (let loop = 0; loop < 4; loop++) {
+      melody.forEach((freq, i) => {
+        const osc = ctx.createOscillator(); const g = ctx.createGain();
+        osc.type = 'sine'; osc.frequency.value = freq;
+        g.gain.setValueAtTime(0, time);
+        g.gain.linearRampToValueAtTime(0.06, time + 0.15);
+        g.gain.linearRampToValueAtTime(0.03, time + durs[i] * 0.6);
+        g.gain.linearRampToValueAtTime(0, time + durs[i]);
+        osc.connect(g); g.connect(this.musicGain);
+        osc.start(time); osc.stop(time + durs[i] + 0.1);
+        this.musicOscs.push(osc);
+        time += durs[i];
+      });
+    }
+    const totalDur = (time - now) * 1000;
+    drone.stop(time + 2); drone2.stop(time + 2);
+    this._loopTimer = setTimeout(() => { if (this.currentMusic === 'lobby') this.playLobbyMusic(); }, totalDur - 2000);
+  }
+  // SAVAŞ — Aksiyon, yoğun, ritmik (savaş davulları + epik melodi)
+  playBattleMusic() {
+    if (!this.enabled || !this.ctx) return;
+    this.stopMusic(); this.currentMusic = 'battle';
+    const ctx = this.ctx, now = ctx.currentTime;
+    this.musicGain = ctx.createGain();
+    this.musicGain.gain.setValueAtTime(0.05, now);
+    this.musicGain.connect(ctx.destination);
+    // War drums — rhythmic bass pulse
+    const bpm = 100, beat = 60/bpm;
+    let drumTime = now + 0.1;
+    for (let bar = 0; bar < 16; bar++) {
+      [0, 0.5, 1, 1.75, 2, 2.5, 3, 3.5].forEach((b) => {
+        const t2 = drumTime + b * beat;
+        const osc = ctx.createOscillator(); const g = ctx.createGain();
+        osc.type = 'triangle'; osc.frequency.value = (b === 0 || b === 2) ? 60 : 90;
+        g.gain.setValueAtTime((b === 0 || b === 2) ? 0.12 : 0.06, t2);
+        g.gain.exponentialRampToValueAtTime(0.001, t2 + 0.15);
+        osc.connect(g); g.connect(this.musicGain);
+        osc.start(t2); osc.stop(t2 + 0.2);
+        this.musicOscs.push(osc);
+      });
+      drumTime += 4 * beat;
+    }
+    // Epic melody over drums — D minor, heroic
+    const melody = [293.66,349.23,392,440,349.23,293.66,261.63,293.66,349.23,440,523.25,440,349.23,293.66,261.63,220,261.63,293.66,349.23,293.66];
+    const durs = [0.5,0.5,0.3,0.7,0.3,0.5,0.5,0.3,0.5,0.3,0.7,0.5,0.3,0.5,0.3,0.7,0.5,0.3,0.5,0.8];
+    let melTime = now + 0.2;
+    for (let loop = 0; loop < 3; loop++) {
+      melody.forEach((freq, i) => {
+        const osc = ctx.createOscillator(); const g = ctx.createGain();
+        osc.type = loop === 0 ? 'sine' : 'triangle';
+        osc.frequency.value = freq;
+        g.gain.setValueAtTime(0, melTime);
+        g.gain.linearRampToValueAtTime(0.07, melTime + 0.04);
+        g.gain.linearRampToValueAtTime(0.03, melTime + durs[i] * 0.7);
+        g.gain.linearRampToValueAtTime(0, melTime + durs[i]);
+        osc.connect(g); g.connect(this.musicGain);
+        osc.start(melTime); osc.stop(melTime + durs[i] + 0.05);
+        this.musicOscs.push(osc);
+        melTime += durs[i];
+      });
+    }
+    // Bass drone
+    const drone = ctx.createOscillator(); const dG = ctx.createGain();
+    drone.type = 'sawtooth'; drone.frequency.value = 73.42;
+    dG.gain.setValueAtTime(0.02, now); drone.connect(dG); dG.connect(this.musicGain);
+    drone.start(now); this.musicOscs.push(drone);
+    const totalDur = Math.max(drumTime, melTime) - now;
+    drone.stop(now + totalDur + 1);
+    this._loopTimer = setTimeout(() => { if (this.currentMusic === 'battle') this.playBattleMusic(); }, (totalDur - 1) * 1000);
+  }
+  playEpicMusic() {
+    if (!this.enabled || !this.ctx) return;
+    this.stopMusic(); this.currentMusic = 'epic';
     const ctx = this.ctx, now = ctx.currentTime;
     this.musicGain = ctx.createGain();
     this.musicGain.gain.setValueAtTime(0.06, now);
     this.musicGain.connect(ctx.destination);
-    // Epic melody — D minor pentatonic, heroic feel
     const melody = [293.66,349.23,392,440,349.23,293.66,261.63,293.66,349.23,440,523.25,440,349.23,293.66,261.63,220,261.63,293.66,349.23,293.66];
     const durations = [0.6,0.6,0.4,0.8,0.4,0.6,0.6,0.4,0.6,0.4,0.8,0.6,0.4,0.6,0.4,0.8,0.6,0.4,0.6,1.0];
     let time = now + 0.1;
-    // Pad/drone — low D
     const drone = ctx.createOscillator(); const droneG = ctx.createGain();
     drone.type = 'sine'; drone.frequency.value = 146.83;
     droneG.gain.setValueAtTime(0.03, now); drone.connect(droneG); droneG.connect(this.musicGain);
     drone.start(now); this.musicOscs.push(drone);
-    // Play melody loop
     for (let loop = 0; loop < 3; loop++) {
       melody.forEach((freq, i) => {
         const osc = ctx.createOscillator(); const g = ctx.createGain();
@@ -231,18 +319,16 @@ class SoundEngine {
         time += durations[i];
       });
     }
-    // Auto-stop drone after melody
     drone.stop(time + 1);
-    setTimeout(() => { if (this.musicOscs.length > 0) this.playEpicMusic(); }, (time - now) * 1000);
+    this._loopTimer = setTimeout(() => { if (this.currentMusic === 'epic') this.playEpicMusic(); }, (time - now) * 1000);
   }
   playDefeatMusic() {
     if (!this.enabled || !this.ctx) return;
-    this.stopMusic();
+    this.stopMusic(); this.currentMusic = 'defeat';
     const ctx = this.ctx, now = ctx.currentTime;
     this.musicGain = ctx.createGain();
     this.musicGain.gain.setValueAtTime(0.05, now);
     this.musicGain.connect(ctx.destination);
-    // Dramatic minor descent
     const notes = [440,415.3,392,349.23,329.63,293.66,261.63,246.94,220];
     let time = now + 0.1;
     notes.forEach((freq, i) => {
@@ -256,13 +342,75 @@ class SoundEngine {
       this.musicOscs.push(osc);
       time += 0.8;
     });
-    // Low drone
     const drone = ctx.createOscillator(); const dg = ctx.createGain();
     drone.type = 'sine'; drone.frequency.value = 110;
     dg.gain.setValueAtTime(0.03, now); dg.gain.linearRampToValueAtTime(0, now + 8);
     drone.connect(dg); dg.connect(this.musicGain);
     drone.start(now); drone.stop(now + 8.5);
     this.musicOscs.push(drone);
+  }
+  // INTRO — Kısa epik fanfare (Angry Birds açılış tarzı)
+  playIntroFanfare() {
+    if (!this.enabled || !this.ctx) return;
+    this.stopMusic(); this.currentMusic = 'intro';
+    const ctx = this.ctx, now = ctx.currentTime;
+    this.musicGain = ctx.createGain();
+    this.musicGain.gain.setValueAtTime(0.08, now);
+    this.musicGain.connect(ctx.destination);
+    // Dramatic fanfare — brass-like
+    const notes = [196,261.63,329.63,392,523.25,659.25,784];
+    let time = now + 0.1;
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator(); const g = ctx.createGain();
+      osc.type = i < 4 ? 'sawtooth' : 'square';
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0, time);
+      g.gain.linearRampToValueAtTime(0.1, time + 0.03);
+      g.gain.linearRampToValueAtTime(0.06, time + 0.2);
+      g.gain.linearRampToValueAtTime(0, time + 0.4);
+      osc.connect(g); g.connect(this.musicGain);
+      osc.start(time); osc.stop(time + 0.45);
+      this.musicOscs.push(osc);
+      time += 0.18;
+    });
+    // Sustained chord at end
+    [392, 523.25, 659.25].forEach(freq => {
+      const osc = ctx.createOscillator(); const g = ctx.createGain();
+      osc.type = 'sine'; osc.frequency.value = freq;
+      g.gain.setValueAtTime(0.06, time);
+      g.gain.linearRampToValueAtTime(0, time + 2.5);
+      osc.connect(g); g.connect(this.musicGain);
+      osc.start(time); osc.stop(time + 2.6);
+      this.musicOscs.push(osc);
+    });
+  }
+  // YERLEŞTİRME — Taktik müzik (sakin ama gerilimli)
+  playPlacementMusic() {
+    if (!this.enabled || !this.ctx) return;
+    this.stopMusic(); this.currentMusic = 'placement';
+    const ctx = this.ctx, now = ctx.currentTime;
+    this.musicGain = ctx.createGain();
+    this.musicGain.gain.setValueAtTime(0.04, now);
+    this.musicGain.connect(ctx.destination);
+    // Ticking clock + suspense drone
+    const drone = ctx.createOscillator(); const dG = ctx.createGain();
+    drone.type = 'sine'; drone.frequency.value = 98; // G2
+    dG.gain.setValueAtTime(0.03, now); drone.connect(dG); dG.connect(this.musicGain);
+    drone.start(now); this.musicOscs.push(drone);
+    // Tick-tock
+    let tickTime = now + 0.2;
+    for (let i = 0; i < 60; i++) {
+      const osc = ctx.createOscillator(); const g = ctx.createGain();
+      osc.type = 'sine'; osc.frequency.value = i % 2 === 0 ? 1200 : 900;
+      g.gain.setValueAtTime(0.03, tickTime);
+      g.gain.exponentialRampToValueAtTime(0.001, tickTime + 0.04);
+      osc.connect(g); g.connect(this.musicGain);
+      osc.start(tickTime); osc.stop(tickTime + 0.05);
+      this.musicOscs.push(osc);
+      tickTime += 1.0;
+    }
+    drone.stop(now + 62);
+    this._loopTimer = setTimeout(() => { if (this.currentMusic === 'placement') this.playPlacementMusic(); }, 60000);
   }
   play(type) {
     if (!this.enabled || !this.ctx) return;
@@ -1081,7 +1229,7 @@ export default function Game() {
           // Süre bitti — kaybettin
           if (isBotGame) {
             setWinner("Gemileri zamanında yerleştiremediğin için kaybettin!"); setIsWin(false); setPhase("gameover");
-            sfx.init(); sfx.play('lose');
+            sfx.init(); sfx.play('lose'); sfx.playDefeatMusic();
           } else if (roomIdRef.current) {
             // Online: rakip kazansın
             const oppNum = playerNumRef.current === 1 ? 2 : 1;
@@ -1118,7 +1266,7 @@ export default function Game() {
       if (game[`${oppKey}_ships`]) setOppShipsData(game[`${oppKey}_ships`]);
       if (game.phase === "placing" && !placementConfirmed) setPhase("placing");
       if (game.phase === "playing") {
-        if (phaseRef.current === "placing") setPhase("ready");
+        if (phaseRef.current === "placing") { setPhase("ready"); sfx.init(); sfx.playBattleMusic(); }
         else if (phaseRef.current !== "ready") setPhase("playing");
         setMyTurn(game.turn === pNum);
         if (game.clocks) { myClockRef.current = game.clocks[myKey] ?? CLOCK_SECONDS; oppClockRef.current = game.clocks[oppKey] ?? CLOCK_SECONDS; setMyClock(myClockRef.current); setOppClock(oppClockRef.current); }
@@ -1304,6 +1452,7 @@ export default function Game() {
       return;
     }
     setPhase("lobby");
+    sfx.init(); sfx.playLobbyMusic();
   };
 
   const handleLogout = async () => {
@@ -1346,6 +1495,7 @@ export default function Game() {
     roomIdRef.current = rid; setRoomId(rid); setPlayerNum(2); playerNumRef.current = 2; setOpponentName(game.p1_name);
     await update(ref(db, `rooms/${rid}`), { p2_name: playerName.trim(), p2_uid: authUid, phase: "placing" });
     setPhase("placing"); listenToRoom(rid, 2);
+    sfx.init(); sfx.playPlacementMusic();
   };
 
   const handleDefenseClick = (r, c) => { if (phase !== "placing" || !selectedShip || placementConfirmed) return; const ship = SHIPS.find(s => s.id === selectedShip); if (!ship) return; const cells = getShipCells(ship, r, c, rotation); const bc = defenseBoard.map(row => [...row]); if (!isValidPlacement(cells, bc) || getNeighborCells(cells).some(([nr, nc]) => nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && bc[nr][nc] > 0)) { /* Invalid placement — try next rotation */ const nextRot = (rotation + 1) % 4; const cells2 = getShipCells(ship, r, c, nextRot); if (isValidPlacement(cells2, bc) && !getNeighborCells(cells2).some(([nr, nc]) => nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && bc[nr][nc] > 0)) { setRotation(nextRot); return; } return; } const nb = bc.map(row => [...row]); const nc = shipColorMap.map(row => [...row]); cells.forEach(([cr, cc]) => { nb[cr][cc] = 1; nc[cr][cc] = ship.color; }); setDefenseBoard(nb); setShipColorMap(nc); setPlacedShips([...placedShips, { id: ship.id, cells, color: ship.color }]); setSelectedShip(null); setHoverCells([]); setRotation(0); sfx.init(); sfx.play('click'); };
@@ -1379,6 +1529,7 @@ export default function Game() {
     sfx.init(); sfx.play('click');
     if (isBotGame) {
       setPhase("playing"); setMyTurn(true); setActiveBoard("attack");
+      sfx.init(); sfx.playBattleMusic();
       return;
     }
     const pNum = playerNumRef.current, myKey = pNum === 1 ? "p1" : "p2", oppKey = pNum === 1 ? "p2" : "p1";
@@ -1401,7 +1552,7 @@ export default function Game() {
   const surrenderGame = async () => {
     if (isBotGame) {
       setWinner("Oyundan ayrıldın!"); setIsWin(false); setPhase("gameover");
-      sfx.init(); sfx.play('lose');
+      sfx.init(); sfx.play('lose'); sfx.playDefeatMusic();
       return;
     }
     if (roomIdRef.current) {
@@ -1415,6 +1566,7 @@ export default function Game() {
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
     setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false });
     if (authUid) { get(ref(db, `profiles/${authUid}`)).then(snap => { if (snap.exists()) setMyProfile(snap.val()); }).catch(() => {}); }
+    setTimeout(() => { sfx.init(); sfx.playLobbyMusic(); }, 300);
   };
 
   const sendEmoji = async (qe) => { if (!roomIdRef.current) return; setMyEmojiToast({ emoji: qe.emoji, label: qe.label }); setTimeout(() => setMyEmojiToast(null), 3000); await set(ref(db, `emojis/${roomIdRef.current}`), { emoji: qe.emoji, label: qe.label, from: playerNumRef.current, time: Date.now() }); };
@@ -1437,6 +1589,7 @@ export default function Game() {
     setMyClock(CLOCK_SECONDS);
     setOppClock(CLOCK_SECONDS);
     setPhase("placing");
+    sfx.init(); sfx.playPlacementMusic();
   };
 
   const startOnboarding = () => {
@@ -1513,7 +1666,7 @@ export default function Game() {
     // Check if bot won
     if (newOppHits >= 20) {
       setWinner("Gemilerin battı!"); setIsWin(false); setPhase("gameover");
-      sfx.init(); sfx.play('lose');
+      sfx.init(); sfx.play('lose'); sfx.playDefeatMusic();
       setMissionStats(prev => ({ ...prev, gamesPlayed: prev.gamesPlayed + 1 }));
     } else {
       setTimeout(() => { setMyTurn(true); setActiveBoard("attack"); }, 1500);
@@ -1623,6 +1776,7 @@ export default function Game() {
     matchPromise.then(data => {
       if (data && data.roomId) {
         setMatchmaking(false); setMatchCancelFn(null); roomIdRef.current = data.roomId; setRoomId(data.roomId); setPlayerNum(data.playerNum); playerNumRef.current = data.playerNum; setOpponentName(data.oppName); setPhase("placing"); listenToRoom(data.roomId, data.playerNum); if (authUid) remove(ref(db, `online_players/${authUid}`));
+        sfx.init(); sfx.playPlacementMusic();
       } else {
         // Eşleşme bulunamadı (timeout) — arena ücreti varsa iade et
         setMatchmaking(false); setMatchCancelFn(null);
@@ -1685,12 +1839,12 @@ export default function Game() {
       }
       checkDailyReward(authUid).then(reward => { if (reward) setDailyReward(reward); }).catch(() => {});
       if (phase === "splash") {
-        Promise.resolve().then(() => setPhase("lobby"));
+        Promise.resolve().then(() => { setPhase("lobby"); sfx.init(); sfx.playLobbyMusic(); });
         return <><style>{ANIMS}</style><LoadingScreen onReady={() => {}} /></>;
       }
     }
     if (phase === "splash") {
-      Promise.resolve().then(() => setPhase("lobby"));
+      Promise.resolve().then(() => { setPhase("lobby"); sfx.init(); sfx.playLobbyMusic(); });
     }
     return <><style>{ANIMS}</style><LoadingScreen onReady={() => {}} /></>;
   }
@@ -1698,38 +1852,67 @@ export default function Game() {
 
   // === ONBOARDING — EPİK INTRO ===
   if (phase === "onboarding_intro") {
-    // Step 0: Title splash — cinematic
+    // Step 0: Title splash — ANGRY BIRDS + CANDY CRUSH + SUBWAY SURFERS MIX
     if (onboardingStep === 0) {
-      return (<div style={{ ...appStyle, justifyContent:"center",background:`radial-gradient(ellipse at 50% 40%, rgba(0,229,255,0.12) 0%, rgba(0,60,120,0.08) 40%, ${t.bg} 80%)`,overflow:"hidden",position:"relative" }}><style>{ANIMS}</style>
-        {/* Animated water waves background */}
-        <div style={{ position:"absolute",bottom:0,left:0,right:0,height:120,opacity:0.06,overflow:"hidden",pointerEvents:"none" }}>
-          <div style={{ position:"absolute",bottom:0,left:"-50%",width:"200%",height:60,borderRadius:"50%",background:t.accent,animation:"wave 6s linear infinite" }} />
-          <div style={{ position:"absolute",bottom:20,left:"-50%",width:"200%",height:40,borderRadius:"50%",background:t.accent,opacity:0.5,animation:"wave 9s linear infinite reverse" }} />
+      return (<div style={{ ...appStyle, justifyContent:"center",background:`radial-gradient(ellipse at 50% 40%, rgba(0,229,255,0.15) 0%, rgba(0,60,120,0.1) 30%, rgba(255,71,87,0.03) 60%, ${t.bg} 90%)`,overflow:"hidden",position:"relative" }}><style>{ANIMS}{`
+@keyframes titleSlam{0%{transform:scale(3) rotate(-5deg);opacity:0;filter:blur(20px)}30%{transform:scale(0.9) rotate(1deg);opacity:1;filter:blur(0)}50%{transform:scale(1.05) rotate(-0.5deg)}100%{transform:scale(1) rotate(0)}}
+@keyframes swordSpin{0%{transform:rotate(-180deg) scale(0);opacity:0}40%{transform:rotate(15deg) scale(1.2);opacity:1}60%{transform:rotate(-5deg) scale(1)}100%{transform:rotate(0) scale(1)}}
+@keyframes shimmerPass{0%{left:-100%}100%{left:200%}}
+@keyframes starBurst{0%{transform:scale(0) rotate(0);opacity:1}50%{transform:scale(1.5) rotate(180deg);opacity:0.8}100%{transform:scale(2) rotate(360deg);opacity:0}}
+@keyframes waveRise{0%{transform:translateY(100%)}100%{transform:translateY(0)}}
+@keyframes particleFly{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--px,0px),var(--py,-80px)) scale(0)}}
+      `}</style>
+        {/* Animated water waves */}
+        <div style={{ position:"absolute",bottom:0,left:0,right:0,height:160,opacity:0.08,overflow:"hidden",pointerEvents:"none" }}>
+          <div style={{ position:"absolute",bottom:0,left:"-50%",width:"200%",height:80,borderRadius:"50%",background:"linear-gradient(90deg,#00e5ff,#0088cc,#00e5ff)",animation:"wave 5s linear infinite" }} />
+          <div style={{ position:"absolute",bottom:25,left:"-50%",width:"200%",height:50,borderRadius:"50%",background:t.accent,opacity:0.5,animation:"wave 8s linear infinite reverse" }} />
+          <div style={{ position:"absolute",bottom:50,left:"-50%",width:"200%",height:30,borderRadius:"50%",background:t.accent,opacity:0.3,animation:"wave 12s linear infinite" }} />
         </div>
-        {/* Cinematic title */}
-        <div style={{ textAlign:"center",animation:"fadeUp 1s ease-out",zIndex:1 }}>
-          <div style={{ fontSize:80,marginBottom:20,animation:"float 3s ease-in-out infinite",filter:"drop-shadow(0 0 30px rgba(0,229,255,0.4))" }}>⚔</div>
-          <div style={{ fontSize:14,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:12,marginBottom:8,opacity:0.6,animation:"fadeUp 1.2s ease-out" }}>— — —</div>
-          <div style={{ fontSize:52,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:12,textShadow:`0 0 60px ${t.accentGlow}, 0 0 120px rgba(0,229,255,0.2), 0 4px 20px rgba(0,0,0,0.8)`,marginBottom:12,animation:"victoryGlow 3s ease-in-out infinite",lineHeight:1.1 }}>AMİRAL<br/>BATTI</div>
-          <div style={{ fontSize:13,fontWeight:700,color:"rgba(255,215,0,0.7)",fontFamily:warrior,letterSpacing:6,marginBottom:40,animation:"fadeUp 1.5s ease-out",fontStyle:"italic" }}>savaşların atası...</div>
-          <div style={{ animation:"fadeUp 2s ease-out" }}>
-            <button onClick={() => { setOnboardingStep(1); sfx.init(); sfx.play('click'); }} style={{ padding:"20px 60px",background:`linear-gradient(180deg, rgba(0,229,255,0.9) 0%, rgba(0,180,220,0.9) 50%, rgba(0,140,180,0.9) 100%)`,color:"#fff",border:"3px solid rgba(255,255,255,0.3)",borderRadius:16,fontSize:20,fontWeight:800,letterSpacing:6,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 40px ${t.accentGlow}, 0 8px 30px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,0.2), inset 0 -2px 0 rgba(0,0,0,0.2)`,textShadow:"0 2px 4px rgba(0,0,0,0.4)",transition:"transform 0.1s",position:"relative",overflow:"hidden" }}>BAŞLA</button>
+        {/* Sparkle particles */}
+        {[...Array(12)].map((_,i)=><div key={i} style={{ position:"absolute",width:4,height:4,borderRadius:"50%",background:i%3===0?t.gold:i%3===1?t.accent:"#ff4757",top:`${15+Math.random()*70}%`,left:`${5+Math.random()*90}%`,animation:`starBurst ${2+Math.random()*2}s ease-out ${Math.random()*3}s infinite`,pointerEvents:"none",opacity:0.7 }} />)}
+        {/* Main content */}
+        <div style={{ textAlign:"center",zIndex:1,perspective:"800px" }}>
+          {/* Sword icon — spinning entrance */}
+          <div style={{ fontSize:100,marginBottom:16,animation:"swordSpin 1s cubic-bezier(0.34,1.56,0.64,1) forwards",filter:"drop-shadow(0 0 40px rgba(0,229,255,0.5)) drop-shadow(0 0 80px rgba(255,71,87,0.2))" }}>⚔</div>
+          {/* Title — slam entrance */}
+          <div style={{ animation:"titleSlam 0.8s cubic-bezier(0.34,1.56,0.64,1) 0.5s both" }}>
+            <div style={{ fontSize:60,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:14,textShadow:`0 0 80px ${t.accentGlow}, 0 0 160px rgba(0,229,255,0.25), 0 6px 30px rgba(0,0,0,0.9), 0 0 8px rgba(0,229,255,0.8)`,lineHeight:1.05,WebkitTextStroke:"1px rgba(255,255,255,0.1)" }}>AMİRAL<br/>BATTI</div>
+          </div>
+          {/* Subtitle — elegant italic */}
+          <div style={{ fontSize:14,fontWeight:700,color:"rgba(255,215,0,0.8)",fontFamily:warrior,letterSpacing:8,marginTop:16,fontStyle:"italic",animation:"fadeUp 1s ease-out 1.3s both",textShadow:`0 0 20px ${t.goldGlow}` }}>savaşların atası...</div>
+          {/* Decorative line */}
+          <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:12,marginTop:20,animation:"fadeUp 1s ease-out 1.5s both" }}>
+            <div style={{ width:60,height:1,background:`linear-gradient(90deg,transparent,${t.accent},transparent)` }} />
+            <div style={{ width:8,height:8,borderRadius:"50%",background:t.accent,boxShadow:`0 0 10px ${t.accentGlow}` }} />
+            <div style={{ width:60,height:1,background:`linear-gradient(90deg,transparent,${t.accent},transparent)` }} />
+          </div>
+          {/* BAŞLA button — premium 3D metallic with shimmer */}
+          <div style={{ marginTop:36,animation:"fadeUp 1s ease-out 1.8s both" }}>
+            <button onClick={() => { setOnboardingStep(1); sfx.init(); sfx.playIntroFanfare(); }} style={{ padding:"22px 70px",background:`linear-gradient(180deg, rgba(0,229,255,1) 0%, rgba(0,180,220,1) 40%, rgba(0,140,180,1) 100%)`,color:"#fff",border:"none",borderRadius:18,fontSize:22,fontWeight:900,letterSpacing:8,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 50px ${t.accentGlow}, 0 10px 40px rgba(0,0,0,0.6), inset 0 2px 0 rgba(255,255,255,0.4), inset 0 -3px 0 rgba(0,0,0,0.3)`,textShadow:"0 2px 6px rgba(0,0,0,0.5)",position:"relative",overflow:"hidden",transform:"perspective(400px) rotateX(5deg)",transition:"transform 0.15s" }}>
+              <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent)",animation:"shimmerPass 3s ease-in-out infinite" }} />
+              BAŞLA
+            </button>
           </div>
         </div>
       </div>);
     }
-    // Step 1: Battle call — görseldeki gibi
+    // Step 1: Battle call — "DENİZLERİN HAKİMİ OL" with cinematic reveal
     if (onboardingStep === 1) {
-      return (<div style={{ ...appStyle, justifyContent:"center",background:`radial-gradient(ellipse at 50% 30%, rgba(0,229,255,0.1) 0%, rgba(0,40,80,0.06) 40%, ${t.bg} 80%)`,overflow:"hidden",position:"relative" }}><style>{ANIMS}</style>
+      return (<div style={{ ...appStyle, justifyContent:"center",background:`radial-gradient(ellipse at 50% 30%, rgba(0,229,255,0.1) 0%, rgba(0,40,80,0.06) 40%, ${t.bg} 80%)`,overflow:"hidden",position:"relative" }}><style>{ANIMS}{`
+@keyframes shimmerPass{0%{left:-100%}100%{left:200%}}
+      `}</style>
         <div style={{ position:"absolute",bottom:0,left:0,right:0,height:100,opacity:0.04,overflow:"hidden",pointerEvents:"none" }}>
           <div style={{ position:"absolute",bottom:0,left:"-50%",width:"200%",height:50,borderRadius:"50%",background:t.accent,animation:"wave 7s linear infinite" }} />
         </div>
         <div style={{ textAlign:"center",animation:"arSlideIn 0.7s ease-out",zIndex:1 }}>
-          <div style={{ fontSize:60,marginBottom:16,animation:"float 2.5s ease-in-out infinite" }}>⚔</div>
+          <div style={{ fontSize:60,marginBottom:16,animation:"float 2.5s ease-in-out infinite",filter:"drop-shadow(0 0 30px rgba(0,229,255,0.4))" }}>⚔</div>
           <div style={{ fontSize:24,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 30px ${t.accentGlow}`,marginBottom:8 }}>AMİRAL BATTI</div>
           <div style={{ fontSize:16,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:3,marginBottom:6,textShadow:`0 0 15px ${t.goldGlow}` }}>DENİZLERİN HAKİMİ OL,</div>
           <div style={{ fontSize:16,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:3,marginBottom:36,textShadow:`0 0 15px ${t.goldGlow}` }}>SAVAŞI KAZAN.</div>
-          <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); }} style={{ padding:"20px 60px",background:`linear-gradient(180deg, rgba(0,229,255,0.9) 0%, rgba(0,180,220,0.9) 50%, rgba(0,140,180,0.9) 100%)`,color:"#fff",border:"3px solid rgba(255,255,255,0.3)",borderRadius:16,fontSize:20,fontWeight:800,letterSpacing:6,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 40px ${t.accentGlow}, 0 8px 30px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,0.2), inset 0 -2px 0 rgba(0,0,0,0.2)`,textShadow:"0 2px 4px rgba(0,0,0,0.4)",animation:"scaleUp 0.5s ease-out" }}>HADİ OYNA</button>
+          <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); sfx.playBattleMusic(); }} style={{ padding:"22px 70px",background:`linear-gradient(180deg, rgba(0,229,255,1) 0%, rgba(0,180,220,1) 40%, rgba(0,140,180,1) 100%)`,color:"#fff",border:"none",borderRadius:18,fontSize:22,fontWeight:900,letterSpacing:8,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 50px ${t.accentGlow}, 0 10px 40px rgba(0,0,0,0.6), inset 0 2px 0 rgba(255,255,255,0.4), inset 0 -3px 0 rgba(0,0,0,0.3)`,textShadow:"0 2px 6px rgba(0,0,0,0.5)",animation:"scaleUp 0.5s ease-out",position:"relative",overflow:"hidden" }}>
+            <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent)",animation:"shimmerPass 3s ease-in-out infinite" }} />
+            HADİ OYNA
+          </button>
         </div>
       </div>);
     }
@@ -1813,11 +1996,26 @@ export default function Game() {
     const rank = myProfile ? getRankInfo(myProfile.elo) : null;
     const authLoading = !authReady || !authUid;
     const winRate = myProfile && myProfile.totalGames > 0 ? Math.round((myProfile.wins / myProfile.totalGames) * 100) : 0;
-    return (<div style={{ ...appStyle, background:`linear-gradient(180deg, ${t.bg} 0%, #071428 50%, #0a1a35 100%)`,position:"relative",overflow:"hidden" }}><style>{ANIMS}</style>
-      <div style={{ position:"absolute",top:0,left:0,right:0,height:200,opacity:0.04,overflow:"hidden",pointerEvents:"none" }}><div style={{ position:"absolute",bottom:0,left:"-50%",width:"200%",height:60,borderRadius:"50%",background:t.accent,animation:"wave 8s linear infinite" }} /><div style={{ position:"absolute",bottom:20,left:"-50%",width:"200%",height:40,borderRadius:"50%",background:t.accent,opacity:0.5,animation:"wave 12s linear infinite reverse" }} /></div>
-      <div style={{ fontSize:38,fontWeight:800,letterSpacing:10,color:t.accent,textShadow:`0 0 50px ${t.accentGlow}, 0 0 100px rgba(0,229,255,0.15), 0 2px 10px rgba(0,0,0,0.5)`,marginBottom:2,fontFamily:warrior,animation:"fadeUp 0.4s ease-out",zIndex:1 }}>AMİRAL BATTI</div>
-      <div style={{ fontSize:10,color:t.textDim,letterSpacing:8,marginBottom:12,fontFamily:warrior,zIndex:1 }}>DENİZ SAVAŞI</div>
-      {onlineCount > 0 && <div style={{ display:'flex',alignItems:'center',gap:6,marginBottom:14,zIndex:1,animation:'fadeUp 0.5s ease-out' }}><div style={{ width:8,height:8,borderRadius:'50%',background:'#34d399',boxShadow:'0 0 8px rgba(52,211,153,0.6)',animation:'pulse 2s infinite' }} /><span style={{ fontSize:11,color:'#34d399',fontFamily:warrior,letterSpacing:2 }}>{onlineCount} KİŞİ OYNUYOR</span></div>}
+    return (<div style={{ ...appStyle, background:`linear-gradient(180deg, ${t.bg} 0%, #071428 50%, #0a1a35 100%)`,position:"relative",overflow:"hidden" }}><style>{ANIMS}{`
+@keyframes shimmerPass{0%{left:-100%}100%{left:200%}}
+@keyframes logoFloat{0%,100%{transform:translateY(0) scale(1);filter:drop-shadow(0 0 40px rgba(0,229,255,0.4))}50%{transform:translateY(-6px) scale(1.02);filter:drop-shadow(0 8px 50px rgba(0,229,255,0.6))}}
+    `}</style>
+      {/* Animated ocean background */}
+      <div style={{ position:"absolute",top:0,left:0,right:0,height:250,opacity:0.05,overflow:"hidden",pointerEvents:"none" }}>
+        <div style={{ position:"absolute",bottom:0,left:"-50%",width:"200%",height:80,borderRadius:"50%",background:"linear-gradient(90deg,transparent,#00e5ff,transparent)",animation:"wave 6s linear infinite" }} />
+        <div style={{ position:"absolute",bottom:30,left:"-50%",width:"200%",height:50,borderRadius:"50%",background:t.accent,opacity:0.6,animation:"wave 10s linear infinite reverse" }} />
+        <div style={{ position:"absolute",bottom:60,left:"-50%",width:"200%",height:30,borderRadius:"50%",background:t.accent,opacity:0.3,animation:"wave 14s linear infinite" }} />
+      </div>
+      {/* Sparkle particles in background */}
+      {[...Array(6)].map((_,i)=><div key={`sp${i}`} style={{ position:"absolute",width:3,height:3,borderRadius:"50%",background:i%2===0?t.accent:t.gold,top:`${10+Math.random()*30}%`,left:`${10+Math.random()*80}%`,animation:`pulse ${2+i*0.5}s ease-in-out infinite`,opacity:0.4,pointerEvents:"none" }} />)}
+      {/* Logo */}
+      <div style={{ fontSize:42,fontWeight:900,letterSpacing:12,color:t.accent,textShadow:`0 0 60px ${t.accentGlow}, 0 0 120px rgba(0,229,255,0.15), 0 3px 12px rgba(0,0,0,0.6)`,marginBottom:2,fontFamily:warrior,animation:"logoFloat 4s ease-in-out infinite",zIndex:1,WebkitTextStroke:"0.5px rgba(255,255,255,0.08)" }}>AMİRAL BATTI</div>
+      <div style={{ fontSize:10,color:t.textDim,letterSpacing:8,marginBottom:8,fontFamily:warrior,zIndex:1 }}>DENİZ SAVAŞI</div>
+      {/* Music toggle + online counter */}
+      <div style={{ display:"flex",alignItems:"center",gap:14,marginBottom:12,zIndex:1 }}>
+        {onlineCount > 0 && <div style={{ display:'flex',alignItems:'center',gap:6,animation:'fadeUp 0.5s ease-out' }}><div style={{ width:8,height:8,borderRadius:'50%',background:'#34d399',boxShadow:'0 0 8px rgba(52,211,153,0.6)',animation:'pulse 2s infinite' }} /><span style={{ fontSize:11,color:'#34d399',fontFamily:warrior,letterSpacing:2 }}>{onlineCount} KİŞİ OYNUYOR</span></div>}
+        <button onClick={()=>{sfx.init(); if(sfx.currentMusic==='lobby'){sfx.stopMusic();}else{sfx.playLobbyMusic();}}} style={{ padding:"4px 10px",background:"rgba(255,255,255,0.04)",border:`1px solid ${t.border}`,borderRadius:8,fontSize:14,cursor:"pointer",color:t.textDim,lineHeight:1 }}>{sfx.currentMusic==='lobby'?'🔊':'🔇'}</button>
+      </div>
       {authLoading && <div style={{ background:"rgba(239,68,68,0.12)",border:`1px solid ${t.hit}`,borderRadius:8,padding:"10px 16px",marginBottom:12,fontSize:11,color:t.hit,fontFamily:mono,textAlign:"center",width:"100%",maxWidth:340,animation:"pulse 1.5s infinite" }}>Sunucuya bağlanılıyor...</div>}
       {isTestMode() && <div style={{ background:"rgba(251,191,36,0.15)",border:`1px solid ${t.gold}`,borderRadius:8,padding:"8px 16px",marginBottom:12,fontSize:11,color:t.gold,fontFamily:warrior,letterSpacing:2,textAlign:"center",width:"100%",maxWidth:340 }}>🧪 TEST MODU — 2 tab aç, oda koduyla oyna</div>}
       {myProfile && (<div style={{ background:`linear-gradient(145deg, ${t.surface}, ${t.surfaceLight})`,border:`2px solid ${rank?.color||t.border}`,borderRadius:16,padding:"18px 22px",marginBottom:16,width:"100%",maxWidth:360,animation:"fadeUp 0.3s ease-out, rankGlow 3s ease-in-out infinite",boxShadow:`0 4px 20px rgba(0,0,0,0.4), 0 0 20px ${rank?.color?rank.color+"22":"transparent"}`,zIndex:1,'--rank-color':(rank?.color||t.accent)+"55" }}>
@@ -1959,13 +2157,13 @@ export default function Game() {
         <button onClick={() => { if(confirm(isOnboarding?"Eğitim savaşından çıkmak istediğine emin misin?":"Oyundan ayrılırsan kaybedersin! Emin misin?")) { surrenderGame(); } }} style={{ padding:"4px 12px",background:"transparent",color:t.textDim,border:`1px solid rgba(255,71,87,0.2)`,borderRadius:6,fontSize:9,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior,opacity:0.7 }}>OYUNDAN AYRIL</button>
       </div>
       {/* Onboarding mini guide */}
-      {isOnboarding && !onboardingMilestones.firstHit && <div style={{ background:"rgba(0,229,255,0.08)",border:`2px solid rgba(0,229,255,0.2)`,borderRadius:12,padding:"10px 16px",marginBottom:8,width:"100%",maxWidth:400,textAlign:"center",animation:"fadeUp 0.5s ease-out" }}>
-        <div style={{ fontSize:14,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:2 }}>Üst satırdaki karelere dokun!</div>
-        <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginTop:4 }}>3 kare seç → ATEŞ bas</div>
+      {isOnboarding && !onboardingMilestones.firstHit && <div style={{ background:"rgba(255,215,0,0.12)",border:`2px solid rgba(255,215,0,0.3)`,borderRadius:12,padding:"10px 16px",marginBottom:8,width:"100%",maxWidth:400,textAlign:"center",animation:"fadeUp 0.5s ease-out" }}>
+        <div style={{ fontSize:14,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:2 }}>Parlayan karelere dokun!</div>
+        <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginTop:4 }}>3 altın kareyi seç → ATEŞ bas → 3/3 isabet!</div>
       </div>}
-      {isOnboarding && onboardingMilestones.firstHit && !onboardingMilestones.firstSunk && <div style={{ background:"rgba(255,215,0,0.1)",border:`2px solid rgba(255,215,0,0.3)`,borderRadius:12,padding:"10px 16px",marginBottom:8,width:"100%",maxWidth:400,textAlign:"center",animation:"fadeUp 0.5s ease-out" }}>
-        <div style={{ fontSize:14,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:2 }}>Kırmızıların altını dene!</div>
-        <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginTop:4 }}>Parlayan kareye ateş et → gemiyi batır!</div>
+      {isOnboarding && onboardingMilestones.firstHit && !onboardingMilestones.firstSunk && <div style={{ background:"rgba(255,71,87,0.1)",border:`2px solid rgba(255,71,87,0.3)`,borderRadius:12,padding:"10px 16px",marginBottom:8,width:"100%",maxWidth:400,textAlign:"center",animation:"fadeUp 0.5s ease-out" }}>
+        <div style={{ fontSize:14,fontWeight:800,color:t.hit,fontFamily:warrior,letterSpacing:2 }}>Son darbe! Gemiyi batır!</div>
+        <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginTop:4 }}>Parlayan altın kareye ateş et → gemiyi batır! 💀</div>
       </div>}
       {!isOnboarding && <div style={{ display:"flex",gap:8,alignItems:"stretch",marginBottom:6,width:"100%",maxWidth:400,justifyContent:"center" }}>
         <div style={{ flex:1,padding:"4px 10px",borderRadius:6,background:myTurn?(myLow?"rgba(239,68,68,0.15)":"rgba(6,182,212,0.12)"):t.surfaceLight,border:`1px solid ${myTurn?(myLow?t.hit:t.accent):t.border}`,textAlign:"center" }}>
@@ -1980,7 +2178,7 @@ export default function Game() {
       {isOnboarding && <div style={{ fontSize:14,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:3,marginBottom:6,textAlign:"center" }}>⚔ EĞİTİM SAVAŞI</div>}
       <div style={{ fontSize:18,fontWeight:800,marginBottom:6,textAlign:"center",fontFamily:warrior,letterSpacing:4,textTransform:"uppercase",color:myTurn?t.accent:t.textDim,textShadow:myTurn?`0 0 25px ${t.accentGlow}`:"none",animation:myTurn?"fadeUp 0.3s ease-out":"none" }}>{myTurn?"⚡ SENİN SIRAN ⚡":(isBotGame?"🤖 Bot düşünüyor...":"Rakibin sırası...")}</div>
       {!isOnboarding && <div style={{ fontSize:12,color:t.text,marginBottom:6,fontFamily:mono,fontWeight:700 }}>İsabet: <span style={{ color:t.accent }}>{myHits}/20</span> • Karavana: <span style={{ color:t.hit }}>{oppHits}/20</span></div>}
-      {isOnboarding && <div style={{ fontSize:12,color:t.text,marginBottom:6,fontFamily:mono,fontWeight:700 }}>İsabet: <span style={{ color:t.accent }}>{myHits}/9</span></div>}
+      {isOnboarding && <div style={{ fontSize:12,color:t.text,marginBottom:6,fontFamily:mono,fontWeight:700 }}>İsabet: <span style={{ color:t.accent }}>{myHits}/4</span></div>}
       {streakToast && <div style={{ background:"rgba(251,191,36,0.15)",border:`1px solid ${t.gold}`,borderRadius:8,padding:"6px 14px",marginBottom:6,fontSize:14,color:t.gold,fontWeight:700,textAlign:"center",width:"100%",maxWidth:400,animation:"popIn 0.3s ease-out",fontFamily:warrior,letterSpacing:2 }}>🔥 {streakToast.streak} İSABET SERİSİ — x{streakToast.mult} ÇARPAN</div>}
       {hitStreak > 0 && !streakToast && <div style={{ fontSize:10,color:t.gold,marginBottom:4,fontFamily:warrior,letterSpacing:1,textAlign:"center" }}>🔥 Seri: {hitStreak}</div>}
       {damageReport && <div style={{ background:"rgba(239,68,68,0.1)",border:`1px solid ${t.hit}`,borderRadius:8,padding:"6px 14px",marginBottom:6,fontSize:11,color:t.hit,fontWeight:700,textAlign:"center",width:"100%",maxWidth:400,animation:"slideIn 0.3s ease-out",fontFamily:warrior,letterSpacing:1 }}>⚠ {damageReport}</div>}
@@ -1992,7 +2190,7 @@ export default function Game() {
       {isAttack && <button onClick={()=>setMarkMode(!markMode)} style={{ marginBottom:6,padding:"6px 16px",fontSize:10,fontWeight:700,fontFamily:warrior,background:markMode?t.gold:"transparent",color:markMode?t.bg:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,cursor:"pointer",letterSpacing:2 }}>{markMode?"⚑ İŞARETLEME MODU: AÇIK":"⚑ İŞARETLE"}</button>}
       </>}
       <div style={{ width:"100%",maxWidth:400,border:myTurn&&isAttack?`2px solid ${t.accent}`:"1px solid transparent",borderRadius:12,padding:2,animation:myTurn&&isAttack?"borderGlow 2s infinite":"none" }}>
-        {isAttack?<><Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:cellSize} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} onboardingHint={isOnboarding&&onboardingMilestones.firstHit&&!onboardingMilestones.firstSunk?[[1,1]]:null} />{!isOnboarding&&<ShipStatusPanel title="RAKİP GEMİLER" ships={oppShipsData} hitCells={atkHitMap} color={t.hit} />}</>:<><Grid board={defenseBoard} cellSize={isOnboarding?gridSize:cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />{!isOnboarding&&<ShipStatusPanel title="GEMİLERİM" ships={myShipsData} hitCells={defHitMap} color={t.accent} />}</>}
+        {isAttack?<><Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:cellSize} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} onboardingHint={isOnboarding?(!onboardingMilestones.firstHit?[[0,0],[0,1],[0,2]]:(onboardingMilestones.firstHit&&!onboardingMilestones.firstSunk?[[1,1]]:null)):null} />{!isOnboarding&&<ShipStatusPanel title="RAKİP GEMİLER" ships={oppShipsData} hitCells={atkHitMap} color={t.hit} />}</>:<><Grid board={defenseBoard} cellSize={isOnboarding?gridSize:cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />{!isOnboarding&&<ShipStatusPanel title="GEMİLERİM" ships={myShipsData} hitCells={defHitMap} color={t.accent} />}</>}
       </div>
       {isTestMode() && <button onClick={forceEndGame} style={{ marginTop:8,padding:"8px 16px",background:"rgba(251,191,36,0.2)",color:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>🧪 OYUNU BİTİR (TEST)</button>}
       {myTurn && isAttack && !markMode && (<div style={{ position:"fixed",bottom:0,left:0,right:0,background:"rgba(10,14,23,0.96)",backdropFilter:"blur(10px)",borderTop:`1px solid ${t.border}`,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"center",gap:14,zIndex:100 }}>
