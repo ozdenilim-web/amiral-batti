@@ -254,20 +254,40 @@ class SoundEngine {
     this._rampMp3Volume(target, 3000);
   }
 
+  // Fade out then stop
+  _fadeOutAndStop(durationMs = 1200) {
+    if (!this._audioGainNode || !this.ctx) { this._stopMp3(); return; }
+    const steps = 20, interval = durationMs / steps;
+    const startVol = this._mp3Volume;
+    let step = 0;
+    if (this._dynamicTimer) { clearInterval(this._dynamicTimer); this._dynamicTimer = null; }
+    this._dynamicTimer = setInterval(() => {
+      step++;
+      const vol = startVol * (1 - step / steps);
+      if (this._audioGainNode) this._audioGainNode.gain.setValueAtTime(Math.max(0, vol), this.ctx.currentTime);
+      if (step >= steps) {
+        clearInterval(this._dynamicTimer); this._dynamicTimer = null;
+        this._stopMp3();
+      }
+    }, interval);
+  }
+
   stopMusic() {
     this.currentMusic = null;
     if (this._loopTimer) { clearTimeout(this._loopTimer); this._loopTimer = null; }
     this.musicOscs.forEach(o => { try { o.stop(); } catch(e) {} }); this.musicOscs = [];
     if (this.musicGain) { try { this.musicGain.disconnect(); } catch(e) {} this.musicGain = null; }
-    this._stopMp3();
+    this._fadeOutAndStop(800);
   }
-  // LOBİ — Sakin, gizemli, deniz ambiyansı (Pirates of the Caribbean hissi)
+  // LOBİ — Sakin, gizemli, deniz ambiyansı
   playLobbyMusic() {
     if (!this.enabled || !this.ctx) return;
-    this.stopMusic(); this.currentMusic = 'lobby';
+    if (this.currentMusic === 'lobby') return; // Zaten çalıyor, tekrar başlatma
+    this.currentMusic = 'lobby';
     const ctx = this.ctx, now = ctx.currentTime;
     this.musicGain = ctx.createGain();
-    this.musicGain.gain.setValueAtTime(0.04, now);
+    this.musicGain.gain.setValueAtTime(0, now);
+    this.musicGain.gain.linearRampToValueAtTime(0.04, now + 2.0); // fade in
     this.musicGain.connect(ctx.destination);
     // Ocean drone — low wave
     const drone = ctx.createOscillator(); const dG = ctx.createGain();
@@ -306,174 +326,124 @@ class SoundEngine {
   transitionToBattle() {
     if (!this.enabled || !this.ctx) return;
     if (this._audioEl && (this.currentMusic === 'intro' || this.currentMusic === 'battle-mp3')) {
-      // Zaten Iron Tide çalıyor — sadece volume'ü alçalt
       this.currentMusic = 'battle-mp3';
-      this._rampMp3Volume(0.14, 2500);
+      this._rampMp3Volume(0.10, 2500);
     } else {
-      // Çalmıyorsa sıfırdan başlat
       this.playBattleMusic(false);
     }
   }
   playBattleMusic(introMode=false) {
     if (!this.enabled || !this.ctx) return;
-    this.stopMusic(); this.currentMusic = 'battle-mp3';
-    const vol = introMode ? 0.72 : 0.14; // intro yüksek, oyun sırasında alçak
-    this._playMp3('/music/iron-tide.mp3', vol);
-    return; // mp3 çalıyor, eski oscillator kodu atlandı
-    if (!this.enabled || !this.ctx) return; // dead code — eski kod korunuyor referans için
-    this.stopMusic(); this.currentMusic = 'battle';
-    const ctx = this.ctx, now = ctx.currentTime;
-    this.musicGain = ctx.createGain();
-    this.musicGain.gain.setValueAtTime(0.05, now);
-    this.musicGain.connect(ctx.destination);
-    // War drums — rhythmic bass pulse
-    const bpm = 100, beat = 60/bpm;
-    let drumTime = now + 0.1;
-    for (let bar = 0; bar < 16; bar++) {
-      [0, 0.5, 1, 1.75, 2, 2.5, 3, 3.5].forEach((b) => {
-        const t2 = drumTime + b * beat;
-        const osc = ctx.createOscillator(); const g = ctx.createGain();
-        osc.type = 'triangle'; osc.frequency.value = (b === 0 || b === 2) ? 60 : 90;
-        g.gain.setValueAtTime((b === 0 || b === 2) ? 0.12 : 0.06, t2);
-        g.gain.exponentialRampToValueAtTime(0.001, t2 + 0.15);
-        osc.connect(g); g.connect(this.musicGain);
-        osc.start(t2); osc.stop(t2 + 0.2);
-        this.musicOscs.push(osc);
-      });
-      drumTime += 4 * beat;
+    this.currentMusic = 'battle-mp3';
+    const targetVol = introMode ? 0.52 : 0.10;
+    // Fade in from 0
+    if (this._audioEl && this._audioGainNode) {
+      // Already playing, just ramp
+      this._rampMp3Volume(targetVol, 2000);
+      return;
     }
-    // Epic melody over drums — D minor, heroic
-    const melody = [293.66,349.23,392,440,349.23,293.66,261.63,293.66,349.23,440,523.25,440,349.23,293.66,261.63,220,261.63,293.66,349.23,293.66];
-    const durs = [0.5,0.5,0.3,0.7,0.3,0.5,0.5,0.3,0.5,0.3,0.7,0.5,0.3,0.5,0.3,0.7,0.5,0.3,0.5,0.8];
-    let melTime = now + 0.2;
-    for (let loop = 0; loop < 3; loop++) {
-      melody.forEach((freq, i) => {
-        const osc = ctx.createOscillator(); const g = ctx.createGain();
-        osc.type = loop === 0 ? 'sine' : 'triangle';
-        osc.frequency.value = freq;
-        g.gain.setValueAtTime(0, melTime);
-        g.gain.linearRampToValueAtTime(0.07, melTime + 0.04);
-        g.gain.linearRampToValueAtTime(0.03, melTime + durs[i] * 0.7);
-        g.gain.linearRampToValueAtTime(0, melTime + durs[i]);
-        osc.connect(g); g.connect(this.musicGain);
-        osc.start(melTime); osc.stop(melTime + durs[i] + 0.05);
-        this.musicOscs.push(osc);
-        melTime += durs[i];
-      });
-    }
-    // Bass drone
-    const drone = ctx.createOscillator(); const dG = ctx.createGain();
-    drone.type = 'sawtooth'; drone.frequency.value = 73.42;
-    dG.gain.setValueAtTime(0.02, now); drone.connect(dG); dG.connect(this.musicGain);
-    drone.start(now); this.musicOscs.push(drone);
-    const totalDur = Math.max(drumTime, melTime) - now;
-    drone.stop(now + totalDur + 1);
-    this._loopTimer = setTimeout(() => { if (this.currentMusic === 'battle') this.playBattleMusic(); }, (totalDur - 1) * 1000);
+    this._stopMp3();
+    const audio = new Audio('/music/iron-tide.mp3');
+    audio.loop = true;
+    audio.crossOrigin = 'anonymous';
+    this._audioEl = audio;
+    const gainNode = this.ctx.createGain();
+    gainNode.gain.setValueAtTime(0, this.ctx.currentTime); // start silent
+    gainNode.connect(this.ctx.destination);
+    this._audioGainNode = gainNode;
+    const srcNode = this.ctx.createMediaElementSource(audio);
+    srcNode.connect(gainNode);
+    this._audioSrc = srcNode;
+    this._mp3Volume = 0;
+    audio.play().catch(()=>{});
+    // Fade in
+    setTimeout(() => this._rampMp3Volume(targetVol, 2500), 100);
   }
   // KAZANMA — Sunrise at the Citadel (mp3)
   playEpicMusic() {
     if (!this.enabled || !this.ctx) return;
-    this.stopMusic(); this.currentMusic = 'epic';
-    this._playMp3('/music/sunrise.mp3', 0.8, false); // loop=false, bir kere çalar
-  }
-  _playEpicMusic_legacy() { // eski oscillator kodu - artık kullanılmıyor
-    const ctx = this.ctx, now = ctx.currentTime;
-    this.musicGain = ctx.createGain();
-    this.musicGain.gain.setValueAtTime(0.06, now);
-    this.musicGain.connect(ctx.destination);
-    const melody = [293.66,349.23,392,440,349.23,293.66,261.63,293.66,349.23,440,523.25,440,349.23,293.66,261.63,220,261.63,293.66,349.23,293.66];
-    const durations = [0.6,0.6,0.4,0.8,0.4,0.6,0.6,0.4,0.6,0.4,0.8,0.6,0.4,0.6,0.4,0.8,0.6,0.4,0.6,1.0];
-    let time = now + 0.1;
-    const drone = ctx.createOscillator(); const droneG = ctx.createGain();
-    drone.type = 'sine'; drone.frequency.value = 146.83;
-    droneG.gain.setValueAtTime(0.03, now); drone.connect(droneG); droneG.connect(this.musicGain);
-    drone.start(now); this.musicOscs.push(drone);
-    for (let loop = 0; loop < 3; loop++) {
-      melody.forEach((freq, i) => {
-        const osc = ctx.createOscillator(); const g = ctx.createGain();
-        osc.type = loop === 0 ? 'sine' : 'triangle';
-        osc.frequency.value = freq;
-        g.gain.setValueAtTime(0, time);
-        g.gain.linearRampToValueAtTime(0.08, time + 0.05);
-        g.gain.linearRampToValueAtTime(0.04, time + durations[i] * 0.7);
-        g.gain.linearRampToValueAtTime(0, time + durations[i]);
-        osc.connect(g); g.connect(this.musicGain);
-        osc.start(time); osc.stop(time + durations[i] + 0.05);
-        this.musicOscs.push(osc);
-        time += durations[i];
-      });
-    }
-    drone.stop(time + 1);
-    this._loopTimer = setTimeout(() => { if (this.currentMusic === 'epic') this.playEpicMusic(); }, (time - now) * 1000);
+    this.currentMusic = 'epic';
+    this._stopMp3();
+    const audio = new Audio('/music/sunrise.mp3');
+    audio.loop = false;
+    audio.crossOrigin = 'anonymous';
+    this._audioEl = audio;
+    const gainNode = this.ctx.createGain();
+    gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
+    gainNode.connect(this.ctx.destination);
+    this._audioGainNode = gainNode;
+    const srcNode = this.ctx.createMediaElementSource(audio);
+    srcNode.connect(gainNode);
+    this._audioSrc = srcNode;
+    this._mp3Volume = 0;
+    audio.play().catch(()=>{});
+    setTimeout(() => this._rampMp3Volume(0.62, 2000), 100);
   }
   // KAYBETME — Dignity in Ruins (mp3)
   playDefeatMusic() {
     if (!this.enabled || !this.ctx) return;
-    this.stopMusic(); this.currentMusic = 'defeat';
-    this._playMp3('/music/dignity.mp3', 0.75, false); // loop=false
+    this.currentMusic = 'defeat';
+    this._stopMp3();
+    const audio = new Audio('/music/dignity.mp3');
+    audio.loop = false;
+    audio.crossOrigin = 'anonymous';
+    this._audioEl = audio;
+    const gainNode = this.ctx.createGain();
+    gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
+    gainNode.connect(this.ctx.destination);
+    this._audioGainNode = gainNode;
+    const srcNode = this.ctx.createMediaElementSource(audio);
+    srcNode.connect(gainNode);
+    this._audioSrc = srcNode;
+    this._mp3Volume = 0;
+    audio.play().catch(()=>{});
+    setTimeout(() => this._rampMp3Volume(0.55, 2000), 100);
   }
-  _playDefeatMusic_legacy() { // eski oscillator kodu - artık kullanılmıyor
-    const ctx = this.ctx, now = ctx.currentTime;
-    this.musicGain = ctx.createGain();
-    this.musicGain.gain.setValueAtTime(0.05, now);
-    this.musicGain.connect(ctx.destination);
-    const notes = [440,415.3,392,349.23,329.63,293.66,261.63,246.94,220];
-    let time = now + 0.1;
-    notes.forEach((freq, i) => {
-      const osc = ctx.createOscillator(); const g = ctx.createGain();
-      osc.type = 'sine'; osc.frequency.value = freq;
-      g.gain.setValueAtTime(0, time);
-      g.gain.linearRampToValueAtTime(0.07, time + 0.1);
-      g.gain.linearRampToValueAtTime(0, time + 1.0);
-      osc.connect(g); g.connect(this.musicGain);
-      osc.start(time); osc.stop(time + 1.1);
-      this.musicOscs.push(osc);
-      time += 0.8;
-    });
-    const drone = ctx.createOscillator(); const dg = ctx.createGain();
-    drone.type = 'sine'; drone.frequency.value = 110;
-    dg.gain.setValueAtTime(0.03, now); dg.gain.linearRampToValueAtTime(0, now + 8);
-    drone.connect(dg); dg.connect(this.musicGain);
-    drone.start(now); drone.stop(now + 8.5);
-    this.musicOscs.push(drone);
-  }
-  // INTRO — Iron Tide Rising yüksek sesle + kısa fanfare efekti
+  // INTRO — Iron Tide Rising yavaş fade-in + loop sonu fade/yüksel
   playIntroFanfare() {
     if (!this.enabled || !this.ctx) return;
-    this.stopMusic(); this.currentMusic = 'intro';
-    // Mp3 yüksek sesle başla
-    this._playMp3('/music/iron-tide.mp3', 0.85);
-    // Üzerine kısa oscillator fanfare katmanı
-    const ctx = this.ctx, now = ctx.currentTime;
-    this.musicGain = ctx.createGain();
-    this.musicGain.gain.setValueAtTime(0.08, now);
-    this.musicGain.connect(ctx.destination);
-    // Dramatic fanfare — brass-like
-    const notes = [196,261.63,329.63,392,523.25,659.25,784];
-    let time = now + 0.1;
-    notes.forEach((freq, i) => {
-      const osc = ctx.createOscillator(); const g = ctx.createGain();
-      osc.type = i < 4 ? 'sawtooth' : 'square';
-      osc.frequency.value = freq;
-      g.gain.setValueAtTime(0, time);
-      g.gain.linearRampToValueAtTime(0.1, time + 0.03);
-      g.gain.linearRampToValueAtTime(0.06, time + 0.2);
-      g.gain.linearRampToValueAtTime(0, time + 0.4);
-      osc.connect(g); g.connect(this.musicGain);
-      osc.start(time); osc.stop(time + 0.45);
-      this.musicOscs.push(osc);
-      time += 0.18;
-    });
-    // Sustained chord at end
-    [392, 523.25, 659.25].forEach(freq => {
-      const osc = ctx.createOscillator(); const g = ctx.createGain();
-      osc.type = 'sine'; osc.frequency.value = freq;
-      g.gain.setValueAtTime(0.06, time);
-      g.gain.linearRampToValueAtTime(0, time + 2.5);
-      osc.connect(g); g.connect(this.musicGain);
-      osc.start(time); osc.stop(time + 2.6);
-      this.musicOscs.push(osc);
-    });
+    if (this.currentMusic === 'intro' && this._audioEl && !this._audioEl.paused) return;
+    this.currentMusic = 'intro';
+    this._stopMp3();
+    const audio = new Audio('/music/iron-tide.mp3');
+    audio.loop = false;
+    audio.crossOrigin = 'anonymous';
+    this._audioEl = audio;
+    const gainNode = this.ctx.createGain();
+    gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
+    gainNode.connect(this.ctx.destination);
+    this._audioGainNode = gainNode;
+    const srcNode = this.ctx.createMediaElementSource(audio);
+    srcNode.connect(gainNode);
+    this._audioSrc = srcNode;
+    this._mp3Volume = 0;
+    const self = this;
+    const scheduleEndFade = () => {
+      if (!self._audioEl || self.currentMusic !== 'intro') return;
+      const dur = self._audioEl.duration;
+      if (!dur || isNaN(dur)) { setTimeout(scheduleEndFade, 500); return; }
+      const checkTime = () => {
+        if (!self._audioEl || self.currentMusic !== 'intro') return;
+        const remaining = dur - self._audioEl.currentTime;
+        if (remaining <= 6) {
+          self._rampMp3Volume(0, 5000);
+          setTimeout(() => {
+            if (self.currentMusic !== 'intro' || !self._audioEl) return;
+            self._audioEl.currentTime = 0;
+            self._audioEl.play().catch(()=>{});
+            setTimeout(() => { if (self.currentMusic === 'intro') self._rampMp3Volume(0.60, 4000); }, 200);
+            setTimeout(scheduleEndFade, 1000);
+          }, 5200);
+        } else {
+          setTimeout(checkTime, 1000);
+        }
+      };
+      checkTime();
+    };
+    audio.addEventListener('loadedmetadata', scheduleEndFade);
+    audio.play().catch(()=>{});
+    setTimeout(() => self._rampMp3Volume(0.22, 1500), 200);
+    setTimeout(() => self._rampMp3Volume(0.60, 3000), 2000);
   }
   // YERLEŞTİRME — Taktik müzik (sakin ama gerilimli)
   playPlacementMusic() {
@@ -587,15 +557,15 @@ function launchExplosion(canvasId, x, y, duration=1200) {
 
 // === GOLD COİN ANİMASYONU ===
 function GoldCoinAnim({ amount, onDone }) {
-  const [coins] = useState(() => Array.from({length: Math.min(amount > 100 ? 12 : amount > 20 ? 8 : 5, 15)}, (_,i) => ({
-    id: i, delay: i*80, x: 50+(Math.random()-0.5)*60, endY: -80-Math.random()*40
+  const [coins] = useState(() => Array.from({length: Math.min(amount > 100 ? 14 : amount > 20 ? 9 : 6, 16)}, (_,i) => ({
+    id: i, delay: i*70, x: (Math.random()-0.5)*80, endY: -90-Math.random()*50, rotation: (Math.random()-0.5)*60
   })));
-  useEffect(() => { const timer = setTimeout(()=>onDone?.(), coins.length*80+1200); return ()=>clearTimeout(timer); }, []);
-  return (<div style={{ position:'fixed',bottom:120,left:'50%',transform:'translateX(-50%)',zIndex:10000,pointerEvents:'none' }}>
+  useEffect(() => { const timer = setTimeout(()=>onDone?.(), coins.length*70+1400); return ()=>clearTimeout(timer); }, []);
+  return (<div style={{ position:'fixed',bottom:100,left:'50%',transform:'translateX(-50%)',zIndex:10000,pointerEvents:'none' }}>
     {coins.map(c => (
-      <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, fontSize:28, animation:`coinFly 1s ease-out ${c.delay}ms forwards`, opacity:0 }}>💰</div>
+      <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, fontSize:32, animation:`coinFly 1.1s cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards`, opacity:0, transform:`rotate(${c.rotation}deg)` }}>🪙</div>
     ))}
-    <div style={{ position:'absolute',left:'50%',transform:'translateX(-50%)',bottom:60,fontSize:24,fontWeight:800,color:t.gold,fontFamily:warrior,textShadow:`0 0 20px ${t.goldGlow}`,animation:'scaleUp 0.5s ease-out 200ms forwards',opacity:0,whiteSpace:'nowrap',letterSpacing:3 }}>+{amount} 💰</div>
+    <div style={{ position:'absolute',left:'50%',transform:'translateX(-50%)',bottom:70,fontSize:28,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 30px ${t.goldGlow}, 0 0 60px ${t.goldGlow}`,animation:'scaleUp 0.4s cubic-bezier(0.34,1.56,0.64,1) 150ms forwards',opacity:0,whiteSpace:'nowrap',letterSpacing:4 }}>+{amount} 💰</div>
   </div>);
 }
 
@@ -719,7 +689,7 @@ function EmojiDisplay({ emoji, label }) {
   if (!emoji) return null;
   return (<div style={{ fontSize:9,color:t.textDim,marginTop:2,display:"flex",alignItems:"center",gap:4,justifyContent:"center",animation:"fadeUp 0.3s ease-out" }}>
     <span style={{ fontSize:16 }}>{emoji}</span>
-    <span style={{ fontFamily:"'Oswald',sans-serif",letterSpacing:1 }}>{label}</span>
+    <span style={{ fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1 }}>{label}</span>
   </div>);
 }
 
@@ -786,69 +756,106 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
   return { winnerNewElo:wNew, loserNewElo:lNew, winnerOldElo:wOldElo, loserOldElo:lOldElo, winGold, loseGold };
 }
 
-async function fetchLeaderboard(count=10) {
+async function fetchLeaderboard(sortBy='elo', count=15) {
   const snap = await get(ref(db, "profiles"));
   if (!snap.exists()) return [];
   const profiles = [];
-  snap.forEach(child => { profiles.push({ uid:child.key, ...child.val() }); });
-  profiles.sort((a,b) => (b.elo||1200) - (a.elo||1200));
+  snap.forEach(child => {
+    const v = child.val();
+    profiles.push({
+      uid: child.key,
+      displayName: v.displayName || "Denizci",
+      elo: (typeof v.elo === "number" && !isNaN(v.elo)) ? v.elo : 1200,
+      wins: (typeof v.wins === "number" && !isNaN(v.wins)) ? v.wins : 0,
+      losses: (typeof v.losses === "number" && !isNaN(v.losses)) ? v.losses : 0,
+      totalGames: (typeof v.totalGames === "number" && !isNaN(v.totalGames)) ? v.totalGames : 0,
+      gold: (typeof v.gold === "number" && !isNaN(v.gold) && isFinite(v.gold)) ? Math.max(0, Math.floor(v.gold)) : 0,
+    });
+  });
+  if (sortBy === 'elo') profiles.sort((a,b) => b.elo - a.elo);
+  else if (sortBy === 'wins') profiles.sort((a,b) => b.wins - a.wins);
+  else if (sortBy === 'gold') profiles.sort((a,b) => b.gold - a.gold);
   return profiles.slice(0, count);
 }
 
 function Leaderboard({ onBack, myUid }) {
+  const [sortBy, setSortBy] = useState('elo');
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [revealed, setRevealed] = useState(0);
-  useEffect(() => { fetchLeaderboard(10).then(data => { setPlayers(data); setLoading(false); }); }, []);
-  // Dopamine trick 1: Staggered reveal — each player appears one by one
-  useEffect(() => { if (!loading && players.length > 0) { const timers = players.map((_,i) => setTimeout(() => setRevealed(i+1), 200+i*150)); return () => timers.forEach(clearTimeout); } }, [loading, players.length]);
-  // Find user's rank (even if not in top 10)
+  useEffect(() => {
+    setLoading(true); setRevealed(0);
+    fetchLeaderboard(sortBy, 15).then(data => { setPlayers(data); setLoading(false); });
+  }, [sortBy]);
+  useEffect(() => {
+    if (!loading && players.length > 0) {
+      const timers = players.map((_,i) => setTimeout(() => setRevealed(i+1), 100+i*80));
+      return () => timers.forEach(clearTimeout);
+    }
+  }, [loading, players.length]);
   const myIdx = players.findIndex(p => p.uid === myUid);
-  const myPlayer = myIdx >= 0 ? players[myIdx] : null;
-  // Dopamine trick 2: Motivational message based on rank
   const getMotivation = () => {
     if (myIdx === 0) return "👑 Denizlerin hakimisin!";
     if (myIdx > 0 && myIdx < 3) return "🔥 Zirveye çok yakınsın!";
     if (myIdx >= 3 && myIdx < 10) return "⚡ TOP 10'dasın, devam et!";
     return "⚔ Sıralamaya girmek için savaş!";
   };
-  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:`linear-gradient(180deg, ${t.bg} 0%, #071428 50%, rgba(255,215,0,0.02) 100%)`,padding:"24px 14px",fontFamily:mono,color:t.text }}>
-    <div style={{ fontSize:32,fontWeight:800,letterSpacing:8,color:t.gold,marginBottom:2,fontFamily:warrior,textShadow:`0 0 30px ${t.goldGlow}`,animation:"fadeUp 0.4s ease-out" }}>SIRALAMA</div>
-    <div style={{ fontSize:12,fontWeight:800,color:t.textDim,letterSpacing:6,marginBottom:6,fontFamily:warrior }}>TOP 10</div>
-    {/* Dopamine trick 3: Your current position badge */}
-    {!loading && <div style={{ padding:"8px 20px",background:"rgba(0,229,255,0.06)",border:`2px solid rgba(0,229,255,0.15)`,borderRadius:12,marginBottom:16,animation:"fadeUp 0.6s ease-out" }}>
-      <div style={{ fontSize:13,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:2,textAlign:"center" }}>{getMotivation()}</div>
+  const tabs = [
+    { key:'elo', label:'ELO', icon:'🏆' },
+    { key:'wins', label:'GALİBİYET', icon:'⚔' },
+    { key:'gold', label:'ALTIN', icon:'🪙' },
+  ];
+  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:`linear-gradient(180deg, ${t.bg} 0%, #071428 50%, rgba(255,215,0,0.02) 100%)`,padding:"20px 12px",fontFamily:mono,color:t.text }}>
+    <div style={{ fontSize:30,fontWeight:900,letterSpacing:8,color:t.gold,marginBottom:2,fontFamily:warrior,textShadow:`0 0 30px ${t.goldGlow}`,animation:"fadeUp 0.4s ease-out" }}>SIRALAMA</div>
+    {!loading && myIdx >= 0 && <div style={{ padding:"6px 18px",background:"rgba(0,229,255,0.06)",border:`1px solid rgba(0,229,255,0.15)`,borderRadius:10,marginBottom:10,animation:"fadeUp 0.6s ease-out" }}>
+      <div style={{ fontSize:12,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:2,textAlign:"center" }}>{getMotivation()}</div>
     </div>}
+    {/* Sort tabs */}
+    <div style={{ display:"flex",gap:4,marginBottom:14,background:t.surface,borderRadius:12,padding:4,border:`1px solid ${t.border}` }}>
+      {tabs.map(tab => (
+        <button key={tab.key} onClick={()=>setSortBy(tab.key)} style={{ padding:"8px 14px",background:sortBy===tab.key?`linear-gradient(135deg,${t.accent},#0891b2)`:"transparent",color:sortBy===tab.key?t.bg:t.textDim,border:"none",borderRadius:8,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:2,transition:"all 0.2s" }}>{tab.icon} {tab.label}</button>
+      ))}
+    </div>
     {loading ? <div style={{ color:t.textDim,fontSize:14,marginTop:40,fontFamily:warrior,letterSpacing:3,animation:"pulse 1.5s infinite" }}>Yükleniyor...</div> : players.length===0 ? <div style={{ color:t.textDim,fontSize:14,marginTop:40,fontFamily:warrior }}>Henüz oyuncu yok</div> : (
-      <div style={{ width:"100%",maxWidth:420,display:"flex",flexDirection:"column",gap:8 }}>
-        {players.slice(0,10).map((p,i) => {
+      <div style={{ width:"100%",maxWidth:440,display:"flex",flexDirection:"column",gap:6 }}>
+        {players.slice(0,15).map((p,i) => {
           if (i >= revealed) return null;
-          const rank = getRankInfo(p.elo||1200), isMe = p.uid===myUid, winRate = p.totalGames>0?Math.round((p.wins/p.totalGames)*100):0;
-          const medalColors = [["#ffd700","rgba(255,215,0,0.2)","rgba(255,215,0,0.35)"],["#c0c0c0","rgba(192,192,192,0.15)","rgba(192,192,192,0.25)"],["#cd7f32","rgba(205,127,50,0.15)","rgba(205,127,50,0.25)"]];
+          const rank = getRankInfo(p.elo||1200), isMe = p.uid===myUid;
+          const winRate = p.totalGames>0?Math.round((p.wins/p.totalGames)*100):0;
+          const medalColors = [["#ffd700","rgba(255,215,0,0.18)","rgba(255,215,0,0.4)"],["#c0c0c0","rgba(192,192,192,0.12)","rgba(192,192,192,0.3)"],["#cd7f32","rgba(205,127,50,0.12)","rgba(205,127,50,0.3)"]];
           const isMedal = i < 3;
-          return (<div key={p.uid} style={{ display:"flex",alignItems:"center",gap:14,padding:isMedal?"14px 18px":"12px 16px",background:isMe?"rgba(0,229,255,0.1)":isMedal?medalColors[i][1]:"rgba(12,21,41,0.8)",border:`2px solid ${isMe?"rgba(0,229,255,0.4)":isMedal?medalColors[i][2]:"rgba(30,58,95,0.3)"}`,borderRadius:14,boxShadow:isMedal?`0 0 20px ${medalColors[i][2]}`:isMe?`0 0 15px rgba(0,229,255,0.15)`:"none",animation:`arSlideIn 0.5s ease-out ${i*0.1}s both`,transform:isMedal?"scale(1.02)":"none" }}>
-            <div style={{ width:isMedal?42:34,height:isMedal?42:34,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",fontSize:isMedal?22:14,fontWeight:800,background:isMedal?medalColors[i][1]:"rgba(255,255,255,0.04)",color:isMedal?medalColors[i][0]:t.textDim,fontFamily:warrior,border:`2px solid ${isMedal?medalColors[i][2]:"rgba(255,255,255,0.06)"}`,flexShrink:0 }}>{i<3?["🥇","🥈","🥉"][i]:i+1}</div>
+          return (<div key={p.uid} style={{ display:"flex",alignItems:"center",gap:10,padding:isMedal?"12px 14px":"10px 12px",background:isMe?"rgba(0,229,255,0.1)":isMedal?medalColors[i][1]:"rgba(12,21,41,0.8)",border:`2px solid ${isMe?"rgba(0,229,255,0.4)":isMedal?medalColors[i][2]:"rgba(30,58,95,0.3)"}`,borderRadius:12,animation:`arSlideIn 0.4s ease-out ${i*0.06}s both` }}>
+            {/* Rank badge */}
+            <div style={{ width:36,height:36,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:isMedal?20:13,fontWeight:800,background:isMedal?medalColors[i][1]:"rgba(255,255,255,0.04)",color:isMedal?medalColors[i][0]:t.textDim,fontFamily:warrior,border:`2px solid ${isMedal?medalColors[i][2]:"rgba(255,255,255,0.06)"}`,flexShrink:0 }}>{i<3?["🥇","🥈","🥉"][i]:i+1}</div>
+            {/* Name + rank */}
             <div style={{ flex:1,minWidth:0 }}>
-              <div style={{ display:"flex",alignItems:"center",gap:6 }}>
-                <span style={{ fontSize:isMedal?16:14,fontWeight:800,color:isMe?t.accent:t.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontFamily:warrior,letterSpacing:isMedal?2:1 }}>{p.displayName}</span>
-                <span style={{ fontSize:10,fontWeight:800,color:rank.color,fontFamily:warrior,letterSpacing:1 }}>{rank.icon}</span>
+              <div style={{ display:"flex",alignItems:"center",gap:5 }}>
+                <span style={{ fontSize:14,fontWeight:800,color:isMe?t.accent:t.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontFamily:warrior,letterSpacing:1 }}>{p.displayName}</span>
+                <span style={{ fontSize:9,fontWeight:800,color:rank.color,fontFamily:warrior }}>{rank.icon} {rank.title}</span>
               </div>
-              <div style={{ fontSize:10,fontWeight:600,color:t.textDim,marginTop:3,fontFamily:mono }}>{p.wins||0}G {p.losses||0}M • %{winRate}</div>
+              <div style={{ fontSize:9,color:t.textDim,marginTop:2,fontFamily:mono,display:"flex",gap:8 }}>
+                <span style={{ color:"#4ade80" }}>⚔ {p.wins||0}G</span>
+                <span style={{ color:t.hit }}>✕ {p.losses||0}M</span>
+                <span>%{winRate}</span>
+                <span style={{ color:t.gold }}>🪙 {p.gold||0}</span>
+              </div>
             </div>
-            <div style={{ textAlign:"right" }}>
-              <div style={{ fontSize:isMedal?26:22,fontWeight:800,color:rank.color,fontFamily:warrior,textShadow:`0 0 10px ${rank.color}44` }}>{p.elo||1200}</div>
-              <div style={{ fontSize:9,color:t.textDim,letterSpacing:2,fontWeight:700 }}>ELO</div>
+            {/* Primary sort value */}
+            <div style={{ textAlign:"right",flexShrink:0 }}>
+              {sortBy==='elo' && <><div style={{ fontSize:22,fontWeight:900,color:rank.color,fontFamily:warrior,textShadow:`0 0 10px ${rank.color}44` }}>{p.elo||1200}</div><div style={{ fontSize:8,color:t.textDim,letterSpacing:2,fontWeight:700 }}>ELO</div></>}
+              {sortBy==='wins' && <><div style={{ fontSize:22,fontWeight:900,color:"#4ade80",fontFamily:warrior }}>{p.wins||0}</div><div style={{ fontSize:8,color:t.textDim,letterSpacing:2,fontWeight:700 }}>GALİBİYET</div></>}
+              {sortBy==='gold' && <><div style={{ fontSize:22,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}` }}>{p.gold||0}</div><div style={{ fontSize:8,color:t.textDim,letterSpacing:2,fontWeight:700 }}>ALTIN</div></>}
             </div>
           </div>);
         })}
       </div>
     )}
-    <button onClick={onBack} style={{ marginTop:24,padding:"14px 40px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:15,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 20px ${t.accentGlow}` }}>GERİ DÖN</button>
+    <button onClick={onBack} style={{ marginTop:20,padding:"14px 40px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:15,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 20px ${t.accentGlow}` }}>GERİ DÖN</button>
   </div>);
 }
 
 const ANIMS = `
-@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700;1,800&family=Space+Mono:wght@400;700&display=swap');
 @keyframes blink3s{0%,100%{opacity:1}50%{opacity:.15}}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
 @keyframes borderGlow{0%,100%{border-color:#00d4ff;box-shadow:0 0 8px rgba(0,212,255,.4)}50%{border-color:#38f0ff;box-shadow:0 0 24px rgba(0,212,255,.7)}}
@@ -875,8 +882,8 @@ const ANIMS = `
 @keyframes previewZoom{0%{opacity:0;transform:scale(0.5) perspective(600px) rotateY(15deg)}50%{opacity:1;transform:scale(1.08) perspective(600px) rotateY(-3deg)}100%{transform:scale(1) perspective(600px) rotateY(0deg)}}
 @keyframes floatShadow{0%,100%{transform:translateY(0);filter:drop-shadow(0 8px 20px rgba(0,0,0,0.4))}50%{transform:translateY(-8px);filter:drop-shadow(0 16px 30px rgba(0,0,0,0.6))}}
 `;
-const warrior = "'Oswald', sans-serif";
-const mono = "'JetBrains Mono', monospace";
+const warrior = "'Barlow Condensed', sans-serif";
+const mono = "'Space Mono', monospace";
 
 function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, overlay, hoverCells, isDefense, shipColors, disabled, blinkCells, manualMarks, showShipStatus, onboardingHint }) {
   const longPressRef = useRef(null);
@@ -994,17 +1001,6 @@ function ChestPopup({ reward, onClose }) {
   </div>);
 }
 
-function LoadingScreen({ onReady }) {
-  const [step,setStep] = useState(0);
-  const msgs = ["Gemiler denize indiriliyor...","Toplar hazırlanıyor...","Radarlar aktif ediliyor...","Düşman hattı taranıyor...","Savaş pozisyonu alınıyor..."];
-  useEffect(()=>{ const timers=msgs.map((_,i)=>setTimeout(()=>setStep(i),1000+i*1000)); const final=setTimeout(()=>onReady(),6000); return()=>{timers.forEach(clearTimeout);clearTimeout(final);}; },[onReady]);
-  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",minHeight:"100dvh",background:t.bg,padding:20 }}>
-    <div style={{ fontSize:38,fontWeight:700,letterSpacing:6,color:t.accent,textShadow:`0 0 40px ${t.accentGlow},0 0 80px rgba(6,182,212,0.2)`,marginBottom:40,fontFamily:warrior,textTransform:"uppercase",animation:"fadeUp 0.8s ease-out" }}>AMİRAL BATTI</div>
-    <div style={{ display:"flex",flexDirection:"column",gap:14,width:"100%",maxWidth:300 }}>{msgs.map((msg,i)=><div key={i} style={{ fontSize:12,color:i<=step?t.text:"transparent",transition:"all 0.5s ease",animation:i<=step?"fadeUp 0.5s ease-out":"none",fontFamily:mono,letterSpacing:0.5 }}><span style={{ color:t.accent,marginRight:10,fontWeight:800 }}>{i<=step?"▸":"○"}</span>{msg}</div>)}</div>
-    <div style={{ display:"flex",gap:8,marginTop:40 }}>{[0,1,2,3].map(i=><div key={i} style={{ width:6,height:6,borderRadius:"50%",background:t.accent,animation:"loadDots 1.4s ease-in-out infinite",animationDelay:`${i*0.15}s` }} />)}</div>
-  </div>);
-}
-
 function ReadyScreen({ onStart, opponentName }) {
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",minHeight:"100dvh",background:t.bg,padding:20 }}>
     <div style={{ fontSize:14,letterSpacing:6,color:t.textDim,marginBottom:8,fontFamily:warrior,textTransform:"uppercase",animation:"fadeUp 0.4s ease-out" }}>RAKIP</div>
@@ -1027,7 +1023,7 @@ function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoar
       <div style={{ background:`linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))`,border:`3px solid ${isWin?t.accent:t.hit}`,borderRadius:24,padding:"40px 32px 32px",textAlign:"center",maxWidth:360,width:"90vw",animation:`arGlow 3s ease-in-out infinite`,boxShadow:`0 20px 80px rgba(0,0,0,0.7), 0 0 ${isWin?60:30}px ${isWin?t.accentGlow:t.hitGlow}`,'--ar-color':isWin?t.accentGlow:t.hitGlow }}>
         {/* Victory/Defeat icon */}
         <div style={{ fontSize:64,marginBottom:8,animation:isWin?"float 2s ease-in-out infinite":"defeatShake 0.6s ease-out" }}>{isWin?"⚔":"💀"}</div>
-        <div style={{ fontSize:56,fontWeight:800,letterSpacing:8,color:isWin?t.accent:t.hit,fontFamily:warrior,textTransform:"uppercase",textShadow:isWin?`0 0 60px ${t.accentGlow},0 0 120px rgba(0,229,255,0.15)`:`0 0 40px ${t.hitGlow}`,marginBottom:4,animation:isWin?"victoryGlow 2s ease-in-out infinite":"none",lineHeight:1 }}>{isWin?"ZAFER":"BOZGUN"}</div>
+        <div style={{ fontSize:68,fontWeight:900,letterSpacing:10,color:isWin?t.accent:t.hit,fontFamily:warrior,textTransform:"uppercase",textShadow:isWin?`0 0 80px ${t.accentGlow},0 0 160px rgba(0,229,255,0.3), 0 0 40px ${t.accentGlow}, 0 4px 0 rgba(0,0,0,0.8)`:`0 0 50px ${t.hitGlow}, 0 4px 0 rgba(0,0,0,0.8)`,marginBottom:4,animation:isWin?"victoryGlow 1.5s ease-in-out infinite":"none",lineHeight:1,letterSpacing:isWin?12:8 }}>{isWin?"⚡ ZAFER ⚡":"BOZGUN"}</div>
         <div style={{ fontSize:13,fontWeight:700,color:isWin?"rgba(0,229,255,0.8)":"rgba(255,71,87,0.8)",fontFamily:warrior,letterSpacing:3,marginBottom:24 }}>{winner}</div>
         {/* Stats with staggered animation */}
         {showStats && <div style={{ display:"flex",gap:16,justifyContent:"center",marginBottom:24 }}>
@@ -1078,33 +1074,33 @@ function OnlineLobby({ myUid, myName, myElo, onChallenge, onBack }) {
   const cancelInvite=async()=>{if(!sentInvite)return;await remove(ref(db,`invites/${sentInvite.targetUid}/${myUid}`));setSentInvite(null);};
   const acceptInvite=async(invite)=>{const roomId=Math.random().toString(36).substring(2,8).toUpperCase();await set(ref(db,`rooms/${roomId}`),{p1_name:invite.fromName,p1_uid:invite.id,p2_name:myName,p2_uid:myUid,phase:"placing",p1_board:null,p2_board:null,p1_ships:null,p2_ships:null,attacks:null,turn:1,clocks:{p1:CLOCK_SECONDS,p2:CLOCK_SECONDS},winner:null,winReason:null,eloProcessed:false,created:Date.now()});await update(ref(db,`invites/${myUid}/${invite.id}`),{status:"accepted",roomId});setTimeout(()=>remove(ref(db,`invites/${myUid}/${invite.id}`)),3000);onChallenge(roomId,2);};
   const rejectInvite=async(invite)=>{await update(ref(db,`invites/${myUid}/${invite.id}`),{status:"rejected"});setTimeout(()=>remove(ref(db,`invites/${myUid}/${invite.id}`)),2000);};
-  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:t.bg,padding:"20px 12px",fontFamily:"'JetBrains Mono',monospace",color:t.text }}>
-    <div style={{ fontSize:22,fontWeight:700,letterSpacing:5,color:t.accent,marginBottom:4,fontFamily:"'Oswald',sans-serif",textShadow:`0 0 20px ${t.accentGlow}` }}>ONLİNE SALON</div>
-    <div style={{ fontSize:10,color:t.textDim,letterSpacing:4,marginBottom:16,fontFamily:"'Oswald',sans-serif" }}>AKTİF DENİZCİLER</div>
+  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:t.bg,padding:"20px 12px",fontFamily:"'Space Mono',monospace",color:t.text }}>
+    <div style={{ fontSize:22,fontWeight:700,letterSpacing:5,color:t.accent,marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",textShadow:`0 0 20px ${t.accentGlow}` }}>ONLİNE SALON</div>
+    <div style={{ fontSize:10,color:t.textDim,letterSpacing:4,marginBottom:16,fontFamily:"'Barlow Condensed',sans-serif" }}>AKTİF DENİZCİLER</div>
     {invites.filter(inv=>inv.status==="pending").map(invite=>(<div key={invite.id} style={{ width:"100%",maxWidth:420,marginBottom:8,padding:"12px 16px",background:"rgba(6,182,212,0.1)",border:`1px solid ${t.accent}`,borderRadius:10,animation:"borderGlow 2s infinite" }}>
-      <div style={{ fontSize:12,color:t.accent,fontWeight:700,fontFamily:"'Oswald',sans-serif",letterSpacing:2,marginBottom:6 }}>⚔ DÜELLO DAVETİ</div>
+      <div style={{ fontSize:12,color:t.accent,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,marginBottom:6 }}>⚔ DÜELLO DAVETİ</div>
       <div style={{ fontSize:13,color:t.text,marginBottom:8 }}><span style={{ fontWeight:700 }}>{invite.fromName}</span><span style={{ color:t.textDim,fontSize:10,marginLeft:8 }}>ELO: {invite.fromElo}</span></div>
       <div style={{ display:"flex",gap:8 }}>
-        <button onClick={()=>acceptInvite(invite)} style={{ flex:1,padding:"8px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:6,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:"'Oswald',sans-serif" }}>KABUL</button>
-        <button onClick={()=>rejectInvite(invite)} style={{ flex:1,padding:"8px 0",background:"transparent",color:t.hit,border:`1px solid ${t.hit}`,borderRadius:6,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:"'Oswald',sans-serif" }}>REDDET</button>
+        <button onClick={()=>acceptInvite(invite)} style={{ flex:1,padding:"8px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:6,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif" }}>KABUL</button>
+        <button onClick={()=>rejectInvite(invite)} style={{ flex:1,padding:"8px 0",background:"transparent",color:t.hit,border:`1px solid ${t.hit}`,borderRadius:6,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif" }}>REDDET</button>
       </div>
     </div>))}
     {sentInvite&&(<div style={{ width:"100%",maxWidth:420,marginBottom:8,padding:"12px 16px",background:"rgba(251,191,36,0.08)",border:`1px solid ${t.gold}`,borderRadius:10 }}>
-      <div style={{ fontSize:11,color:t.gold,fontFamily:"'Oswald',sans-serif",letterSpacing:2,marginBottom:4 }}>DAVETİN GÖNDERİLDİ</div>
+      <div style={{ fontSize:11,color:t.gold,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,marginBottom:4 }}>DAVETİN GÖNDERİLDİ</div>
       <div style={{ fontSize:13,color:t.text,marginBottom:8 }}><span style={{ fontWeight:700 }}>{sentInvite.targetName}</span> yanıt bekliyor...<span style={{ display:"inline-block",marginLeft:6,animation:"pulse 1.5s infinite" }}>⏳</span></div>
-      <button onClick={cancelInvite} style={{ padding:"6px 16px",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:6,fontSize:10,cursor:"pointer",fontFamily:"'Oswald',sans-serif",letterSpacing:1 }}>İPTAL</button>
+      <button onClick={cancelInvite} style={{ padding:"6px 16px",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:6,fontSize:10,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1 }}>İPTAL</button>
     </div>)}
     {players.length===0?(<div style={{ width:"100%",maxWidth:420,padding:"30px 20px",textAlign:"center",background:t.surface,border:`1px solid ${t.border}`,borderRadius:10,marginTop:8 }}><div style={{ fontSize:24,marginBottom:8 }}>🌊</div><div style={{ fontSize:12,color:t.textDim }}>Şu an salonda kimse yok</div><div style={{ fontSize:10,color:t.textDim,marginTop:4 }}>Hızlı Oyun ile otomatik eşleşebilirsin</div></div>):(
       <div style={{ width:"100%",maxWidth:420,display:"flex",flexDirection:"column",gap:4 }}>
         <div style={{ fontSize:9,color:t.textDim,letterSpacing:2,marginBottom:4 }}>{players.length} DENİZCİ AKTİF</div>
         {players.map(p=>{const rank=getRankInfo(p.elo||1200);const alreadySent=sentInvite?.targetUid===p.uid;return(<div key={p.uid} style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:t.surface,border:`1px solid ${t.border}`,borderRadius:8 }}>
           <div style={{ width:8,height:8,borderRadius:"50%",background:"#34d399",boxShadow:"0 0 6px rgba(52,211,153,0.5)" }} />
-          <div style={{ flex:1,minWidth:0 }}><div style={{ display:"flex",alignItems:"center",gap:6 }}><span style={{ fontSize:13,fontWeight:700,color:t.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.displayName}</span><span style={{ fontSize:9,color:rank.color,fontFamily:"'Oswald',sans-serif",letterSpacing:1 }}>{rank.icon} {rank.title}</span></div><div style={{ fontSize:9,color:t.textDim,marginTop:1 }}>ELO: {p.elo||1200} • {p.wins||0}G/{p.losses||0}M</div></div>
-          <button onClick={()=>sendInvite(p.uid,p.displayName)} disabled={!!sentInvite} style={{ padding:"6px 14px",background:alreadySent?t.surfaceLight:`linear-gradient(135deg,${t.hit},#dc2626)`,color:alreadySent?t.textDim:"#fff",border:"none",borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:sentInvite?"default":"pointer",fontFamily:"'Oswald',sans-serif",opacity:sentInvite&&!alreadySent?0.4:1 }}>{alreadySent?"BEKLENİYOR":"⚔ DÜELLO"}</button>
+          <div style={{ flex:1,minWidth:0 }}><div style={{ display:"flex",alignItems:"center",gap:6 }}><span style={{ fontSize:13,fontWeight:700,color:t.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.displayName}</span><span style={{ fontSize:9,color:rank.color,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1 }}>{rank.icon} {rank.title}</span></div><div style={{ fontSize:9,color:t.textDim,marginTop:1 }}>ELO: {p.elo||1200} • {p.wins||0}G/{p.losses||0}M</div></div>
+          <button onClick={()=>sendInvite(p.uid,p.displayName)} disabled={!!sentInvite} style={{ padding:"6px 14px",background:alreadySent?t.surfaceLight:`linear-gradient(135deg,${t.hit},#dc2626)`,color:alreadySent?t.textDim:"#fff",border:"none",borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:sentInvite?"default":"pointer",fontFamily:"'Barlow Condensed',sans-serif",opacity:sentInvite&&!alreadySent?0.4:1 }}>{alreadySent?"BEKLENİYOR":"⚔ DÜELLO"}</button>
         </div>);})}
       </div>
     )}
-    <button onClick={onBack} style={{ marginTop:20,padding:"12px 32px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:8,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:"'Oswald',sans-serif",textTransform:"uppercase" }}>GERİ DÖN</button>
+    <button onClick={onBack} style={{ marginTop:20,padding:"12px 32px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:8,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",textTransform:"uppercase" }}>GERİ DÖN</button>
   </div>);
 }
 
@@ -1216,6 +1212,9 @@ export default function Game() {
   const [dailyReward, setDailyReward] = useState(null);
   const [emojiToast, setEmojiToast] = useState(null);
   const [myEmojiToast, setMyEmojiToast] = useState(null);
+  const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
+  const [afkTimer, setAfkTimer] = useState(null);
+  const afkIntervalRef = useRef(null);
   const [defenseBoard, setDefenseBoard] = useState(emptyGrid);
   const [shipColorMap, setShipColorMap] = useState(() => Array.from({ length: ROWS }, () => Array(COLS).fill(null)));
   const [attackOverlay, setAttackOverlay] = useState(() => emptyGrid().map(r => r.map(() => null)));
@@ -1346,6 +1345,33 @@ export default function Game() {
     return () => { if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); };
   }, [phase]);
 
+  // AFK turn tracker — 20 saniye oynamazsa rakip kaybeder (sadece online)
+  useEffect(() => {
+    if (phase !== "playing" || isBotGame) { if (afkIntervalRef.current) { clearInterval(afkIntervalRef.current); afkIntervalRef.current = null; } setAfkTimer(null); return; }
+    // Sıra değişince timer sıfırla
+    if (afkIntervalRef.current) clearInterval(afkIntervalRef.current);
+    if (!myTurn) {
+      // Rakip oynamıyor — geri sayım başlat
+      let secs = 20;
+      setAfkTimer(secs);
+      afkIntervalRef.current = setInterval(() => {
+        secs--;
+        setAfkTimer(secs);
+        if (secs <= 0) {
+          clearInterval(afkIntervalRef.current); afkIntervalRef.current = null;
+          setAfkTimer(null);
+          // Rakip AFK → biz kazandık
+          if (roomIdRef.current) {
+            update(ref(db, `rooms/${roomIdRef.current}`), { winner: playerNumRef.current, winReason: "afk_timeout" }).catch(()=>{});
+          }
+        }
+      }, 1000);
+    } else {
+      setAfkTimer(null);
+    }
+    return () => { if (afkIntervalRef.current) { clearInterval(afkIntervalRef.current); afkIntervalRef.current = null; } };
+  }, [myTurn, phase, isBotGame]);
+
   const listenToRoom = useCallback((rid, pNum) => {
     if (unsubRef.current) unsubRef.current();
     const gameRef = ref(db, `rooms/${rid}`);
@@ -1393,7 +1419,7 @@ export default function Game() {
       }
       if (game.winner) {
         const reason = game.winReason || "hits", iW = game.winner === pNum;
-        let winMsg = iW ? (reason === "timeout" ? "Süre bitti — Rakip elendi!" : reason === "placement_timeout" ? "Rakip gemileri zamanında yerleştiremediği için kazandın!" : reason === "surrender" ? "Rakip teslim oldu!" : "Tüm gemileri batırdın!") : (reason === "timeout" ? "Süren doldu!" : reason === "placement_timeout" ? "Gemileri zamanında yerleştiremediğin için kaybettin!" : reason === "surrender" ? "Teslim oldun!" : "Gemilerin battı!");
+        let winMsg = iW ? (reason === "timeout" ? "Süre bitti — Rakip elendi!" : reason === "placement_timeout" ? "Rakip gemileri zamanında yerleştiremediği için kazandın!" : reason === "surrender" ? "Rakip teslim oldu!" : reason === "afk_timeout" ? "Rakip oynamadı — Kazandın!" : "Tüm gemileri batırdın!") : (reason === "timeout" ? "Süren doldu!" : reason === "placement_timeout" ? "Gemileri zamanında yerleştiremediğin için kaybettin!" : reason === "surrender" ? "Teslim oldun!" : reason === "afk_timeout" ? "Oynamadığın için kaybettin!" : "Gemilerin battı!");
         setWinner(winMsg); setIsWin(iW); setPhase("gameover");
         sfx.init(); sfx.play(iW ? 'win' : 'lose');
         if (iW) { setTimeout(() => sfx.playEpicMusic(), 500); setTimeout(() => launchConfetti('confetti-canvas'), 300); }
@@ -1543,7 +1569,7 @@ export default function Game() {
       return;
     }
     setPhase("lobby");
-    sfx.init(); sfx.playLobbyMusic();
+    sfx.init(); if (!sfx._audioEl) sfx.playIntroFanfare(); else sfx._rampMp3Volume(0.15, 2000);
   };
 
   const handleLogout = async () => {
@@ -1655,9 +1681,9 @@ export default function Game() {
   const resetGame = () => {
     sfx.stopMusic();
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
-    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false });
+    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShowSurrenderConfirm(false); setAfkTimer(null); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false });
     if (authUid) { get(ref(db, `profiles/${authUid}`)).then(snap => { if (snap.exists()) setMyProfile(snap.val()); }).catch(() => {}); }
-    setTimeout(() => { sfx.init(); sfx.playLobbyMusic(); }, 300);
+    setTimeout(() => { sfx.init(); sfx.playBattleMusic(false); }, 300);
   };
 
   const sendEmoji = async (qe) => { if (!roomIdRef.current) return; setMyEmojiToast({ emoji: qe.emoji, label: qe.label }); setTimeout(() => setMyEmojiToast(null), 3000); await set(ref(db, `emojis/${roomIdRef.current}`), { emoji: qe.emoji, label: qe.label, from: playerNumRef.current, time: Date.now() }); };
@@ -1693,9 +1719,9 @@ export default function Game() {
     const myBoard = Array.from({length:MINI}, () => Array(MINI).fill(0));
     const myColors = Array.from({length:MINI}, () => Array(MINI).fill(null));
     miniShips.forEach(s => s.cells.forEach(([r,c]) => { myBoard[r][c] = 1; myColors[r][c] = s.color; }));
-    // Bot: SADECE AMİRAL — L şekli (0,0)(0,1)(0,2)(1,1) — ilk 3 atış (0,0)(0,1)(0,2) isabet, 4. ipucu (1,1)
+    // Bot: AMİRAL — ortada, T şekli (2,2)(2,3)(2,4)(3,3)
     const botMiniShips = [
-      { id: "amiral", name: "Amiral", cells: [[0,0],[0,1],[0,2],[1,1]], color: "#e74c3c" },
+      { id: "amiral", name: "Amiral", cells: [[2,2],[2,3],[2,4],[3,3]], color: "#e74c3c" },
     ];
     const botBrd = Array.from({length:MINI}, () => Array(MINI).fill(0));
     botMiniShips.forEach(s => s.cells.forEach(([r,c]) => { botBrd[r][c] = 1; }));
@@ -1760,7 +1786,7 @@ export default function Game() {
       sfx.init(); sfx.play('lose'); sfx.playDefeatMusic();
       setMissionStats(prev => ({ ...prev, gamesPlayed: prev.gamesPlayed + 1 }));
     } else {
-      setTimeout(() => { setMyTurn(true); setActiveBoard("attack"); }, 1500);
+      setTimeout(() => { setMyTurn(true); setActiveBoard("attack"); }, isOnboarding ? 2200 : 1500);
     }
   };
 
@@ -1899,20 +1925,114 @@ export default function Game() {
 
   if (phase === "splash") {
     const splashDone = authReady;
-    if (!splashDone) return <><style>{ANIMS}</style><LoadingScreen onReady={() => {}} /></>;
+    if (!splashDone) {
+      return <><style>{ANIMS}</style><div style={{ display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#050b18" }}><div style={{ width:40,height:40,borderRadius:"50%",border:"3px solid #00e5ff",borderTopColor:"transparent",animation:"spin 0.8s linear infinite" }} /><style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style></div></>;
+    }
     
     // Not logged in — Google login required
-    if (!authUid) return (<div style={appStyle}><style>{ANIMS}</style>
-      <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"80vh" }}>
-        <div style={{ fontSize:38,fontWeight:700,letterSpacing:6,color:t.accent,textShadow:`0 0 40px ${t.accentGlow}`,marginBottom:6,fontFamily:warrior,animation:"fadeUp 0.4s ease-out" }}>AMİRAL BATTI</div>
-        <div style={{ fontSize:10,color:t.textDim,letterSpacing:8,marginBottom:40,fontFamily:warrior }}>DENİZ SAVAŞI</div>
-        <button onClick={handleGoogleLogin} style={{ padding:"16px 36px",background:"#fff",color:"#333",border:"none",borderRadius:12,fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:warrior,letterSpacing:1,display:"flex",alignItems:"center",gap:12,boxShadow:"0 4px 20px rgba(0,0,0,0.3)",animation:"scaleUp 0.5s ease-out" }}>
-          <svg width="20" height="20" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-          Google ile Giriş Yap
-        </button>
-        {message && <div style={{ marginTop:16,color:t.hit,fontSize:11,fontFamily:mono }}>{message}</div>}
-      </div>
-    </div>);
+    function LoginScreen() {
+      return (<div style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 50% 35%, rgba(0,229,255,0.10) 0%, rgba(255,71,87,0.04) 40%, ${t.bg} 80%)`, overflow:"hidden", position:"relative" }}><style>{ANIMS}{`
+@keyframes sword3d{0%{transform:perspective(600px) rotateY(-30deg) rotateX(10deg) scale(0.6);opacity:0}60%{transform:perspective(600px) rotateY(8deg) rotateX(-4deg) scale(1.12);opacity:1}80%{transform:perspective(600px) rotateY(-3deg) rotateX(2deg) scale(1)}100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) scale(1.02)}}
+@keyframes sword3dFloat{0%,100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) translateY(0) scale(1.02)}50%{transform:perspective(600px) rotateY(-5deg) rotateX(3deg) translateY(-10px) scale(1.04)}}
+@keyframes shimmerPass{0%{left:-100%}100%{left:200%}}
+@keyframes titleSlam{0%{transform:scale(2.5) rotate(-3deg);opacity:0;filter:blur(15px)}50%{transform:scale(0.95) rotate(0.5deg);opacity:1;filter:blur(0)}100%{transform:scale(1) rotate(0)}}
+@keyframes starBurst{0%{transform:scale(0) rotate(0);opacity:1}100%{transform:scale(2.5) rotate(360deg);opacity:0}}
+@keyframes gemPulse{0%,100%{filter:drop-shadow(0 0 8px rgba(100,160,255,0.8))}50%{filter:drop-shadow(0 0 24px rgba(100,160,255,1)) drop-shadow(0 0 40px rgba(100,160,255,0.5))}}
+      `}</style>
+        {[...Array(14)].map((_,i)=><div key={i} style={{ position:"absolute",width:3,height:3,borderRadius:"50%",background:i%3===0?t.gold:i%3===1?t.accent:"#ff4757",top:`${10+Math.random()*80}%`,left:`${5+Math.random()*90}%`,animation:`starBurst ${2.5+Math.random()*2}s ease-out ${Math.random()*4}s infinite`,pointerEvents:"none",opacity:0.6 }} />)}
+        <div style={{ position:"absolute",bottom:0,left:0,right:0,height:120,opacity:0.06,overflow:"hidden",pointerEvents:"none" }}>
+          <div style={{ position:"absolute",bottom:0,left:"-50%",width:"200%",height:60,borderRadius:"50%",background:"linear-gradient(90deg,#00e5ff,#0088cc,#00e5ff)",animation:"wave 5s linear infinite" }} />
+        </div>
+        <div style={{ textAlign:"center",zIndex:1,perspective:"600px",display:"flex",flexDirection:"column",alignItems:"center" }}>
+          {/* Çapraz kılıç SVG */}
+          <div style={{ width:200,height:180,marginBottom:8,animation:"sword3d 1.2s cubic-bezier(0.34,1.56,0.64,1) forwards, sword3dFloat 4s ease-in-out 1.3s infinite",filter:"drop-shadow(0 0 30px rgba(0,229,255,0.35))" }}>
+            <svg viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg" style={{ width:"100%",height:"100%" }}>
+              <defs>
+                <linearGradient id="blade1" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#e8f4ff"/>
+                  <stop offset="30%" stopColor="#c8dff5"/>
+                  <stop offset="60%" stopColor="#a0bfe0"/>
+                  <stop offset="100%" stopColor="#7090b0"/>
+                </linearGradient>
+                <linearGradient id="blade2" x1="100%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#e8f4ff"/>
+                  <stop offset="30%" stopColor="#c8dff5"/>
+                  <stop offset="60%" stopColor="#a0bfe0"/>
+                  <stop offset="100%" stopColor="#7090b0"/>
+                </linearGradient>
+                <linearGradient id="handle" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#888"/>
+                  <stop offset="50%" stopColor="#ccc"/>
+                  <stop offset="100%" stopColor="#888"/>
+                </linearGradient>
+                <linearGradient id="gem" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#8ab4f8"/>
+                  <stop offset="50%" stopColor="#4a80e0"/>
+                  <stop offset="100%" stopColor="#2040a0"/>
+                </linearGradient>
+                <filter id="glow">
+                  <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                  <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+                {/* Engraving pattern */}
+                <pattern id="engrave" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
+                  <path d="M0 4 Q2 2 4 4 Q6 6 8 4" stroke="rgba(255,255,255,0.15)" strokeWidth="0.5" fill="none"/>
+                </pattern>
+              </defs>
+              {/* Kılıç 1 — Sol üstten sağ alta */}
+              <g transform="rotate(-40, 100, 90)">
+                {/* Blade */}
+                <polygon points="100,8 104,130 100,138 96,130" fill="url(#blade1)" filter="url(#glow)"/>
+                <polygon points="100,8 104,130 100,138 96,130" fill="url(#engrave)" opacity="0.6"/>
+                {/* Blade edge highlight */}
+                <line x1="100" y1="10" x2="102" y2="128" stroke="rgba(255,255,255,0.7)" strokeWidth="0.8"/>
+                {/* Guard/crossguard */}
+                <rect x="84" y="126" width="32" height="7" rx="2" fill="url(#handle)" filter="url(#glow)"/>
+                <rect x="84" y="126" width="32" height="7" rx="2" fill="rgba(255,255,255,0.08)"/>
+                {/* Gem */}
+                <polygon points="100,127 104,131 100,135 96,131" fill="url(#gem)" filter="url(#glow)"/>
+                <polygon points="100,127 104,131 100,135 96,131" fill="rgba(255,255,255,0.3)" opacity="0.5"/>
+                {/* Handle */}
+                <rect x="97" y="133" width="6" height="28" rx="3" fill="url(#handle)"/>
+                <rect x="97" y="133" width="6" height="28" rx="3" fill="rgba(255,255,255,0.1)"/>
+                {/* Pommel */}
+                <ellipse cx="100" cy="163" rx="7" ry="5" fill="url(#handle)" filter="url(#glow)"/>
+              </g>
+              {/* Kılıç 2 — Sağ üstten sol alta */}
+              <g transform="rotate(40, 100, 90)">
+                <polygon points="100,8 104,130 100,138 96,130" fill="url(#blade2)" filter="url(#glow)"/>
+                <polygon points="100,8 104,130 100,138 96,130" fill="url(#engrave)" opacity="0.6"/>
+                <line x1="100" y1="10" x2="98" y2="128" stroke="rgba(255,255,255,0.7)" strokeWidth="0.8"/>
+                <rect x="84" y="126" width="32" height="7" rx="2" fill="url(#handle)" filter="url(#glow)"/>
+                <rect x="84" y="126" width="32" height="7" rx="2" fill="rgba(255,255,255,0.08)"/>
+                <polygon points="100,127 104,131 100,135 96,131" fill="url(#gem)" filter="url(#glow)"/>
+                <polygon points="100,127 104,131 100,135 96,131" fill="rgba(255,255,255,0.3)" opacity="0.5"/>
+                <rect x="97" y="133" width="6" height="28" rx="3" fill="url(#handle)"/>
+                <rect x="97" y="133" width="6" height="28" rx="3" fill="rgba(255,255,255,0.1)"/>
+                <ellipse cx="100" cy="163" rx="7" ry="5" fill="url(#handle)" filter="url(#glow)"/>
+              </g>
+              {/* Kavşak ışık efekti */}
+              <circle cx="100" cy="88" r="12" fill="rgba(255,255,255,0.12)" filter="url(#glow)"/>
+              <circle cx="100" cy="88" r="5" fill="rgba(200,220,255,0.4)"/>
+            </svg>
+          </div>
+          {/* Title */}
+          <div style={{ animation:"titleSlam 1s cubic-bezier(0.34,1.56,0.64,1) 0.3s both" }}>
+            <div style={{ fontSize:52,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:12,textShadow:`0 0 80px ${t.accentGlow}, 0 0 160px rgba(0,229,255,0.2), 0 6px 30px rgba(0,0,0,0.9)`,lineHeight:1.05,WebkitTextStroke:"0.5px rgba(255,255,255,0.1)" }}>AMİRAL<br/>BATTI</div>
+          </div>
+          <div style={{ fontSize:11,color:"rgba(255,215,0,0.6)",fontFamily:warrior,letterSpacing:8,marginTop:10,marginBottom:36,fontStyle:"italic",animation:"fadeUp 1s ease-out 1.0s both" }}>savaşların atası...</div>
+          <div style={{ animation:"fadeUp 1s ease-out 1.3s both" }}>
+            <button onClick={()=>{ sfx.init(); sfx.playIntroFanfare(); handleGoogleLogin(); }} style={{ padding:"18px 40px",background:"#fff",color:"#222",border:"none",borderRadius:14,fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:warrior,letterSpacing:1,display:"flex",alignItems:"center",gap:14,boxShadow:"0 6px 30px rgba(0,0,0,0.4), 0 2px 0 rgba(255,255,255,0.1)",position:"relative",overflow:"hidden" }}>
+              <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent)",animation:"shimmerPass 3s ease-in-out infinite" }} />
+              <svg width="22" height="22" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+              Google ile Giriş Yap
+            </button>
+          </div>
+          {message && <div style={{ marginTop:16,color:t.hit,fontSize:11,fontFamily:mono }}>{message}</div>}
+        </div>
+      </div>);
+    }
+    if (!authUid) return <LoginScreen />;
     
     // Logged in but needs username
     const needsUsername = !myProfile || !myProfile.displayName || myProfile.displayName === "Denizci";
@@ -1933,87 +2053,295 @@ export default function Game() {
         if (phase === "splash") {
           // Trigger onboarding via state change, not during render
           Promise.resolve().then(() => startOnboarding());
-          return <><style>{ANIMS}</style><LoadingScreen onReady={() => {}} /></>;
+          return <><style>{ANIMS}</style><div style={{ display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#050b18" }}><div style={{ width:40,height:40,borderRadius:"50%",border:"3px solid #00e5ff",borderTopColor:"transparent",animation:"spin 0.8s linear infinite" }} /><style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style></div></>;
         }
       }
       checkDailyReward(authUid).then(reward => { if (reward) setDailyReward(reward); }).catch(() => {});
       if (phase === "splash") {
-        Promise.resolve().then(() => { setPhase("lobby"); sfx.init(); sfx.playLobbyMusic(); });
-        return <><style>{ANIMS}</style><LoadingScreen onReady={() => {}} /></>;
+        Promise.resolve().then(() => { setPhase("lobby"); sfx.init(); if (!sfx._audioEl) sfx.playIntroFanfare(); });
+        return <><style>{ANIMS}</style><div style={{ display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#050b18" }}><div style={{ width:40,height:40,borderRadius:"50%",border:"3px solid #00e5ff",borderTopColor:"transparent",animation:"spin 0.8s linear infinite" }} /><style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style></div></>;
       }
     }
     if (phase === "splash") {
-      Promise.resolve().then(() => { setPhase("lobby"); sfx.init(); sfx.playLobbyMusic(); });
+      Promise.resolve().then(() => { setPhase("lobby"); sfx.init(); if (!sfx._audioEl) sfx.playIntroFanfare(); });
     }
-    return <><style>{ANIMS}</style><LoadingScreen onReady={() => {}} /></>;
+    return <><style>{ANIMS}</style><div style={{ display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#050b18" }}><div style={{ width:40,height:40,borderRadius:"50%",border:"3px solid #00e5ff",borderTopColor:"transparent",animation:"spin 0.8s linear infinite" }} /><style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style></div></>;
   }
   if (phase === "ready") return <><style>{ANIMS}</style><ReadyScreen opponentName={opponentName} onStart={() => setPhase("playing")} /></>;
 
-  // === ONBOARDING — EPİK INTRO ===
+  // === TUTORIAL SİSTEMİ ===
   if (phase === "onboarding_intro") {
-    // Step 0: Title splash — ANGRY BIRDS + CANDY CRUSH + SUBWAY SURFERS MIX
-    if (onboardingStep === 0) {
-      return (<div style={{ ...appStyle, justifyContent:"center",background:`radial-gradient(ellipse at 50% 40%, rgba(0,229,255,0.15) 0%, rgba(0,60,120,0.1) 30%, rgba(255,71,87,0.03) 60%, ${t.bg} 90%)`,overflow:"hidden",position:"relative" }}><style>{ANIMS}{`
-@keyframes titleSlam{0%{transform:scale(3) rotate(-5deg);opacity:0;filter:blur(20px)}30%{transform:scale(0.9) rotate(1deg);opacity:1;filter:blur(0)}50%{transform:scale(1.05) rotate(-0.5deg)}100%{transform:scale(1) rotate(0)}}
-@keyframes swordSpin{0%{transform:rotate(-180deg) scale(0);opacity:0}40%{transform:rotate(15deg) scale(1.2);opacity:1}60%{transform:rotate(-5deg) scale(1)}100%{transform:rotate(0) scale(1)}}
-@keyframes shimmerPass{0%{left:-100%}100%{left:200%}}
-@keyframes starBurst{0%{transform:scale(0) rotate(0);opacity:1}50%{transform:scale(1.5) rotate(180deg);opacity:0.8}100%{transform:scale(2) rotate(360deg);opacity:0}}
-@keyframes waveRise{0%{transform:translateY(100%)}100%{transform:translateY(0)}}
-@keyframes particleFly{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--px,0px),var(--py,-80px)) scale(0)}}
-      `}</style>
-        {/* Animated water waves */}
-        <div style={{ position:"absolute",bottom:0,left:0,right:0,height:160,opacity:0.08,overflow:"hidden",pointerEvents:"none" }}>
-          <div style={{ position:"absolute",bottom:0,left:"-50%",width:"200%",height:80,borderRadius:"50%",background:"linear-gradient(90deg,#00e5ff,#0088cc,#00e5ff)",animation:"wave 5s linear infinite" }} />
-          <div style={{ position:"absolute",bottom:25,left:"-50%",width:"200%",height:50,borderRadius:"50%",background:t.accent,opacity:0.5,animation:"wave 8s linear infinite reverse" }} />
-          <div style={{ position:"absolute",bottom:50,left:"-50%",width:"200%",height:30,borderRadius:"50%",background:t.accent,opacity:0.3,animation:"wave 12s linear infinite" }} />
-        </div>
-        {/* Sparkle particles */}
-        {[...Array(12)].map((_,i)=><div key={i} style={{ position:"absolute",width:4,height:4,borderRadius:"50%",background:i%3===0?t.gold:i%3===1?t.accent:"#ff4757",top:`${15+Math.random()*70}%`,left:`${5+Math.random()*90}%`,animation:`starBurst ${2+Math.random()*2}s ease-out ${Math.random()*3}s infinite`,pointerEvents:"none",opacity:0.7 }} />)}
-        {/* Main content */}
-        <div style={{ textAlign:"center",zIndex:1,perspective:"800px" }}>
-          {/* Sword icon — spinning entrance */}
-          <div style={{ fontSize:100,marginBottom:16,animation:"swordSpin 1s cubic-bezier(0.34,1.56,0.64,1) forwards",filter:"drop-shadow(0 0 40px rgba(0,229,255,0.5)) drop-shadow(0 0 80px rgba(255,71,87,0.2))" }}>⚔</div>
-          {/* Title — slam entrance */}
-          <div style={{ animation:"titleSlam 0.8s cubic-bezier(0.34,1.56,0.64,1) 0.5s both" }}>
-            <div style={{ fontSize:60,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:14,textShadow:`0 0 80px ${t.accentGlow}, 0 0 160px rgba(0,229,255,0.25), 0 6px 30px rgba(0,0,0,0.9), 0 0 8px rgba(0,229,255,0.8)`,lineHeight:1.05,WebkitTextStroke:"1px rgba(255,255,255,0.1)" }}>AMİRAL<br/>BATTI</div>
-          </div>
-          {/* Subtitle — elegant italic */}
-          <div style={{ fontSize:14,fontWeight:700,color:"rgba(255,215,0,0.8)",fontFamily:warrior,letterSpacing:8,marginTop:16,fontStyle:"italic",animation:"fadeUp 1s ease-out 1.3s both",textShadow:`0 0 20px ${t.goldGlow}` }}>savaşların atası...</div>
-          {/* Decorative line */}
-          <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:12,marginTop:20,animation:"fadeUp 1s ease-out 1.5s both" }}>
-            <div style={{ width:60,height:1,background:`linear-gradient(90deg,transparent,${t.accent},transparent)` }} />
-            <div style={{ width:8,height:8,borderRadius:"50%",background:t.accent,boxShadow:`0 0 10px ${t.accentGlow}` }} />
-            <div style={{ width:60,height:1,background:`linear-gradient(90deg,transparent,${t.accent},transparent)` }} />
-          </div>
-          {/* BAŞLA button — premium 3D metallic with shimmer */}
-          <div style={{ marginTop:36,animation:"fadeUp 1s ease-out 1.8s both" }}>
-            <button onClick={() => { setOnboardingStep(1); sfx.init(); sfx.playIntroFanfare(); }} style={{ padding:"22px 70px",background:`linear-gradient(180deg, rgba(0,229,255,1) 0%, rgba(0,180,220,1) 40%, rgba(0,140,180,1) 100%)`,color:"#fff",border:"none",borderRadius:18,fontSize:22,fontWeight:900,letterSpacing:8,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 50px ${t.accentGlow}, 0 10px 40px rgba(0,0,0,0.6), inset 0 2px 0 rgba(255,255,255,0.4), inset 0 -3px 0 rgba(0,0,0,0.3)`,textShadow:"0 2px 6px rgba(0,0,0,0.5)",position:"relative",overflow:"hidden",transform:"perspective(400px) rotateX(5deg)",transition:"transform 0.15s" }}>
-              <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent)",animation:"shimmerPass 3s ease-in-out infinite" }} />
-              BAŞLA
-            </button>
-          </div>
-        </div>
-      </div>);
+    const tutorialStep = onboardingStep;
+
+    // Auto-advance component for splash
+    function SplashAutoAdvance({ onDone }) {
+      useEffect(() => { const t = setTimeout(onDone, 3000); return () => clearTimeout(t); }, []);
+      return null;
     }
-    // Step 1: Battle call — "DENİZLERİN HAKİMİ OL" with cinematic reveal
-    if (onboardingStep === 1) {
-      return (<div style={{ ...appStyle, justifyContent:"center",background:`radial-gradient(ellipse at 50% 30%, rgba(0,229,255,0.1) 0%, rgba(0,40,80,0.06) 40%, ${t.bg} 80%)`,overflow:"hidden",position:"relative" }}><style>{ANIMS}{`
+
+    const skipTutorial = () => {
+      sfx.init(); sfx.play('click');
+      setPhase("playing"); setActiveBoard("attack"); sfx.transitionToBattle();
+    };
+    const nextStep = () => { sfx.init(); sfx.play('click'); setOnboardingStep(s => s + 1); };
+
+    // Amiral gemi animasyon bileşeni — yatay, döner, tekrar yerleşir (2 kez sonra loop)
+    function AmiraldemoAnim() {
+      const [rot, setRot] = useState(0); // 0=yatay, 1=dikey
+      const [phase2, setPhase2] = useState('placing'); // placing|rotating|placed
+      const [cycle, setCycle] = useState(0);
+      useEffect(() => {
+        let t1, t2, t3, t4;
+        const run = () => {
+          setPhase2('placing'); setRot(0);
+          t1 = setTimeout(() => setPhase2('placed'), 800);
+          t2 = setTimeout(() => setPhase2('rotating'), 1800);
+          t3 = setTimeout(() => setRot(1), 2200);
+          t4 = setTimeout(() => { setPhase2('placed'); setCycle(c => c + 1); }, 2800);
+        };
+        run();
+        const loop = setInterval(run, 3800);
+        return () => { clearInterval(loop); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
+      }, []);
+      // Amiral shape: [[0,0],[0,1],[0,2],[1,1]] yatay — [[0,0],[1,0],[2,0],[1,1]] dikey
+      const COLS_H = 4, ROWS_H = 3;
+      const amiral_h = [[0,1],[0,2],[0,3],[1,2]]; // row,col (0-indexed), 4x3 grid
+      const amiral_v = [[0,1],[1,1],[2,1],[1,2]]; // rotated
+      const cells = rot === 0 ? amiral_h : amiral_v;
+      const cs = 44;
+      return (
+        <div style={{ position:"relative",marginBottom:20,display:"flex",flexDirection:"column",alignItems:"center" }}>
+          <div style={{ display:"grid",gridTemplateColumns:`repeat(4,${cs}px)`,gridTemplateRows:`repeat(3,${cs}px)`,gap:2,background:t.surface,borderRadius:10,padding:6,border:`1px solid ${t.border}` }}>
+            {Array.from({length:12}).map((_,i) => {
+              const r=Math.floor(i/4), c=i%4;
+              const isShip = cells.some(([sr,sc])=>sr===r&&sc===c);
+              return <div key={i} style={{ borderRadius:4,background:isShip?"rgba(231,76,60,0.5)":t.water,border:`1px solid ${isShip?"rgba(231,76,60,0.9)":"rgba(55,65,81,0.4)"}`,display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.35s ease",boxShadow:isShip&&phase2==='placed'?`inset 0 0 10px rgba(231,76,60,0.4)`:"none" }}>
+                {isShip && <div style={{ width:8,height:8,borderRadius:"50%",background:"#e74c3c",boxShadow:"0 0 8px rgba(231,76,60,0.8)",opacity:phase2==='placed'?1:0.3,transition:"opacity 0.3s" }} />}
+              </div>;
+            })}
+          </div>
+          {/* Finger pointer */}
+          <div style={{ position:"absolute",bottom:-6,right:30,fontSize:26,animation:"arrowBounce 0.9s ease-in-out infinite",filter:"drop-shadow(0 2px 6px rgba(0,229,255,0.5))",transform:"rotate(-20deg)" }}>👆</div>
+          {/* Rotate badge */}
+          <div style={{ marginTop:14,display:"flex",alignItems:"center",gap:8,padding:"6px 16px",background:"rgba(0,229,255,0.08)",border:`1px solid rgba(0,229,255,0.25)`,borderRadius:20 }}>
+            <span style={{ fontSize:18,color:t.accent,animation:phase2==='rotating'?"coinSpin 0.4s ease-in-out":"none" }}>↻</span>
+            <span style={{ fontSize:11,color:t.accent,fontFamily:warrior,letterSpacing:2,fontWeight:700 }}>DÖNDÜR</span>
+          </div>
+          <div style={{ fontSize:10,color:"#e74c3c",fontFamily:warrior,letterSpacing:2,marginTop:8,fontWeight:700 }}>AMİRAL GEMİSİ</div>
+        </div>
+      );
+    }
+
+    // Animated shot sequence — 3 cells select → become X (hit) or • (miss)
+    function ShotAnim() {
+      const SHOTS = [[1,0,'hit'],[1,2,'miss'],[2,3,'hit']];
+      const [phase3, setPhase3] = useState('select'); // select|fire
+      const [shown, setShown] = useState(0);
+      useEffect(() => {
+        let timers = [];
+        const run = () => {
+          setPhase3('select'); setShown(0);
+          timers.push(setTimeout(() => setShown(1), 400));
+          timers.push(setTimeout(() => setShown(2), 800));
+          timers.push(setTimeout(() => setShown(3), 1200));
+          timers.push(setTimeout(() => setPhase3('fire'), 1800));
+          timers.push(setTimeout(run, 3600));
+        };
+        run();
+        return () => timers.forEach(clearTimeout);
+      }, []);
+      const cs = 50;
+      return (
+        <div style={{ position:"relative",marginBottom:16 }}>
+          <div style={{ display:"grid",gridTemplateColumns:`repeat(5,${cs}px)`,gridTemplateRows:`repeat(3,${cs}px)`,gap:2,background:t.surface,borderRadius:10,padding:6,border:`1px solid ${t.border}` }}>
+            {Array.from({length:15}).map((_,i) => {
+              const r=Math.floor(i/5),c=i%5;
+              const si = SHOTS.findIndex(([sr,sc])=>sr===r&&sc===c);
+              const isSelected = si >= 0 && shown > si && phase3==='select';
+              const isFired = si >= 0 && phase3==='fire';
+              const isHit = isFired && SHOTS[si][2]==='hit';
+              const isMiss = isFired && SHOTS[si][2]==='miss';
+              return <div key={i} style={{ borderRadius:4,background:isHit?t.hit:isMiss?t.miss:isSelected?"rgba(0,229,255,0.4)":t.water,border:`1px solid ${isHit?t.hit:isMiss?t.miss:isSelected?t.accent:"rgba(55,65,81,0.4)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:900,color:"#fff",transition:"all 0.3s ease",boxShadow:isHit?`inset 0 0 14px ${t.hitGlow}`:isSelected?`inset 0 0 10px ${t.accentGlow}`:"none" }}>
+                {isHit?"✕":isMiss?"•":isSelected?"◎":""}
+              </div>;
+            })}
+          </div>
+          <div style={{ display:"flex",gap:8,marginTop:10,justifyContent:"center",alignItems:"center" }}>
+            {SHOTS.map((_,i)=><div key={i} style={{ width:14,height:14,borderRadius:"50%",background:i<shown&&phase3==='select'?t.hit:t.surfaceLight,boxShadow:i<shown&&phase3==='select'?`0 0 8px ${t.hitGlow}`:"none",transition:"all 0.3s" }} />)}
+            <div style={{ fontSize:12,color:t.textDim,fontFamily:warrior,letterSpacing:2,marginLeft:6 }}>→ 🔥 ATEŞ</div>
+          </div>
+        </div>
+      );
+    }
+
+    // Shared tutorial card wrapper
+    const TutCard = ({ children, step, total }) => (
+      <div style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 50% 20%, rgba(192,57,43,0.08) 0%, rgba(0,229,255,0.06) 40%, ${t.bg} 80%)`, overflow:"hidden", position:"relative" }}>
+        <style>{ANIMS}{`
+@keyframes arrowBounce{0%,100%{transform:translateX(0)}50%{transform:translateX(8px)}}
+@keyframes shipSlide{0%{transform:translateX(-60px);opacity:0}100%{transform:translateX(0);opacity:1}}
+@keyframes touchPulse{0%{transform:scale(1);opacity:0.9}50%{transform:scale(1.3);opacity:1}100%{transform:scale(1);opacity:0.9}}
+@keyframes crosshairSpin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+@keyframes markDrop{0%{transform:translateY(-20px);opacity:0}60%{transform:translateY(4px);opacity:1}100%{transform:translateY(0);opacity:1}}
 @keyframes shimmerPass{0%{left:-100%}100%{left:200%}}
-      `}</style>
-        <div style={{ position:"absolute",bottom:0,left:0,right:0,height:100,opacity:0.04,overflow:"hidden",pointerEvents:"none" }}>
-          <div style={{ position:"absolute",bottom:0,left:"-50%",width:"200%",height:50,borderRadius:"50%",background:t.accent,animation:"wave 7s linear infinite" }} />
+@keyframes battleFlicker{0%,100%{opacity:0.03}50%{opacity:0.07}}
+        `}</style>
+        {/* Savaş konsepti — arka plan dekorasyon */}
+        <div style={{ position:"absolute",top:0,left:0,right:0,bottom:0,pointerEvents:"none",overflow:"hidden" }}>
+          <div style={{ position:"absolute",top:"8%",left:"5%",fontSize:60,opacity:0.04,fontFamily:warrior,fontWeight:900,color:"#fff",animation:"battleFlicker 3s ease-in-out infinite" }}>⚔</div>
+          <div style={{ position:"absolute",bottom:"12%",right:"5%",fontSize:48,opacity:0.04,fontFamily:warrior,fontWeight:900,color:"#fff",animation:"battleFlicker 4s ease-in-out 1s infinite" }}>🛡</div>
+          <div style={{ position:"absolute",bottom:0,left:0,right:0,height:60,opacity:0.04,overflow:"hidden" }}>
+            <div style={{ position:"absolute",bottom:0,left:"-50%",width:"200%",height:40,borderRadius:"50%",background:t.accent,animation:"wave 6s linear infinite" }} />
+          </div>
         </div>
-        <div style={{ textAlign:"center",animation:"arSlideIn 0.7s ease-out",zIndex:1 }}>
-          <div style={{ fontSize:60,marginBottom:16,animation:"float 2.5s ease-in-out infinite",filter:"drop-shadow(0 0 30px rgba(0,229,255,0.4))" }}>⚔</div>
-          <div style={{ fontSize:24,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 30px ${t.accentGlow}`,marginBottom:8 }}>AMİRAL BATTI</div>
-          <div style={{ fontSize:16,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:3,marginBottom:6,textShadow:`0 0 15px ${t.goldGlow}` }}>DENİZLERİN HAKİMİ OL,</div>
-          <div style={{ fontSize:16,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:3,marginBottom:36,textShadow:`0 0 15px ${t.goldGlow}` }}>SAVAŞI KAZAN.</div>
-          <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); sfx.transitionToBattle(); }} style={{ padding:"22px 70px",background:`linear-gradient(180deg, rgba(0,229,255,1) 0%, rgba(0,180,220,1) 40%, rgba(0,140,180,1) 100%)`,color:"#fff",border:"none",borderRadius:18,fontSize:22,fontWeight:900,letterSpacing:8,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 50px ${t.accentGlow}, 0 10px 40px rgba(0,0,0,0.6), inset 0 2px 0 rgba(255,255,255,0.4), inset 0 -3px 0 rgba(0,0,0,0.3)`,textShadow:"0 2px 6px rgba(0,0,0,0.5)",animation:"scaleUp 0.5s ease-out",position:"relative",overflow:"hidden" }}>
-            <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent)",animation:"shimmerPass 3s ease-in-out infinite" }} />
-            HADİ OYNA
-          </button>
+        {/* Progress dots */}
+        <div style={{ position:"absolute",top:16,left:0,right:0,display:"flex",justifyContent:"center",gap:6 }}>
+          {[1,2,3,4].map(i => <div key={i} style={{ width:i<=step?20:8,height:8,borderRadius:4,background:i<=step?t.accent:"rgba(255,255,255,0.12)",transition:"all 0.3s ease",boxShadow:i<=step?`0 0 8px ${t.accentGlow}`:"none" }} />)}
         </div>
-      </div>);
+        {/* Skip */}
+        <button onClick={skipTutorial} style={{ position:"absolute",top:14,right:14,padding:"5px 14px",background:"rgba(255,255,255,0.05)",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:20,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:warrior,letterSpacing:2 }}>GEÇ</button>
+        <div style={{ width:"100%",maxWidth:400,zIndex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:0 }}>
+          {children}
+        </div>
+      </div>
+    );
+
+    // Step 0: Splash — kılıç + başlık, 3 saniye sonra otomatik geç
+    if (tutorialStep === 0) {
+      return (
+        <div style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 50% 35%, rgba(0,229,255,0.12) 0%, ${t.bg} 80%)`, overflow:"hidden", position:"relative" }}>
+          <style>{ANIMS}{`
+@keyframes sword3d{0%{transform:perspective(600px) rotateY(-30deg) rotateX(10deg) scale(0.5);opacity:0}60%{transform:perspective(600px) rotateY(8deg) rotateX(-4deg) scale(1.1);opacity:1}100%{transform:perspective(600px) rotateY(4deg) rotateX(-2deg) scale(1)}}
+@keyframes sword3dFloat{0%,100%{transform:perspective(600px) rotateY(4deg) rotateX(-2deg) translateY(0)}50%{transform:perspective(600px) rotateY(-4deg) rotateX(3deg) translateY(-8px)}}
+@keyframes titleSlam{0%{transform:scale(2.5);opacity:0;filter:blur(12px)}60%{transform:scale(0.95);opacity:1;filter:blur(0)}100%{transform:scale(1)}}
+          `}</style>
+          {[...Array(10)].map((_,i)=><div key={i} style={{ position:"absolute",width:3,height:3,borderRadius:"50%",background:i%2===0?t.gold:t.accent,top:`${10+Math.random()*80}%`,left:`${5+Math.random()*90}%`,animation:`pulse ${2+Math.random()*2}s ease-in-out ${Math.random()*3}s infinite`,pointerEvents:"none",opacity:0.4 }} />)}
+          <SplashAutoAdvance onDone={() => { sfx.init(); sfx.playIntroFanfare(); setOnboardingStep(1); }} />
+          <div style={{ textAlign:"center",zIndex:1,display:"flex",flexDirection:"column",alignItems:"center" }}>
+            <div style={{ fontSize:104,marginBottom:8,animation:"sword3d 1.2s cubic-bezier(0.34,1.56,0.64,1) forwards, sword3dFloat 4s ease-in-out 1.3s infinite",filter:"drop-shadow(0 0 50px rgba(0,229,255,0.6)) drop-shadow(0 0 20px rgba(0,229,255,0.3))" }}>⚔</div>
+            <div style={{ animation:"titleSlam 0.9s cubic-bezier(0.34,1.56,0.64,1) 0.4s both" }}>
+              <div style={{ fontSize:56,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:12,textShadow:`0 0 80px ${t.accentGlow}, 0 0 40px rgba(0,229,255,0.4), 0 6px 30px rgba(0,0,0,0.9)`,lineHeight:1 }}>AMİRAL<br/>BATTI</div>
+            </div>
+            <div style={{ fontSize:13,color:"rgba(255,215,0,0.65)",fontFamily:warrior,letterSpacing:7,marginTop:14,fontStyle:"italic",animation:"fadeUp 1s ease-out 1.2s both",textShadow:`0 0 15px ${t.goldGlow}` }}>savaşların atası...</div>
+          </div>
+        </div>
+      );
+    }
+
+    // Step 1: Gemi yerleştirme — Amiral animasyonu
+    if (tutorialStep === 1) {
+      return (
+        <TutCard step={1} total={4}>
+          <div style={{ fontSize:24,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:6,marginTop:4,marginBottom:8 }}>NASIL OYNANIR?</div>
+          <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:14 }}>
+            <span style={{ fontSize:20 }}>⚓</span>
+            <div style={{ fontSize:22,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 20px ${t.accentGlow}` }}>GEMİLERİ YERLEŞTIR</div>
+            <span style={{ fontSize:20 }}>⚓</span>
+          </div>
+          {/* Animated Amiral ship demo */}
+          <AmiraldemoAnim />
+          <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:20,textAlign:"center",lineHeight:1.7,maxWidth:280 }}>
+            Bir gemi seç → haritaya dokun → yerleştir<br/>
+            <span style={{ color:t.accent,fontWeight:700 }}>↻ DÖNDÜR</span> ile yönünü değiştir
+          </div>
+          <div style={{ display:"flex",gap:10 }}>
+            <button onClick={() => setOnboardingStep(s => s - 1)} style={{ padding:"14px 32px",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:warrior,letterSpacing:2 }}>← GERİ</button>
+            <button onClick={nextStep} style={{ padding:"14px 32px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:14,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 24px ${t.accentGlow}` }}>GEÇ →</button>
+          </div>
+        </TutCard>
+      );
+    }
+
+    // Step 2: Değme kuralı
+    if (tutorialStep === 2) {
+      return (
+        <TutCard step={2} total={4}>
+          <div style={{ fontSize:24,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:6,marginTop:4,marginBottom:8 }}>NASIL OYNANIR?</div>
+          <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:14 }}>
+            <span style={{ fontSize:20 }}>🚫</span>
+            <div style={{ fontSize:22,fontWeight:900,color:t.hit,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 20px ${t.hitGlow}` }}>DEĞMEZLİK KURALI</div>
+            <span style={{ fontSize:20 }}>🚫</span>
+          </div>
+          <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16,textAlign:"center",lineHeight:1.6 }}>Gemiler birbirine dokunamaz —<br/>köşegen bile olsa!</div>
+          {/* Görsel: iki gemi, kırmızı yasak bölge */}
+          <div style={{ position:"relative",marginBottom:20 }}>
+            <div style={{ display:"grid",gridTemplateColumns:"repeat(5,42px)",gridTemplateRows:"repeat(4,42px)",gap:2,background:t.surface,borderRadius:10,padding:6,border:`1px solid ${t.border}` }}>
+              {Array.from({length:20}).map((_,i) => {
+                const ship1=[5,6]; const ship2=[13,14]; const forbidden=[7,8,11,12];
+                const isS1=ship1.includes(i), isS2=ship2.includes(i), isForbidden=forbidden.includes(i);
+                return <div key={i} style={{ borderRadius:4,background:isS1?"rgba(0,229,255,0.35)":isS2?"rgba(52,211,153,0.35)":isForbidden?"rgba(255,71,87,0.22)":t.water,border:`1px solid ${isS1?"rgba(0,229,255,0.6)":isS2?"rgba(52,211,153,0.5)":isForbidden?"rgba(255,71,87,0.5)":"rgba(55,65,81,0.4)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:900,color:isForbidden?t.hit:"transparent",animation:isForbidden?"pulse 1.5s ease-in-out infinite":"none" }}>
+                  {isForbidden && "✕"}
+                </div>;
+              })}
+            </div>
+            <div style={{ position:"absolute",top:-10,left:"50%",transform:"translateX(-50%)",fontSize:24,animation:"pulse 1.2s ease-in-out infinite" }}>🚫</div>
+          </div>
+          <div style={{ display:"flex",gap:10 }}>
+            <button onClick={() => setOnboardingStep(s => s - 1)} style={{ padding:"14px 32px",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:warrior,letterSpacing:2 }}>← GERİ</button>
+            <button onClick={nextStep} style={{ padding:"14px 32px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:14,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 24px ${t.accentGlow}` }}>GEÇ →</button>
+          </div>
+        </TutCard>
+      );
+    }
+
+    // Step 3: 3'lü atış
+    if (tutorialStep === 3) {
+      return (
+        <TutCard step={3} total={4}>
+          <div style={{ fontSize:24,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:6,marginTop:4,marginBottom:8 }}>NASIL OYNANIR?</div>
+          <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:14 }}>
+            <span style={{ fontSize:20 }}>💥</span>
+            <div style={{ fontSize:22,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 20px ${t.goldGlow}` }}>3 EL ATIŞ</div>
+            <span style={{ fontSize:20 }}>💥</span>
+          </div>
+          <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16,textAlign:"center",lineHeight:1.6 }}>Her turda 3 hücreyi seç → ATEŞ!</div>
+          <ShotAnim />
+          <div style={{ display:"flex",gap:10,marginTop:8 }}>
+            <button onClick={() => setOnboardingStep(s => s - 1)} style={{ padding:"14px 32px",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:warrior,letterSpacing:2 }}>← GERİ</button>
+            <button onClick={nextStep} style={{ padding:"14px 32px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:14,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 24px ${t.accentGlow}` }}>GEÇ →</button>
+          </div>
+        </TutCard>
+      );
+    }
+
+    // Step 4: İşaretleme özelliği
+    if (tutorialStep === 4) {
+      return (
+        <TutCard step={4} total={4}>
+          <div style={{ fontSize:24,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:6,marginTop:4,marginBottom:8 }}>NASIL OYNANIR?</div>
+          <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:14 }}>
+            <span style={{ fontSize:20 }}>⚑</span>
+            <div style={{ fontSize:22,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 20px ${t.goldGlow}` }}>İŞARETLE & TAKİP ET</div>
+            <span style={{ fontSize:20 }}>⚑</span>
+          </div>
+          <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16,textAlign:"center",lineHeight:1.6 }}>Şüphelendiğin kareleri uzun basarak<br/>⚑ ile işaretle.</div>
+          {/* İşaretleme demo */}
+          <div style={{ position:"relative",marginBottom:20 }}>
+            <div style={{ display:"grid",gridTemplateColumns:"repeat(5,46px)",gridTemplateRows:"repeat(3,46px)",gap:2,background:t.surface,borderRadius:10,padding:6,border:`1px solid ${t.border}` }}>
+              {Array.from({length:15}).map((_,i) => {
+                const marked=[3,8,9]; const isM=marked.includes(i);
+                return <div key={i} style={{ borderRadius:4,background:isM?"rgba(255,215,0,0.18)":t.water,border:`1px solid ${isM?"rgba(255,215,0,0.5)":"rgba(55,65,81,0.4)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,color:isM?t.gold:"transparent",animation:isM?`markDrop 0.5s ease-out ${marked.indexOf(i)*0.2}s both`:"none",boxShadow:isM?`inset 0 0 10px ${t.goldGlow}`:"none" }}>
+                  {isM && "⚑"}
+                </div>;
+              })}
+            </div>
+          </div>
+          {/* SAVAŞ CTA */}
+          <div style={{ textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center",gap:0,width:"100%",maxWidth:340 }}>
+            <div style={{ width:"100%",background:"linear-gradient(180deg, rgba(80,10,5,0.6) 0%, rgba(40,5,2,0.85) 100%)",border:"1px solid rgba(180,40,20,0.35)",borderRadius:12,padding:"20px 16px 14px",position:"relative",overflow:"hidden" }}>
+              <div style={{ position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 100%, rgba(255,80,20,0.12) 0%, transparent 70%)",pointerEvents:"none" }} />
+              <div style={{ position:"absolute",bottom:0,left:0,right:0,height:2,background:"linear-gradient(90deg,transparent,rgba(255,100,40,0.7),rgba(255,160,60,0.9),rgba(255,100,40,0.7),transparent)" }} />
+              <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); sfx.transitionToBattle(); }} style={{ width:"100%",padding:"20px 0",background:"linear-gradient(180deg, #8b1a0a 0%, #5c0f06 50%, #3a0804 100%)",color:"#fff",border:"2px solid rgba(255,100,50,0.45)",borderRadius:6,fontSize:28,fontWeight:900,letterSpacing:10,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 40px rgba(192,57,43,0.45), 0 6px 30px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,150,100,0.15), inset 0 -2px 0 rgba(0,0,0,0.5)",position:"relative",overflow:"hidden",textTransform:"uppercase",textShadow:"0 0 20px rgba(255,120,60,0.7), 0 2px 6px rgba(0,0,0,0.9)" }}>
+                <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,150,80,0.1),transparent)",animation:"shimmerPass 3s ease-in-out infinite" }} />
+                ⚔ SAVAŞ
+              </button>
+              <div style={{ marginTop:10,fontSize:11,fontStyle:"italic",color:"rgba(255,180,100,0.65)",fontFamily:warrior,letterSpacing:6,textShadow:"0 0 10px rgba(255,120,40,0.4)" }}>
+                savaşların atası...
+              </div>
+            </div>
+          </div>
+        </TutCard>
+      );
     }
   }
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} /></>;
@@ -2024,44 +2352,48 @@ export default function Game() {
     if (showReview) return <BoardReview defenseBoard={defenseBoard} shipColorMap={shipColorMap} defenseOverlay={defenseOverlay} attackOverlay={attackOverlay} oppShipsData={oppShipsData} myShipsData={myShipsData} defHitMap={defHitMap} atkHitMap={atkHitMap} cellSize={cellSize} onBack={() => setShowReview(false)} />;
     // ONBOARDING VICTORY — Special rank reveal ceremony
     if (isOnboarding && isWin) {
-      // Play epic victory music
-      sfx.init(); sfx.playEpicMusic(); setTimeout(() => launchConfetti('confetti-canvas', 4000), 300);
-      return (<><style>{ANIMS}</style>
-        <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",minHeight:"100dvh",background:`radial-gradient(ellipse at 50% 30%, rgba(0,229,255,0.15) 0%, rgba(255,215,0,0.05) 30%, ${t.bg} 70%)`,padding:20,perspective:"800px" }}>
-          <div style={{ animation:"arSlideIn 1s ease-out forwards",transformStyle:"preserve-3d",textAlign:"center",maxWidth:380,width:"90vw" }}>
-            {/* Rank card */}
-            <div style={{ background:`linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))`,border:`3px solid ${t.accent}`,borderRadius:24,padding:"44px 32px",boxShadow:`0 20px 80px rgba(0,0,0,0.7), 0 0 60px ${t.accentGlow}`,animation:"arGlow 3s ease-in-out infinite",'--ar-color':t.accentGlow }}>
-              <div style={{ fontSize:72,marginBottom:12,animation:"float 2s ease-in-out infinite" }}>⚔</div>
-              <div style={{ fontSize:18,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:6,marginBottom:8 }}>TEBRIKLER, DENİZCİ!</div>
-              <div style={{ fontSize:48,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 40px ${t.accentGlow}`,marginBottom:16,animation:"victoryGlow 2s ease-in-out infinite" }}>ZAFER</div>
-              <div style={{ fontSize:14,fontWeight:700,color:"rgba(0,229,255,0.7)",fontFamily:warrior,letterSpacing:2,marginBottom:24 }}>{winner}</div>
-              {/* Gerçek rakipler seni bekliyor */}
-              <div style={{ background:"rgba(255,71,87,0.06)",border:`2px solid rgba(255,71,87,0.2)`,borderRadius:14,padding:"16px 20px",marginBottom:20,animation:"arSlideIn 1s ease-out 0.3s both" }}>
-                <div style={{ fontSize:16,fontWeight:800,color:t.hit,fontFamily:warrior,letterSpacing:3,marginBottom:4 }}>GERÇEK RAKİPLER</div>
-                <div style={{ fontSize:13,fontWeight:700,color:t.text,fontFamily:warrior,letterSpacing:2 }}>SENİ BEKLİYOR!</div>
-                <div style={{ fontSize:10,color:t.textDim,fontFamily:mono,marginTop:6 }}>Altın kazan • ELO yükselt • Zirveye çık</div>
-              </div>
-              {/* Rank badge */}
-              <div style={{ background:"rgba(0,229,255,0.08)",border:`2px solid rgba(0,229,255,0.25)`,borderRadius:16,padding:"20px 24px",marginBottom:20,animation:"arSlideIn 1s ease-out 0.5s both" }}>
-                <div style={{ fontSize:11,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:3,marginBottom:8 }}>RÜTBEN BELİRLENDİ</div>
-                <div style={{ fontSize:20,marginBottom:4 }}>🔰</div>
-                <div style={{ fontSize:28,fontWeight:800,color:"#60a5fa",fontFamily:warrior,letterSpacing:4 }}>TEĞMEN</div>
-                <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginTop:8 }}>
-                  <div style={{ fontSize:36,fontWeight:800,color:t.accent,fontFamily:warrior }}>1200</div>
-                  <div style={{ fontSize:10,fontWeight:700,color:t.textDim,fontFamily:mono }}>ELO</div>
+      function OnboardingVictory() {
+        useEffect(() => {
+          sfx.init();
+          sfx.playEpicMusic();
+        }, []);
+        return (<><style>{ANIMS}</style>
+          <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",minHeight:"100dvh",background:`radial-gradient(ellipse at 50% 30%, rgba(0,229,255,0.15) 0%, rgba(255,215,0,0.05) 30%, ${t.bg} 70%)`,padding:20,perspective:"800px" }}>
+            <div style={{ animation:"arSlideIn 1s ease-out forwards",transformStyle:"preserve-3d",textAlign:"center",maxWidth:380,width:"90vw" }}>
+              {/* Rank card */}
+              <div style={{ background:`linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))`,border:`3px solid ${t.accent}`,borderRadius:24,padding:"44px 32px",boxShadow:`0 20px 80px rgba(0,0,0,0.7), 0 0 60px ${t.accentGlow}`,animation:"arGlow 3s ease-in-out infinite",'--ar-color':t.accentGlow }}>
+                <div style={{ fontSize:72,marginBottom:12,animation:"float 2s ease-in-out infinite" }}>⚔</div>
+                <div style={{ fontSize:18,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:6,marginBottom:8 }}>TEBRİKLER, DENİZCİ!</div>
+                <div style={{ fontSize:48,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 40px ${t.accentGlow}`,marginBottom:16,animation:"victoryGlow 2s ease-in-out infinite" }}>ZAFER</div>
+                <div style={{ fontSize:14,fontWeight:700,color:"rgba(0,229,255,0.7)",fontFamily:warrior,letterSpacing:2,marginBottom:24 }}>{winner}</div>
+                {/* Gerçek rakipler seni bekliyor */}
+                <div style={{ background:"rgba(255,71,87,0.06)",border:`2px solid rgba(255,71,87,0.2)`,borderRadius:14,padding:"16px 20px",marginBottom:20,animation:"arSlideIn 1s ease-out 0.3s both" }}>
+                  <div style={{ fontSize:16,fontWeight:800,color:t.hit,fontFamily:warrior,letterSpacing:3,marginBottom:4 }}>GERÇEK RAKİPLER</div>
+                  <div style={{ fontSize:13,fontWeight:700,color:t.text,fontFamily:warrior,letterSpacing:2 }}>SENİ BEKLİYOR!</div>
+                  <div style={{ fontSize:10,color:t.textDim,fontFamily:mono,marginTop:6 }}>Altın kazan • ELO yükselt • Zirveye çık</div>
                 </div>
+                {/* Rank badge */}
+                <div style={{ background:"rgba(0,229,255,0.08)",border:`2px solid rgba(0,229,255,0.25)`,borderRadius:16,padding:"20px 24px",marginBottom:20,animation:"arSlideIn 1s ease-out 0.5s both" }}>
+                  <div style={{ fontSize:11,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:3,marginBottom:8 }}>RÜTBEN BELİRLENDİ</div>
+                  <div style={{ fontSize:20,marginBottom:4 }}>🔰</div>
+                  <div style={{ fontSize:28,fontWeight:800,color:"#60a5fa",fontFamily:warrior,letterSpacing:4 }}>TEĞMEN</div>
+                  <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginTop:8 }}>
+                    <div style={{ fontSize:36,fontWeight:800,color:t.accent,fontFamily:warrior }}>1200</div>
+                    <div style={{ fontSize:10,fontWeight:700,color:t.textDim,fontFamily:mono }}>ELO</div>
+                  </div>
+                </div>
+                {/* Gold reward */}
+                <div style={{ background:"rgba(255,215,0,0.08)",border:`1px solid rgba(255,215,0,0.2)`,borderRadius:12,padding:"12px 20px",marginBottom:20,animation:"arSlideIn 1s ease-out 0.8s both" }}>
+                  <div style={{ fontSize:11,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:2 }}>İLK ÖDÜLÜN</div>
+                  <div style={{ fontSize:24,fontWeight:800,color:t.gold,fontFamily:warrior,textShadow:`0 0 15px ${t.goldGlow}`,marginTop:4 }}>500 💰</div>
+                </div>
+                <button onClick={() => { sfx.stopMusic(); setIsOnboarding(false); resetGame(); }} style={{ padding:"18px 40px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:14,fontSize:18,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 30px ${t.accentGlow}`,animation:"arSlideIn 1s ease-out 1.1s both" }}>SAVAŞA HAZIRIM</button>
               </div>
-              {/* Gold reward */}
-              <div style={{ background:"rgba(255,215,0,0.08)",border:`1px solid rgba(255,215,0,0.2)`,borderRadius:12,padding:"12px 20px",marginBottom:20,animation:"arSlideIn 1s ease-out 0.8s both" }}>
-                <div style={{ fontSize:11,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:2 }}>İLK ÖDÜLÜN</div>
-                <div style={{ fontSize:24,fontWeight:800,color:t.gold,fontFamily:warrior,textShadow:`0 0 15px ${t.goldGlow}`,marginTop:4 }}>500 💰</div>
-              </div>
-              <button onClick={() => { sfx.stopMusic(); setIsOnboarding(false); resetGame(); }} style={{ padding:"18px 40px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:14,fontSize:18,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 30px ${t.accentGlow}`,animation:"arSlideIn 1s ease-out 1.1s both" }}>SAVAŞA HAZIRIM</button>
             </div>
           </div>
-        </div>
-        <canvas id="confetti-canvas" style={{ position:'fixed',inset:0,pointerEvents:'none',zIndex:10002 }} />
-      </>);
+        </>);
+      }
+      return <OnboardingVictory />;
     }
     const myEloDiff = eloChange ? eloChange.myNew - eloChange.myOld : null;
     const myRank = eloChange ? getRankInfo(eloChange.myNew) : (myProfile ? getRankInfo(myProfile.elo) : null);
@@ -2113,7 +2445,7 @@ export default function Game() {
       {/* Music toggle + online counter */}
       <div style={{ display:"flex",alignItems:"center",gap:14,marginBottom:12,zIndex:1 }}>
         {onlineCount > 0 && <div style={{ display:'flex',alignItems:'center',gap:6,animation:'fadeUp 0.5s ease-out' }}><div style={{ width:8,height:8,borderRadius:'50%',background:'#34d399',boxShadow:'0 0 8px rgba(52,211,153,0.6)',animation:'pulse 2s infinite' }} /><span style={{ fontSize:11,color:'#34d399',fontFamily:warrior,letterSpacing:2 }}>{onlineCount} KİŞİ OYNUYOR</span></div>}
-        <button onClick={()=>{sfx.init(); if(sfx.currentMusic==='lobby'){sfx.stopMusic();}else{sfx.playLobbyMusic();}}} style={{ padding:"4px 10px",background:"rgba(255,255,255,0.04)",border:`1px solid ${t.border}`,borderRadius:8,fontSize:14,cursor:"pointer",color:t.textDim,lineHeight:1 }}>{sfx.currentMusic==='lobby'?'🔊':'🔇'}</button>
+        <button onClick={()=>{sfx.init(); if(sfx._audioEl && !sfx._audioEl.paused){sfx.stopMusic();}else{sfx.playBattleMusic(false);}}} style={{ padding:"4px 10px",background:"rgba(255,255,255,0.04)",border:`1px solid ${t.border}`,borderRadius:8,fontSize:14,cursor:"pointer",color:t.textDim,lineHeight:1 }}>{sfx._audioEl && !sfx._audioEl.paused?'🔊':'🔇'}</button>
       </div>
       {authLoading && <div style={{ background:"rgba(239,68,68,0.12)",border:`1px solid ${t.hit}`,borderRadius:8,padding:"10px 16px",marginBottom:12,fontSize:11,color:t.hit,fontFamily:mono,textAlign:"center",width:"100%",maxWidth:340,animation:"pulse 1.5s infinite" }}>Sunucuya bağlanılıyor...</div>}
       {isTestMode() && <div style={{ background:"rgba(251,191,36,0.15)",border:`1px solid ${t.gold}`,borderRadius:8,padding:"8px 16px",marginBottom:12,fontSize:11,color:t.gold,fontFamily:warrior,letterSpacing:2,textAlign:"center",width:"100%",maxWidth:340 }}>🧪 TEST MODU — 2 tab aç, oda koduyla oyna</div>}
@@ -2123,7 +2455,7 @@ export default function Game() {
             <div style={{ fontSize:20,fontWeight:800,color:t.text,fontFamily:warrior,letterSpacing:2 }}>{myProfile.displayName}</div>
             <div style={{ display:"flex",alignItems:"center",gap:6,marginTop:4 }}>
               <span style={{ fontSize:14,fontWeight:800,color:rank?.color||t.textDim,fontFamily:warrior,letterSpacing:2,textShadow:`0 0 10px ${rank?.color||t.textDim}44` }}>{rank?.icon} {rank?.title}</span>
-              <span style={{ fontSize:12,fontWeight:700,color:t.gold,fontFamily:mono,background:"rgba(255,215,0,0.15)",padding:"3px 10px",borderRadius:10,border:"1px solid rgba(255,215,0,0.25)" }}>💰 {safeGold(myProfile.gold)}</span>
+              <span style={{ fontSize:13,fontWeight:900,color:t.gold,fontFamily:warrior,background:"linear-gradient(135deg,rgba(255,215,0,0.2),rgba(255,215,0,0.06))",padding:"4px 12px",borderRadius:20,border:`1px solid rgba(255,215,0,0.35)`,boxShadow:`0 0 12px ${t.goldGlow}`,letterSpacing:1,display:"inline-flex",alignItems:"center",gap:4 }}>🪙 {safeGold(myProfile.gold)}</span>
               {canChangeName() && <button onClick={()=>{setPhase("splash");}} style={{ fontSize:8,color:t.textDim,background:"transparent",border:`1px solid ${t.border}`,borderRadius:4,padding:"2px 6px",cursor:"pointer",fontFamily:mono }}>✏</button>}
             </div>
           </div>
@@ -2253,8 +2585,20 @@ export default function Game() {
     return (<div style={{ ...appStyle, paddingBottom: 74 }}><style>{ANIMS}</style>
       {/* PES ET / OYUNDAN AYRIL butonu */}
       <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-end",marginBottom:4 }}>
-        <button onClick={() => { if(confirm(isOnboarding?"Eğitim savaşından çıkmak istediğine emin misin?":"Oyundan ayrılırsan kaybedersin! Emin misin?")) { surrenderGame(); } }} style={{ padding:"4px 12px",background:"transparent",color:t.textDim,border:`1px solid rgba(255,71,87,0.2)`,borderRadius:6,fontSize:9,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior,opacity:0.7 }}>OYUNDAN AYRIL</button>
+        <button onClick={() => setShowSurrenderConfirm(true)} style={{ padding:"4px 12px",background:"transparent",color:t.textDim,border:`1px solid rgba(255,71,87,0.2)`,borderRadius:6,fontSize:9,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior,opacity:0.7 }}>OYUNDAN AYRIL</button>
       </div>
+      {/* Surrender confirm modal */}
+      {showSurrenderConfirm && <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(4px)" }}>
+        <div style={{ background:`linear-gradient(145deg,rgba(12,21,41,0.99),rgba(8,14,30,0.99))`,border:`2px solid ${t.hit}`,borderRadius:16,padding:"28px 32px",textAlign:"center",maxWidth:300,width:"90%",boxShadow:`0 0 60px ${t.hitGlow}`,animation:"scaleUp 0.3s ease-out" }}>
+          <div style={{ fontSize:32,marginBottom:10 }}>⚠️</div>
+          <div style={{ fontSize:16,fontWeight:800,color:t.hit,fontFamily:warrior,letterSpacing:3,marginBottom:8 }}>AYRILMAK İSTİYOR MUSUN?</div>
+          <div style={{ fontSize:12,color:t.textDim,fontFamily:mono,marginBottom:20 }}>{isOnboarding?"Eğitim savaşından çıkacaksın.":"Ayrılırsan maçı kaybedersin!"}</div>
+          <div style={{ display:"flex",gap:10 }}>
+            <button onClick={()=>setShowSurrenderConfirm(false)} style={{ flex:1,padding:"12px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:13,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>KALIYORUM</button>
+            <button onClick={()=>{setShowSurrenderConfirm(false);surrenderGame();}} style={{ flex:1,padding:"12px 0",background:"transparent",color:t.hit,border:`2px solid ${t.hit}`,borderRadius:10,fontSize:13,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>ÇIKIŞ</button>
+          </div>
+        </div>
+      </div>}
       {/* Onboarding mini guide */}
       {isOnboarding && !onboardingMilestones.firstHit && <div style={{ background:"rgba(255,215,0,0.12)",border:`2px solid rgba(255,215,0,0.3)`,borderRadius:12,padding:"10px 16px",marginBottom:8,width:"100%",maxWidth:400,textAlign:"center",animation:"fadeUp 0.5s ease-out" }}>
         <div style={{ fontSize:14,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:2 }}>Parlayan karelere dokun!</div>
@@ -2276,7 +2620,12 @@ export default function Game() {
       </div>}
       {isOnboarding && <div style={{ fontSize:14,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:3,marginBottom:6,textAlign:"center" }}>⚔ EĞİTİM SAVAŞI</div>}
       <div style={{ fontSize:18,fontWeight:800,marginBottom:6,textAlign:"center",fontFamily:warrior,letterSpacing:4,textTransform:"uppercase",color:myTurn?t.accent:t.textDim,textShadow:myTurn?`0 0 25px ${t.accentGlow}`:"none",animation:myTurn?"fadeUp 0.3s ease-out":"none" }}>{myTurn?"⚡ SENİN SIRAN ⚡":(isBotGame?"🤖 Bot düşünüyor...":"Rakibin sırası...")}</div>
-      {!isOnboarding && <div style={{ fontSize:12,color:t.text,marginBottom:6,fontFamily:mono,fontWeight:700 }}>İsabet: <span style={{ color:t.accent }}>{myHits}/20</span> • Karavana: <span style={{ color:t.hit }}>{oppHits}/20</span></div>}
+      {!myTurn && !isBotGame && afkTimer !== null && afkTimer <= 15 && (
+        <div style={{ background:afkTimer<=5?"rgba(255,71,87,0.2)":"rgba(255,215,0,0.1)",border:`1px solid ${afkTimer<=5?t.hit:t.gold}`,borderRadius:8,padding:"4px 14px",marginBottom:6,fontSize:12,fontWeight:800,color:afkTimer<=5?t.hit:t.gold,fontFamily:warrior,letterSpacing:2,animation:afkTimer<=5?"blink3s 0.4s infinite":"none",textAlign:"center" }}>
+          ⏳ Rakip oynamıyor — {afkTimer}s
+        </div>
+      )}
+      {!isOnboarding && <div style={{ fontSize:12,color:t.text,marginBottom:6,fontFamily:mono,fontWeight:700 }}>İsabet: <span style={{ color:t.accent }}>{myHits}/20</span></div>}
       {isOnboarding && <div style={{ fontSize:12,color:t.text,marginBottom:6,fontFamily:mono,fontWeight:700 }}>İsabet: <span style={{ color:t.accent }}>{myHits}/4</span></div>}
       {streakToast && <div style={{ background:"rgba(251,191,36,0.15)",border:`1px solid ${t.gold}`,borderRadius:8,padding:"6px 14px",marginBottom:6,fontSize:14,color:t.gold,fontWeight:700,textAlign:"center",width:"100%",maxWidth:400,animation:"popIn 0.3s ease-out",fontFamily:warrior,letterSpacing:2 }}>🔥 {streakToast.streak} İSABET SERİSİ — x{streakToast.mult} ÇARPAN</div>}
       {hitStreak > 0 && !streakToast && <div style={{ fontSize:10,color:t.gold,marginBottom:4,fontFamily:warrior,letterSpacing:1,textAlign:"center" }}>🔥 Seri: {hitStreak}</div>}
@@ -2289,7 +2638,7 @@ export default function Game() {
       {isAttack && <button onClick={()=>setMarkMode(!markMode)} style={{ marginBottom:6,padding:"6px 16px",fontSize:10,fontWeight:700,fontFamily:warrior,background:markMode?t.gold:"transparent",color:markMode?t.bg:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,cursor:"pointer",letterSpacing:2 }}>{markMode?"⚑ İŞARETLEME MODU: AÇIK":"⚑ İŞARETLE"}</button>}
       </>}
       <div style={{ width:"100%",maxWidth:400,border:myTurn&&isAttack?`2px solid ${t.accent}`:"1px solid transparent",borderRadius:12,padding:2,animation:myTurn&&isAttack?"borderGlow 2s infinite":"none" }}>
-        {isAttack?<><Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:cellSize} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} onboardingHint={isOnboarding?(!onboardingMilestones.firstHit?[[0,0],[0,1],[0,2]]:(onboardingMilestones.firstHit&&!onboardingMilestones.firstSunk?[[1,1]]:null)):null} />{!isOnboarding&&<ShipStatusPanel title="RAKİP GEMİLER" ships={oppShipsData} hitCells={atkHitMap} color={t.hit} />}</>:<><Grid board={defenseBoard} cellSize={isOnboarding?gridSize:cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />{!isOnboarding&&<ShipStatusPanel title="GEMİLERİM" ships={myShipsData} hitCells={defHitMap} color={t.accent} />}</>}
+        {isAttack?<><Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:cellSize} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} onboardingHint={isOnboarding?(!onboardingMilestones.firstHit?[[2,2],[2,3],[2,4]]:(onboardingMilestones.firstHit&&!onboardingMilestones.firstSunk?[[3,3]]:null)):null} />{!isOnboarding&&<ShipStatusPanel title="RAKİP GEMİLER" ships={oppShipsData} hitCells={atkHitMap} color={t.hit} />}</>:<><Grid board={defenseBoard} cellSize={isOnboarding?gridSize:cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />{!isOnboarding&&<ShipStatusPanel title="GEMİLERİM" ships={myShipsData} hitCells={defHitMap} color={t.accent} />}</>}
       </div>
       {isTestMode() && <button onClick={forceEndGame} style={{ marginTop:8,padding:"8px 16px",background:"rgba(251,191,36,0.2)",color:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>🧪 OYUNU BİTİR (TEST)</button>}
       {myTurn && isAttack && !markMode && (<div style={{ position:"fixed",bottom:0,left:0,right:0,background:"rgba(10,14,23,0.96)",backdropFilter:"blur(10px)",borderTop:`1px solid ${t.border}`,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"center",gap:14,zIndex:100 }}>
