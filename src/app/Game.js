@@ -1980,7 +1980,7 @@ export default function Game() {
     function LoginScreen() {
       const [musicStarted, setMusicStarted] = useState(false);
       const startMusic = () => { if (!musicStarted) { sfx.init(); sfx.playAmbientIntro(); setMusicStarted(true); } };
-      return (<div style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 50% 35%, rgba(0,229,255,0.10) 0%, rgba(255,71,87,0.04) 40%, ${t.bg} 80%)`, overflow:"hidden", position:"relative" }}><style>{ANIMS}{`
+      return (<div onClick={startMusic} style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 50% 35%, rgba(0,229,255,0.10) 0%, rgba(255,71,87,0.04) 40%, ${t.bg} 80%)`, overflow:"hidden", position:"relative", cursor:"default" }}><style>{ANIMS}{`
 @keyframes sword3d{0%{transform:perspective(600px) rotateY(-60deg) rotateX(20deg) scale(0.3);opacity:0;filter:brightness(3)}40%{opacity:1}60%{transform:perspective(600px) rotateY(12deg) rotateX(-6deg) scale(1.18);filter:brightness(1.5)}80%{transform:perspective(600px) rotateY(-4deg) rotateX(3deg) scale(1.02);filter:brightness(1)}100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) scale(1.05);filter:brightness(1)}}
 @keyframes sword3dFloat{0%,100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) translateY(0) scale(1.05)}50%{transform:perspective(600px) rotateY(-8deg) rotateX(5deg) translateY(-16px) scale(1.08)}}
 @keyframes shimmerPass{0%{left:-100%}100%{left:200%}}
