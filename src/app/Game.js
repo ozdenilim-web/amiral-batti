@@ -400,6 +400,17 @@ class SoundEngine {
     setTimeout(() => this._rampMp3Volume(0.55, 2000), 100);
   }
   // INTRO — Iron Tide Rising yavaş fade-in + loop sonu fade/yüksel
+  playAmbientIntro() {
+    if (this.currentMusic === 'intro' && this._audioEl && !this._audioEl.paused) return;
+    this.currentMusic = 'intro';
+    this._stopMp3();
+    const audio = new Audio('/music/iron-tide.mp3');
+    audio.loop = true;
+    audio.volume = 0.10;
+    audio.crossOrigin = 'anonymous';
+    this._audioEl = audio;
+    audio.play().catch(() => {});
+  }
   playIntroFanfare() {
     if (!this.enabled || !this.ctx) return;
     if (this.currentMusic === 'intro' && this._audioEl && !this._audioEl.paused) return;
@@ -1605,7 +1616,7 @@ export default function Game() {
       return;
     }
     setPhase("lobby");
-    sfx.init(); if (!sfx._audioEl) sfx.playIntroFanfare(); else sfx._rampMp3Volume(0.15, 2000);
+    sfx.init(); if (!sfx._audioEl) sfx.playAmbientIntro(); else { sfx._audioEl.volume = 0.10; }
   };
 
   const handleLogout = async () => {
@@ -1968,7 +1979,7 @@ export default function Game() {
     // Not logged in — Google login required
     function LoginScreen() {
       const [musicStarted, setMusicStarted] = useState(false);
-      const startMusic = () => { if (!musicStarted) { sfx.init(); sfx.playIntroFanfare(); setMusicStarted(true); } };
+      const startMusic = () => { if (!musicStarted) { sfx.init(); sfx.playAmbientIntro(); setMusicStarted(true); } };
       return (<div style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 50% 35%, rgba(0,229,255,0.10) 0%, rgba(255,71,87,0.04) 40%, ${t.bg} 80%)`, overflow:"hidden", position:"relative" }}><style>{ANIMS}{`
 @keyframes sword3d{0%{transform:perspective(600px) rotateY(-60deg) rotateX(20deg) scale(0.3);opacity:0;filter:brightness(3)}40%{opacity:1}60%{transform:perspective(600px) rotateY(12deg) rotateX(-6deg) scale(1.18);filter:brightness(1.5)}80%{transform:perspective(600px) rotateY(-4deg) rotateX(3deg) scale(1.02);filter:brightness(1)}100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) scale(1.05);filter:brightness(1)}}
 @keyframes sword3dFloat{0%,100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) translateY(0) scale(1.05)}50%{transform:perspective(600px) rotateY(-8deg) rotateX(5deg) translateY(-16px) scale(1.08)}}
