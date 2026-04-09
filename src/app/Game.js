@@ -2232,10 +2232,10 @@ export default function Game() {
     if (tutorialStep === 1) {
       return (
         <TutCard step={1} total={4}>
-          <div style={{ fontSize:24,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:6,marginTop:4,marginBottom:8 }}>NASIL OYNANIR?</div>
+          <div style={{ fontSize:20,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:6,marginTop:4,marginBottom:8 }}>NASIL OYNANIR?</div>
           <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:14 }}>
             <span style={{ fontSize:20 }}>⚓</span>
-            <div style={{ fontSize:22,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 20px ${t.accentGlow}` }}>GEMİLERİ YERLEŞTIR</div>
+            <div style={{ fontSize:20,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 20px ${t.accentGlow}` }}>GEMİLERİ YERLEŞTIR</div>
             <span style={{ fontSize:20 }}>⚓</span>
           </div>
           {/* Animated Amiral ship demo */}
@@ -2256,10 +2256,10 @@ export default function Game() {
     if (tutorialStep === 2) {
       return (
         <TutCard step={2} total={4}>
-          <div style={{ fontSize:24,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:6,marginTop:4,marginBottom:8 }}>NASIL OYNANIR?</div>
+          <div style={{ fontSize:20,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:6,marginTop:4,marginBottom:8 }}>NASIL OYNANIR?</div>
           <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:14 }}>
             <span style={{ fontSize:20 }}>🚫</span>
-            <div style={{ fontSize:22,fontWeight:900,color:t.hit,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 20px ${t.hitGlow}` }}>DEĞMEZLİK KURALI</div>
+            <div style={{ fontSize:20,fontWeight:900,color:t.hit,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 20px ${t.hitGlow}` }}>DEĞMEZLİK KURALI</div>
             <span style={{ fontSize:20 }}>🚫</span>
           </div>
           <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16,textAlign:"center",lineHeight:1.6 }}>Gemiler birbirine dokunamaz —<br/>köşegen bile olsa!</div>
@@ -2288,10 +2288,10 @@ export default function Game() {
     if (tutorialStep === 3) {
       return (
         <TutCard step={3} total={4}>
-          <div style={{ fontSize:24,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:6,marginTop:4,marginBottom:8 }}>NASIL OYNANIR?</div>
+          <div style={{ fontSize:20,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:6,marginTop:4,marginBottom:8 }}>NASIL OYNANIR?</div>
           <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:14 }}>
             <span style={{ fontSize:20 }}>💥</span>
-            <div style={{ fontSize:22,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 20px ${t.goldGlow}` }}>3 EL ATIŞ</div>
+            <div style={{ fontSize:20,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 20px ${t.goldGlow}` }}>3 EL ATIŞ</div>
             <span style={{ fontSize:20 }}>💥</span>
           </div>
           <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16,textAlign:"center",lineHeight:1.6 }}>Her turda 3 hücreyi seç → ATEŞ!</div>
@@ -2308,10 +2308,10 @@ export default function Game() {
     if (tutorialStep === 4) {
       return (
         <TutCard step={4} total={4}>
-          <div style={{ fontSize:24,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:6,marginTop:4,marginBottom:8 }}>NASIL OYNANIR?</div>
+          <div style={{ fontSize:20,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:6,marginTop:4,marginBottom:8 }}>NASIL OYNANIR?</div>
           <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:14 }}>
             <span style={{ fontSize:20 }}>⚑</span>
-            <div style={{ fontSize:22,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 20px ${t.goldGlow}` }}>İŞARETLE & TAKİP ET</div>
+            <div style={{ fontSize:20,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 20px ${t.goldGlow}` }}>İŞARETLE & TAKİP ET</div>
             <span style={{ fontSize:20 }}>⚑</span>
           </div>
           <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16,textAlign:"center",lineHeight:1.6 }}>Şüphelendiğin kareleri uzun basarak<br/>⚑ ile işaretle.</div>
@@ -2331,7 +2331,7 @@ export default function Game() {
             <div style={{ width:"100%",background:"linear-gradient(180deg, rgba(80,10,5,0.6) 0%, rgba(40,5,2,0.85) 100%)",border:"1px solid rgba(180,40,20,0.35)",borderRadius:12,padding:"20px 16px 14px",position:"relative",overflow:"hidden" }}>
               <div style={{ position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 100%, rgba(255,80,20,0.12) 0%, transparent 70%)",pointerEvents:"none" }} />
               <div style={{ position:"absolute",bottom:0,left:0,right:0,height:2,background:"linear-gradient(90deg,transparent,rgba(255,100,40,0.7),rgba(255,160,60,0.9),rgba(255,100,40,0.7),transparent)" }} />
-              <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); sfx.transitionToBattle(); }} style={{ width:"100%",padding:"20px 0",background:"linear-gradient(180deg, #8b1a0a 0%, #5c0f06 50%, #3a0804 100%)",color:"#fff",border:"2px solid rgba(255,100,50,0.45)",borderRadius:6,fontSize:28,fontWeight:900,letterSpacing:10,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 40px rgba(192,57,43,0.45), 0 6px 30px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,150,100,0.15), inset 0 -2px 0 rgba(0,0,0,0.5)",position:"relative",overflow:"hidden",textTransform:"uppercase",textShadow:"0 0 20px rgba(255,120,60,0.7), 0 2px 6px rgba(0,0,0,0.9)" }}>
+              <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); sfx.transitionToBattle(); }} style={{ width:"100%",padding:"20px 0",background:"linear-gradient(180deg, #8b1a0a 0%, #5c0f06 50%, #3a0804 100%)",color:"#fff",border:"2px solid rgba(255,100,50,0.45)",borderRadius:6,fontSize:26,fontWeight:900,letterSpacing:12,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 40px rgba(192,57,43,0.45), 0 6px 30px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,150,100,0.15), inset 0 -2px 0 rgba(0,0,0,0.5)",position:"relative",overflow:"hidden",textTransform:"uppercase",textShadow:"0 0 20px rgba(255,120,60,0.7), 0 2px 6px rgba(0,0,0,0.9)" }}>
                 <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,150,80,0.1),transparent)",animation:"shimmerPass 3s ease-in-out infinite" }} />
                 ⚔ SAVAŞ
               </button>
