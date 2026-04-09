@@ -2213,14 +2213,51 @@ export default function Game() {
       return (
         <div style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 50% 35%, rgba(0,229,255,0.12) 0%, ${t.bg} 80%)`, overflow:"hidden", position:"relative" }}>
           <style>{ANIMS}{`
-@keyframes sword3d{0%{transform:perspective(600px) rotateY(-30deg) rotateX(10deg) scale(0.5);opacity:0}60%{transform:perspective(600px) rotateY(8deg) rotateX(-4deg) scale(1.1);opacity:1}100%{transform:perspective(600px) rotateY(4deg) rotateX(-2deg) scale(1)}}
-@keyframes sword3dFloat{0%,100%{transform:perspective(600px) rotateY(4deg) rotateX(-2deg) translateY(0)}50%{transform:perspective(600px) rotateY(-4deg) rotateX(3deg) translateY(-8px)}}
+@keyframes sword3d{0%{transform:perspective(600px) rotateY(-60deg) rotateX(20deg) scale(0.3);opacity:0;filter:brightness(3)}40%{opacity:1}60%{transform:perspective(600px) rotateY(12deg) rotateX(-6deg) scale(1.18);filter:brightness(1.5)}80%{transform:perspective(600px) rotateY(-4deg) rotateX(3deg) scale(1.02);filter:brightness(1)}100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) scale(1.05);filter:brightness(1)}}
+@keyframes sword3dFloat{0%,100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) translateY(0) scale(1.05)}50%{transform:perspective(600px) rotateY(-8deg) rotateX(5deg) translateY(-16px) scale(1.08)}}
 @keyframes titleSlam{0%{transform:scale(2.5);opacity:0;filter:blur(12px)}60%{transform:scale(0.95);opacity:1;filter:blur(0)}100%{transform:scale(1)}}
           `}</style>
           {[...Array(10)].map((_,i)=><div key={i} style={{ position:"absolute",width:3,height:3,borderRadius:"50%",background:i%2===0?t.gold:t.accent,top:`${10+Math.random()*80}%`,left:`${5+Math.random()*90}%`,animation:`pulse ${2+Math.random()*2}s ease-in-out ${Math.random()*3}s infinite`,pointerEvents:"none",opacity:0.4 }} />)}
           <SplashAutoAdvance onDone={() => { sfx.init(); sfx.playIntroFanfare(); setOnboardingStep(1); }} />
           <div style={{ textAlign:"center",zIndex:1,display:"flex",flexDirection:"column",alignItems:"center" }}>
-            <div style={{ fontSize:104,marginBottom:8,animation:"sword3d 1.2s cubic-bezier(0.34,1.56,0.64,1) forwards, sword3dFloat 4s ease-in-out 1.3s infinite",filter:"drop-shadow(0 0 50px rgba(0,229,255,0.6)) drop-shadow(0 0 20px rgba(0,229,255,0.3))" }}>⚔</div>
+            <div style={{ width:280,height:250,marginBottom:8,animation:"sword3d 1.2s cubic-bezier(0.34,1.56,0.64,1) forwards, sword3dFloat 4s ease-in-out 1.3s infinite",filter:"drop-shadow(0 0 60px rgba(0,229,255,0.8)) drop-shadow(0 0 120px rgba(0,229,255,0.4)) drop-shadow(0 0 20px rgba(255,255,255,0.6))" }}>
+              <svg viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg" style={{ width:"100%",height:"100%" }}>
+                <defs>
+                  <linearGradient id="blade1b" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#e8f4ff"/><stop offset="30%" stopColor="#c8dff5"/><stop offset="60%" stopColor="#a0bfe0"/><stop offset="100%" stopColor="#7090b0"/>
+                  </linearGradient>
+                  <linearGradient id="blade2b" x1="100%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#e8f4ff"/><stop offset="30%" stopColor="#c8dff5"/><stop offset="60%" stopColor="#a0bfe0"/><stop offset="100%" stopColor="#7090b0"/>
+                  </linearGradient>
+                  <linearGradient id="handleb" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#888"/><stop offset="50%" stopColor="#ccc"/><stop offset="100%" stopColor="#888"/>
+                  </linearGradient>
+                  <linearGradient id="gemb" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#8ab4f8"/><stop offset="50%" stopColor="#4a80e0"/><stop offset="100%" stopColor="#2040a0"/>
+                  </linearGradient>
+                  <filter id="glowb"><feGaussianBlur stdDeviation="4" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                </defs>
+                <g transform="rotate(-40, 100, 90)">
+                  <polygon points="100,8 104,130 100,138 96,130" fill="url(#blade1b)" filter="url(#glowb)"/>
+                  <line x1="100" y1="10" x2="102" y2="128" stroke="rgba(255,255,255,0.95)" strokeWidth="1.5"/>
+                  <rect x="84" y="126" width="32" height="7" rx="2" fill="url(#handleb)" filter="url(#glowb)"/>
+                  <polygon points="100,127 104,131 100,135 96,131" fill="url(#gemb)" filter="url(#glowb)"/>
+                  <rect x="97" y="133" width="6" height="28" rx="3" fill="url(#handleb)"/>
+                  <ellipse cx="100" cy="163" rx="7" ry="5" fill="url(#handleb)" filter="url(#glowb)"/>
+                </g>
+                <g transform="rotate(40, 100, 90)">
+                  <polygon points="100,8 104,130 100,138 96,130" fill="url(#blade2b)" filter="url(#glowb)"/>
+                  <line x1="100" y1="10" x2="98" y2="128" stroke="rgba(255,255,255,0.95)" strokeWidth="1.5"/>
+                  <rect x="84" y="126" width="32" height="7" rx="2" fill="url(#handleb)" filter="url(#glowb)"/>
+                  <polygon points="100,127 104,131 100,135 96,131" fill="url(#gemb)" filter="url(#glowb)"/>
+                  <rect x="97" y="133" width="6" height="28" rx="3" fill="url(#handleb)"/>
+                  <ellipse cx="100" cy="163" rx="7" ry="5" fill="url(#handleb)" filter="url(#glowb)"/>
+                </g>
+                <circle cx="100" cy="88" r="22" fill="rgba(255,255,255,0.18)" filter="url(#glowb)"/>
+                <circle cx="100" cy="88" r="10" fill="rgba(200,220,255,0.6)"/>
+                <circle cx="100" cy="88" r="4" fill="rgba(255,255,255,0.9)"/>
+              </svg>
+            </div>
             <div style={{ animation:"titleSlam 0.9s cubic-bezier(0.34,1.56,0.64,1) 0.4s both" }}>
               <div style={{ fontSize:56,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:12,textShadow:`0 0 80px ${t.accentGlow}, 0 0 40px rgba(0,229,255,0.4), 0 6px 30px rgba(0,0,0,0.9)`,lineHeight:1 }}>AMİRAL<br/>BATTI</div>
             </div>
