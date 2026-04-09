@@ -1931,9 +1931,10 @@ export default function Game() {
     
     // Not logged in — Google login required
     function LoginScreen() {
+      useEffect(() => { sfx.init(); sfx.playIntroFanfare(); }, []);
       return (<div style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 50% 35%, rgba(0,229,255,0.10) 0%, rgba(255,71,87,0.04) 40%, ${t.bg} 80%)`, overflow:"hidden", position:"relative" }}><style>{ANIMS}{`
-@keyframes sword3d{0%{transform:perspective(600px) rotateY(-30deg) rotateX(10deg) scale(0.6);opacity:0}60%{transform:perspective(600px) rotateY(8deg) rotateX(-4deg) scale(1.12);opacity:1}80%{transform:perspective(600px) rotateY(-3deg) rotateX(2deg) scale(1)}100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) scale(1.02)}}
-@keyframes sword3dFloat{0%,100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) translateY(0) scale(1.02)}50%{transform:perspective(600px) rotateY(-5deg) rotateX(3deg) translateY(-10px) scale(1.04)}}
+@keyframes sword3d{0%{transform:perspective(600px) rotateY(-60deg) rotateX(20deg) scale(0.3);opacity:0;filter:brightness(3)}40%{opacity:1}60%{transform:perspective(600px) rotateY(12deg) rotateX(-6deg) scale(1.18);filter:brightness(1.5)}80%{transform:perspective(600px) rotateY(-4deg) rotateX(3deg) scale(1.02);filter:brightness(1)}100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) scale(1.05);filter:brightness(1)}}
+@keyframes sword3dFloat{0%,100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) translateY(0) scale(1.05)}50%{transform:perspective(600px) rotateY(-8deg) rotateX(5deg) translateY(-16px) scale(1.08)}}
 @keyframes shimmerPass{0%{left:-100%}100%{left:200%}}
 @keyframes titleSlam{0%{transform:scale(2.5) rotate(-3deg);opacity:0;filter:blur(15px)}50%{transform:scale(0.95) rotate(0.5deg);opacity:1;filter:blur(0)}100%{transform:scale(1) rotate(0)}}
 @keyframes starBurst{0%{transform:scale(0) rotate(0);opacity:1}100%{transform:scale(2.5) rotate(360deg);opacity:0}}
@@ -1945,7 +1946,7 @@ export default function Game() {
         </div>
         <div style={{ textAlign:"center",zIndex:1,perspective:"600px",display:"flex",flexDirection:"column",alignItems:"center" }}>
           {/* Çapraz kılıç SVG */}
-          <div style={{ width:200,height:180,marginBottom:8,animation:"sword3d 1.2s cubic-bezier(0.34,1.56,0.64,1) forwards, sword3dFloat 4s ease-in-out 1.3s infinite",filter:"drop-shadow(0 0 30px rgba(0,229,255,0.35))" }}>
+          <div style={{ width:280,height:250,marginBottom:8,animation:"sword3d 1.2s cubic-bezier(0.34,1.56,0.64,1) forwards, sword3dFloat 4s ease-in-out 1.3s infinite",filter:"drop-shadow(0 0 60px rgba(0,229,255,0.8)) drop-shadow(0 0 120px rgba(0,229,255,0.4)) drop-shadow(0 0 20px rgba(255,255,255,0.6))" }}>
             <svg viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg" style={{ width:"100%",height:"100%" }}>
               <defs>
                 <linearGradient id="blade1" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1971,7 +1972,7 @@ export default function Game() {
                   <stop offset="100%" stopColor="#2040a0"/>
                 </linearGradient>
                 <filter id="glow">
-                  <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                  <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
                   <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
                 </filter>
                 {/* Engraving pattern */}
@@ -1985,7 +1986,7 @@ export default function Game() {
                 <polygon points="100,8 104,130 100,138 96,130" fill="url(#blade1)" filter="url(#glow)"/>
                 <polygon points="100,8 104,130 100,138 96,130" fill="url(#engrave)" opacity="0.6"/>
                 {/* Blade edge highlight */}
-                <line x1="100" y1="10" x2="102" y2="128" stroke="rgba(255,255,255,0.7)" strokeWidth="0.8"/>
+                <line x1="100" y1="10" x2="102" y2="128" stroke="rgba(255,255,255,0.95)" strokeWidth="1.5"/>
                 {/* Guard/crossguard */}
                 <rect x="84" y="126" width="32" height="7" rx="2" fill="url(#handle)" filter="url(#glow)"/>
                 <rect x="84" y="126" width="32" height="7" rx="2" fill="rgba(255,255,255,0.08)"/>
@@ -2002,7 +2003,7 @@ export default function Game() {
               <g transform="rotate(40, 100, 90)">
                 <polygon points="100,8 104,130 100,138 96,130" fill="url(#blade2)" filter="url(#glow)"/>
                 <polygon points="100,8 104,130 100,138 96,130" fill="url(#engrave)" opacity="0.6"/>
-                <line x1="100" y1="10" x2="98" y2="128" stroke="rgba(255,255,255,0.7)" strokeWidth="0.8"/>
+                <line x1="100" y1="10" x2="98" y2="128" stroke="rgba(255,255,255,0.95)" strokeWidth="1.5"/>
                 <rect x="84" y="126" width="32" height="7" rx="2" fill="url(#handle)" filter="url(#glow)"/>
                 <rect x="84" y="126" width="32" height="7" rx="2" fill="rgba(255,255,255,0.08)"/>
                 <polygon points="100,127 104,131 100,135 96,131" fill="url(#gem)" filter="url(#glow)"/>
@@ -2012,8 +2013,9 @@ export default function Game() {
                 <ellipse cx="100" cy="163" rx="7" ry="5" fill="url(#handle)" filter="url(#glow)"/>
               </g>
               {/* Kavşak ışık efekti */}
-              <circle cx="100" cy="88" r="12" fill="rgba(255,255,255,0.12)" filter="url(#glow)"/>
-              <circle cx="100" cy="88" r="5" fill="rgba(200,220,255,0.4)"/>
+              <circle cx="100" cy="88" r="22" fill="rgba(255,255,255,0.18)" filter="url(#glow)"/>
+              <circle cx="100" cy="88" r="10" fill="rgba(200,220,255,0.6)"/>
+              <circle cx="100" cy="88" r="4" fill="rgba(255,255,255,0.9)"/>
             </svg>
           </div>
           {/* Title */}
