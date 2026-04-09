@@ -928,6 +928,9 @@ const ANIMS = `
 @keyframes arGlow{0%,100%{box-shadow:0 10px 40px rgba(0,0,0,0.5),0 0 30px var(--ar-color,rgba(0,229,255,0.3))}50%{box-shadow:0 15px 60px rgba(0,0,0,0.6),0 0 50px var(--ar-color,rgba(0,229,255,0.5))}}
 @keyframes previewZoom{0%{opacity:0;transform:scale(0.5) perspective(600px) rotateY(15deg)}50%{opacity:1;transform:scale(1.08) perspective(600px) rotateY(-3deg)}100%{transform:scale(1) perspective(600px) rotateY(0deg)}}
 @keyframes floatShadow{0%,100%{transform:translateY(0);filter:drop-shadow(0 8px 20px rgba(0,0,0,0.4))}50%{transform:translateY(-8px);filter:drop-shadow(0 16px 30px rgba(0,0,0,0.6))}}
+@keyframes pageEnter{0%{opacity:0;transform:translateY(32px) scale(0.97)}60%{opacity:1;transform:translateY(-4px) scale(1.005)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes pageFadeIn{0%{opacity:0}100%{opacity:1}}
+@keyframes tutCardEnter{0%{opacity:0;transform:translateY(40px) scale(0.95) perspective(800px) rotateX(8deg)}60%{opacity:1;transform:translateY(-6px) scale(1.02) perspective(800px) rotateX(-2deg)}100%{opacity:1;transform:translateY(0) scale(1) perspective(800px) rotateX(0deg)}}
 `;
 const warrior = "'Barlow Condensed', sans-serif";
 const mono = "'Space Mono', monospace";
@@ -1980,7 +1983,7 @@ export default function Game() {
     function LoginScreen() {
       const [musicStarted, setMusicStarted] = useState(false);
       const startMusic = () => { if (!musicStarted) { sfx.init(); sfx.playAmbientIntro(); setMusicStarted(true); } };
-      return (<div onClick={startMusic} style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 50% 35%, rgba(0,229,255,0.10) 0%, rgba(255,71,87,0.04) 40%, ${t.bg} 80%)`, overflow:"hidden", position:"relative", cursor:"default" }}><style>{ANIMS}{`
+      return (<div onClick={startMusic} style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 50% 35%, rgba(0,229,255,0.10) 0%, rgba(255,71,87,0.04) 40%, ${t.bg} 80%)`, overflow:"hidden", position:"relative", cursor:"default", animation:"pageEnter 1.2s cubic-bezier(0.16,1,0.3,1) forwards" }}><style>{ANIMS}{`
 @keyframes sword3d{0%{transform:perspective(600px) rotateY(-60deg) rotateX(20deg) scale(0.3);opacity:0;filter:brightness(3)}40%{opacity:1}60%{transform:perspective(600px) rotateY(12deg) rotateX(-6deg) scale(1.18);filter:brightness(1.5)}80%{transform:perspective(600px) rotateY(-4deg) rotateX(3deg) scale(1.02);filter:brightness(1)}100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) scale(1.05);filter:brightness(1)}}
 @keyframes sword3dFloat{0%,100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) translateY(0) scale(1.05)}50%{transform:perspective(600px) rotateY(-8deg) rotateX(5deg) translateY(-16px) scale(1.08)}}
 @keyframes shimmerPass{0%{left:-100%}100%{left:200%}}
@@ -2228,7 +2231,7 @@ export default function Game() {
 
     // Shared tutorial card wrapper
     const TutCard = ({ children, step, total }) => (
-      <div style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 50% 20%, rgba(192,57,43,0.08) 0%, rgba(0,229,255,0.06) 40%, ${t.bg} 80%)`, overflow:"hidden", position:"relative" }}>
+      <div style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 50% 20%, rgba(192,57,43,0.08) 0%, rgba(0,229,255,0.06) 40%, ${t.bg} 80%)`, overflow:"hidden", position:"relative", animation:"pageFadeIn 0.5s ease-out forwards" }}>
         <style>{ANIMS}{`
 @keyframes arrowBounce{0%,100%{transform:translateX(0)}50%{transform:translateX(8px)}}
 @keyframes shipSlide{0%{transform:translateX(-60px);opacity:0}100%{transform:translateX(0);opacity:1}}
@@ -2252,7 +2255,7 @@ export default function Game() {
         </div>
         {/* Skip */}
         <button onClick={skipTutorial} style={{ position:"absolute",top:14,right:14,padding:"5px 14px",background:"rgba(255,255,255,0.05)",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:20,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:warrior,letterSpacing:2 }}>GEÇ</button>
-        <div style={{ width:"100%",maxWidth:400,zIndex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:0 }}>
+        <div style={{ width:"100%",maxWidth:400,zIndex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:0,animation:"tutCardEnter 0.8s cubic-bezier(0.16,1,0.3,1) forwards" }}>
           {children}
         </div>
       </div>
@@ -2261,7 +2264,7 @@ export default function Game() {
     // Step 0: Splash — kılıç + başlık, 3 saniye sonra otomatik geç
     if (tutorialStep === 0) {
       return (
-        <div style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 50% 35%, rgba(0,229,255,0.12) 0%, ${t.bg} 80%)`, overflow:"hidden", position:"relative" }}>
+        <div style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 50% 35%, rgba(0,229,255,0.12) 0%, ${t.bg} 80%)`, overflow:"hidden", position:"relative", animation:"pageEnter 1.4s cubic-bezier(0.16,1,0.3,1) forwards" }}>
           <style>{ANIMS}{`
 @keyframes sword3d{0%{transform:perspective(600px) rotateY(-60deg) rotateX(20deg) scale(0.3);opacity:0;filter:brightness(3)}40%{opacity:1}60%{transform:perspective(600px) rotateY(12deg) rotateX(-6deg) scale(1.18);filter:brightness(1.5)}80%{transform:perspective(600px) rotateY(-4deg) rotateX(3deg) scale(1.02);filter:brightness(1)}100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) scale(1.05);filter:brightness(1)}}
 @keyframes sword3dFloat{0%,100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) translateY(0) scale(1.05)}50%{transform:perspective(600px) rotateY(-8deg) rotateX(5deg) translateY(-16px) scale(1.08)}}
@@ -2269,7 +2272,7 @@ export default function Game() {
           `}</style>
           {[...Array(10)].map((_,i)=><div key={i} style={{ position:"absolute",width:3,height:3,borderRadius:"50%",background:i%2===0?t.gold:t.accent,top:`${10+Math.random()*80}%`,left:`${5+Math.random()*90}%`,animation:`pulse ${2+Math.random()*2}s ease-in-out ${Math.random()*3}s infinite`,pointerEvents:"none",opacity:0.4 }} />)}
           <SplashAutoAdvance onDone={() => { sfx.init(); sfx.playIntroFanfare(); setOnboardingStep(1); }} />
-          <div style={{ textAlign:"center",zIndex:1,display:"flex",flexDirection:"column",alignItems:"center" }}>
+          <div style={{ textAlign:"center",zIndex:1,display:"flex",flexDirection:"column",alignItems:"center",animation:"tutCardEnter 1.2s cubic-bezier(0.16,1,0.3,1) 0.2s both" }}>
             <div style={{ width:280,height:250,marginBottom:8,animation:"sword3d 1.2s cubic-bezier(0.34,1.56,0.64,1) forwards, sword3dFloat 4s ease-in-out 1.3s infinite",filter:"drop-shadow(0 0 60px rgba(0,229,255,0.8)) drop-shadow(0 0 120px rgba(0,229,255,0.4)) drop-shadow(0 0 20px rgba(255,255,255,0.6))" }}>
               <svg viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg" style={{ width:"100%",height:"100%" }}>
                 <defs>
