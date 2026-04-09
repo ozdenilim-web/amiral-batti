@@ -502,6 +502,42 @@ class SoundEngine {
 const sfx = typeof window !== 'undefined' ? new SoundEngine() : { init(){}, play(){}, enabled:true };
 
 // === CONFETTI SİSTEMİ ===
+
+function OnboardingVictoryScreen({ sfx, t, winner, warrior, mono, onDone }) {
+  useEffect(() => {
+    sfx.init();
+    sfx.playEpicMusic();
+  }, []);
+  const accentGlow = t.accentGlow;
+  const gold = t.gold;
+  const goldGlow = t.goldGlow;
+  return (
+    <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",minHeight:"100dvh",background:`radial-gradient(ellipse at 50% 30%, rgba(0,229,255,0.15) 0%, rgba(255,215,0,0.05) 30%, ${t.bg} 70%)`,padding:20,overflowY:"auto" }}>
+      <div style={{ textAlign:"center",maxWidth:380,width:"90vw",paddingBottom:40 }}>
+        <div style={{ background:`linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))`,border:`3px solid ${t.accent}`,borderRadius:24,padding:"40px 28px",boxShadow:`0 20px 80px rgba(0,0,0,0.7), 0 0 60px ${accentGlow}` }}>
+          <div style={{ fontSize:64,marginBottom:10 }}>⚔</div>
+          <div style={{ fontSize:13,fontWeight:700,color:t.textDim,fontFamily:warrior,letterSpacing:6,marginBottom:6 }}>TEBRİKLER, DENİZCİ!</div>
+          <div style={{ fontSize:44,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 40px ${accentGlow}`,marginBottom:12 }}>ZAFER</div>
+          <div style={{ fontSize:13,fontWeight:700,color:"rgba(0,229,255,0.6)",fontFamily:warrior,letterSpacing:2,marginBottom:24 }}>{winner}</div>
+          <div style={{ background:"rgba(0,229,255,0.07)",border:`2px solid rgba(0,229,255,0.2)`,borderRadius:14,padding:"16px 20px",marginBottom:16 }}>
+            <div style={{ fontSize:11,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:3,marginBottom:6 }}>RÜTBEN BELİRLENDİ</div>
+            <div style={{ fontSize:20,marginBottom:4 }}>🔰</div>
+            <div style={{ fontSize:26,fontWeight:800,color:"#60a5fa",fontFamily:warrior,letterSpacing:4 }}>TEĞMEN</div>
+            <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginTop:8 }}>
+              <div style={{ fontSize:32,fontWeight:800,color:t.accent,fontFamily:warrior }}>1200</div>
+              <div style={{ fontSize:10,fontWeight:700,color:t.textDim,fontFamily:mono }}>ELO</div>
+            </div>
+          </div>
+          <div style={{ background:"rgba(255,215,0,0.07)",border:`1px solid rgba(255,215,0,0.18)`,borderRadius:12,padding:"10px 16px",marginBottom:20 }}>
+            <div style={{ fontSize:11,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:2 }}>İLK ÖDÜLÜN</div>
+            <div style={{ fontSize:22,fontWeight:800,color:gold,fontFamily:warrior,textShadow:`0 0 15px ${goldGlow}`,marginTop:4 }}>500 💰</div>
+          </div>
+          <button onClick={onDone} style={{ padding:"16px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:14,fontSize:16,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 30px ${accentGlow}` }}>SAVAŞA HAZIRIM</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 function launchConfetti(canvasId, duration=3000) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
@@ -1804,7 +1840,7 @@ export default function Game() {
     sfx.init();
     const hitCount0 = currentShots.filter(([r,c]) => botBoard[r][c] > 0).length;
     if (hitCount0 > 0) { sfx.play('hit');
-      if (isOnboarding && !onboardingMilestones.firstHit) { setOnboardingMilestones(prev => ({...prev, firstHit: true})); setMicroFeedback({ text: 'İLK İSABET! 🎯', color: t.gold }); setTimeout(() => launchConfetti('confetti-canvas', 1500), 200); }
+      if (isOnboarding && !onboardingMilestones.firstHit) { setOnboardingMilestones(prev => ({...prev, firstHit: true})); setMicroFeedback({ text: 'İLK İSABET! 🎯', color: t.gold }); }
       else { setMicroFeedback({ text: hitCount0 === 3 ? 'MÜKEMMEL!' : hitCount0 === 2 ? 'GÜZEL!' : 'İSABET!', color: hitCount0 === 3 ? t.gold : t.accent }); }
     }
     else { sfx.play('miss'); setMicroFeedback({ text: 'KARAVANA', color: t.miss }); }
@@ -1820,7 +1856,7 @@ export default function Game() {
       });
     }
     if (sunkThisTurn) { setTimeout(() => { sfx.play('sunk'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2);
-      if (isOnboarding && !onboardingMilestones.firstSunk) { setOnboardingMilestones(prev => ({...prev, firstSunk: true})); setMicroFeedback({ text: 'İLK BATIŞ! 💀', color: t.sunk }); setTimeout(() => launchConfetti('confetti-canvas', 2000), 500); }
+      if (isOnboarding && !onboardingMilestones.firstSunk) { setOnboardingMilestones(prev => ({...prev, firstSunk: true})); setMicroFeedback({ text: 'İLK BATIŞ! 💀', color: t.sunk }); }
       else { setMicroFeedback({ text: 'BATTI! 💀', color: t.sunk }); }
       // Gemi battı → müzik zirveye çıksın
       sfx.setBattleIntensity(1.0);
@@ -1931,7 +1967,8 @@ export default function Game() {
     
     // Not logged in — Google login required
     function LoginScreen() {
-      useEffect(() => { sfx.init(); sfx.playIntroFanfare(); }, []);
+      const [musicStarted, setMusicStarted] = React.useState(false);
+      const startMusic = () => { if (!musicStarted) { sfx.init(); sfx.playIntroFanfare(); setMusicStarted(true); } };
       return (<div style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 50% 35%, rgba(0,229,255,0.10) 0%, rgba(255,71,87,0.04) 40%, ${t.bg} 80%)`, overflow:"hidden", position:"relative" }}><style>{ANIMS}{`
 @keyframes sword3d{0%{transform:perspective(600px) rotateY(-60deg) rotateX(20deg) scale(0.3);opacity:0;filter:brightness(3)}40%{opacity:1}60%{transform:perspective(600px) rotateY(12deg) rotateX(-6deg) scale(1.18);filter:brightness(1.5)}80%{transform:perspective(600px) rotateY(-4deg) rotateX(3deg) scale(1.02);filter:brightness(1)}100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) scale(1.05);filter:brightness(1)}}
 @keyframes sword3dFloat{0%,100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) translateY(0) scale(1.05)}50%{transform:perspective(600px) rotateY(-8deg) rotateX(5deg) translateY(-16px) scale(1.08)}}
@@ -2024,7 +2061,7 @@ export default function Game() {
           </div>
           <div style={{ fontSize:11,color:"rgba(255,215,0,0.6)",fontFamily:warrior,letterSpacing:8,marginTop:10,marginBottom:36,fontStyle:"italic",animation:"fadeUp 1s ease-out 1.0s both" }}>savaşların atası...</div>
           <div style={{ animation:"fadeUp 1s ease-out 1.3s both" }}>
-            <button onClick={()=>{ sfx.init(); sfx.playIntroFanfare(); handleGoogleLogin(); }} style={{ padding:"18px 40px",background:"#fff",color:"#222",border:"none",borderRadius:14,fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:warrior,letterSpacing:1,display:"flex",alignItems:"center",gap:14,boxShadow:"0 6px 30px rgba(0,0,0,0.4), 0 2px 0 rgba(255,255,255,0.1)",position:"relative",overflow:"hidden" }}>
+            <button onClick={()=>{ startMusic(); handleGoogleLogin(); }} style={{ padding:"18px 40px",background:"#fff",color:"#222",border:"none",borderRadius:14,fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:warrior,letterSpacing:1,display:"flex",alignItems:"center",gap:14,boxShadow:"0 6px 30px rgba(0,0,0,0.4), 0 2px 0 rgba(255,255,255,0.1)",position:"relative",overflow:"hidden" }}>
               <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent)",animation:"shimmerPass 3s ease-in-out infinite" }} />
               <svg width="22" height="22" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
               Google ile Giriş Yap
@@ -2032,6 +2069,8 @@ export default function Game() {
           </div>
           {message && <div style={{ marginTop:16,color:t.hit,fontSize:11,fontFamily:mono }}>{message}</div>}
         </div>
+        {/* Sağ alt ok — müzik başlat */}
+        <button onClick={startMusic} style={{ position:"absolute",bottom:28,right:28,width:52,height:52,borderRadius:"50%",background:"rgba(0,229,255,0.08)",border:"2px solid rgba(0,229,255,0.3)",color:t.accent,fontSize:22,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",boxShadow:"0 0 20px rgba(0,229,255,0.2)",animation:"pulse 2s ease-in-out infinite",zIndex:10 }}>▶</button>
       </div>);
     }
     if (!authUid) return <LoginScreen />;
@@ -2271,10 +2310,10 @@ export default function Game() {
     if (tutorialStep === 1) {
       return (
         <TutCard step={1} total={4}>
-          <div style={{ fontSize:20,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:6,marginTop:4,marginBottom:8 }}>NASIL OYNANIR?</div>
+          <div style={{ fontSize:28,fontWeight:900,color:"#fff",fontFamily:warrior,letterSpacing:8,marginTop:32,marginBottom:20,textShadow:`0 0 30px ${t.accentGlow}`,borderBottom:"1px solid rgba(0,229,255,0.15)",paddingBottom:12,width:"100%",textAlign:"center" }}>NASIL OYNANIR?</div>
           <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:14 }}>
             <span style={{ fontSize:20 }}>⚓</span>
-            <div style={{ fontSize:20,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 20px ${t.accentGlow}` }}>GEMİLERİ YERLEŞTIR</div>
+            <div style={{ fontSize:16,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 12px ${t.accentGlow}` }}>GEMİLERİ YERLEŞTIR</div>
             <span style={{ fontSize:20 }}>⚓</span>
           </div>
           {/* Animated Amiral ship demo */}
@@ -2295,10 +2334,10 @@ export default function Game() {
     if (tutorialStep === 2) {
       return (
         <TutCard step={2} total={4}>
-          <div style={{ fontSize:20,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:6,marginTop:4,marginBottom:8 }}>NASIL OYNANIR?</div>
+          <div style={{ fontSize:28,fontWeight:900,color:"#fff",fontFamily:warrior,letterSpacing:8,marginTop:32,marginBottom:20,textShadow:`0 0 30px ${t.accentGlow}`,borderBottom:"1px solid rgba(0,229,255,0.15)",paddingBottom:12,width:"100%",textAlign:"center" }}>NASIL OYNANIR?</div>
           <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:14 }}>
             <span style={{ fontSize:20 }}>🚫</span>
-            <div style={{ fontSize:20,fontWeight:900,color:t.hit,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 20px ${t.hitGlow}` }}>DEĞMEZLİK KURALI</div>
+            <div style={{ fontSize:16,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 12px ${t.accentGlow}` }}>DEĞMEZLİK KURALI</div>
             <span style={{ fontSize:20 }}>🚫</span>
           </div>
           <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16,textAlign:"center",lineHeight:1.6 }}>Gemiler birbirine dokunamaz —<br/>köşegen bile olsa!</div>
@@ -2327,10 +2366,10 @@ export default function Game() {
     if (tutorialStep === 3) {
       return (
         <TutCard step={3} total={4}>
-          <div style={{ fontSize:20,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:6,marginTop:4,marginBottom:8 }}>NASIL OYNANIR?</div>
+          <div style={{ fontSize:28,fontWeight:900,color:"#fff",fontFamily:warrior,letterSpacing:8,marginTop:32,marginBottom:20,textShadow:`0 0 30px ${t.accentGlow}`,borderBottom:"1px solid rgba(0,229,255,0.15)",paddingBottom:12,width:"100%",textAlign:"center" }}>NASIL OYNANIR?</div>
           <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:14 }}>
             <span style={{ fontSize:20 }}>💥</span>
-            <div style={{ fontSize:20,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 20px ${t.goldGlow}` }}>3 EL ATIŞ</div>
+            <div style={{ fontSize:16,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 12px ${t.accentGlow}` }}>3 EL ATIŞ</div>
             <span style={{ fontSize:20 }}>💥</span>
           </div>
           <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16,textAlign:"center",lineHeight:1.6 }}>Her turda 3 hücreyi seç → ATEŞ!</div>
@@ -2347,13 +2386,13 @@ export default function Game() {
     if (tutorialStep === 4) {
       return (
         <TutCard step={4} total={4}>
-          <div style={{ fontSize:20,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:6,marginTop:4,marginBottom:8 }}>NASIL OYNANIR?</div>
+          <div style={{ fontSize:28,fontWeight:900,color:"#fff",fontFamily:warrior,letterSpacing:8,marginTop:32,marginBottom:20,textShadow:`0 0 30px ${t.accentGlow}`,borderBottom:"1px solid rgba(0,229,255,0.15)",paddingBottom:12,width:"100%",textAlign:"center" }}>NASIL OYNANIR?</div>
           <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:14 }}>
             <span style={{ fontSize:20 }}>⚑</span>
-            <div style={{ fontSize:20,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 20px ${t.goldGlow}` }}>İŞARETLE & TAKİP ET</div>
+            <div style={{ fontSize:16,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 12px ${t.accentGlow}` }}>İŞARETLE & TAKİP ET</div>
             <span style={{ fontSize:20 }}>⚑</span>
           </div>
-          <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16,textAlign:"center",lineHeight:1.6 }}>Şüphelendiğin kareleri uzun basarak<br/>⚑ ile işaretle.</div>
+          <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16,textAlign:"center",lineHeight:1.6 }}>Atış yapmak istemediğin yerleri işaretle.</div>
           {/* İşaretleme demo */}
           <div style={{ position:"relative",marginBottom:20 }}>
             <div style={{ display:"grid",gridTemplateColumns:"repeat(5,46px)",gridTemplateRows:"repeat(3,46px)",gap:2,background:t.surface,borderRadius:10,padding:6,border:`1px solid ${t.border}` }}>
@@ -2370,7 +2409,7 @@ export default function Game() {
             <div style={{ width:"100%",background:"linear-gradient(180deg, rgba(80,10,5,0.6) 0%, rgba(40,5,2,0.85) 100%)",border:"1px solid rgba(180,40,20,0.35)",borderRadius:12,padding:"20px 16px 14px",position:"relative",overflow:"hidden" }}>
               <div style={{ position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 100%, rgba(255,80,20,0.12) 0%, transparent 70%)",pointerEvents:"none" }} />
               <div style={{ position:"absolute",bottom:0,left:0,right:0,height:2,background:"linear-gradient(90deg,transparent,rgba(255,100,40,0.7),rgba(255,160,60,0.9),rgba(255,100,40,0.7),transparent)" }} />
-              <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); sfx.transitionToBattle(); }} style={{ width:"100%",padding:"20px 0",background:"linear-gradient(180deg, #8b1a0a 0%, #5c0f06 50%, #3a0804 100%)",color:"#fff",border:"2px solid rgba(255,100,50,0.45)",borderRadius:6,fontSize:26,fontWeight:900,letterSpacing:12,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 40px rgba(192,57,43,0.45), 0 6px 30px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,150,100,0.15), inset 0 -2px 0 rgba(0,0,0,0.5)",position:"relative",overflow:"hidden",textTransform:"uppercase",textShadow:"0 0 20px rgba(255,120,60,0.7), 0 2px 6px rgba(0,0,0,0.9)" }}>
+              <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); sfx.transitionToBattle(); }} style={{ width:"100%",padding:"20px 0",background:"linear-gradient(180deg, #a01f0c 0%, #6b1108 50%, #3a0804 100%)",color:"#fff",border:"none",borderRadius:3,fontSize:22,fontWeight:900,letterSpacing:14,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 60px rgba(200,50,20,0.6), 0 0 120px rgba(180,30,10,0.3), 0 8px 40px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,180,120,0.2)",position:"relative",overflow:"hidden",textTransform:"uppercase",textShadow:"0 0 30px rgba(255,140,60,0.9), 0 0 60px rgba(255,80,20,0.5), 0 2px 8px rgba(0,0,0,0.9)" }}>
                 <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,150,80,0.1),transparent)",animation:"shimmerPass 3s ease-in-out infinite" }} />
                 ⚔ SAVAŞ
               </button>
@@ -2391,48 +2430,9 @@ export default function Game() {
     if (showReview) return <BoardReview defenseBoard={defenseBoard} shipColorMap={shipColorMap} defenseOverlay={defenseOverlay} attackOverlay={attackOverlay} oppShipsData={oppShipsData} myShipsData={myShipsData} defHitMap={defHitMap} atkHitMap={atkHitMap} cellSize={cellSize} onBack={() => setShowReview(false)} />;
     // ONBOARDING VICTORY — Special rank reveal ceremony
     if (isOnboarding && isWin) {
-      function OnboardingVictory() {
-        useEffect(() => {
-          sfx.init();
-          sfx.playEpicMusic();
-        }, []);
-        return (<><style>{ANIMS}</style>
-          <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",minHeight:"100dvh",background:`radial-gradient(ellipse at 50% 30%, rgba(0,229,255,0.15) 0%, rgba(255,215,0,0.05) 30%, ${t.bg} 70%)`,padding:20,perspective:"800px" }}>
-            <div style={{ animation:"arSlideIn 1s ease-out forwards",transformStyle:"preserve-3d",textAlign:"center",maxWidth:380,width:"90vw" }}>
-              {/* Rank card */}
-              <div style={{ background:`linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))`,border:`3px solid ${t.accent}`,borderRadius:24,padding:"44px 32px",boxShadow:`0 20px 80px rgba(0,0,0,0.7), 0 0 60px ${t.accentGlow}`,animation:"arGlow 3s ease-in-out infinite",'--ar-color':t.accentGlow }}>
-                <div style={{ fontSize:72,marginBottom:12,animation:"float 2s ease-in-out infinite" }}>⚔</div>
-                <div style={{ fontSize:18,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:6,marginBottom:8 }}>TEBRİKLER, DENİZCİ!</div>
-                <div style={{ fontSize:48,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 40px ${t.accentGlow}`,marginBottom:16,animation:"victoryGlow 2s ease-in-out infinite" }}>ZAFER</div>
-                <div style={{ fontSize:14,fontWeight:700,color:"rgba(0,229,255,0.7)",fontFamily:warrior,letterSpacing:2,marginBottom:24 }}>{winner}</div>
-                {/* Gerçek rakipler seni bekliyor */}
-                <div style={{ background:"rgba(255,71,87,0.06)",border:`2px solid rgba(255,71,87,0.2)`,borderRadius:14,padding:"16px 20px",marginBottom:20,animation:"arSlideIn 1s ease-out 0.3s both" }}>
-                  <div style={{ fontSize:16,fontWeight:800,color:t.hit,fontFamily:warrior,letterSpacing:3,marginBottom:4 }}>GERÇEK RAKİPLER</div>
-                  <div style={{ fontSize:13,fontWeight:700,color:t.text,fontFamily:warrior,letterSpacing:2 }}>SENİ BEKLİYOR!</div>
-                  <div style={{ fontSize:10,color:t.textDim,fontFamily:mono,marginTop:6 }}>Altın kazan • ELO yükselt • Zirveye çık</div>
-                </div>
-                {/* Rank badge */}
-                <div style={{ background:"rgba(0,229,255,0.08)",border:`2px solid rgba(0,229,255,0.25)`,borderRadius:16,padding:"20px 24px",marginBottom:20,animation:"arSlideIn 1s ease-out 0.5s both" }}>
-                  <div style={{ fontSize:11,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:3,marginBottom:8 }}>RÜTBEN BELİRLENDİ</div>
-                  <div style={{ fontSize:20,marginBottom:4 }}>🔰</div>
-                  <div style={{ fontSize:28,fontWeight:800,color:"#60a5fa",fontFamily:warrior,letterSpacing:4 }}>TEĞMEN</div>
-                  <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginTop:8 }}>
-                    <div style={{ fontSize:36,fontWeight:800,color:t.accent,fontFamily:warrior }}>1200</div>
-                    <div style={{ fontSize:10,fontWeight:700,color:t.textDim,fontFamily:mono }}>ELO</div>
-                  </div>
-                </div>
-                {/* Gold reward */}
-                <div style={{ background:"rgba(255,215,0,0.08)",border:`1px solid rgba(255,215,0,0.2)`,borderRadius:12,padding:"12px 20px",marginBottom:20,animation:"arSlideIn 1s ease-out 0.8s both" }}>
-                  <div style={{ fontSize:11,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:2 }}>İLK ÖDÜLÜN</div>
-                  <div style={{ fontSize:24,fontWeight:800,color:t.gold,fontFamily:warrior,textShadow:`0 0 15px ${t.goldGlow}`,marginTop:4 }}>500 💰</div>
-                </div>
-                <button onClick={() => { sfx.stopMusic(); setIsOnboarding(false); resetGame(); }} style={{ padding:"18px 40px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:14,fontSize:18,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 30px ${t.accentGlow}`,animation:"arSlideIn 1s ease-out 1.1s both" }}>SAVAŞA HAZIRIM</button>
-              </div>
-            </div>
-          </div>
-        </>);
-      }
-      return <OnboardingVictory />;
+      return (<><style>{ANIMS}</style>
+        <OnboardingVictoryScreen sfx={sfx} t={t} winner={winner} warrior={warrior} mono={mono} onDone={() => { sfx.stopMusic(); setIsOnboarding(false); resetGame(); }} />
+      </>);
     }
     const myEloDiff = eloChange ? eloChange.myNew - eloChange.myOld : null;
     const myRank = eloChange ? getRankInfo(eloChange.myNew) : (myProfile ? getRankInfo(myProfile.elo) : null);
