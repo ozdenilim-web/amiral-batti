@@ -63,16 +63,43 @@ const BOT_NAMES = ["Kaptan Yıldız","Denizci Ali","Amiral Fırtına","Korsan Ba
 
 // === GÖREV SİSTEMİ ===
 const ALL_MISSIONS = [
-  { id: "sink3", text: "3 gemi batır", icon: "🚢", check: (stats) => stats.shipsSunk >= 3 },
-  { id: "sink5", text: "5 gemi batır", icon: "🔥", check: (stats) => stats.shipsSunk >= 5 },
-  { id: "win1", text: "1 oyun kazan", icon: "🏆", check: (stats) => stats.wins >= 1 },
-  { id: "win2", text: "2 oyun kazan", icon: "⭐", check: (stats) => stats.wins >= 2 },
-  { id: "hit10", text: "10 isabet yap", icon: "🎯", check: (stats) => stats.totalHits >= 10 },
-  { id: "hit15", text: "15 isabet yap", icon: "💥", check: (stats) => stats.totalHits >= 15 },
-  { id: "noMiss", text: "Turda karavana yeme", icon: "🛡", check: (stats) => stats.perfectTurn },
-  { id: "fast", text: "3 dakikada kazan", icon: "⚡", check: (stats) => stats.fastWin },
-  { id: "botWin", text: "Bot'u yen", icon: "🤖", check: (stats) => stats.botWin },
-  { id: "play3", text: "3 oyun oyna", icon: "⚓", check: (stats) => stats.gamesPlayed >= 3 },
+  // ── KOLAY (anında dopamin) ──
+  { id: "play1",    text: "1 oyun oyna",               icon: "⚓", check: s => s.gamesPlayed >= 1 },
+  { id: "hit5",     text: "5 isabet yap",               icon: "🎯", check: s => s.totalHits >= 5 },
+  { id: "sink1",    text: "1 gemi batır",               icon: "🚢", check: s => s.shipsSunk >= 1 },
+  { id: "win1",     text: "1 oyun kazan",               icon: "🏆", check: s => s.wins >= 1 },
+  { id: "noMiss1",  text: "Bir turda karavana yeme",    icon: "🛡", check: s => s.perfectTurn },
+  { id: "botWin",   text: "Bot'u yen",                  icon: "🤖", check: s => s.botWin },
+  { id: "mark3",    text: "3 kare işaretle",            icon: "⚑",  check: s => s.markedCells >= 3 },
+  { id: "hit3turn", text: "Tek turda 3 isabet yap",     icon: "💥", check: s => s.perfectTurn3 },
+
+  // ── ORTA (biraz çaba) ──
+  { id: "play3",    text: "3 oyun oyna",                icon: "🌊", check: s => s.gamesPlayed >= 3 },
+  { id: "hit10",    text: "10 isabet yap",              icon: "🔥", check: s => s.totalHits >= 10 },
+  { id: "sink3",    text: "3 gemi batır",               icon: "💣", check: s => s.shipsSunk >= 3 },
+  { id: "win2",     text: "2 oyun kazan",               icon: "⭐", check: s => s.wins >= 2 },
+  { id: "fast5",    text: "5 dakikada kazan",           icon: "⚡", check: s => s.fastWin5 },
+  { id: "noMiss3",  text: "3 turda arka arkaya isabet", icon: "🎖", check: s => s.streakHits >= 3 },
+  { id: "play5",    text: "5 oyun oyna",                icon: "⚔",  check: s => s.gamesPlayed >= 5 },
+  { id: "hit20",    text: "20 isabet yap",              icon: "🎯", check: s => s.totalHits >= 20 },
+  { id: "sink5",    text: "5 gemi batır",               icon: "🔱", check: s => s.shipsSunk >= 5 },
+  { id: "win3",     text: "3 oyun kazan",               icon: "👑", check: s => s.wins >= 3 },
+
+  // ── ZOR (tatmin büyük) ──
+  { id: "fast3",    text: "3 dakikada kazan",           icon: "🚀", check: s => s.fastWin },
+  { id: "noMiss5",  text: "5 turda karavana yeme",      icon: "🏅", check: s => s.perfectTurns >= 5 },
+  { id: "sink8",    text: "8 gemi batır",               icon: "💀", check: s => s.shipsSunk >= 8 },
+  { id: "hit30",    text: "30 isabet yap",              icon: "🌟", check: s => s.totalHits >= 30 },
+  { id: "win5",     text: "5 oyun kazan",               icon: "🥇", check: s => s.wins >= 5 },
+  { id: "play10",   text: "10 oyun oyna",               icon: "🎖", check: s => s.gamesPlayed >= 10 },
+  { id: "streak5",  text: "5 isabet serisi yap",        icon: "🔥", check: s => s.streakHits >= 5 },
+  { id: "sink10",   text: "10 gemi batır",              icon: "⚓", check: s => s.shipsSunk >= 10 },
+
+  // ── EFSANE (nadir, çok tatmin edici) ──
+  { id: "win10",    text: "10 oyun kazan",              icon: "🏆", check: s => s.wins >= 10 },
+  { id: "hit50",    text: "50 isabet yap",              icon: "💫", check: s => s.totalHits >= 50 },
+  { id: "fast2",    text: "2 dakikada kazan",           icon: "⚡", check: s => s.ultraFastWin },
+  { id: "perfect",  text: "Hiç karavana vermeden kazan",icon: "👁",  check: s => s.perfectGame },
 ];
 
 function pickDailyMissions(seed) {
