@@ -17,9 +17,9 @@ const SHIPS = [
   { id: "ikili2", name: "İkili-2", shape: [[0,0],[0,1]], size: 2, color: "#27ae60" },
   { id: "ikili3", name: "İkili-3", shape: [[0,0],[0,1]], size: 2, color: "#1abc9c" },
   { id: "tekli1", name: "Tekli-1", shape: [[0,0]], size: 1, color: "#f39c12" },
-  { id: "tekli2", name: "Tekli-2", shape: [[0,0]], size: 1, color: "#e67e22" },
-  { id: "tekli3", name: "Tekli-3", shape: [[0,0]], size: 1, color: "#d35400" },
-  { id: "tekli4", name: "Tekli-4", shape: [[0,0]], size: 1, color: "#e74c3c" },
+  { id: "tekli2", name: "Tekli-2", shape: [[0,0]], size: 1, color: "#f39c12" },
+  { id: "tekli3", name: "Tekli-3", shape: [[0,0]], size: 1, color: "#f39c12" },
+  { id: "tekli4", name: "Tekli-4", shape: [[0,0]], size: 1, color: "#f39c12" },
 ];
 
 function rotateShape(shape, times) {
@@ -59,14 +59,25 @@ function isTestMode() {
 function getTestGold() { return isTestMode() ? 5000 : STARTING_GOLD; }
 
 // === BOT AI ===
-const BOT_NAMES = ["Kaptan Yıldız","Denizci Ali","Amiral Fırtına","Korsan Barış","Teğmen Dalga","Yüzbaşı Rüzgar","Kaptan Bulut","Denizci Efe"];
+const BOT_NAMES = [
+  "Barbaros Hayreddin","Jack Sparrow","Karabasan","Oruç Reis","Turgut Reis","Piri Reis","Salih Reis","Kılıç Ali","Murat Reis","Seydi Ali",
+  "Karasakal","Edward Teach","Kaptan Kidd","Henry Morgan","Bartholomew","Kara Bart","Calico Jack","Anne Bonny","Mary Read","Charles Vane",
+  "Stede Bonnet","Sam Bellamy","Kara Sam","Edward Low","Ned Low","Francis Drake","John Hawkins","Walter Raleigh","Henry Avery","Long Ben",
+  "Thomas Tew","William Dampier","Woodes Rogers","Jean Lafitte","Amaro Pargo","Kanhoji","Koxinga","Zheng Yi Sao","Ching Shih","Madam Cheng",
+  "Grace O'Malley","Granuaile","Klaus Störtebeker","François l'Olonnais","Olonez","Roc Brasiliano","Michel de Grammont","Laurens de Graaf","Nicolas van Hoorn","Pierre le Grand",
+  "Daniel Montbars","Yıkıcı Montbars","Alexandre Exquemelin","Raveneau de Lussan","Bartolomeu Português","Manuel Pardal","Benito Bonito","Kara Caesar","Black Caesar","Hayreddin Paşa",
+  "Kemal Reis","Burak Reis","Kara Hasan","Deli Mehmed","Uluç Ali","Cigalazade","Hızır Reis","Aydın Reis","Şeytan Hızır","Kurtoğlu",
+  "Kara Murat","Deniz Kurdu","Levent Reis","Barbarossa","Dragut","Karadeniz Kaplanı","Kaptan Nemo","Uzun John Silver","Kanca Kaptan","Davy Jones",
+  "Kara İnci","Fırtına Kıran","Deniz Şeytanı","Okyanus Kurdu","Mercan Reis","Kasırga Kemal","Tayfun Turgut","Poyraz Reis","Lodos Ali","Yelken Yusuf",
+  "Pala Bıyık","Tek Göz Rıza","Çelik Çapa","Demir Leydi","Kızıl Korsan","Gümüş Kılıç","Altın Diş","Kara Bayrak","Son Amiral","Derin Deniz"
+];
 
 
 // === SAVAŞ FEEDBACK MESAJLARI ===
 const FB_HIT1 = ["İSABET! 🎯"];
 const FB_HIT2 = ["ÇİFT İSABET! 🎯🎯"];
 const FB_HIT3 = ["ÜÇTE ÜÇ! 🎯🎯🎯"];
-const FB_MISS = ["KARAVANA", "ISKA! 🌊"];
+const FB_MISS = ["KARAVANA", "ISKA!"];
 const FB_SUNK = ["GEMİ BATTI! 💀"];
 const FB_GOT_HIT = ["VURULDUN! 🚨"];
 const FB_GOT_SUNK = ["GEMİN BATTI! 😱"];
@@ -606,11 +617,12 @@ function RippleButton({ children, onClick, style, disabled, ...props }) {
 
 // === MİKRO FEEDBACK ===
 function MicroFeedback({ text, color, onDone }) {
-  useEffect(() => { const tm = setTimeout(()=>onDone?.(), 2200); return ()=>clearTimeout(tm); }, []);
+  useEffect(() => { const tm = setTimeout(()=>onDone?.(), 1500); return ()=>clearTimeout(tm); }, []);
   const clr = color || t.gold;
-  return (<div style={{ position:'fixed',top:'46%',left:'50%',zIndex:10001,fontSize:26,fontWeight:900,color:clr,fontFamily:warrior,letterSpacing:5,textTransform:'uppercase',whiteSpace:'nowrap',perspective:'600px',
-    textShadow:`0 2px 0 rgba(0,0,0,0.9), 0 5px 0 rgba(0,0,0,0.6), 0 10px 20px rgba(0,0,0,0.8), 0 0 30px ${clr}, 0 0 80px ${clr}55`,
-    animation:(text.includes('ISKA')||text.includes('KARAVANA'))?'popFlash 1.6s cubic-bezier(0.34,1.56,0.64,1) forwards':'arZoomText 2.2s cubic-bezier(0.2,0.9,0.3,1) forwards',pointerEvents:'none' }}>{text}</div>);
+  return (<div style={{ position:'fixed',top:'44%',left:'50%',zIndex:10001,fontSize:30,fontWeight:900,color:clr,fontFamily:warrior,letterSpacing:5,textTransform:'uppercase',whiteSpace:'nowrap',
+    WebkitTextStroke:'1.5px rgba(0,0,0,0.85)',
+    textShadow:`0 3px 0 rgba(0,0,0,0.9), 0 6px 0 rgba(0,0,0,0.55), 0 12px 24px rgba(0,0,0,0.9), 0 0 34px ${clr}, 0 0 90px ${clr}66`,
+    animation:'arZoomText 1.5s cubic-bezier(0.25,0.8,0.3,1) forwards',pointerEvents:'none' }}>{text}</div>);
 }
 
 const ARENAS = [
@@ -632,7 +644,7 @@ const QUICK_EMOJIS = [
   { id: "fire", emoji: "🔥", label: "Yanıyorsun!" },
   { id: "gg", emoji: "👏", label: "Tebrikler" },
   { id: "oops", emoji: "😤", label: "Eyvah!" },
-  { id: "salute", emoji: "🫡", label: "Saygılar" },
+  { id: "salute", emoji: "🙏", label: "Saygılar" },
   { id: "skull", emoji: "💀", label: "Battın!" },
   { id: "hurry", emoji: "⏳", label: "Acele et!" },
   { id: "lucky", emoji: "🍀", label: "Şanslısın" },
@@ -822,7 +834,17 @@ function Leaderboard({ onBack, myUid }) {
   const [revealed, setRevealed] = useState(0);
   useEffect(() => {
     setLoading(true); setRevealed(0);
-    fetchLeaderboard(sortBy, 15).then(data => { setPlayers(data); setLoading(false); });
+    setLoading(true);
+    // Canlı sıralama — profiller değişince anında güncellenir
+    const unsub = onValue(ref(db, "profiles"), (snap) => {
+      if (!snap.exists()) { setPlayers([]); setLoading(false); return; }
+      const list = [];
+      snap.forEach(child => { const v = child.val(); list.push({ uid: child.key, ...v }); });
+      list.sort((a, b) => sortBy === 'gold' ? (safeGold(b.gold) - safeGold(a.gold)) : ((b.elo||1200) - (a.elo||1200)));
+      setPlayers(list.slice(0, 15));
+      setLoading(false);
+    });
+    return () => unsub();
   }, [sortBy]);
   useEffect(() => {
     if (!loading && players.length > 0) {
@@ -931,8 +953,8 @@ const ANIMS = `
 @keyframes shineSweep{0%{left:-60%}55%{left:120%}100%{left:120%}}
 @keyframes rewardPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
 @keyframes btnBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+@keyframes arZoomText{0%{opacity:0;transform:translateX(-50%) scale(0.15)}10%{opacity:1;transform:translateX(-50%) scale(0.9)}100%{opacity:0;transform:translateX(-50%) translateY(-46px) scale(3.1);filter:blur(3px)}}
 @keyframes popFlash{0%{opacity:0;transform:translateX(-50%) scale(0.1) rotate(-8deg)}22%{opacity:1;transform:translateX(-50%) scale(1.45) rotate(4deg)}38%{transform:translateX(-50%) scale(1.05) rotate(0deg)}72%{opacity:1;transform:translateX(-50%) scale(1.05)}100%{opacity:0;transform:translateX(-50%) scale(0.7) translateY(-16px)}}
-@keyframes arZoomText{0%{opacity:0;transform:translateX(-50%) scale(0.25) rotateX(35deg);filter:blur(2px)}14%{opacity:1;transform:translateX(-50%) scale(0.7) rotateX(12deg);filter:blur(0)}60%{opacity:1;transform:translateX(-50%) translateY(-30px) scale(1.5) rotateX(0deg)}100%{opacity:0;transform:translateX(-50%) translateY(-70px) scale(2.6);filter:blur(4px)}}
 @keyframes fbPop3d{0%{opacity:0;transform:translateX(-50%) scale(0.3) perspective(500px) rotateX(40deg)}12%{opacity:1;transform:translateX(-50%) scale(1.25) perspective(500px) rotateX(-6deg)}22%{transform:translateX(-50%) scale(1) perspective(500px) rotateX(0deg)}78%{opacity:1;transform:translateX(-50%) scale(1) translateY(0)}100%{opacity:0;transform:translateX(-50%) scale(0.92) translateY(-30px)}}
 @keyframes floatShadow{0%,100%{transform:translateY(0);filter:drop-shadow(0 8px 20px rgba(0,0,0,0.4))}50%{transform:translateY(-8px);filter:drop-shadow(0 16px 30px rgba(0,0,0,0.6))}}
 @keyframes pageEnter{0%{opacity:0;transform:translateY(32px) scale(0.97)}60%{opacity:1;transform:translateY(-4px) scale(1.005)}100%{opacity:1;transform:translateY(0) scale(1)}}
@@ -959,8 +981,7 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, ov
           if(ovr==="hit"){bg="#1a0505";content=(<span style={{position:"absolute",inset:0,display:"block",pointerEvents:"none"}}>
           <span style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 50%, rgba(255,235,120,0.95) 0%, rgba(255,150,30,0.9) 22%, rgba(220,50,10,0.85) 45%, rgba(80,10,5,0.9) 70%, rgba(10,2,2,0.95) 100%)",animation:"explodeCore 1.1s ease-in-out infinite"}} />
           <span style={{position:"absolute",inset:"-15%",background:"radial-gradient(circle at 50% 50%, transparent 30%, rgba(255,120,20,0.35) 55%, transparent 75%)",animation:"explodeWave 1.6s ease-out infinite"}} />
-          <span style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",fontSize:"0.85em",fontWeight:900,color:"#fff",textShadow:"0 0 6px rgba(0,0,0,0.9)"}}>✕</span>
-        </span>);shadow="inset 0 0 14px rgba(255,90,20,0.6)";clr="#fff";}
+          </span>);shadow="inset 0 0 14px rgba(255,90,20,0.6)";clr="#fff";}
           else if(ovr==="miss"){bg=t.miss;content="•";}
           // showShipStatus: savaş haritasında vurulan gemi hücreleri farklı gösterilir
           else if(showShipStatus&&val>0&&shipColor){bg=shipColor;content="■";clr="rgba(255,255,255,0.6)";}
@@ -968,10 +989,10 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, ov
         else{if(ovr==="hit"){bg="#1a0505";content=(<span style={{position:"absolute",inset:0,display:"block",pointerEvents:"none"}}>
           <span style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 50%, rgba(255,235,120,0.95) 0%, rgba(255,150,30,0.9) 22%, rgba(220,50,10,0.85) 45%, rgba(80,10,5,0.9) 70%, rgba(10,2,2,0.95) 100%)",animation:"explodeCore 1.1s ease-in-out infinite"}} />
           <span style={{position:"absolute",inset:"-15%",background:"radial-gradient(circle at 50% 50%, transparent 30%, rgba(255,120,20,0.35) 55%, transparent 75%)",animation:"explodeWave 1.6s ease-out infinite"}} />
-          <span style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",fontSize:"0.85em",fontWeight:900,color:"#fff",textShadow:"0 0 6px rgba(0,0,0,0.9)"}}>✕</span>
-        </span>);shadow="inset 0 0 14px rgba(255,90,20,0.6)";clr="#fff";}else if(ovr==="miss"){bg=t.miss;content="•";}else if(ovr==="sunk"){bg="#0d0303";content=(<span style={{position:"absolute",inset:0,display:"block",pointerEvents:"none"}}>
+          </span>);shadow="inset 0 0 14px rgba(255,90,20,0.6)";clr="#fff";}else if(ovr==="miss"){bg=t.miss;content="•";}else if(ovr==="sunk"){bg="#0d0303";content=(<span style={{position:"absolute",inset:0,display:"block",pointerEvents:"none"}}>
           <span style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 55%, rgba(255,190,80,0.85) 0%, rgba(230,90,15,0.85) 28%, rgba(140,25,8,0.9) 55%, rgba(30,5,3,0.96) 85%)",animation:"explodeCore 1.5s ease-in-out infinite"}} />
           <span style={{position:"absolute",inset:"-12%",background:"radial-gradient(circle at 50% 50%, transparent 32%, rgba(255,100,20,0.25) 58%, transparent 78%)",animation:"explodeWave 2.2s ease-out infinite"}} />
+          <span style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",fontSize:"0.95em",fontWeight:900,color:"#fff",textShadow:"0 0 8px rgba(0,0,0,1), 0 0 4px rgba(0,0,0,1)"}}>✕</span>
         </span>);shadow="inset 0 0 16px rgba(180,50,10,0.7)";clr="#fff";}else if(ovr==="selected"){bg="rgba(6,182,212,0.45)";content="◎";shadow=`inset 0 0 12px ${t.accentGlow}`;clr=t.accent;}if(!ovr&&isManual){bg="rgba(251,191,36,0.15)";content="⚑";clr=t.gold;}}
         if(isHov){bg="rgba(6,182,212,0.35)";shadow=`inset 0 0 10px ${t.accentGlow}`;}
         const isHint = onboardingHint?.some(([hr,hc])=>hr===r&&hc===c) && !ovr;
@@ -1904,7 +1925,13 @@ export default function Game() {
     if (botSunkSomething) setTimeout(() => sfx.play('sunk'), 200);
     if (reports.length > 0) { setDamageReport(reports.join(" • ")); setTimeout(() => setDamageReport(""), 8000); }
     if (!isOnboarding) {
-      if (newOppHits >= 17) botSay('👏', 'Tebrikler');
+      // Bot'un kendi atış performansı
+      if (botHitCount > 0) consecHitTurnsRef.current++; else consecHitTurnsRef.current = 0;
+      if (botHitCount >= 2) botSay('🙏', 'Saygılar');                     // bot 2-3'te 3 yaptı
+      else if (consecHitTurnsRef.current === 3) botSay('🔥', 'Yanıyorsun!'); // 3 tur üst üste vurdu
+      else if (consecHitTurnsRef.current >= 4) botSay('🎯', 'İyi atış!');
+      // Oyuncunun son gemisinin son parçası kaldı → Battın!
+      if (newOppHits >= 19) botSay('💀', 'Battın!');
       else if (myClockRef.current > 0 && myClockRef.current < 60) botSay('⏳', 'Acele et!');
     }
     // Check if bot won
@@ -1957,24 +1984,18 @@ export default function Game() {
       else { const atkRep = window.__lastAtkReport; setMicroFeedback({ text: atkRep || fbPick(hitCount0 === 3 ? FB_HIT3 : hitCount0 === 2 ? FB_HIT2 : FB_HIT1), color: hitCount0 === 3 ? t.gold : t.accent }); window.__lastAtkReport = null; }
     }
     else { sfx.play('miss'); setMicroFeedback({ text: fbPick(FB_MISS), color: '#4dd8ff' }); }
-    // ── BOT EMOJİ TEPKİLERİ ──
+    // ── BOT TEPKİLERİ (oyuncunun atışlarına — bot'un kendi gemileri) ──
     if (!isOnboarding && isBotGame) {
-      if (hitCount0 > 0) consecHitTurnsRef.current++; else consecHitTurnsRef.current = 0;
-      // 2/3 isabette saygı
-      if (hitCount0 >= 2) botSay('🫡', 'Saygılar');
-      // 3 ardışık isabetli tur → yanıyorsun; 4+ → hedef tahtası
-      else if (consecHitTurnsRef.current === 3) botSay('🔥', 'Yanıyorsun!');
-      else if (consecHitTurnsRef.current >= 4) botSay('🎯', 'İyi atış!');
-      // Amiral'e isabet → eyvah
+      // Bot'un Amiral'i vuruldu → Eyvah!
       if (window.__lastAtkReport && window.__lastAtkReport.includes('AMİRAL')) botSay('😤', 'Eyvah!');
-      // Tek turda 2+ FARKLI gemi vuruldu → şanslısın
-      if (botShips && hitCount0 >= 2) {
+      // Tek atış turunda bot'un 2 FARKLI gemisi vuruldu → Şanslısın
+      else if (botShips && hitCount0 >= 2) {
         const hitShipIds = new Set();
         currentShots.forEach(([r,cc]) => { if (botBoard[r][cc] > 0) { const hs = Object.values(botShips).find(sh => sh.cells.some(([sr,sc]) => sr===r && sc===cc)); if (hs) hitShipIds.add(hs.id); } });
         if (hitShipIds.size >= 2) botSay('🍀', 'Şanslısın');
       }
-      // Bot son geminin son parçasına düştü → battın (bot kabulleniyor)
-      if (newMyHits >= 19) botSay('💀', 'Battın!');
+      // Oyuncu kazanmak üzere (bot'un son parçası) → bot alkışlar
+      if (newMyHits >= 19) botSay('👏', 'Tebrikler');
     }
     // Check for sunk ships
     let sunkThisTurn = false;
