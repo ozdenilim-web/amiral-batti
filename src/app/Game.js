@@ -953,6 +953,7 @@ const ANIMS = `
 @keyframes shineSweep{0%{left:-60%}55%{left:120%}100%{left:120%}}
 @keyframes rewardPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
 @keyframes btnBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+@keyframes sonarArc{0%,100%{opacity:0.35;transform:scale(1)}50%{opacity:1;transform:scale(1.18)}}
 @keyframes arZoomText{0%{opacity:0;transform:translateX(-50%) scale(0.15)}10%{opacity:1;transform:translateX(-50%) scale(0.9)}100%{opacity:0;transform:translateX(-50%) translateY(-46px) scale(3.1);filter:blur(3px)}}
 @keyframes popFlash{0%{opacity:0;transform:translateX(-50%) scale(0.1) rotate(-8deg)}22%{opacity:1;transform:translateX(-50%) scale(1.45) rotate(4deg)}38%{transform:translateX(-50%) scale(1.05) rotate(0deg)}72%{opacity:1;transform:translateX(-50%) scale(1.05)}100%{opacity:0;transform:translateX(-50%) scale(0.7) translateY(-16px)}}
 @keyframes fbPop3d{0%{opacity:0;transform:translateX(-50%) scale(0.3) perspective(500px) rotateX(40deg)}12%{opacity:1;transform:translateX(-50%) scale(1.25) perspective(500px) rotateX(-6deg)}22%{transform:translateX(-50%) scale(1) perspective(500px) rotateX(0deg)}78%{opacity:1;transform:translateX(-50%) scale(1) translateY(0)}100%{opacity:0;transform:translateX(-50%) scale(0.92) translateY(-30px)}}
@@ -1097,12 +1098,12 @@ function ReadyScreen({ onStart, opponentName, myName, myAvatar, oppAvatar }) {
     {/* VS düzeni */}
     <div style={{ display:"flex",alignItems:"center",gap:26,marginBottom:28,animation:"tutCardEnter 0.9s cubic-bezier(0.16,1,0.3,1)" }}>
       <div style={{ textAlign:"center" }}>
-        <div style={{ width:78,height:78,borderRadius:"50%",background:"rgba(0,229,255,0.10)",border:`3px solid ${t.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:38,boxShadow:`0 0 30px ${t.accentGlow}`,marginBottom:8 }}>{myAvatar||"⚓"}</div>
+        <div style={{ width:78,height:78,borderRadius:"50%",background:"rgba(0,229,255,0.10)",border:`3px solid ${t.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:38,boxShadow:`0 0 30px ${t.accentGlow}`,marginBottom:8,overflow:"hidden" }}>{(myAvatar||"").startsWith("data:")?<img src={myAvatar} alt="" style={{ width:"100%",height:"100%",objectFit:"cover" }} />:(myAvatar||"⚓")}</div>
         <div style={{ fontSize:13,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:2,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{myName||"SEN"}</div>
       </div>
       <div style={{ fontSize:34,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 30px ${t.goldGlow}`,animation:"rewardPulse 1.4s ease-in-out infinite" }}>VS</div>
       <div style={{ textAlign:"center" }}>
-        <div style={{ width:78,height:78,borderRadius:"50%",background:"rgba(255,71,87,0.10)",border:`3px solid ${t.hit}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:38,boxShadow:`0 0 30px ${t.hitGlow}`,marginBottom:8 }}>{oppAvatar||"🏴‍☠️"}</div>
+        <div style={{ width:78,height:78,borderRadius:"50%",background:"rgba(255,71,87,0.10)",border:`3px solid ${t.hit}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:38,boxShadow:`0 0 30px ${t.hitGlow}`,marginBottom:8,overflow:"hidden" }}>{(oppAvatar||"").startsWith("data:")?<img src={oppAvatar} alt="" style={{ width:"100%",height:"100%",objectFit:"cover" }} />:(oppAvatar||"🏴‍☠️")}</div>
         <div style={{ fontSize:13,fontWeight:800,color:t.hit,fontFamily:warrior,letterSpacing:2,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{opponentName}</div>
       </div>
     </div>
@@ -1333,6 +1334,31 @@ export default function Game() {
   };
   const firstHitVoiceRef = useRef(false);
   const isBotGameRef = useRef(false);
+  const avatarFileRef = useRef(null);
+  const handleAvatarUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        // 96x96 kare kırp + küçült → küçük base64
+        const canvas = document.createElement("canvas");
+        canvas.width = 96; canvas.height = 96;
+        const ctx = canvas.getContext("2d");
+        const side = Math.min(img.width, img.height);
+        const sx = (img.width - side) / 2, sy = (img.height - side) / 2;
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, 96, 96);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.72);
+        setShowAvatarPick(false);
+        if (authUid) update(ref(db, `profiles/${authUid}`), { avatar: dataUrl }).catch(()=>{});
+        setMyProfile(prev => prev ? { ...prev, avatar: dataUrl } : prev);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
   const [emojiToast, setEmojiToast] = useState(null);
   const [myEmojiToast, setMyEmojiToast] = useState(null);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
@@ -2658,10 +2684,12 @@ export default function Game() {
         <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12 }}>
           <div>
             <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-              <button onClick={()=>setShowAvatarPick(v=>!v)} title="Profil simgeni seç" style={{ width:44,height:44,borderRadius:"50%",background:"rgba(0,229,255,0.10)",border:`2px solid ${rank?.color||t.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",boxShadow:`0 0 14px ${(rank?.color||t.accent)}44`,padding:0 }}>{myProfile.avatar||"⚓"}</button>
+              <button onClick={()=>setShowAvatarPick(v=>!v)} title="Profil simgeni seç" style={{ width:44,height:44,borderRadius:"50%",background:"rgba(0,229,255,0.10)",border:`2px solid ${rank?.color||t.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",boxShadow:`0 0 14px ${(rank?.color||t.accent)}44`,padding:0,overflow:"hidden" }}>{(myProfile.avatar||"").startsWith("data:")?<img src={myProfile.avatar} alt="" style={{ width:"100%",height:"100%",objectFit:"cover" }} />:(myProfile.avatar||"⚓")}</button>
               <div style={{ fontSize:20,fontWeight:800,color:t.text,fontFamily:warrior,letterSpacing:2 }}>{myProfile.displayName}</div>
             </div>
             {showAvatarPick && <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginTop:8,padding:"8px 10px",background:"rgba(0,0,0,0.35)",borderRadius:12,border:`1px solid ${t.border}` }}>
+              <button onClick={()=>avatarFileRef.current?.click()} title="Kendi fotoğrafını yükle" style={{ width:36,height:36,borderRadius:"50%",background:"rgba(255,215,0,0.12)",border:`2px dashed ${t.gold}`,fontSize:20,fontWeight:900,color:t.gold,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>+</button>
+              <input ref={avatarFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleAvatarUpload} />
               {["⚓","🦈","🐙","⚔","🏴‍☠️","🌊","🦅","🐉","💀","🔱"].map(av=>(<button key={av} onClick={()=>{ setShowAvatarPick(false); if(authUid){ update(ref(db,`profiles/${authUid}`),{avatar:av}).catch(()=>{}); } setMyProfile(prev=>prev?{...prev,avatar:av}:prev); }} style={{ width:36,height:36,borderRadius:"50%",background:myProfile.avatar===av?"rgba(0,229,255,0.25)":"rgba(255,255,255,0.05)",border:`2px solid ${myProfile.avatar===av?t.accent:"transparent"}`,fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>{av}</button>))}
             </div>}
             <div style={{ display:"flex",alignItems:"center",gap:6,marginTop:4 }}>
@@ -2684,20 +2712,32 @@ export default function Game() {
         </div>
       </div>)}
       {/* Main action buttons */}
-      <RippleButton onClick={()=>startQuickMatch(null)} disabled={matchmaking||authLoading} style={{ width:"100%",maxWidth:360,padding:"22px 0",background:matchmaking?t.surfaceLight:`linear-gradient(135deg, ${t.accent}, #0088cc)`,color:matchmaking?t.textDim:t.bg,border:"none",borderRadius:14,fontSize:22,fontWeight:900,letterSpacing:6,cursor:(matchmaking||authLoading)?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:matchmaking?"none":`0 0 20px ${t.accentGlow}`,opacity:authLoading?0.4:1,animation:"fadeUp 0.5s ease-out",zIndex:1 }}>{matchmaking?"EŞLEŞTİRİLİYOR...":"⚡ OYNA"}</RippleButton>
+      <div style={{ position:"relative",width:"100%",maxWidth:360,zIndex:1,animation:"fadeUp 0.5s ease-out" }}>
+        {/* Köşe sonar dalgaları */}
+        {!matchmaking && <>
+        <span style={{ position:"absolute",top:-9,left:-9,width:30,height:30,borderTop:"3px solid rgba(0,229,255,0.55)",borderLeft:"3px solid rgba(0,229,255,0.55)",borderTopLeftRadius:18,animation:"sonarArc 2s ease-in-out infinite",pointerEvents:"none" }} />
+        <span style={{ position:"absolute",top:-9,right:-9,width:30,height:30,borderTop:"3px solid rgba(0,229,255,0.55)",borderRight:"3px solid rgba(0,229,255,0.55)",borderTopRightRadius:18,animation:"sonarArc 2s ease-in-out 0.5s infinite",pointerEvents:"none" }} />
+        <span style={{ position:"absolute",bottom:-9,left:-9,width:30,height:30,borderBottom:"3px solid rgba(0,229,255,0.55)",borderLeft:"3px solid rgba(0,229,255,0.55)",borderBottomLeftRadius:18,animation:"sonarArc 2s ease-in-out 1s infinite",pointerEvents:"none" }} />
+        <span style={{ position:"absolute",bottom:-9,right:-9,width:30,height:30,borderBottom:"3px solid rgba(0,229,255,0.55)",borderRight:"3px solid rgba(0,229,255,0.55)",borderBottomRightRadius:18,animation:"sonarArc 2s ease-in-out 1.5s infinite",pointerEvents:"none" }} />
+        </>}
+        <RippleButton onClick={()=>startQuickMatch(null)} disabled={matchmaking||authLoading} style={{ width:"100%",padding:"22px 0",background:matchmaking?t.surfaceLight:`linear-gradient(180deg, #22d8ff 0%, ${t.accent} 45%, #0077b6 100%)`,color:matchmaking?t.textDim:"#04202e",border:"3px solid rgba(255,255,255,0.35)",borderRadius:16,fontSize:23,fontWeight:900,letterSpacing:6,cursor:(matchmaking||authLoading)?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:matchmaking?"none":`0 0 34px ${t.accentGlow}, 0 8px 0 #045a80, 0 14px 28px rgba(0,0,0,0.55), inset 0 2px 0 rgba(255,255,255,0.45)`,opacity:authLoading?0.4:1,textShadow:"0 1px 0 rgba(255,255,255,0.4), 0 2px 3px rgba(0,60,90,0.5)",display:"flex",alignItems:"center",justifyContent:"center",gap:14,animation:matchmaking?"none":"btnBreath 2.2s ease-in-out infinite" }}>
+          {!matchmaking && <svg width="24" height="26" viewBox="0 0 24 26" style={{ filter:"drop-shadow(0 3px 3px rgba(0,40,60,0.55))" }}><defs><linearGradient id="playTri" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#ffffff"/><stop offset="60%" stopColor="#d8f6ff"/><stop offset="100%" stopColor="#8ad4f0"/></linearGradient></defs><polygon points="3,2 22,13 3,24" fill="url(#playTri)" stroke="rgba(4,60,90,0.5)" strokeWidth="1.2"/></svg>}
+          {matchmaking?"EŞLEŞTİRİLİYOR...":"OYNA"}
+        </RippleButton>
+      </div>
       {matchmaking && <button onClick={async()=>{if(matchCancelFn)await matchCancelFn();setMatchmaking(false);setMatchCancelFn(null);}} style={{ marginTop:6,padding:"8px 20px",background:"transparent",color:t.hit,border:`1px solid ${t.hit}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior,zIndex:1 }}>İPTAL</button>}
       <div style={{ display:"flex",gap:8,marginTop:10,width:"100%",maxWidth:360,animation:"fadeUp 0.6s ease-out",zIndex:1 }}>
-        <RippleButton onClick={()=>{if(!authUid){setMessage("Bağlantı bekleniyor...");return;}setShowOnlineLobby(true);}} disabled={authLoading} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(0,212,255,0.1),rgba(0,212,255,0.03))`,color:t.accent,border:`1px solid rgba(0,212,255,0.3)`,borderRadius:10,fontSize:13,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}>🌐 SALON</RippleButton>
-        <RippleButton onClick={()=>{if(!authUid){setMessage("Bağlantı bekleniyor...");return;}setShowArenaSelect(true);}} disabled={authLoading} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(167,139,250,0.1),rgba(167,139,250,0.03))`,color:"#a78bfa",border:"1px solid rgba(167,139,250,0.3)",borderRadius:10,fontSize:13,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}>⚔ ARENA</RippleButton>
+        <RippleButton onClick={()=>{if(!authUid){setMessage("Bağlantı bekleniyor...");return;}setShowOnlineLobby(true);}} disabled={authLoading} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(0,212,255,0.1),rgba(0,212,255,0.03))`,color:t.accent,border:`1px solid rgba(0,212,255,0.3)`,borderRadius:10,fontSize:14,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}>🌐 SALON</RippleButton>
+        <RippleButton onClick={()=>{if(!authUid){setMessage("Bağlantı bekleniyor...");return;}setShowArenaSelect(true);}} disabled={authLoading} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(167,139,250,0.1),rgba(167,139,250,0.03))`,color:"#a78bfa",border:"1px solid rgba(167,139,250,0.3)",borderRadius:10,fontSize:14,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}>⚔ ARENA</RippleButton>
       </div>
       <div style={{ display:"flex",gap:8,marginTop:8,width:"100%",maxWidth:360,animation:"fadeUp 0.7s ease-out",zIndex:1 }}>
-        <RippleButton onClick={startBotGame} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(52,211,153,0.1),rgba(52,211,153,0.03))`,color:"#34d399",border:"1px solid rgba(52,211,153,0.3)",borderRadius:10,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🤖 BOT</RippleButton>
-        <RippleButton onClick={()=>setShowLeaderboard(true)} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(255,215,0,0.08),rgba(255,215,0,0.02))`,color:t.gold,border:`1px solid rgba(255,215,0,0.3)`,borderRadius:10,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🏆 SIRALAMA</RippleButton>
+        <RippleButton onClick={startBotGame} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(52,211,153,0.1),rgba(52,211,153,0.03))`,color:"#34d399",border:"1px solid rgba(52,211,153,0.3)",borderRadius:10,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🤖 BOT</RippleButton>
+        <RippleButton onClick={()=>setShowLeaderboard(true)} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(255,215,0,0.08),rgba(255,215,0,0.02))`,color:t.gold,border:`1px solid rgba(255,215,0,0.3)`,borderRadius:10,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🏆 SIRALAMA</RippleButton>
       </div>
       {/* Room code - collapsible */}
       <div style={{ marginTop:10,width:"100%",maxWidth:360,zIndex:1 }}>
         <details style={{ background:t.surface,border:`1px solid ${t.border}`,borderRadius:10,overflow:"hidden" }}>
-          <summary style={{ padding:"12px 16px",cursor:"pointer",fontSize:12,color:t.textDim,fontFamily:warrior,letterSpacing:2,listStyle:"none",display:"flex",alignItems:"center",gap:8 }}>
+          <summary style={{ padding:"12px 16px",cursor:"pointer",fontSize:13,color:t.textDim,fontFamily:warrior,letterSpacing:2,listStyle:"none",display:"flex",alignItems:"center",gap:8 }}>
             <span style={{ fontSize:14 }}>🔗</span> ODA KODU İLE OYNA
           </summary>
           <div style={{ padding:"12px 16px",borderTop:`1px solid ${t.border}`,display:"flex",gap:8,alignItems:"center" }}>
