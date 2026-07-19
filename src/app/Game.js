@@ -63,13 +63,13 @@ const BOT_NAMES = ["Kaptan Yıldız","Denizci Ali","Amiral Fırtına","Korsan Ba
 
 
 // === SAVAŞ FEEDBACK MESAJLARI ===
-const FB_HIT1 = ["İSABET! 🎯", "VURDUN! 💥", "TAM 12'DEN!", "HEDEF YANDI! 🔥", "GÜMBÜR GÜMBÜR!"];
-const FB_HIT2 = ["ÇİFTE VURUŞ! ⚡", "GÜZEL! 💪", "SERİ ATIŞ! 🎯🎯", "İKİ GEMİ SARSILDI!"];
-const FB_HIT3 = ["MÜKEMMEL! 👑", "KUSURSUZ SALVO! ⚡⚡⚡", "EFSANESİN! 🌟", "TAM İSABET ×3! 💥"];
-const FB_MISS = ["KARAVANA", "ISKA! 🌊", "SUYA DÜŞTÜ...", "BOŞA GİTTİ 💨"];
-const FB_SUNK = ["BATTI! 💀", "DENİZİN DİBİNE! ⚓", "PARAMPARÇA! 💥", "GEMİ YOK OLDU!"];
-const FB_GOT_HIT = ["VURULDUN! 🚨", "GEMİN YARA ALDI! ⚠️", "İSABET ALDIN!", "ZIRH DELİNDİ! 🛡"];
-const FB_GOT_SUNK = ["GEMİN BATTI! 😱", "KAYIP VERDİN! 🔻", "BİR GEMİ DAHA GİTTİ..."];
+const FB_HIT1 = ["İSABET! 🎯"];
+const FB_HIT2 = ["ÇİFT İSABET! 🎯🎯"];
+const FB_HIT3 = ["ÜÇTE ÜÇ! 🎯🎯🎯"];
+const FB_MISS = ["KARAVANA", "ISKA! 🌊"];
+const FB_SUNK = ["GEMİ BATTI! 💀"];
+const FB_GOT_HIT = ["VURULDUN! 🚨"];
+const FB_GOT_SUNK = ["GEMİN BATTI! 😱"];
 const fbPick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 // === GÖREV SİSTEMİ ===
@@ -502,7 +502,7 @@ function OnboardingVictoryScreen({ sfx, t, winner, warrior, mono, onDone }) {
           </div>
           <div style={{ background:"rgba(255,215,0,0.07)",border:`1px solid rgba(255,215,0,0.18)`,borderRadius:12,padding:"10px 16px",marginBottom:20 }}>
             <div style={{ fontSize:11,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:2 }}>İLK ÖDÜLÜN</div>
-            <div style={{ fontSize:22,fontWeight:800,color:gold,fontFamily:warrior,textShadow:`0 0 15px ${goldGlow}`,marginTop:4 }}>500 💰</div>
+            <div style={{ fontSize:22,fontWeight:800,color:gold,fontFamily:warrior,textShadow:`0 0 15px ${goldGlow}`,marginTop:4 }}>500 <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.5))" }} /></div>
           </div>
           <button onClick={onDone} style={{ padding:"16px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:14,fontSize:16,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 30px ${accentGlow}` }}>SAVAŞA HAZIRIM</button>
         </div>
@@ -573,7 +573,7 @@ function GoldCoinAnim({ amount, onDone }) {
     {coins.map(c => (
       <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, fontSize:32, animation:`coinFly 1.1s cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards`, opacity:0, transform:`rotate(${c.rotation}deg)` }}>🪙</div>
     ))}
-    <div style={{ position:'absolute',left:'50%',transform:'translateX(-50%)',bottom:70,fontSize:28,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 30px ${t.goldGlow}, 0 0 60px ${t.goldGlow}`,animation:'scaleUp 0.4s cubic-bezier(0.34,1.56,0.64,1) 150ms forwards',opacity:0,whiteSpace:'nowrap',letterSpacing:4 }}>+{amount} 💰</div>
+    <div style={{ position:'absolute',left:'50%',transform:'translateX(-50%)',bottom:70,fontSize:28,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 30px ${t.goldGlow}, 0 0 60px ${t.goldGlow}`,animation:'scaleUp 0.4s cubic-bezier(0.34,1.56,0.64,1) 150ms forwards',opacity:0,whiteSpace:'nowrap',letterSpacing:4 }}>+{amount} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.5))" }} /></div>
   </div>);
 }
 
@@ -665,6 +665,7 @@ async function checkDailyReward(uid) {
     lastGameAt: profile.lastGameAt || null,
     onboardingDone: profile.onboardingDone === true,
     nameSetAt: profile.nameSetAt || null,
+    avatar: profile.avatar || "⚓",
     dailyRewardCount: todayCount + 1,
   };
   await set(profileRef, cleanProfile);
@@ -682,7 +683,7 @@ function DailyRewardPopup({ reward, streak, onClose }) {
       <div style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg, transparent, rgba(255,255,255,0.10), transparent)",animation:"shineSweep 3s ease-in-out 0.8s infinite",pointerEvents:"none" }} />
       <div style={{ fontSize:64,marginBottom:10,animation:"chestWiggle 2.2s ease-in-out infinite",filter:"drop-shadow(0 6px 14px rgba(0,0,0,0.6)) drop-shadow(0 0 30px rgba(255,215,0,0.5))" }}>🎁</div>
       <div style={{ fontSize:11,fontWeight:700,color:"rgba(255,215,0,0.6)",fontFamily:mono,letterSpacing:5,marginBottom:8 }}>GÜNLÜK GİRİŞ ÖDÜLÜ</div>
-      <div style={{ fontSize:50,fontWeight:900,fontFamily:warrior,marginBottom:12,letterSpacing:2,background:"linear-gradient(180deg, #fff7d6 0%, #ffd700 45%, #d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 25px rgba(255,215,0,0.7)) drop-shadow(0 3px 4px rgba(0,0,0,0.8))",animation:"rewardPulse 1.6s ease-in-out infinite" }}>+{reward} 💰</div>
+      <div style={{ fontSize:50,fontWeight:900,fontFamily:warrior,marginBottom:12,letterSpacing:2,background:"linear-gradient(180deg, #fff7d6 0%, #ffd700 45%, #d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 25px rgba(255,215,0,0.7)) drop-shadow(0 3px 4px rgba(0,0,0,0.8))",animation:"rewardPulse 1.6s ease-in-out infinite" }}>+{reward} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.5))" }} /></div>
       {streak > 1 && <div style={{ fontSize:13,fontWeight:800,color:"#ff9f43",fontFamily:warrior,marginBottom:12,padding:"7px 18px",background:"linear-gradient(135deg, rgba(255,105,60,0.14), rgba(255,215,0,0.10))",borderRadius:10,border:"1px solid rgba(255,159,67,0.35)",display:"inline-block",letterSpacing:2,textShadow:"0 0 12px rgba(255,159,67,0.5)" }}>🔥 {streak} GÜN SERİ {streak>=7?"• x2 BONUS":streak>=3?"• x1.5 BONUS":streak>=2?"• x1.25 BONUS":""}</div>}
       <div><button onClick={onClose} style={{ marginTop:12,padding:"16px 52px",background:"linear-gradient(135deg, #ffd700 0%, #ff9f43 55%, #d97706 100%)",color:"#1a1206",border:"none",borderRadius:12,fontSize:17,fontWeight:900,letterSpacing:5,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 40px rgba(255,215,0,0.5), 0 6px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.4)",animation:"btnBreath 1.8s ease-in-out infinite",textTransform:"uppercase" }}>TOPLA</button></div>
     </div>
@@ -692,14 +693,14 @@ function DailyRewardPopup({ reward, streak, onClose }) {
 function ArenaSelect({ myElo, myGold, onSelect, onBack }) {
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:`linear-gradient(180deg, ${t.bg} 0%, #071428 100%)`,padding:"24px 14px",fontFamily:mono,color:t.text }}>
     <div style={{ fontSize:26,fontWeight:800,letterSpacing:6,color:t.accent,marginBottom:6,fontFamily:warrior,textShadow:`0 0 25px ${t.accentGlow}` }}>ARENA SEÇ</div>
-    <div style={{ fontSize:14,fontWeight:800,color:t.gold,fontFamily:warrior,marginBottom:20,padding:"6px 20px",background:"rgba(255,215,0,0.08)",borderRadius:10,border:"1px solid rgba(255,215,0,0.2)",letterSpacing:2 }}>💰 {myGold} ALTIN</div>
+    <div style={{ fontSize:14,fontWeight:800,color:t.gold,fontFamily:warrior,marginBottom:20,padding:"6px 20px",background:"rgba(255,215,0,0.08)",borderRadius:10,border:"1px solid rgba(255,215,0,0.2)",letterSpacing:2 }}><img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.5))" }} /> {myGold} ALTIN</div>
     <div style={{ width:"100%",maxWidth:420,display:"flex",flexDirection:"column",gap:10 }}>
       {ARENAS.map(arena => {
         const locked = (myElo||1200) < arena.minElo, cantAfford = (myGold||0) < arena.entryFee, disabled = locked||cantAfford;
         return (<button key={arena.id} onClick={()=>!disabled&&onSelect(arena)} disabled={disabled} style={{ display:"flex",alignItems:"center",gap:16,padding:"18px 20px",background:disabled?"rgba(22,32,64,0.5)":`linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))`,border:`2px solid ${disabled?"rgba(30,58,95,0.3)":arena.color}`,borderRadius:14,cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.45:1,textAlign:"left",width:"100%",boxShadow:disabled?"none":`0 0 20px ${arena.color}22, 0 4px 20px rgba(0,0,0,0.3)`,transition:"all 0.2s ease" }}>
           <div style={{ fontSize:32,width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",background:`${arena.color}15`,borderRadius:12,border:`1px solid ${arena.color}33` }}>{arena.icon}</div>
           <div style={{ flex:1 }}><div style={{ fontSize:16,fontWeight:800,color:arena.color,fontFamily:warrior,letterSpacing:4 }}>{arena.name}</div><div style={{ fontSize:10,fontWeight:700,color:t.textDim,marginTop:3,fontFamily:mono }}>{locked?`🔒 ELO ${arena.minElo} GEREKLİ`:`Min ELO: ${arena.minElo}`}</div></div>
-          <div style={{ textAlign:"right" }}><div style={{ fontSize:16,fontWeight:800,color:cantAfford?t.hit:t.gold,fontFamily:warrior }}>{arena.entryFee} 💰</div><div style={{ fontSize:9,color:t.textDim,fontWeight:700,letterSpacing:1 }}>GİRİŞ</div><div style={{ fontSize:12,fontWeight:800,color:"#4ade80",fontFamily:warrior,marginTop:3 }}>🏆 {arena.winGold} 💰</div></div>
+          <div style={{ textAlign:"right" }}><div style={{ fontSize:16,fontWeight:800,color:cantAfford?t.hit:t.gold,fontFamily:warrior }}>{arena.entryFee} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.5))" }} /></div><div style={{ fontSize:9,color:t.textDim,fontWeight:700,letterSpacing:1 }}>GİRİŞ</div><div style={{ fontSize:12,fontWeight:800,color:"#4ade80",fontFamily:warrior,marginTop:3 }}>🏆 {arena.winGold} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.5))" }} /></div></div>
         </button>);
       })}
     </div>
@@ -739,6 +740,7 @@ async function ensureProfile(uid, displayName) {
     lastGameAt: existing.lastGameAt || null,
     onboardingDone: existing.onboardingDone === true,
     nameSetAt: existing.nameSetAt || null,
+    avatar: existing.avatar || "⚓",
     dailyRewardCount: (typeof existing.dailyRewardCount === "number" && isFinite(existing.dailyRewardCount)) ? existing.dailyRewardCount : 0,
   };
   // ALWAYS overwrite with set() — kills any hidden NaN in any field
@@ -766,6 +768,7 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
     gold: safeGold(wd.gold) + winGold,
     loginStreak: (typeof wd.loginStreak === "number" && !isNaN(wd.loginStreak)) ? wd.loginStreak : 0,
     lastDailyReward: wd.lastDailyReward || null, createdAt: wd.createdAt || now, lastGameAt: now,
+    onboardingDone: wd.onboardingDone === true, nameSetAt: wd.nameSetAt || null, avatar: wd.avatar || "⚓", dailyRewardCount: wd.dailyRewardCount || 0,
   };
   const loserProfile = {
     displayName: ld.displayName || "Denizci", elo: lNew,
@@ -775,6 +778,7 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
     gold: safeGold(ld.gold) + loseGold,
     loginStreak: (typeof ld.loginStreak === "number" && !isNaN(ld.loginStreak)) ? ld.loginStreak : 0,
     lastDailyReward: ld.lastDailyReward || null, createdAt: ld.createdAt || now, lastGameAt: now,
+    onboardingDone: ld.onboardingDone === true, nameSetAt: ld.nameSetAt || null, avatar: ld.avatar || "⚓", dailyRewardCount: ld.dailyRewardCount || 0,
   };
   await set(ref(db, `profiles/${winnerUid}`), winnerProfile);
   await set(ref(db, `profiles/${loserUid}`), loserProfile);
@@ -966,7 +970,7 @@ function ShipStatusPanel({ title, ships, hitCells, color }) {
   </div>);
 }
 
-function MissionIcon({ icon, done }) {
+function MissionIcon({ icon, done, missionId }) {
   const iconMap = {
     "🚢": <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 17l2 4h14l2-4" stroke={done?"#4ade80":"#00e5ff"} strokeWidth="2" strokeLinecap="round"/><path d="M4 17l2-6h12l2 6" fill={done?"rgba(74,222,128,0.2)":"rgba(0,229,255,0.15)"} stroke={done?"#4ade80":"#00e5ff"} strokeWidth="1.5"/><path d="M12 4v7M9 7h6" stroke={done?"#4ade80":"#00e5ff"} strokeWidth="2" strokeLinecap="round"/><rect x="10" y="3" width="4" height="2" rx="1" fill={done?"#4ade80":"#00e5ff"}/></svg>,
     "🔥": <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2c0 4-4 6-4 10a4 4 0 008 0c0-4-4-6-4-10z" fill={done?"rgba(74,222,128,0.3)":"rgba(255,140,66,0.3)"} stroke={done?"#4ade80":"#ff8c42"} strokeWidth="1.5"/><path d="M12 8c0 2-2 3-2 5a2 2 0 004 0c0-2-2-3-2-5z" fill={done?"#4ade80":"#ff8c42"}/></svg>,
@@ -979,6 +983,8 @@ function MissionIcon({ icon, done }) {
     "🤖": <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="5" y="8" width="14" height="12" rx="3" fill={done?"rgba(74,222,128,0.2)":"rgba(167,139,250,0.2)"} stroke={done?"#4ade80":"#a78bfa"} strokeWidth="1.5"/><circle cx="9" cy="14" r="2" fill={done?"#4ade80":"#a78bfa"}/><circle cx="15" cy="14" r="2" fill={done?"#4ade80":"#a78bfa"}/><path d="M12 3v5M8 5h8" stroke={done?"#4ade80":"#a78bfa"} strokeWidth="2" strokeLinecap="round"/></svg>,
     "⚓": <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="3" stroke={done?"#4ade80":"#06b6d4"} strokeWidth="1.5"/><path d="M12 8v13M5 18c0-4 3-7 7-7s7 3 7 7" stroke={done?"#4ade80":"#06b6d4"} strokeWidth="1.5" strokeLinecap="round"/><path d="M8 13h8" stroke={done?"#4ade80":"#06b6d4"} strokeWidth="2" strokeLinecap="round"/></svg>,
   };
+  const medalMap = { sink8:"/img/medal_gemi.png", hit10:"/img/medal_isabet10.png", hit30:"/img/medal_isabet30.png" };
+  if (missionId && medalMap[missionId]) return <img src={medalMap[missionId]} alt="" style={{ width:40,height:40,filter:done?"none":"saturate(0.85)",opacity:done?1:0.92 }} />;
   return iconMap[icon] || <span style={{ fontSize:22,filter:"drop-shadow(0 3px 5px rgba(0,0,0,0.6)) drop-shadow(0 0 12px rgba(0,229,255,0.35)) saturate(1.4) brightness(1.1)",transform:"perspective(200px) rotateX(6deg)",display:"inline-block" }}>{icon}</span>;
 }
 
@@ -1005,7 +1011,7 @@ function MissionPanel({ missions, missionProgress, onClose }) {
     {missions.map((m, i) => {
       const done = missionProgress[m.id];
       return (<div key={m.id} style={{ display:"flex",alignItems:"center",gap:14,padding:"12px 14px",background:done?"linear-gradient(135deg, rgba(74,222,128,0.1), rgba(74,222,128,0.03))":"linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))",borderRadius:12,marginBottom:8,border:`2px solid ${done?"rgba(74,222,128,0.3)":"rgba(30,58,95,0.4)"}`,transition:"all 0.3s ease",boxShadow:done?"0 0 15px rgba(74,222,128,0.08)":"none" }}>
-        <div style={{ width:44,height:44,borderRadius:12,background:done?"rgba(74,222,128,0.12)":"rgba(0,229,255,0.06)",display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${done?"rgba(74,222,128,0.2)":"rgba(0,229,255,0.1)"}`,flexShrink:0 }}><MissionIcon icon={m.icon} done={done} /></div>
+        <div style={{ width:44,height:44,borderRadius:12,background:done?"rgba(74,222,128,0.12)":"rgba(0,229,255,0.06)",display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${done?"rgba(74,222,128,0.2)":"rgba(0,229,255,0.1)"}`,flexShrink:0 }}><MissionIcon icon={m.icon} done={done} missionId={m.id} /></div>
         <div style={{ flex:1,minWidth:0 }}>
           <div style={{ fontSize:14,fontWeight:800,color:done?"#4ade80":t.text,fontFamily:warrior,letterSpacing:2 }}>{m.text.toLocaleUpperCase('tr-TR')}</div>
           <div style={{ fontSize:9,fontWeight:600,color:done?"rgba(74,222,128,0.7)":t.textDim,fontFamily:mono,letterSpacing:1,marginTop:2 }}>{done?"TAMAMLANDI":"DEVAM EDİYOR"}</div>
@@ -1031,19 +1037,30 @@ function ChestPopup({ reward, onClose }) {
       </>) : (<>
         <div style={{ fontSize:56,marginBottom:8,animation:"popIn 0.5s ease-out" }}>{reward.icon}</div>
         <div style={{ fontSize:14,fontWeight:700,color:reward.color,fontFamily:warrior,letterSpacing:3,marginBottom:4,animation:"fadeUp 0.3s ease-out" }}>{reward.label}</div>
-        <div style={{ fontSize:42,fontWeight:800,color:t.gold,fontFamily:warrior,marginBottom:8,textShadow:`0 0 30px ${t.goldGlow}`,animation:"scaleUp 0.6s ease-out" }}>+{reward.gold} 💰</div>
+        <div style={{ fontSize:42,fontWeight:800,color:t.gold,fontFamily:warrior,marginBottom:8,textShadow:`0 0 30px ${t.goldGlow}`,animation:"scaleUp 0.6s ease-out" }}>+{reward.gold} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.5))" }} /></div>
         <button onClick={onClose} style={{ marginTop:8,padding:"12px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:8,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>TOPLA</button>
       </>)}
     </div>
   </div>);
 }
 
-function ReadyScreen({ onStart, opponentName }) {
-  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",minHeight:"100dvh",background:t.bg,padding:20 }}>
-    <div style={{ fontSize:14,letterSpacing:6,color:t.textDim,marginBottom:8,fontFamily:warrior,textTransform:"uppercase",animation:"fadeUp 0.4s ease-out" }}>RAKIP</div>
-    <div style={{ fontSize:28,fontWeight:700,color:t.hit,marginBottom:24,fontFamily:warrior,letterSpacing:4,textTransform:"uppercase",textShadow:`0 0 20px ${t.hitGlow}`,animation:"fadeUp 0.6s ease-out" }}>{opponentName}</div>
-    <div style={{ fontSize:20,color:t.text,marginBottom:36,fontFamily:warrior,letterSpacing:2,animation:"fadeUp 0.8s ease-out",textAlign:"center" }}>Gemileri batırmaya<br/>hazır mısın?</div>
-    <button onClick={onStart} style={{ padding:"16px 48px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:18,fontWeight:700,letterSpacing:4,textTransform:"uppercase",cursor:"pointer",fontFamily:warrior,animation:"scaleUp 0.5s ease-out",boxShadow:`0 0 30px ${t.accentGlow},0 4px 15px rgba(0,0,0,0.3)` }}>SAVAŞA HAZIR</button>
+function ReadyScreen({ onStart, opponentName, myName, myAvatar, oppAvatar }) {
+  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",minHeight:"100dvh",background:`radial-gradient(ellipse at 50% 30%, rgba(255,71,87,0.10) 0%, rgba(0,229,255,0.06) 40%, ${t.bg} 75%)`,padding:20,animation:"pageFadeIn 0.6s ease-out" }}>
+    {/* VS düzeni */}
+    <div style={{ display:"flex",alignItems:"center",gap:26,marginBottom:28,animation:"tutCardEnter 0.9s cubic-bezier(0.16,1,0.3,1)" }}>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ width:78,height:78,borderRadius:"50%",background:"rgba(0,229,255,0.10)",border:`3px solid ${t.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:38,boxShadow:`0 0 30px ${t.accentGlow}`,marginBottom:8 }}>{myAvatar||"⚓"}</div>
+        <div style={{ fontSize:13,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:2,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{myName||"SEN"}</div>
+      </div>
+      <div style={{ fontSize:34,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 30px ${t.goldGlow}`,animation:"rewardPulse 1.4s ease-in-out infinite" }}>VS</div>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ width:78,height:78,borderRadius:"50%",background:"rgba(255,71,87,0.10)",border:`3px solid ${t.hit}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:38,boxShadow:`0 0 30px ${t.hitGlow}`,marginBottom:8 }}>{oppAvatar||"🏴‍☠️"}</div>
+        <div style={{ fontSize:13,fontWeight:800,color:t.hit,fontFamily:warrior,letterSpacing:2,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{opponentName}</div>
+      </div>
+    </div>
+    <div style={{ fontSize:26,fontWeight:900,color:"#fff",marginBottom:10,fontFamily:warrior,letterSpacing:8,textTransform:"uppercase",textShadow:`0 0 40px ${t.hitGlow}, 0 3px 6px rgba(0,0,0,0.8)`,animation:"fadeUp 0.7s ease-out" }}>SAVAŞ BAŞLIYOR</div>
+    <div style={{ width:120,height:2,background:`linear-gradient(90deg, transparent, ${t.gold}, transparent)`,marginBottom:32,animation:"fadeUp 0.8s ease-out" }} />
+    <button onClick={onStart} style={{ padding:"18px 52px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:19,fontWeight:900,letterSpacing:5,textTransform:"uppercase",cursor:"pointer",fontFamily:warrior,animation:"scaleUp 0.5s ease-out 0.3s both",boxShadow:`0 0 40px ${t.accentGlow},0 6px 20px rgba(0,0,0,0.4)` }}>SAVAŞA HAZIR</button>
   </div>);
 }
 
@@ -1159,6 +1176,7 @@ function findMatch(myUid, myName, myElo, arenaId) {
     return data;
   };
 
+  const queueJoinTime = Date.now();
   const promise = new Promise(async (resolve) => {
     await set(ref(db, `${queuePath}/${myUid}`), { displayName: myName, elo: myElo || 1200, time: Date.now() });
     onDisconnect(ref(db, `${queuePath}/${myUid}`)).remove();
@@ -1191,7 +1209,12 @@ function findMatch(myUid, myName, myElo, arenaId) {
       snap.forEach(child => { if (child.key !== myUid) queue.push({ uid: child.key, ...child.val() }); });
       if (queue.length === 0) return;
       queue.sort((a, b) => Math.abs((a.elo || 1200) - (myElo || 1200)) - Math.abs((b.elo || 1200) - (myElo || 1200)));
-      const opponent = queue[0];
+      // ELO penceresi: ilk 15s ±150, 15-35s ±400, sonra herkes
+      const waitedMs = Date.now() - queueJoinTime;
+      const eloWindow = waitedMs < 15000 ? 150 : waitedMs < 35000 ? 400 : 99999;
+      const eligible = queue.filter(q => Math.abs((q.elo || 1200) - (myElo || 1200)) <= eloWindow);
+      if (eligible.length === 0) return;
+      const opponent = eligible[0];
 
       // Sadece küçük uid olan taraf oda oluşturur (deterministik)
       if (myUid < opponent.uid) {
@@ -1247,6 +1270,9 @@ export default function Game() {
   const [goldChange, setGoldChange] = useState(null);
   const [entryFeeDeducted, setEntryFeeDeducted] = useState(null);
   const [dailyReward, setDailyReward] = useState(null);
+  const [showAvatarPick, setShowAvatarPick] = useState(false);
+  const [oppAvatar, setOppAvatar] = useState(null);
+  const oppAvatarRef = useRef(false);
   const [emojiToast, setEmojiToast] = useState(null);
   const [myEmojiToast, setMyEmojiToast] = useState(null);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
@@ -1382,14 +1408,14 @@ export default function Game() {
     return () => { if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); };
   }, [phase]);
 
-  // AFK turn tracker — 20 saniye oynamazsa rakip kaybeder (sadece online)
+  // AFK turn tracker — 45 saniye oynamazsa son 15s geri sayım, sonra kaybeder (sadece online)
   useEffect(() => {
     if (phase !== "playing" || isBotGame) { if (afkIntervalRef.current) { clearInterval(afkIntervalRef.current); afkIntervalRef.current = null; } setAfkTimer(null); return; }
     // Sıra değişince timer sıfırla
     if (afkIntervalRef.current) clearInterval(afkIntervalRef.current);
     if (!myTurn) {
       // Rakip oynamıyor — geri sayım başlat
-      let secs = 20;
+      let secs = 45;
       setAfkTimer(secs);
       afkIntervalRef.current = setInterval(() => {
         secs--;
@@ -1419,6 +1445,9 @@ export default function Game() {
       if (game[`${myKey}_ships`]) setMyShipsData(game[`${myKey}_ships`]);
       if (game[`${oppKey}_ships`]) setOppShipsData(game[`${oppKey}_ships`]);
       if (game.phase === "placing" && !placementConfirmed) setPhase("placing");
+      // Rakip avatarını profilinden çek (bir kez)
+      const oppUid = pNum === 1 ? game.p2_uid : game.p1_uid;
+      if (oppUid && !oppAvatarRef.current) { oppAvatarRef.current = true; get(ref(db, `profiles/${oppUid}/avatar`)).then(s => { if (s.exists()) setOppAvatar(s.val()); }).catch(()=>{}); }
       if (game.phase === "playing") {
         if (phaseRef.current === "placing") { setPhase("ready"); sfx.init(); sfx.playBattleMusic(); }
         else if (phaseRef.current !== "ready") setPhase("playing");
@@ -1444,7 +1473,7 @@ export default function Game() {
             // Sound for incoming hits
             const incomingHits = lastAtk.shots.filter(s => s.result === "hit").length;
             sfx.init(); if (incomingHits > 0) sfx.play('hit');
-            if (game[`${myKey}_ships`]) { const myShips = Object.values(game[`${myKey}_ships`]); const reports = []; lastAtk.shots.forEach(s => { if (s.result === "hit") { const hitShip = myShips.find(sh => sh.cells.some(([r, c]) => r === s.r && c === s.c)); if (hitShip) { const shipDef = SHIPS.find(sd => sd.id === hitShip.id); const totalH = hitShip.cells.filter(([r, c]) => dHitMap[r][c]).length; reports.push(totalH === hitShip.cells.length ? `${shipDef?.name} battı!` : `${shipDef?.name} ${totalH} yara aldı`); } } }); if (reports.length > 0) { setDamageReport(reports.join(" • ")); setMicroFeedback({ text: fbPick(reports.some(r => r.includes('battı')) ? FB_GOT_SUNK : FB_GOT_HIT), color: t.hit }); if (damageTimerRef.current) clearTimeout(damageTimerRef.current); damageTimerRef.current = setTimeout(() => setDamageReport(""), 8000); if (reports.some(r => r.includes('battı'))) setTimeout(() => { sfx.play('sunk'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2); }, 200); } }
+            if (game[`${myKey}_ships`]) { const myShips = Object.values(game[`${myKey}_ships`]); const reports = []; lastAtk.shots.forEach(s => { if (s.result === "hit") { const hitShip = myShips.find(sh => sh.cells.some(([r, c]) => r === s.r && c === s.c)); if (hitShip) { const shipDef = SHIPS.find(sd => sd.id === hitShip.id); const totalH = hitShip.cells.filter(([r, c]) => dHitMap[r][c]).length; reports.push(totalH === hitShip.cells.length ? `${shipDef?.name} battı!` : `${shipDef?.name} ${totalH}. yarasını aldı`); } } }); if (reports.length > 0) { setDamageReport(reports.join(" • ")); setMicroFeedback({ text: reports.length ? reports[reports.length-1].toLocaleUpperCase('tr-TR') : fbPick(FB_GOT_HIT), color: t.hit }); if (damageTimerRef.current) clearTimeout(damageTimerRef.current); damageTimerRef.current = setTimeout(() => setDamageReport(""), 8000); if (reports.some(r => r.includes('battı'))) setTimeout(() => { sfx.play('sunk'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2); }, 200); } }
           }
           if (lastAtk.by === pNum && lastAtk.shots) {
             setBlinkCells(lastAtk.shots.map(s => [s.r, s.c])); if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current); blinkTimerRef.current = setTimeout(() => setBlinkCells([]), 3000);
@@ -1800,7 +1829,7 @@ export default function Game() {
           if (hitShip) {
             const shipDef = SHIPS.find(sd => sd.id === hitShip.id);
             const totalH = hitShip.cells.filter(([hr, hc]) => newDefHit[hr][hc]).length;
-            reports.push(totalH === hitShip.cells.length ? `${shipDef?.name} battı!` : `${shipDef?.name} ${totalH} yara aldı`);
+            reports.push(totalH === hitShip.cells.length ? `${shipDef?.name} battı!` : `${shipDef?.name} ${totalH}. yarasını aldı`);
           }
         }
       }
@@ -1813,7 +1842,7 @@ export default function Game() {
     setTimeout(() => setBlinkCells([]), 3000);
     // Sound for incoming damage
     const botHitCount = shots.filter(([r,c]) => defenseBoard[r][c] > 0).length;
-    if (botHitCount > 0) { sfx.play('hit'); setMicroFeedback({ text: fbPick(reports.some(r => r.includes('battı')) ? FB_GOT_SUNK : FB_GOT_HIT), color: t.hit }); }
+    if (botHitCount > 0) { sfx.play('hit'); const rep = reports.length ? reports[reports.length-1].toLocaleUpperCase('tr-TR') : fbPick(FB_GOT_HIT); setMicroFeedback({ text: rep, color: t.hit }); }
     if (reports.some(r => r.includes('battı'))) setTimeout(() => sfx.play('sunk'), 200);
     if (reports.length > 0) { setDamageReport(reports.join(" • ")); setTimeout(() => setDamageReport(""), 8000); }
     setActiveBoard("defense");
@@ -1822,8 +1851,17 @@ export default function Game() {
       setWinner("Gemilerin battı!"); setIsWin(false); setPhase("gameover");
       sfx.init(); sfx.play('lose'); sfx.playDefeatMusic();
       setMissionStats(prev => ({ ...prev, gamesPlayed: prev.gamesPlayed + 1 }));
+      // Bot'a yenilince ELO düşer — düşük ELO'lu bota yenilirsen çok gider
+      if (authUid && myProfile && !isOnboarding) {
+        const botElo2 = (myProfile.elo || 1200) + Math.floor(Math.random() * 160) - 40;
+        const myOld2 = myProfile.elo || 1200;
+        const myNew2 = calculateElo(myOld2, botElo2, false);
+        update(ref(db, `profiles/${authUid}`), { elo: myNew2, losses: (myProfile.losses||0)+1, totalGames: (myProfile.totalGames||0)+1, lastGameAt: Date.now() }).catch(()=>{});
+        setMyProfile(prev => prev ? { ...prev, elo: myNew2, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1 } : prev);
+        setEloChange({ myOld: myOld2, myNew: myNew2, oppOld: botElo2, oppNew: calculateElo(botElo2, myOld2, true) });
+      }
     } else {
-      setTimeout(() => { setMyTurn(true); setActiveBoard("attack"); }, isOnboarding ? 4200 : 3500);
+      setTimeout(() => { setMyTurn(true); setActiveBoard("attack"); }, 2000);
     }
   };
 
@@ -1832,17 +1870,29 @@ export default function Game() {
     const newAtkOverlay = attackOverlay.map(row => [...row]);
     const newAtkHit = atkHitMap.map(row => [...row]);
     let newMyHits = myHits;
+    const atkReports = [];
     currentShots.forEach(([r, c]) => {
       const isHit = botBoard[r][c] > 0;
       newAtkOverlay[r][c] = isHit ? "hit" : "miss";
-      if (isHit) { newMyHits++; newAtkHit[r][c] = true; }
+      if (isHit) {
+        newMyHits++; newAtkHit[r][c] = true;
+        if (botShips) {
+          const hs = Object.values(botShips).find(sh => sh.cells.some(([sr,sc]) => sr===r && sc===c));
+          if (hs) {
+            const sd = SHIPS.find(s => s.id === hs.id);
+            const th = hs.cells.filter(([hr,hc]) => newAtkHit[hr][hc]).length;
+            atkReports.push(th === hs.cells.length ? `${(sd?.name||"GEMİ").toLocaleUpperCase('tr-TR')} BATTI! 💀` : `${(sd?.name||"GEMİ").toLocaleUpperCase('tr-TR')} ${th}. YARASINI ALDI`);
+          }
+        }
+      }
     });
+    window.__lastAtkReport = atkReports.length ? atkReports[atkReports.length-1] : null;
     // Sound effects for shots
     sfx.init();
     const hitCount0 = currentShots.filter(([r,c]) => botBoard[r][c] > 0).length;
     if (hitCount0 > 0) { sfx.play('hit');
       if (isOnboarding && !onboardingMilestones.firstHit) { setOnboardingMilestones(prev => ({...prev, firstHit: true})); setMicroFeedback({ text: 'İLK İSABET! 🎯', color: t.gold }); }
-      else { setMicroFeedback({ text: fbPick(hitCount0 === 3 ? FB_HIT3 : hitCount0 === 2 ? FB_HIT2 : FB_HIT1), color: hitCount0 === 3 ? t.gold : t.accent }); }
+      else { const atkRep = window.__lastAtkReport; setMicroFeedback({ text: atkRep || fbPick(hitCount0 === 3 ? FB_HIT3 : hitCount0 === 2 ? FB_HIT2 : FB_HIT1), color: hitCount0 === 3 ? t.gold : t.accent }); window.__lastAtkReport = null; }
     }
     else { sfx.play('miss'); setMicroFeedback({ text: fbPick(FB_MISS), color: t.miss }); }
     // Check for sunk ships
@@ -1858,7 +1908,7 @@ export default function Game() {
     }
     if (sunkThisTurn) { setTimeout(() => { sfx.play('sunk'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2);
       if (isOnboarding && !onboardingMilestones.firstSunk) { setOnboardingMilestones(prev => ({...prev, firstSunk: true})); setMicroFeedback({ text: 'İLK BATIŞ! 💀', color: t.sunk }); }
-      else { setMicroFeedback({ text: fbPick(FB_SUNK), color: t.sunk }); }
+      else { const sr = window.__lastAtkReport && window.__lastAtkReport.includes("BATTI") ? window.__lastAtkReport : fbPick(FB_SUNK); setMicroFeedback({ text: sr, color: t.sunk }); }
       // Gemi battı → müzik zirveye çıksın
       sfx.setBattleIntensity(1.0);
       setTimeout(() => sfx.setBattleIntensity(0.35), 6000);
@@ -1907,7 +1957,17 @@ export default function Game() {
       setMissionStats(prev => ({ ...prev, wins: prev.wins + 1, botWin: true, gamesPlayed: prev.gamesPlayed + 1, totalHits: prev.totalHits + newMyHits, shipsSunk: prev.shipsSunk + sunkCount, fastWin: elapsed < 180 }));
       // +2 gold for bot win (with streak multiplier)
       const streakMult = hitStreak >= 9 ? 4 : hitStreak >= 6 ? 3 : hitStreak >= 3 ? 2 : 1;
-      const botWinGold = 2 * streakMult;
+      // Bot ELO'su: oyuncuya yakın ± sapma — yüksek ELO'lu botu yenersen çok kazanırsın
+      const botElo = (myProfile?.elo || 1200) + Math.floor(Math.random() * 160) - 40;
+      const myOldElo = myProfile?.elo || 1200;
+      const myNewElo = calculateElo(myOldElo, botElo, true);
+      const eloGain = myNewElo - myOldElo;
+      const botWinGold = Math.max(2, Math.round(eloGain * 1.5)) * streakMult;
+      if (authUid && myProfile && !isOnboarding) {
+        update(ref(db, `profiles/${authUid}`), { elo: myNewElo, wins: (myProfile.wins||0)+1, totalGames: (myProfile.totalGames||0)+1, lastGameAt: Date.now() }).catch(()=>{});
+        setMyProfile(prev => prev ? { ...prev, elo: myNewElo, wins:(prev.wins||0)+1, totalGames:(prev.totalGames||0)+1 } : prev);
+        setEloChange({ myOld: myOldElo, myNew: myNewElo, oppOld: botElo, oppNew: calculateElo(botElo, myOldElo, false) });
+      }
       if (authUid && myProfile && !isOnboarding) {
         const newGold = safeGold(myProfile.gold) + botWinGold;
         get(ref(db, `profiles/${authUid}`)).then(snap => {
@@ -1923,7 +1983,7 @@ export default function Game() {
       }
     } else {
       setMyTurn(false);
-      setTimeout(() => botFireShots(), 3200 + Math.random() * 800);
+      setTimeout(() => botFireShots(), 2000 + Math.random() * 400);
     }
   };
 
@@ -2109,7 +2169,7 @@ export default function Game() {
     }
     return <><style>{ANIMS}</style><div style={{ display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#050b18" }}><div style={{ width:40,height:40,borderRadius:"50%",border:"3px solid #00e5ff",borderTopColor:"transparent",animation:"spin 0.8s linear infinite" }} /><style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style></div></>;
   }
-  if (phase === "ready") return <><style>{ANIMS}</style><ReadyScreen opponentName={opponentName} onStart={() => setPhase("playing")} /></>;
+  if (phase === "ready") return <><style>{ANIMS}</style><ReadyScreen opponentName={opponentName} onStart={() => setPhase("playing")}  myName={playerName} myAvatar={myProfile?.avatar} oppAvatar={oppAvatar} /></>;
 
   // === TUTORIAL SİSTEMİ ===
   if (phase === "onboarding_intro") {
@@ -2496,11 +2556,17 @@ export default function Game() {
       {myProfile && (<div style={{ background:`linear-gradient(145deg, ${t.surface}, ${t.surfaceLight})`,border:`2px solid ${rank?.color||t.border}`,borderRadius:16,padding:"18px 22px",marginBottom:16,width:"100%",maxWidth:360,animation:"fadeUp 0.3s ease-out, rankGlow 3s ease-in-out infinite",boxShadow:`0 4px 20px rgba(0,0,0,0.4), 0 0 20px ${rank?.color?rank.color+"22":"transparent"}`,zIndex:1,'--rank-color':(rank?.color||t.accent)+"55" }}>
         <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12 }}>
           <div>
-            <div style={{ fontSize:20,fontWeight:800,color:t.text,fontFamily:warrior,letterSpacing:2 }}>{myProfile.displayName}</div>
+            <div style={{ display:"flex",alignItems:"center",gap:10 }}>
+              <button onClick={()=>setShowAvatarPick(v=>!v)} title="Profil simgeni seç" style={{ width:44,height:44,borderRadius:"50%",background:"rgba(0,229,255,0.10)",border:`2px solid ${rank?.color||t.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",boxShadow:`0 0 14px ${(rank?.color||t.accent)}44`,padding:0 }}>{myProfile.avatar||"⚓"}</button>
+              <div style={{ fontSize:20,fontWeight:800,color:t.text,fontFamily:warrior,letterSpacing:2 }}>{myProfile.displayName}</div>
+            </div>
+            {showAvatarPick && <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginTop:8,padding:"8px 10px",background:"rgba(0,0,0,0.35)",borderRadius:12,border:`1px solid ${t.border}` }}>
+              {["⚓","🦈","🐙","⚔","🏴‍☠️","🌊","🦅","🐉","💀","🔱"].map(av=>(<button key={av} onClick={()=>{ setShowAvatarPick(false); if(authUid){ update(ref(db,`profiles/${authUid}`),{avatar:av}).catch(()=>{}); } setMyProfile(prev=>prev?{...prev,avatar:av}:prev); }} style={{ width:36,height:36,borderRadius:"50%",background:myProfile.avatar===av?"rgba(0,229,255,0.25)":"rgba(255,255,255,0.05)",border:`2px solid ${myProfile.avatar===av?t.accent:"transparent"}`,fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>{av}</button>))}
+            </div>}
             <div style={{ display:"flex",alignItems:"center",gap:6,marginTop:4 }}>
               <span style={{ fontSize:14,fontWeight:800,color:rank?.color||t.textDim,fontFamily:warrior,letterSpacing:2,textShadow:`0 0 10px ${rank?.color||t.textDim}44` }}>{rank?.icon} {rank?.title}</span>
               <span style={{ fontSize:14,fontWeight:900,color:t.gold,fontFamily:warrior,background:"linear-gradient(135deg,rgba(255,215,0,0.2),rgba(255,215,0,0.06))",padding:"4px 12px",borderRadius:20,border:`1px solid rgba(255,215,0,0.4)`,boxShadow:`0 0 14px ${t.goldGlow}`,letterSpacing:1,display:"inline-flex",alignItems:"center",gap:6 }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" style={{ filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.5))",animation:"coinSpinY 3s ease-in-out infinite" }}><defs><radialGradient id="coinG" cx="35%" cy="30%"><stop offset="0%" stopColor="#fff3b0"/><stop offset="45%" stopColor="#ffd700"/><stop offset="100%" stopColor="#b8860b"/></radialGradient></defs><circle cx="12" cy="12" r="10" fill="url(#coinG)" stroke="#8a6d1f" strokeWidth="1.2"/><circle cx="12" cy="12" r="7" fill="none" stroke="rgba(138,109,31,0.55)" strokeWidth="0.8"/><path d="M12 7l1.2 2.6 2.8 0.3-2.1 1.9 0.6 2.8L12 13.2 9.5 14.6l0.6-2.8-2.1-1.9 2.8-0.3z" fill="#8a6d1f"/></svg>
+                <img src="/img/coin.png" alt="altın" style={{ width:20,height:20,filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.5))",animation:"coinSpinY 3s ease-in-out infinite" }} />
                 {safeGold(myProfile.gold)}</span>
               {canChangeName() && <button onClick={()=>{setPhase("splash");}} style={{ fontSize:8,color:t.textDim,background:"transparent",border:`1px solid ${t.border}`,borderRadius:4,padding:"2px 6px",cursor:"pointer",fontFamily:mono }}>✏</button>}
             </div>
