@@ -281,7 +281,7 @@ class SoundEngine {
       const eased = t < 0.5 ? 2*t*t : -1+(4-2*t)*t; // ease in-out
       const vol = startVol + (targetVol - startVol) * eased;
       if (this._audioGainNode) this._audioGainNode.gain.setValueAtTime(vol, this.ctx.currentTime);
-      if (step >= steps) { clearInterval(this._dynamicTimer); this._dynamicTimer = null; this._mp3Volume = targetVol; }
+      if (step >= steps) { clearInterval(this._dynamicTimer); this._dynamicTimer = null; this._mp3Volume = targetVol; if (targetVol > 0) this._loopTargetVol = targetVol; }
     }, interval);
   }
   // Oyun heyecanına göre volume ayarla (dışarıdan çağrılır)
@@ -320,8 +320,9 @@ class SoundEngine {
     }
     this._stopMp3();
     this.currentMusic = 'main';
+    this._loopTargetVol = vol;
     const audio = new Audio('/music/iron-tide.mp3');
-    audio.loop = true;
+    audio.loop = false; // manuel loop — dikişi fade ile gizle
     audio.crossOrigin = 'anonymous';
     this._audioEl = audio;
     const gainNode = this.ctx.createGain();
@@ -332,6 +333,22 @@ class SoundEngine {
     srcNode.connect(gainNode);
     this._audioSrc = srcNode;
     this._mp3Volume = 0;
+    // Parça sonuna 3.5s kala yavaşça kıs
+    let fadingOut = false;
+    audio.addEventListener('timeupdate', () => {
+      if (!audio.duration || fadingOut) return;
+      if (audio.duration - audio.currentTime < 3.5) {
+        fadingOut = true;
+        this._rampMp3Volume(0, 3000);
+      }
+    });
+    // Bitince başa sar, yavaşça aç
+    audio.addEventListener('ended', () => {
+      fadingOut = false;
+      audio.currentTime = 0;
+      audio.play().catch(()=>{});
+      setTimeout(() => this._rampMp3Volume(this._loopTargetVol || 0.10, 3500), 200);
+    });
     audio.play().catch(()=>{});
     setTimeout(() => this._rampMp3Volume(vol, 3000), 100);
   }
@@ -581,8 +598,11 @@ function RippleButton({ children, onClick, style, disabled, ...props }) {
 
 // === MİKRO FEEDBACK ===
 function MicroFeedback({ text, color, onDone }) {
-  useEffect(() => { const t = setTimeout(()=>onDone?.(), 800); return ()=>clearTimeout(t); }, []);
-  return (<div style={{ position:'fixed',top:'30%',left:'50%',transform:'translateX(-50%)',zIndex:10001,fontSize:16,fontWeight:800,color:color||t.gold,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 15px ${color||t.gold}`,animation:'microFloat 0.8s ease-out forwards',pointerEvents:'none' }}>{text}</div>);
+  useEffect(() => { const tm = setTimeout(()=>onDone?.(), 2600); return ()=>clearTimeout(tm); }, []);
+  const clr = color || t.gold;
+  return (<div style={{ position:'fixed',top:'28%',left:'50%',transform:'translateX(-50%)',zIndex:10001,fontSize:30,fontWeight:900,color:clr,fontFamily:warrior,letterSpacing:5,textTransform:'uppercase',whiteSpace:'nowrap',
+    textShadow:`0 2px 0 rgba(0,0,0,0.9), 0 4px 0 rgba(0,0,0,0.7), 0 6px 0 rgba(0,0,0,0.5), 0 8px 16px rgba(0,0,0,0.8), 0 0 30px ${clr}, 0 0 70px ${clr}66`,
+    animation:'fbPop3d 2.6s cubic-bezier(0.18,1.4,0.4,1) forwards',pointerEvents:'none' }}>{text}</div>);
 }
 
 const ARENAS = [
@@ -624,8 +644,11 @@ async function checkDailyReward(uid) {
   if (!snap.exists()) return null;
   const profile = snap.val();
   const now = Date.now();
-  if (profile.lastDailyReward && isSameDay(profile.lastDailyReward, now)) return null;
-  let streak = (profile.lastDailyReward && isConsecutiveDay(profile.lastDailyReward, now)) ? (profile.loginStreak || 0) + 1 : 1;
+  // Günlük max 3 ödül
+  const sameDay = profile.lastDailyReward && isSameDay(profile.lastDailyReward, now);
+  const todayCount = sameDay ? (profile.dailyRewardCount || 1) : 0;
+  if (todayCount >= 3) return null;
+  let streak = sameDay ? (profile.loginStreak || 1) : ((profile.lastDailyReward && isConsecutiveDay(profile.lastDailyReward, now)) ? (profile.loginStreak || 0) + 1 : 1);
   const reward = calculateDailyReward(streak);
   const newGold = safeGold(profile.gold) + reward;
   // Use set() with full clean profile to avoid NaN contamination from other fields
@@ -640,6 +663,9 @@ async function checkDailyReward(uid) {
     lastDailyReward: now,
     createdAt: profile.createdAt || Date.now(),
     lastGameAt: profile.lastGameAt || null,
+    onboardingDone: profile.onboardingDone === true,
+    nameSetAt: profile.nameSetAt || null,
+    dailyRewardCount: todayCount + 1,
   };
   await set(profileRef, cleanProfile);
   return { reward, streak, newGold };
@@ -706,6 +732,9 @@ async function ensureProfile(uid, displayName) {
     lastDailyReward: existing.lastDailyReward || null,
     createdAt: existing.createdAt || Date.now(),
     lastGameAt: existing.lastGameAt || null,
+    onboardingDone: existing.onboardingDone === true,
+    nameSetAt: existing.nameSetAt || null,
+    dailyRewardCount: (typeof existing.dailyRewardCount === "number" && isFinite(existing.dailyRewardCount)) ? existing.dailyRewardCount : 0,
   };
   // ALWAYS overwrite with set() — kills any hidden NaN in any field
   await set(profileRef, sanitized);
@@ -871,6 +900,7 @@ const ANIMS = `
 @keyframes arSlideIn{0%{opacity:0;transform:perspective(800px) rotateX(25deg) translateY(80px) scale(0.7)}40%{opacity:1;transform:perspective(800px) rotateX(-5deg) translateY(-10px) scale(1.05)}70%{transform:perspective(800px) rotateX(2deg) translateY(5px) scale(0.98)}100%{transform:perspective(800px) rotateX(0deg) translateY(0) scale(1)}}
 @keyframes arGlow{0%,100%{box-shadow:0 10px 40px rgba(0,0,0,0.5),0 0 30px var(--ar-color,rgba(0,229,255,0.3))}50%{box-shadow:0 15px 60px rgba(0,0,0,0.6),0 0 50px var(--ar-color,rgba(0,229,255,0.5))}}
 @keyframes previewZoom{0%{opacity:0;transform:scale(0.5) perspective(600px) rotateY(15deg)}50%{opacity:1;transform:scale(1.08) perspective(600px) rotateY(-3deg)}100%{transform:scale(1) perspective(600px) rotateY(0deg)}}
+@keyframes fbPop3d{0%{opacity:0;transform:translateX(-50%) scale(0.3) perspective(500px) rotateX(40deg)}12%{opacity:1;transform:translateX(-50%) scale(1.25) perspective(500px) rotateX(-6deg)}22%{transform:translateX(-50%) scale(1) perspective(500px) rotateX(0deg)}78%{opacity:1;transform:translateX(-50%) scale(1) translateY(0)}100%{opacity:0;transform:translateX(-50%) scale(0.92) translateY(-30px)}}
 @keyframes floatShadow{0%,100%{transform:translateY(0);filter:drop-shadow(0 8px 20px rgba(0,0,0,0.4))}50%{transform:translateY(-8px);filter:drop-shadow(0 16px 30px rgba(0,0,0,0.6))}}
 @keyframes pageEnter{0%{opacity:0;transform:translateY(32px) scale(0.97)}60%{opacity:1;transform:translateY(-4px) scale(1.005)}100%{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes pageFadeIn{0%{opacity:0}100%{opacity:1}}
