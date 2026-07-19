@@ -606,11 +606,11 @@ function RippleButton({ children, onClick, style, disabled, ...props }) {
 
 // === MİKRO FEEDBACK ===
 function MicroFeedback({ text, color, onDone }) {
-  useEffect(() => { const tm = setTimeout(()=>onDone?.(), 2600); return ()=>clearTimeout(tm); }, []);
+  useEffect(() => { const tm = setTimeout(()=>onDone?.(), 2200); return ()=>clearTimeout(tm); }, []);
   const clr = color || t.gold;
-  return (<div style={{ position:'fixed',top:'28%',left:'50%',transform:'translateX(-50%)',zIndex:10001,fontSize:30,fontWeight:900,color:clr,fontFamily:warrior,letterSpacing:5,textTransform:'uppercase',whiteSpace:'nowrap',
-    textShadow:`0 2px 0 rgba(0,0,0,0.9), 0 4px 0 rgba(0,0,0,0.7), 0 6px 0 rgba(0,0,0,0.5), 0 8px 16px rgba(0,0,0,0.8), 0 0 30px ${clr}, 0 0 70px ${clr}66`,
-    animation:'fbPop3d 2.6s cubic-bezier(0.18,1.4,0.4,1) forwards',pointerEvents:'none' }}>{text}</div>);
+  return (<div style={{ position:'fixed',top:'46%',left:'50%',zIndex:10001,fontSize:26,fontWeight:900,color:clr,fontFamily:warrior,letterSpacing:5,textTransform:'uppercase',whiteSpace:'nowrap',perspective:'600px',
+    textShadow:`0 2px 0 rgba(0,0,0,0.9), 0 5px 0 rgba(0,0,0,0.6), 0 10px 20px rgba(0,0,0,0.8), 0 0 30px ${clr}, 0 0 80px ${clr}55`,
+    animation:'arZoomText 2.2s cubic-bezier(0.2,0.9,0.3,1) forwards',pointerEvents:'none' }}>{text}</div>);
 }
 
 const ARENAS = [
@@ -918,6 +918,8 @@ const ANIMS = `
 @keyframes arGlow{0%,100%{box-shadow:0 10px 40px rgba(0,0,0,0.5),0 0 30px var(--ar-color,rgba(0,229,255,0.3))}50%{box-shadow:0 15px 60px rgba(0,0,0,0.6),0 0 50px var(--ar-color,rgba(0,229,255,0.5))}}
 @keyframes previewZoom{0%{opacity:0;transform:scale(0.5) perspective(600px) rotateY(15deg)}50%{opacity:1;transform:scale(1.08) perspective(600px) rotateY(-3deg)}100%{transform:scale(1) perspective(600px) rotateY(0deg)}}
 @keyframes coinSpinY{0%,100%{transform:rotateY(0deg)}50%{transform:rotateY(180deg)}}
+@keyframes explodeCore{0%,100%{opacity:0.9;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
+@keyframes explodeWave{0%{opacity:0.7;transform:scale(0.6)}70%{opacity:0.15;transform:scale(1.25)}100%{opacity:0;transform:scale(1.4)}}
 @keyframes scanline{0%{top:-2px}100%{top:100vh}}
 @keyframes flameFlicker{0%,100%{transform:scale(1) rotate(-3deg);opacity:0.85}25%{transform:scale(1.15) rotate(4deg);opacity:1}50%{transform:scale(0.92) rotate(-5deg);opacity:0.8}75%{transform:scale(1.08) rotate(3deg);opacity:0.95}}
 @keyframes turnPulse{0%,100%{box-shadow:0 0 12px rgba(0,229,255,0.4), inset 0 0 8px rgba(0,229,255,0.1)}50%{box-shadow:0 0 30px rgba(0,229,255,0.8), inset 0 0 16px rgba(0,229,255,0.25)}}
@@ -929,6 +931,7 @@ const ANIMS = `
 @keyframes shineSweep{0%{left:-60%}55%{left:120%}100%{left:120%}}
 @keyframes rewardPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
 @keyframes btnBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+@keyframes arZoomText{0%{opacity:0;transform:translateX(-50%) scale(0.25) rotateX(35deg);filter:blur(2px)}14%{opacity:1;transform:translateX(-50%) scale(0.7) rotateX(12deg);filter:blur(0)}60%{opacity:1;transform:translateX(-50%) translateY(-30px) scale(1.5) rotateX(0deg)}100%{opacity:0;transform:translateX(-50%) translateY(-70px) scale(2.6);filter:blur(4px)}}
 @keyframes fbPop3d{0%{opacity:0;transform:translateX(-50%) scale(0.3) perspective(500px) rotateX(40deg)}12%{opacity:1;transform:translateX(-50%) scale(1.25) perspective(500px) rotateX(-6deg)}22%{transform:translateX(-50%) scale(1) perspective(500px) rotateX(0deg)}78%{opacity:1;transform:translateX(-50%) scale(1) translateY(0)}100%{opacity:0;transform:translateX(-50%) scale(0.92) translateY(-30px)}}
 @keyframes floatShadow{0%,100%{transform:translateY(0);filter:drop-shadow(0 8px 20px rgba(0,0,0,0.4))}50%{transform:translateY(-8px);filter:drop-shadow(0 16px 30px rgba(0,0,0,0.6))}}
 @keyframes pageEnter{0%{opacity:0;transform:translateY(32px) scale(0.97)}60%{opacity:1;transform:translateY(-4px) scale(1.005)}100%{opacity:1;transform:translateY(0) scale(1)}}
@@ -957,11 +960,15 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, ov
           // showShipStatus: savaş haritasında vurulan gemi hücreleri farklı gösterilir
           else if(showShipStatus&&val>0&&shipColor){bg=shipColor;content="■";clr="rgba(255,255,255,0.6)";}
         }
-        else{if(ovr==="hit"){bg=t.hit;content=(<span style={{position:"relative",display:"inline-block"}}>✕<span style={{position:"absolute",top:-7,left:"50%",marginLeft:-5,fontSize:9,animation:"flameFlicker 0.8s ease-in-out infinite",filter:"drop-shadow(0 0 4px rgba(255,140,0,0.9))",pointerEvents:"none"}}>🔥</span></span>);shadow=`inset 0 0 12px ${t.hitGlow}`;clr="#fff";}else if(ovr==="miss"){bg=t.miss;content="•";}else if(ovr==="sunk"){bg=t.sunk;content="💀";shadow="inset 0 0 12px rgba(249,115,22,0.4)";clr="#fff";}else if(ovr==="selected"){bg="rgba(6,182,212,0.45)";content="◎";shadow=`inset 0 0 12px ${t.accentGlow}`;clr=t.accent;}if(!ovr&&isManual){bg="rgba(251,191,36,0.15)";content="⚑";clr=t.gold;}}
+        else{if(ovr==="hit"){bg="#1a0505";content=(<span style={{position:"absolute",inset:0,display:"block",pointerEvents:"none"}}>
+          <span style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 50%, rgba(255,235,120,0.95) 0%, rgba(255,150,30,0.9) 22%, rgba(220,50,10,0.85) 45%, rgba(80,10,5,0.9) 70%, rgba(10,2,2,0.95) 100%)",animation:"explodeCore 1.1s ease-in-out infinite"}} />
+          <span style={{position:"absolute",inset:"-15%",background:"radial-gradient(circle at 50% 50%, transparent 30%, rgba(255,120,20,0.35) 55%, transparent 75%)",animation:"explodeWave 1.6s ease-out infinite"}} />
+          <span style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",fontSize:"0.85em",fontWeight:900,color:"#fff",textShadow:"0 0 6px rgba(0,0,0,0.9)"}}>✕</span>
+        </span>);shadow="inset 0 0 14px rgba(255,90,20,0.6)";clr="#fff";}else if(ovr==="miss"){bg=t.miss;content="•";}else if(ovr==="sunk"){bg=t.sunk;content="💀";shadow="inset 0 0 12px rgba(249,115,22,0.4)";clr="#fff";}else if(ovr==="selected"){bg="rgba(6,182,212,0.45)";content="◎";shadow=`inset 0 0 12px ${t.accentGlow}`;clr=t.accent;}if(!ovr&&isManual){bg="rgba(251,191,36,0.15)";content="⚑";clr=t.gold;}}
         if(isHov){bg="rgba(6,182,212,0.35)";shadow=`inset 0 0 10px ${t.accentGlow}`;}
         const isHint = onboardingHint?.some(([hr,hc])=>hr===r&&hc===c) && !ovr;
         if(isHint){bg="rgba(255,215,0,0.25)";shadow=`inset 0 0 12px ${t.goldGlow}, 0 0 8px ${t.goldGlow}`;content="◆";clr=t.gold;}
-        return <div key={c} onClick={()=>handleClick(r,c)} onMouseEnter={()=>onHover?.(r,c)} onContextMenu={e=>{e.preventDefault();onRightClick?.(r,c);}} onTouchStart={()=>handleTouchStart(r,c)} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={{ width:cellSize,height:cellSize,border:"1px solid rgba(55,65,81,0.5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:ovr==="sunk"?10:8,fontWeight:700,cursor:disabled?"default":"pointer",background:bg,boxShadow:shadow,color:clr,transition:"all 0.15s ease",boxSizing:"border-box",animation:isBlink?"blink3s 0.5s ease-in-out 6":isRipple?"popIn 0.3s ease-out":"none",borderRadius:1 }}>{content}</div>;
+        return <div key={c} onClick={()=>handleClick(r,c)} onMouseEnter={()=>onHover?.(r,c)} onContextMenu={e=>{e.preventDefault();onRightClick?.(r,c);}} onTouchStart={()=>handleTouchStart(r,c)} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={{ position:"relative",overflow:"hidden",width:cellSize,height:cellSize,border:"1px solid rgba(55,65,81,0.5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:ovr==="sunk"?10:8,fontWeight:700,cursor:disabled?"default":"pointer",background:bg,boxShadow:shadow,color:clr,transition:"all 0.15s ease",boxSizing:"border-box",animation:isBlink?"blink3s 0.5s ease-in-out 6":isRipple?"popIn 0.3s ease-out":"none",borderRadius:1 }}>{content}</div>;
       })}</div>))}
   </div>);
 }
@@ -1778,7 +1785,7 @@ export default function Game() {
     setTimeout(() => { sfx.init(); sfx.playBattleMusic(false); }, 300);
   };
 
-  const sendEmoji = async (qe) => { if (!roomIdRef.current) return; setMyEmojiToast({ emoji: qe.emoji, label: qe.label }); setTimeout(() => setMyEmojiToast(null), 3000); await set(ref(db, `emojis/${roomIdRef.current}`), { emoji: qe.emoji, label: qe.label, from: playerNumRef.current, time: Date.now() }); };
+  const sendEmoji = async (qe) => { setMyEmojiToast({ emoji: qe.emoji, label: qe.label }); setTimeout(() => setMyEmojiToast(null), 3000); if (!roomIdRef.current || isBotGame) return; await set(ref(db, `emojis/${roomIdRef.current}`), { emoji: qe.emoji, label: qe.label, from: playerNumRef.current, time: Date.now() }); };
 
   const startBotGame = () => {
     if (!playerName.trim()) { setMessage("Adını yaz!"); return; }
@@ -1837,6 +1844,11 @@ export default function Game() {
   };
 
   const botFireShots = () => {
+    // Önce savunma platformuna geç, 1 sn sonra atışlar düşsün
+    setActiveBoard("defense");
+    setTimeout(() => botFireShotsImpl(), 1000);
+  };
+  const botFireShotsImpl = () => {
     const shots = isOnboarding ? botChooseShotsOnboarding(botAttackOverlay, defenseBoard, SHOTS_PER_TURN) : botChooseShots(botAttackOverlay, [], SHOTS_PER_TURN);
     const newBotOverlay = botAttackOverlay.map(row => [...row]);
     const newDefOverlay = defenseOverlay.map(row => [...row]);
@@ -1872,7 +1884,6 @@ export default function Game() {
     const botSunkSomething = reports.some(r => r.includes('battı'));
     if (botSunkSomething) setTimeout(() => sfx.play('sunk'), 200);
     if (reports.length > 0) { setDamageReport(reports.join(" • ")); setTimeout(() => setDamageReport(""), 8000); }
-    setActiveBoard("defense");
     // Check if bot won
     if (newOppHits >= 20) {
       setWinner("Gemilerin battı!"); setIsWin(false); setPhase("gameover");
@@ -2794,7 +2805,7 @@ export default function Game() {
         <div style={{ display:"flex",gap:5 }}>{[0,1,2].map(i=><div key={i} style={{ width:14,height:14,borderRadius:"50%",background:i<currentShots.length?t.hit:t.accent,opacity:i<currentShots.length?0.3:1,animation:i<currentShots.length?"popIn 0.3s ease-out":"none" }} />)}</div>
         <RippleButton onClick={fireShots} disabled={currentShots.length===0} style={{ padding:"12px 36px",background:currentShots.length>0?`linear-gradient(135deg,${t.hit},#dc2626)`:t.surfaceLight,color:currentShots.length>0?"#fff":t.textDim,border:"none",borderRadius:10,fontSize:16,fontWeight:700,letterSpacing:3,cursor:currentShots.length===0?"default":"pointer",fontFamily:warrior,boxShadow:currentShots.length>0?`0 0 24px ${t.hitGlow}`:"none",opacity:currentShots.length===0?0.5:1 }}>ATEŞ 🔥</RippleButton>
       </div>)}
-      {!isBotGame && <div style={{ position:"fixed",bottom:myTurn&&activeBoard==="attack"&&!markMode?64:0,left:0,right:0,display:"flex",justifyContent:"center",gap:2,background:"rgba(10,14,23,0.92)",backdropFilter:"blur(8px)",borderTop:`1px solid ${t.border}`,padding:"6px 4px",zIndex:90 }}>
+      {!isOnboarding && <div style={{ position:"fixed",bottom:myTurn&&activeBoard==="attack"&&!markMode?64:0,left:0,right:0,display:"flex",justifyContent:"center",gap:2,background:"rgba(10,14,23,0.92)",backdropFilter:"blur(8px)",borderTop:`1px solid ${t.border}`,padding:"6px 4px",zIndex:90 }}>
         {QUICK_EMOJIS.map(qe=><button key={qe.id} onClick={()=>sendEmoji(qe)} style={{ padding:"5px 7px",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(0,229,255,0.15)",fontSize:19,cursor:"pointer",borderRadius:10,transition:"transform 0.12s",filter:"drop-shadow(0 3px 4px rgba(0,0,0,0.6)) saturate(1.3)",transform:"perspective(150px) rotateX(8deg)" }} onMouseDown={e=>e.currentTarget.style.transform="perspective(150px) rotateX(8deg) scale(0.85)"} onMouseUp={e=>e.currentTarget.style.transform="perspective(150px) rotateX(8deg) scale(1)"} title={qe.label}>{qe.emoji}</button>)}
       </div>}
       <canvas id="confetti-canvas" style={{ position:'fixed',inset:0,pointerEvents:'none',zIndex:10002 }} />
