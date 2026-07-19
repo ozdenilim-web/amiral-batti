@@ -304,7 +304,7 @@ class SoundEngine {
     if (this._loopTimer) { clearTimeout(this._loopTimer); this._loopTimer = null; }
     this.musicOscs.forEach(o => { try { o.stop(); } catch(e) {} }); this.musicOscs = [];
     if (this.musicGain) { try { this.musicGain.disconnect(); } catch(e) {} this.musicGain = null; }
-    this._fadeOutAndStop(800);
+    this._fadeOutAndStop(1400);
   }
   // LOBİ — Sakin, gizemli, deniz ambiyansı
   playLobbyMusic() {
@@ -390,29 +390,23 @@ class SoundEngine {
   playEpicMusic() {
     if (!this.enabled || !this.ctx) return;
     this.currentMusic = 'epic';
-    this._stopMp3();
-    const audio = new Audio('/music/sunrise.mp3');
-    audio.loop = false;
-    audio.crossOrigin = 'anonymous';
-    this._audioEl = audio;
-    const gainNode = this.ctx.createGain();
-    gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
-    gainNode.connect(this.ctx.destination);
-    this._audioGainNode = gainNode;
-    const srcNode = this.ctx.createMediaElementSource(audio);
-    srcNode.connect(gainNode);
-    this._audioSrc = srcNode;
-    this._mp3Volume = 0;
-    audio.play().catch(()=>{});
-    setTimeout(() => this._rampMp3Volume(0.62, 2000), 100);
+    this._switchMp3('/music/sunrise.mp3', 0.55, false, 900, 2000);
   }
   // KAYBETME — Dignity in Ruins (mp3)
   playDefeatMusic() {
     if (!this.enabled || !this.ctx) return;
     this.currentMusic = 'defeat';
+    this._switchMp3('/music/dignity.mp3', 0.45, false, 900, 1800);
+  }
+  // INTRO — Iron Tide Rising yavaş fade-in + loop sonu fade/yüksel
+  playAmbientIntro() {
+    if (this.currentMusic === 'intro' && this._audioEl && !this._audioEl.paused) return;
+    if (!this.ctx) this.init();
+    if (!this.ctx) return;
+    this.currentMusic = 'intro';
     this._stopMp3();
-    const audio = new Audio('/music/dignity.mp3');
-    audio.loop = false;
+    const audio = new Audio('/music/iron-tide.mp3');
+    audio.loop = true;
     audio.crossOrigin = 'anonymous';
     this._audioEl = audio;
     const gainNode = this.ctx.createGain();
@@ -423,20 +417,43 @@ class SoundEngine {
     srcNode.connect(gainNode);
     this._audioSrc = srcNode;
     this._mp3Volume = 0;
-    audio.play().catch(()=>{});
-    setTimeout(() => this._rampMp3Volume(0.55, 2000), 100);
-  }
-  // INTRO — Iron Tide Rising yavaş fade-in + loop sonu fade/yüksel
-  playAmbientIntro() {
-    if (this.currentMusic === 'intro' && this._audioEl && !this._audioEl.paused) return;
-    this.currentMusic = 'intro';
-    this._stopMp3();
-    const audio = new Audio('/music/iron-tide.mp3');
-    audio.loop = true;
-    audio.volume = 0.10;
-    audio.crossOrigin = 'anonymous';
-    this._audioEl = audio;
     audio.play().catch(() => {});
+    setTimeout(() => this._rampMp3Volume(0.10, 3000), 100);
+  }
+  // Yumuşak parça değişimi — eski fade-out, yeni fade-in
+  _switchMp3(src, targetVol, loop=true, fadeOutMs=900, fadeInMs=2200) {
+    if (!this.ctx) { return; }
+    const startNew = () => {
+      this._stopMp3();
+      const audio = new Audio(src);
+      audio.loop = loop;
+      audio.crossOrigin = 'anonymous';
+      this._audioEl = audio;
+      const gainNode = this.ctx.createGain();
+      gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
+      gainNode.connect(this.ctx.destination);
+      this._audioGainNode = gainNode;
+      const srcNode = this.ctx.createMediaElementSource(audio);
+      srcNode.connect(gainNode);
+      this._audioSrc = srcNode;
+      this._mp3Volume = 0;
+      audio.play().catch(()=>{});
+      setTimeout(() => this._rampMp3Volume(targetVol, fadeInMs), 60);
+    };
+    if (this._audioEl && this._audioGainNode) {
+      const steps = 15, interval = fadeOutMs / steps;
+      const startVol = this._mp3Volume;
+      let step = 0;
+      if (this._dynamicTimer) { clearInterval(this._dynamicTimer); this._dynamicTimer = null; }
+      this._dynamicTimer = setInterval(() => {
+        step++;
+        const vol = startVol * (1 - step / steps);
+        if (this._audioGainNode) this._audioGainNode.gain.setValueAtTime(Math.max(0, vol), this.ctx.currentTime);
+        if (step >= steps) { clearInterval(this._dynamicTimer); this._dynamicTimer = null; startNew(); }
+      }, interval);
+    } else {
+      startNew();
+    }
   }
   playIntroFanfare() {
     if (!this.enabled || !this.ctx) return;
@@ -553,7 +570,7 @@ function OnboardingVictoryScreen({ sfx, t, winner, warrior, mono, onDone }) {
     <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",minHeight:"100dvh",background:`radial-gradient(ellipse at 50% 30%, rgba(0,229,255,0.15) 0%, rgba(255,215,0,0.05) 30%, ${t.bg} 70%)`,padding:20,overflowY:"auto" }}>
       <div style={{ textAlign:"center",maxWidth:380,width:"90vw",paddingBottom:40 }}>
         <div style={{ background:`linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))`,border:`3px solid ${t.accent}`,borderRadius:24,padding:"40px 28px",boxShadow:`0 20px 80px rgba(0,0,0,0.7), 0 0 60px ${accentGlow}` }}>
-          <div style={{ fontSize:64,marginBottom:10 }}>⚔</div>
+          <div style={{ fontSize:72,marginBottom:12,filter:"grayscale(1) brightness(8) drop-shadow(0 6px 12px rgba(0,0,0,0.7)) drop-shadow(0 0 40px rgba(255,255,255,0.5)) drop-shadow(0 0 80px rgba(0,229,255,0.4))",transform:"perspective(400px) rotateX(8deg)",animation:"float 3s ease-in-out infinite" }}>⚔</div>
           <div style={{ fontSize:13,fontWeight:700,color:t.textDim,fontFamily:warrior,letterSpacing:6,marginBottom:6 }}>TEBRİKLER, DENİZCİ!</div>
           <div style={{ fontSize:44,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 40px ${accentGlow}`,marginBottom:12 }}>ZAFER</div>
           <div style={{ fontSize:13,fontWeight:700,color:"rgba(0,229,255,0.6)",fontFamily:warrior,letterSpacing:2,marginBottom:24 }}>{winner}</div>
@@ -1019,7 +1036,7 @@ function MissionIcon({ icon, done }) {
     "🤖": <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="5" y="8" width="14" height="12" rx="3" fill={done?"rgba(74,222,128,0.2)":"rgba(167,139,250,0.2)"} stroke={done?"#4ade80":"#a78bfa"} strokeWidth="1.5"/><circle cx="9" cy="14" r="2" fill={done?"#4ade80":"#a78bfa"}/><circle cx="15" cy="14" r="2" fill={done?"#4ade80":"#a78bfa"}/><path d="M12 3v5M8 5h8" stroke={done?"#4ade80":"#a78bfa"} strokeWidth="2" strokeLinecap="round"/></svg>,
     "⚓": <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="3" stroke={done?"#4ade80":"#06b6d4"} strokeWidth="1.5"/><path d="M12 8v13M5 18c0-4 3-7 7-7s7 3 7 7" stroke={done?"#4ade80":"#06b6d4"} strokeWidth="1.5" strokeLinecap="round"/><path d="M8 13h8" stroke={done?"#4ade80":"#06b6d4"} strokeWidth="2" strokeLinecap="round"/></svg>,
   };
-  return iconMap[icon] || <span style={{ fontSize:20 }}>{icon}</span>;
+  return iconMap[icon] || <span style={{ fontSize:22,filter:"drop-shadow(0 3px 5px rgba(0,0,0,0.6)) drop-shadow(0 0 12px rgba(0,229,255,0.35)) saturate(1.4) brightness(1.1)",transform:"perspective(200px) rotateX(6deg)",display:"inline-block" }}>{icon}</span>;
 }
 
 function MissionPanel({ missions, missionProgress, onClose }) {
@@ -1863,7 +1880,7 @@ export default function Game() {
       sfx.init(); sfx.play('lose'); sfx.playDefeatMusic();
       setMissionStats(prev => ({ ...prev, gamesPlayed: prev.gamesPlayed + 1 }));
     } else {
-      setTimeout(() => { setMyTurn(true); setActiveBoard("attack"); }, isOnboarding ? 2200 : 1500);
+      setTimeout(() => { setMyTurn(true); setActiveBoard("attack"); }, isOnboarding ? 4200 : 3500);
     }
   };
 
@@ -1963,7 +1980,7 @@ export default function Game() {
       }
     } else {
       setMyTurn(false);
-      setTimeout(() => botFireShots(), 1200 + Math.random() * 800);
+      setTimeout(() => botFireShots(), 3200 + Math.random() * 800);
     }
   };
 
@@ -2010,7 +2027,7 @@ export default function Game() {
     function LoginScreen() {
       const [musicStarted, setMusicStarted] = useState(false);
       const startMusic = () => { if (!musicStarted) { sfx.init(); sfx.playAmbientIntro(); setMusicStarted(true); } };
-      return (<div onClick={startMusic} style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 50% 35%, rgba(0,229,255,0.10) 0%, rgba(255,71,87,0.04) 40%, ${t.bg} 80%)`, overflow:"hidden", position:"relative", cursor:"default", animation:"pageEnter 1.2s cubic-bezier(0.16,1,0.3,1) forwards" }}><style>{ANIMS}{`
+      return (<div onClick={startMusic} style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 18% 15%, rgba(167,139,250,0.10) 0%, transparent 45%), radial-gradient(ellipse at 85% 80%, rgba(255,215,0,0.07) 0%, transparent 45%), radial-gradient(ellipse at 80% 15%, rgba(255,71,87,0.06) 0%, transparent 40%), radial-gradient(ellipse at 50% 35%, rgba(0,229,255,0.12) 0%, rgba(255,71,87,0.04) 40%, ${t.bg} 80%)`, overflow:"hidden", position:"relative", cursor:"default", animation:"pageEnter 1.2s cubic-bezier(0.16,1,0.3,1) forwards" }}><style>{ANIMS}{`
 @keyframes sword3d{0%{transform:perspective(600px) rotateY(-60deg) rotateX(20deg) scale(0.3);opacity:0;filter:brightness(3)}40%{opacity:1}60%{transform:perspective(600px) rotateY(12deg) rotateX(-6deg) scale(1.18);filter:brightness(1.5)}80%{transform:perspective(600px) rotateY(-4deg) rotateX(3deg) scale(1.02);filter:brightness(1)}100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) scale(1.05);filter:brightness(1)}}
 @keyframes sword3dFloat{0%,100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) translateY(0) scale(1.05)}50%{transform:perspective(600px) rotateY(-8deg) rotateX(5deg) translateY(-16px) scale(1.08)}}
 @keyframes shimmerPass{0%{left:-100%}100%{left:200%}}
@@ -2258,7 +2275,7 @@ export default function Game() {
 
     // Shared tutorial card wrapper
     const TutCard = ({ children, step, total }) => (
-      <div style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 50% 20%, rgba(192,57,43,0.08) 0%, rgba(0,229,255,0.06) 40%, ${t.bg} 80%)`, overflow:"hidden", position:"relative", animation:"pageFadeIn 0.5s ease-out forwards" }}>
+      <div style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 12% 85%, rgba(167,139,250,0.09) 0%, transparent 45%), radial-gradient(ellipse at 88% 12%, rgba(255,215,0,0.06) 0%, transparent 40%), radial-gradient(ellipse at 50% 20%, rgba(192,57,43,0.08) 0%, rgba(0,229,255,0.07) 40%, ${t.bg} 80%)`, overflow:"hidden", position:"relative", animation:"pageFadeIn 0.5s ease-out forwards" }}>
         <style>{ANIMS}{`
 @keyframes arrowBounce{0%,100%{transform:translateX(0)}50%{transform:translateX(8px)}}
 @keyframes shipSlide{0%{transform:translateX(-60px);opacity:0}100%{transform:translateX(0);opacity:1}}
@@ -2291,7 +2308,7 @@ export default function Game() {
     // Step 0: Splash — kılıç + başlık, 3 saniye sonra otomatik geç
     if (tutorialStep === 0) {
       return (
-        <div style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 50% 35%, rgba(0,229,255,0.12) 0%, ${t.bg} 80%)`, overflow:"hidden", position:"relative", animation:"pageEnter 1.4s cubic-bezier(0.16,1,0.3,1) forwards" }}>
+        <div style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 20% 20%, rgba(167,139,250,0.10) 0%, transparent 50%), radial-gradient(ellipse at 80% 75%, rgba(255,215,0,0.06) 0%, transparent 45%), radial-gradient(ellipse at 50% 35%, rgba(0,229,255,0.13) 0%, ${t.bg} 80%)`, overflow:"hidden", position:"relative", animation:"pageEnter 1.4s cubic-bezier(0.16,1,0.3,1) forwards" }}>
           <style>{ANIMS}{`
 @keyframes sword3d{0%{transform:perspective(600px) rotateY(-60deg) rotateX(20deg) scale(0.3);opacity:0;filter:brightness(3)}40%{opacity:1}60%{transform:perspective(600px) rotateY(12deg) rotateX(-6deg) scale(1.18);filter:brightness(1.5)}80%{transform:perspective(600px) rotateY(-4deg) rotateX(3deg) scale(1.02);filter:brightness(1)}100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) scale(1.05);filter:brightness(1)}}
 @keyframes sword3dFloat{0%,100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) translateY(0) scale(1.05)}50%{transform:perspective(600px) rotateY(-8deg) rotateX(5deg) translateY(-16px) scale(1.08)}}
@@ -2381,7 +2398,7 @@ export default function Game() {
             <div style={{ fontSize:16,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 12px ${t.accentGlow}` }}>DEĞMEZLİK KURALI</div>
             <span style={{ fontSize:20 }}>🚫</span>
           </div>
-          <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16,textAlign:"center",lineHeight:1.6 }}>Gemiler birbirine dokunamaz —<br/>köşegen bile olsa!</div>
+          <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16,textAlign:"center",lineHeight:1.6 }}>Gemiler birbirine dokunamaz —<br/>köşeden bile olsa!</div>
           {/* Görsel: iki gemi, kırmızı yasak bölge */}
           <div style={{ position:"relative",marginBottom:20 }}>
             <div style={{ display:"grid",gridTemplateColumns:"repeat(5,42px)",gridTemplateRows:"repeat(4,42px)",gap:2,background:t.surface,borderRadius:10,padding:6,border:`1px solid ${t.border}` }}>
@@ -2433,7 +2450,7 @@ export default function Game() {
             <div style={{ fontSize:16,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 12px ${t.accentGlow}` }}>İŞARETLE & TAKİP ET</div>
             <span style={{ fontSize:20 }}>⚑</span>
           </div>
-          <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16,textAlign:"center",lineHeight:1.6 }}>Atış yapmak istemediğin yerleri işaretle.</div>
+          <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16,textAlign:"center",lineHeight:1.6 }}>Atış yapmak istemediğin yerleri<br/>sağ tuş (mobilde uzun bas) ile işaretle.</div>
           {/* İşaretleme demo */}
           <div style={{ position:"relative",marginBottom:20 }}>
             <div style={{ display:"grid",gridTemplateColumns:"repeat(5,46px)",gridTemplateRows:"repeat(3,46px)",gap:2,background:t.surface,borderRadius:10,padding:6,border:`1px solid ${t.border}` }}>
@@ -2691,7 +2708,7 @@ export default function Game() {
         </div>
       </div>}
       {isOnboarding && <div style={{ fontSize:18,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:8,marginBottom:8,textAlign:"center",textShadow:`0 0 30px ${t.accentGlow}, 0 0 60px rgba(0,229,255,0.2)`,animation:"victoryGlow 3s ease-in-out infinite",textTransform:"uppercase" }}>⚔  EĞİTİM SAVAŞI  ⚔</div>}
-      {!isOnboarding && <div style={{ fontSize:18,fontWeight:800,marginBottom:6,textAlign:"center",fontFamily:warrior,letterSpacing:4,textTransform:"uppercase",color:myTurn?t.accent:t.textDim,textShadow:myTurn?`0 0 25px ${t.accentGlow}`:"none",animation:myTurn?"fadeUp 0.3s ease-out":"none" }}>{myTurn?"⚡ SENİN SIRAN ⚡":(isBotGame?"🤖 Bot düşünüyor...":"Rakibin sırası...")}</div>}
+      <div style={{ fontSize:16,fontWeight:800,marginBottom:6,textAlign:"center",fontFamily:warrior,letterSpacing:4,textTransform:"uppercase",color:myTurn?t.accent:t.hit,textShadow:myTurn?`0 0 25px ${t.accentGlow}`:`0 0 20px ${t.hitGlow}`,animation:"fadeUp 0.4s ease-out" }}>{myTurn?"⚡ SENİN SIRAN ⚡":(isOnboarding?"🎯 RAKİBİN SIRASI...":(isBotGame?"🤖 Bot düşünüyor...":"Rakibin sırası..."))}</div>
       {!myTurn && !isBotGame && afkTimer !== null && afkTimer <= 15 && (
         <div style={{ background:afkTimer<=5?"rgba(255,71,87,0.2)":"rgba(255,215,0,0.1)",border:`1px solid ${afkTimer<=5?t.hit:t.gold}`,borderRadius:8,padding:"4px 14px",marginBottom:6,fontSize:12,fontWeight:800,color:afkTimer<=5?t.hit:t.gold,fontFamily:warrior,letterSpacing:2,animation:afkTimer<=5?"blink3s 0.4s infinite":"none",textAlign:"center" }}>
           ⏳ Rakip oynamıyor — {afkTimer}s
