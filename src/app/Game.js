@@ -1869,7 +1869,8 @@ export default function Game() {
     // Sound for incoming damage
     const botHitCount = shots.filter(([r,c]) => defenseBoard[r][c] > 0).length;
     if (botHitCount > 0) { sfx.play('hit'); if (!firstHitVoiceRef.current && !isOnboarding) { firstHitVoiceRef.current = true; sfx.playVoice('first_kill'); } const rep = reports.length ? reports[reports.length-1].toLocaleUpperCase('tr-TR') : fbPick(FB_GOT_HIT); setMicroFeedback({ text: rep, color: t.hit }); }
-    if (reports.some(r => r.includes('battı'))) setTimeout(() => sfx.play('sunk'), 200);
+    const botSunkSomething = reports.some(r => r.includes('battı'));
+    if (botSunkSomething) setTimeout(() => sfx.play('sunk'), 200);
     if (reports.length > 0) { setDamageReport(reports.join(" • ")); setTimeout(() => setDamageReport(""), 8000); }
     setActiveBoard("defense");
     // Check if bot won
@@ -1887,7 +1888,7 @@ export default function Game() {
         setEloChange({ myOld: myOld2, myNew: myNew2, oppOld: botElo2, oppNew: calculateElo(botElo2, myOld2, true) });
       }
     } else {
-      setTimeout(() => { setMyTurn(true); setActiveBoard("attack"); }, 2000);
+      setTimeout(() => { setMyTurn(true); setActiveBoard("attack"); }, botSunkSomething ? 4200 : 3200);
     }
   };
 
@@ -2010,7 +2011,7 @@ export default function Game() {
       }
     } else {
       setMyTurn(false);
-      setTimeout(() => botFireShots(), 2000 + Math.random() * 400);
+      setTimeout(() => botFireShots(), 3000 + Math.random() * 500);
     }
   };
 
@@ -2767,7 +2768,7 @@ export default function Game() {
         </div>
       </div>}
       {isOnboarding && <div style={{ fontSize:18,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:8,marginBottom:8,textAlign:"center",textShadow:`0 0 30px ${t.accentGlow}, 0 0 60px rgba(0,229,255,0.2)`,animation:"victoryGlow 3s ease-in-out infinite",textTransform:"uppercase" }}>⚔  EĞİTİM SAVAŞI  ⚔</div>}
-      <div style={{ display:"inline-block",alignSelf:"center",fontSize:15,fontWeight:900,marginBottom:8,textAlign:"center",fontFamily:warrior,letterSpacing:4,textTransform:"uppercase",color:myTurn?t.accent:t.hit,padding:"8px 26px",borderRadius:24,border:`2px solid ${myTurn?t.accent:t.hit}`,background:myTurn?"rgba(0,229,255,0.08)":"rgba(255,71,87,0.08)",animation:myTurn?"turnPulse 1.4s ease-in-out infinite":"blink3s 1.2s ease-in-out infinite",textShadow:myTurn?`0 0 20px ${t.accentGlow}`:`0 0 16px ${t.hitGlow}` }}>{myTurn?"⚡ SENİN SIRAN ⚡":(isOnboarding?"🎯 RAKİBİN SIRASI":(isBotGame?"🤖 RAKİP DÜŞÜNÜYOR...":"⏳ RAKİBİN SIRASI"))}</div>
+      
       {!myTurn && !isBotGame && afkTimer !== null && afkTimer <= 15 && (
         <div style={{ background:afkTimer<=5?"rgba(255,71,87,0.2)":"rgba(255,215,0,0.1)",border:`1px solid ${afkTimer<=5?t.hit:t.gold}`,borderRadius:8,padding:"4px 14px",marginBottom:6,fontSize:12,fontWeight:800,color:afkTimer<=5?t.hit:t.gold,fontFamily:warrior,letterSpacing:2,animation:afkTimer<=5?"blink3s 0.4s infinite":"none",textAlign:"center" }}>
           ⏳ Rakip oynamıyor — {afkTimer}s
@@ -2785,7 +2786,7 @@ export default function Game() {
       </div>
       {isAttack && <button onClick={()=>setMarkMode(!markMode)} style={{ marginBottom:6,padding:"6px 16px",fontSize:10,fontWeight:700,fontFamily:warrior,background:markMode?t.gold:"transparent",color:markMode?t.bg:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,cursor:"pointer",letterSpacing:2 }}>{markMode?"⚑ İŞARETLEME MODU: AÇIK":"⚑ İŞARETLE"}</button>}
       </>}
-      <div style={{ width:"100%",maxWidth:400,border:myTurn&&isAttack?`2px solid ${t.accent}`:"1px solid transparent",borderRadius:12,padding:2,animation:myTurn&&isAttack?"borderGlow 2s infinite":"none" }}>
+      <div style={{ width:"100%",maxWidth:400,border:myTurn?`3px solid ${t.accent}`:`2px solid rgba(255,71,87,0.35)`,borderRadius:12,padding:2,animation:myTurn?"turnPulse 1.1s ease-in-out infinite":"none",transition:"border-color 0.4s ease" }}>
         {isAttack?<><Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:cellSize} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} onboardingHint={isOnboarding?(!onboardingMilestones.firstHit?[[2,2],[2,3],[2,4]]:(onboardingMilestones.firstHit&&!onboardingMilestones.firstSunk?[[3,3]]:null)):null} />{!isOnboarding&&<ShipStatusPanel title="RAKİP GEMİLER" ships={oppShipsData} hitCells={atkHitMap} color={t.hit} />}</>:<><Grid board={defenseBoard} cellSize={isOnboarding?gridSize:cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />{!isOnboarding&&<ShipStatusPanel title="GEMİLERİM" ships={myShipsData} hitCells={defHitMap} color={t.accent} />}</>}
       </div>
       {isTestMode() && <button onClick={forceEndGame} style={{ marginTop:8,padding:"8px 16px",background:"rgba(251,191,36,0.2)",color:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>🧪 OYUNU BİTİR (TEST)</button>}
