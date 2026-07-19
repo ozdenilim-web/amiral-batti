@@ -417,6 +417,14 @@ class SoundEngine {
   playIntroFanfare() { this.ensureMusic(0.10); }
   // YERLEŞTİRME — Taktik müzik (sakin ama gerilimli)
   playPlacementMusic() { this.ensureMusic(0.10); }
+  playVoice(name) {
+    // Anons/efekt mp3'leri — üst üste binebilir, kısa dosyalar
+    try {
+      const a = new Audio(`/sfx/${name}.mp3`);
+      a.volume = 0.85;
+      a.play().catch(()=>{});
+    } catch(e) {}
+  }
   play(type) {
     if (!this.enabled || !this.ctx) return;
     try {
@@ -1273,6 +1281,7 @@ export default function Game() {
   const [showAvatarPick, setShowAvatarPick] = useState(false);
   const [oppAvatar, setOppAvatar] = useState(null);
   const oppAvatarRef = useRef(false);
+  const killCountRef = useRef(0);
   const [emojiToast, setEmojiToast] = useState(null);
   const [myEmojiToast, setMyEmojiToast] = useState(null);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
@@ -1461,7 +1470,8 @@ export default function Game() {
         setDefenseOverlay(defOvr); setOppHits(oh); setDefHitMap(dHitMap);
         const atkOvr = emptyGrid().map(r => r.map(() => null)), aHitMap = emptyGrid().map(r => r.map(() => false)); let mh = 0;
         attacks.filter(a => a.target === oppKey).forEach(a => { if (a.shots) a.shots.forEach(s => { atkOvr[s.r][s.c] = s.result; if (s.result === "hit") { mh++; aHitMap[s.r][s.c] = true; } }); });
-        if (game[`${oppKey}_ships`]) { Object.values(game[`${oppKey}_ships`]).forEach(ship => { const cells = ship.cells; if (cells.every(([r, c]) => atkOvr[r][c] === "hit" || atkOvr[r][c] === "sunk")) cells.forEach(([r, c]) => { atkOvr[r][c] = "sunk"; }); }); }
+        if (game[`${oppKey}_ships`]) { let sunkTotal = 0; Object.values(game[`${oppKey}_ships`]).forEach(ship => { const cells = ship.cells; if (cells.every(([r, c]) => atkOvr[r][c] === "hit" || atkOvr[r][c] === "sunk")) { cells.forEach(([r, c]) => { atkOvr[r][c] = "sunk"; }); sunkTotal++; } });
+          if (sunkTotal > killCountRef.current) { killCountRef.current = sunkTotal; sfx.playVoice(sunkTotal === 1 ? 'first_kill' : sunkTotal === 2 ? 'double_kill' : 'triple_kill'); } }
         setAttackOverlay(atkOvr); setMyHits(mh); setAtkHitMap(aHitMap);
         const entries = []; let p1T = 0, p2T = 0;
         attacks.forEach(a => { const isP1 = a.by === 1; if (isP1) p1T++; else p2T++; entries.push({ name: isP1 ? (game.p1_name || "P1") : (game.p2_name || "P2"), turnNum: isP1 ? p1T : p2T, coords: a.shots ? a.shots.map(s => coordStr(s.r, s.c)) : [], isMine: a.by === pNum }); });
@@ -1735,6 +1745,7 @@ export default function Game() {
   const handleAttackMark = (r, c) => { if (phase !== "playing") return; if (attackOverlay[r][c]) return; const nm = manualMarks.map(row => [...row]); nm[r][c] = !nm[r][c]; setManualMarks(nm); };
   const handleAttackLongPress = (r, c) => { handleAttackMark(r, c); };
   const fireShots = async () => {
+    sfx.playVoice('explosion');
     if (currentShots.length === 0) return;
     if (isBotGame) { botHandlePlayerShots(); return; }
     const pNum = playerNumRef.current, myKey = pNum === 1 ? "p1" : "p2"; const snapshot = await get(ref(db, `rooms/${roomIdRef.current}`)); const game = snapshot.val(); if (!game || game.turn !== pNum) return; const targetKey = pNum === 1 ? "p2" : "p1"; const shotResults = currentShots.map(([r, c]) => ({ r, c, result: game[`${targetKey}_board`][r][c] > 0 ? "hit" : "miss" })); const existingAttacks = game.attacks ? Object.values(game.attacks) : []; const prevHits = existingAttacks.filter(a => a.target === targetKey).reduce((sum, a) => sum + (a.shots ? a.shots.filter(s => s.result === "hit").length : 0), 0); const totalHits = prevHits + shotResults.filter(s => s.result === "hit").length; const updates = {}; updates[`attacks/${existingAttacks.length}`] = { by: pNum, target: targetKey, shots: shotResults, time: Date.now() }; updates[`clocks/${myKey}`] = myClockRef.current; if (totalHits >= 20) { updates.winner = pNum; updates.winReason = "hits"; } else { updates.turn = pNum === 1 ? 2 : 1; } await update(ref(db, `rooms/${roomIdRef.current}`), updates); setCurrentShots([]);
@@ -1757,7 +1768,7 @@ export default function Game() {
   const resetGame = () => {
     /* müzik devam eder */
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
-    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShowSurrenderConfirm(false); setAfkTimer(null); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false });
+    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShowSurrenderConfirm(false); setAfkTimer(null); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; killCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false });
     if (authUid) { get(ref(db, `profiles/${authUid}`)).then(snap => { if (snap.exists()) setMyProfile(snap.val()); }).catch(() => {}); }
     setTimeout(() => { sfx.init(); sfx.playBattleMusic(false); }, 300);
   };
@@ -1877,6 +1888,7 @@ export default function Game() {
 
   const botHandlePlayerShots = () => {
     if (currentShots.length === 0) return;
+    sfx.playVoice('explosion');
     const newAtkOverlay = attackOverlay.map(row => [...row]);
     const newAtkHit = atkHitMap.map(row => [...row]);
     let newMyHits = myHits;
@@ -1916,7 +1928,7 @@ export default function Game() {
         }
       });
     }
-    if (sunkThisTurn) { setTimeout(() => { sfx.play('sunk'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2);
+    if (sunkThisTurn) { setTimeout(() => { sfx.play('sunk'); killCountRef.current++; const kc = killCountRef.current; sfx.playVoice(kc === 1 ? 'first_kill' : kc === 2 ? 'double_kill' : 'triple_kill'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2);
       if (isOnboarding && !onboardingMilestones.firstSunk) { setOnboardingMilestones(prev => ({...prev, firstSunk: true})); setMicroFeedback({ text: 'İLK BATIŞ! 💀', color: t.sunk }); }
       else { const sr = window.__lastAtkReport && window.__lastAtkReport.includes("BATTI") ? window.__lastAtkReport : fbPick(FB_SUNK); setMicroFeedback({ text: sr, color: t.sunk }); }
       // Gemi battı → müzik zirveye çıksın
