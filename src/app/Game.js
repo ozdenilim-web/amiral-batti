@@ -2281,10 +2281,15 @@ export default function Game() {
           </div>
           <div style={{ fontSize:11,color:"rgba(255,215,0,0.6)",fontFamily:warrior,letterSpacing:8,marginTop:10,marginBottom:36,fontStyle:"italic",animation:"fadeUp 1s ease-out 1.0s both" }}>savaşların atası...</div>
           <div style={{ animation:"fadeUp 1s ease-out 1.3s both" }}>
-            <button onClick={()=>{ startMusic(); handleAnonPlay(); }} style={{ padding:"20px 64px",background:`linear-gradient(135deg,${t.accent},#0088cc)`,color:t.bg,border:"none",borderRadius:14,fontSize:22,fontWeight:900,cursor:"pointer",fontFamily:warrior,letterSpacing:8,textTransform:"uppercase",boxShadow:`0 0 40px ${t.accentGlow}, 0 6px 30px rgba(0,0,0,0.5)`,position:"relative",overflow:"hidden",animation:"btnBreath 2s ease-in-out infinite" }}>
-              <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent)",animation:"shimmerPass 3s ease-in-out infinite" }} />
-              ⚡ OYNA
-            </button>
+            <div style={{ position:"relative",display:"inline-block" }}>
+              <span style={{ position:"absolute",top:-9,left:-9,width:30,height:30,borderTop:"3px solid rgba(0,229,255,0.55)",borderLeft:"3px solid rgba(0,229,255,0.55)",borderTopLeftRadius:18,animation:"sonarArc 2s ease-in-out infinite",pointerEvents:"none" }} />
+              <span style={{ position:"absolute",bottom:-9,right:-9,width:30,height:30,borderBottom:"3px solid rgba(0,229,255,0.55)",borderRight:"3px solid rgba(0,229,255,0.55)",borderBottomRightRadius:18,animation:"sonarArc 2s ease-in-out 1s infinite",pointerEvents:"none" }} />
+              <button onClick={()=>{ startMusic(); handleAnonPlay(); }} style={{ padding:"15px 70px",background:`linear-gradient(180deg, #22d8ff 0%, ${t.accent} 45%, #0077b6 100%)`,color:"#04202e",border:"2px solid rgba(255,255,255,0.35)",borderRadius:14,fontSize:27,fontWeight:900,cursor:"pointer",fontFamily:warrior,letterSpacing:6,textTransform:"uppercase",boxShadow:`0 0 34px ${t.accentGlow}, 0 5px 0 #045a80, 0 10px 22px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,0.45)`,textShadow:"0 1px 0 rgba(255,255,255,0.4), 0 2px 3px rgba(0,60,90,0.5)",display:"flex",alignItems:"center",justifyContent:"center",gap:14,position:"relative",overflow:"hidden",animation:"btnBreath 2.2s ease-in-out infinite" }}>
+                <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent)",animation:"shimmerPass 3s ease-in-out infinite" }} />
+                <svg width="30" height="32" viewBox="0 0 24 26" style={{ filter:"drop-shadow(0 3px 3px rgba(0,40,60,0.55))" }}><defs><linearGradient id="playTriL" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#ffffff"/><stop offset="60%" stopColor="#d8f6ff"/><stop offset="100%" stopColor="#8ad4f0"/></linearGradient></defs><polygon points="3,2 22,13 3,24" fill="url(#playTriL)" stroke="rgba(4,60,90,0.5)" strokeWidth="1.2"/></svg>
+                OYNA
+              </button>
+            </div>
           </div>
           {message && <div style={{ marginTop:16,color:t.hit,fontSize:11,fontFamily:mono }}>{message}</div>}
         </div>
