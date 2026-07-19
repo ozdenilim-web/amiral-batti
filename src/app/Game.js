@@ -918,6 +918,10 @@ const ANIMS = `
 @keyframes arGlow{0%,100%{box-shadow:0 10px 40px rgba(0,0,0,0.5),0 0 30px var(--ar-color,rgba(0,229,255,0.3))}50%{box-shadow:0 15px 60px rgba(0,0,0,0.6),0 0 50px var(--ar-color,rgba(0,229,255,0.5))}}
 @keyframes previewZoom{0%{opacity:0;transform:scale(0.5) perspective(600px) rotateY(15deg)}50%{opacity:1;transform:scale(1.08) perspective(600px) rotateY(-3deg)}100%{transform:scale(1) perspective(600px) rotateY(0deg)}}
 @keyframes coinSpinY{0%,100%{transform:rotateY(0deg)}50%{transform:rotateY(180deg)}}
+@keyframes scanline{0%{top:-2px}100%{top:100vh}}
+@keyframes flameFlicker{0%,100%{transform:scale(1) rotate(-3deg);opacity:0.85}25%{transform:scale(1.15) rotate(4deg);opacity:1}50%{transform:scale(0.92) rotate(-5deg);opacity:0.8}75%{transform:scale(1.08) rotate(3deg);opacity:0.95}}
+@keyframes turnPulse{0%,100%{box-shadow:0 0 12px rgba(0,229,255,0.4), inset 0 0 8px rgba(0,229,255,0.1)}50%{box-shadow:0 0 30px rgba(0,229,255,0.8), inset 0 0 16px rgba(0,229,255,0.25)}}
+@keyframes emojiFly3d{0%{opacity:0;transform:translate(-50%,-50%) scale(0.2) rotateY(120deg) rotateZ(-20deg)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.5) rotateY(-12deg) rotateZ(6deg)}30%{transform:translate(-50%,-50%) scale(1.15) rotateY(0deg) rotateZ(0deg)}75%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}100%{opacity:0;transform:translate(-50%,-58%) scale(0.85)}}
 @keyframes raysSpin{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}
 @keyframes coinRise{0%{transform:translateY(0) rotate(0deg);opacity:0}12%{opacity:0.55}85%{opacity:0.35}100%{transform:translateY(-64vh) rotate(340deg);opacity:0}}
 @keyframes chestBounceIn{0%{opacity:0;transform:scale(0.4) translateY(60px)}60%{opacity:1;transform:scale(1.06) translateY(-8px)}100%{opacity:1;transform:scale(1) translateY(0)}}
@@ -953,7 +957,7 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, ov
           // showShipStatus: savaş haritasında vurulan gemi hücreleri farklı gösterilir
           else if(showShipStatus&&val>0&&shipColor){bg=shipColor;content="■";clr="rgba(255,255,255,0.6)";}
         }
-        else{if(ovr==="hit"){bg=t.hit;content="✕";shadow=`inset 0 0 12px ${t.hitGlow}`;clr="#fff";}else if(ovr==="miss"){bg=t.miss;content="•";}else if(ovr==="sunk"){bg=t.sunk;content="💀";shadow="inset 0 0 12px rgba(249,115,22,0.4)";clr="#fff";}else if(ovr==="selected"){bg="rgba(6,182,212,0.45)";content="◎";shadow=`inset 0 0 12px ${t.accentGlow}`;clr=t.accent;}if(!ovr&&isManual){bg="rgba(251,191,36,0.15)";content="⚑";clr=t.gold;}}
+        else{if(ovr==="hit"){bg=t.hit;content=(<span style={{position:"relative",display:"inline-block"}}>✕<span style={{position:"absolute",top:-7,left:"50%",marginLeft:-5,fontSize:9,animation:"flameFlicker 0.8s ease-in-out infinite",filter:"drop-shadow(0 0 4px rgba(255,140,0,0.9))",pointerEvents:"none"}}>🔥</span></span>);shadow=`inset 0 0 12px ${t.hitGlow}`;clr="#fff";}else if(ovr==="miss"){bg=t.miss;content="•";}else if(ovr==="sunk"){bg=t.sunk;content="💀";shadow="inset 0 0 12px rgba(249,115,22,0.4)";clr="#fff";}else if(ovr==="selected"){bg="rgba(6,182,212,0.45)";content="◎";shadow=`inset 0 0 12px ${t.accentGlow}`;clr=t.accent;}if(!ovr&&isManual){bg="rgba(251,191,36,0.15)";content="⚑";clr=t.gold;}}
         if(isHov){bg="rgba(6,182,212,0.35)";shadow=`inset 0 0 10px ${t.accentGlow}`;}
         const isHint = onboardingHint?.some(([hr,hc])=>hr===r&&hc===c) && !ovr;
         if(isHint){bg="rgba(255,215,0,0.25)";shadow=`inset 0 0 12px ${t.goldGlow}, 0 0 8px ${t.goldGlow}`;content="◆";clr=t.gold;}
@@ -1282,6 +1286,7 @@ export default function Game() {
   const [oppAvatar, setOppAvatar] = useState(null);
   const oppAvatarRef = useRef(false);
   const killCountRef = useRef(0);
+  const firstHitVoiceRef = useRef(false);
   const [emojiToast, setEmojiToast] = useState(null);
   const [myEmojiToast, setMyEmojiToast] = useState(null);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
@@ -1471,7 +1476,7 @@ export default function Game() {
         const atkOvr = emptyGrid().map(r => r.map(() => null)), aHitMap = emptyGrid().map(r => r.map(() => false)); let mh = 0;
         attacks.filter(a => a.target === oppKey).forEach(a => { if (a.shots) a.shots.forEach(s => { atkOvr[s.r][s.c] = s.result; if (s.result === "hit") { mh++; aHitMap[s.r][s.c] = true; } }); });
         if (game[`${oppKey}_ships`]) { let sunkTotal = 0; Object.values(game[`${oppKey}_ships`]).forEach(ship => { const cells = ship.cells; if (cells.every(([r, c]) => atkOvr[r][c] === "hit" || atkOvr[r][c] === "sunk")) { cells.forEach(([r, c]) => { atkOvr[r][c] = "sunk"; }); sunkTotal++; } });
-          if (sunkTotal > killCountRef.current) { killCountRef.current = sunkTotal; sfx.playVoice(sunkTotal === 1 ? 'first_kill' : sunkTotal === 2 ? 'double_kill' : 'triple_kill'); } }
+          if (sunkTotal > killCountRef.current) { killCountRef.current = sunkTotal; if (sunkTotal >= 2) sfx.playVoice(sunkTotal === 2 ? 'double_kill' : 'triple_kill'); } }
         setAttackOverlay(atkOvr); setMyHits(mh); setAtkHitMap(aHitMap);
         const entries = []; let p1T = 0, p2T = 0;
         attacks.forEach(a => { const isP1 = a.by === 1; if (isP1) p1T++; else p2T++; entries.push({ name: isP1 ? (game.p1_name || "P1") : (game.p2_name || "P2"), turnNum: isP1 ? p1T : p2T, coords: a.shots ? a.shots.map(s => coordStr(s.r, s.c)) : [], isMine: a.by === pNum }); });
@@ -1483,13 +1488,13 @@ export default function Game() {
             // Sound for incoming hits
             const incomingHits = lastAtk.shots.filter(s => s.result === "hit").length;
             sfx.init(); if (incomingHits > 0) sfx.play('hit');
-            if (game[`${myKey}_ships`]) { const myShips = Object.values(game[`${myKey}_ships`]); const reports = []; lastAtk.shots.forEach(s => { if (s.result === "hit") { const hitShip = myShips.find(sh => sh.cells.some(([r, c]) => r === s.r && c === s.c)); if (hitShip) { const shipDef = SHIPS.find(sd => sd.id === hitShip.id); const totalH = hitShip.cells.filter(([r, c]) => dHitMap[r][c]).length; reports.push(totalH === hitShip.cells.length ? `${shipDef?.name} battı!` : `${shipDef?.name} ${totalH}. yarasını aldı`); } } }); if (reports.length > 0) { setDamageReport(reports.join(" • ")); setMicroFeedback({ text: reports.length ? reports[reports.length-1].toLocaleUpperCase('tr-TR') : fbPick(FB_GOT_HIT), color: t.hit }); if (damageTimerRef.current) clearTimeout(damageTimerRef.current); damageTimerRef.current = setTimeout(() => setDamageReport(""), 8000); if (reports.some(r => r.includes('battı'))) setTimeout(() => { sfx.play('sunk'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2); }, 200); } }
+            if (game[`${myKey}_ships`]) { const myShips = Object.values(game[`${myKey}_ships`]); const reports = []; lastAtk.shots.forEach(s => { if (s.result === "hit") { const hitShip = myShips.find(sh => sh.cells.some(([r, c]) => r === s.r && c === s.c)); if (hitShip) { const shipDef = SHIPS.find(sd => sd.id === hitShip.id); const totalH = hitShip.cells.filter(([r, c]) => dHitMap[r][c]).length; reports.push(totalH === hitShip.cells.length ? `${shipDef?.name} battı!` : `${shipDef?.name} ${totalH}. yarasını aldı`); } } }); if (reports.length > 0) { setDamageReport(reports.join(" • ")); if (!firstHitVoiceRef.current) { firstHitVoiceRef.current = true; sfx.playVoice('first_kill'); } setMicroFeedback({ text: reports.length ? reports[reports.length-1].toLocaleUpperCase('tr-TR') : fbPick(FB_GOT_HIT), color: t.hit }); if (damageTimerRef.current) clearTimeout(damageTimerRef.current); damageTimerRef.current = setTimeout(() => setDamageReport(""), 8000); if (reports.some(r => r.includes('battı'))) setTimeout(() => { sfx.play('sunk'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2); }, 200); } }
           }
           if (lastAtk.by === pNum && lastAtk.shots) {
             setBlinkCells(lastAtk.shots.map(s => [s.r, s.c])); if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current); blinkTimerRef.current = setTimeout(() => setBlinkCells([]), 3000);
             // Sound for own shots landing
             const myHitCount = lastAtk.shots.filter(s => s.result === "hit").length;
-            sfx.init(); if (myHitCount > 0) { sfx.play('hit'); sfx.setBattleIntensity(0.55 + myHitCount * 0.1); setMicroFeedback({ text: fbPick(myHitCount === 3 ? FB_HIT3 : myHitCount === 2 ? FB_HIT2 : FB_HIT1), color: myHitCount === 3 ? t.gold : t.accent }); } else { sfx.play('miss'); sfx.setBattleIntensity(0.18); setMicroFeedback({ text: fbPick(FB_MISS), color: t.miss }); }
+            sfx.init(); if (myHitCount > 0) { sfx.play('hit'); sfx.setBattleIntensity(0.55 + myHitCount * 0.1); if (!firstHitVoiceRef.current) { firstHitVoiceRef.current = true; sfx.playVoice('first_kill'); } setMicroFeedback({ text: fbPick(myHitCount === 3 ? FB_HIT3 : myHitCount === 2 ? FB_HIT2 : FB_HIT1), color: myHitCount === 3 ? t.gold : t.accent }); } else { sfx.play('miss'); sfx.setBattleIntensity(0.18); setMicroFeedback({ text: fbPick(FB_MISS), color: t.miss }); }
           }
         }
       }
@@ -1768,7 +1773,7 @@ export default function Game() {
   const resetGame = () => {
     /* müzik devam eder */
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
-    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShowSurrenderConfirm(false); setAfkTimer(null); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; killCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false });
+    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShowSurrenderConfirm(false); setAfkTimer(null); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; killCountRef.current = 0; firstHitVoiceRef.current = false; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false });
     if (authUid) { get(ref(db, `profiles/${authUid}`)).then(snap => { if (snap.exists()) setMyProfile(snap.val()); }).catch(() => {}); }
     setTimeout(() => { sfx.init(); sfx.playBattleMusic(false); }, 300);
   };
@@ -1863,7 +1868,7 @@ export default function Game() {
     setTimeout(() => setBlinkCells([]), 3000);
     // Sound for incoming damage
     const botHitCount = shots.filter(([r,c]) => defenseBoard[r][c] > 0).length;
-    if (botHitCount > 0) { sfx.play('hit'); const rep = reports.length ? reports[reports.length-1].toLocaleUpperCase('tr-TR') : fbPick(FB_GOT_HIT); setMicroFeedback({ text: rep, color: t.hit }); }
+    if (botHitCount > 0) { sfx.play('hit'); if (!firstHitVoiceRef.current && !isOnboarding) { firstHitVoiceRef.current = true; sfx.playVoice('first_kill'); } const rep = reports.length ? reports[reports.length-1].toLocaleUpperCase('tr-TR') : fbPick(FB_GOT_HIT); setMicroFeedback({ text: rep, color: t.hit }); }
     if (reports.some(r => r.includes('battı'))) setTimeout(() => sfx.play('sunk'), 200);
     if (reports.length > 0) { setDamageReport(reports.join(" • ")); setTimeout(() => setDamageReport(""), 8000); }
     setActiveBoard("defense");
@@ -1912,7 +1917,7 @@ export default function Game() {
     // Sound effects for shots
     sfx.init();
     const hitCount0 = currentShots.filter(([r,c]) => botBoard[r][c] > 0).length;
-    if (hitCount0 > 0) { sfx.play('hit');
+    if (hitCount0 > 0) { sfx.play('hit'); if (!firstHitVoiceRef.current && !isOnboarding) { firstHitVoiceRef.current = true; sfx.playVoice('first_kill'); }
       if (isOnboarding && !onboardingMilestones.firstHit) { setOnboardingMilestones(prev => ({...prev, firstHit: true})); setMicroFeedback({ text: 'İLK İSABET! 🎯', color: t.gold }); }
       else { const atkRep = window.__lastAtkReport; setMicroFeedback({ text: atkRep || fbPick(hitCount0 === 3 ? FB_HIT3 : hitCount0 === 2 ? FB_HIT2 : FB_HIT1), color: hitCount0 === 3 ? t.gold : t.accent }); window.__lastAtkReport = null; }
     }
@@ -1928,7 +1933,7 @@ export default function Game() {
         }
       });
     }
-    if (sunkThisTurn) { setTimeout(() => { sfx.play('sunk'); killCountRef.current++; const kc = killCountRef.current; sfx.playVoice(kc === 1 ? 'first_kill' : kc === 2 ? 'double_kill' : 'triple_kill'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2);
+    if (sunkThisTurn) { setTimeout(() => { sfx.play('sunk'); killCountRef.current++; const kc = killCountRef.current; if (!isOnboarding && kc >= 2) sfx.playVoice(kc === 2 ? 'double_kill' : 'triple_kill'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2);
       if (isOnboarding && !onboardingMilestones.firstSunk) { setOnboardingMilestones(prev => ({...prev, firstSunk: true})); setMicroFeedback({ text: 'İLK BATIŞ! 💀', color: t.sunk }); }
       else { const sr = window.__lastAtkReport && window.__lastAtkReport.includes("BATTI") ? window.__lastAtkReport : fbPick(FB_SUNK); setMicroFeedback({ text: sr, color: t.sunk }); }
       // Gemi battı → müzik zirveye çıksın
@@ -2715,7 +2720,25 @@ export default function Game() {
     const myLow = myClock <= 30, oppLow = oppClock <= 30, isAttack = activeBoard === "attack";
     const miniGrid = isOnboarding; // 7x7 grid for onboarding
     const gridSize = miniGrid ? Math.min(38, Math.floor((Math.min((typeof window !== "undefined" ? window.innerWidth : 400) - 24, 320)) / 8)) : cellSize;
-    return (<div style={{ ...appStyle, paddingBottom: 74 }}><style>{ANIMS}</style>
+    const flyEmoji = emojiToast || myEmojiToast;
+    return (<div style={{ ...appStyle, paddingBottom: 74, background:`
+      radial-gradient(ellipse at 15% 10%, rgba(0,229,255,0.06) 0%, transparent 45%),
+      radial-gradient(ellipse at 85% 90%, rgba(255,71,87,0.05) 0%, transparent 45%),
+      repeating-linear-gradient(0deg, transparent 0px, transparent 39px, rgba(0,229,255,0.030) 39px, rgba(0,229,255,0.030) 40px),
+      repeating-linear-gradient(90deg, transparent 0px, transparent 39px, rgba(0,229,255,0.030) 39px, rgba(0,229,255,0.030) 40px),
+      ${t.bg}`, position:"relative" }}><style>{ANIMS}</style>
+      {/* HUD tarama çizgisi */}
+      <div style={{ position:"fixed",left:0,right:0,height:2,background:"linear-gradient(90deg, transparent, rgba(0,229,255,0.25), transparent)",animation:"scanline 7s linear infinite",pointerEvents:"none",zIndex:1 }} />
+      {/* Köşe braketleri */}
+      <div style={{ position:"fixed",top:8,left:8,width:26,height:26,borderTop:"2px solid rgba(0,229,255,0.35)",borderLeft:"2px solid rgba(0,229,255,0.35)",pointerEvents:"none",zIndex:1 }} />
+      <div style={{ position:"fixed",top:8,right:8,width:26,height:26,borderTop:"2px solid rgba(0,229,255,0.35)",borderRight:"2px solid rgba(0,229,255,0.35)",pointerEvents:"none",zIndex:1 }} />
+      <div style={{ position:"fixed",bottom:8,left:8,width:26,height:26,borderBottom:"2px solid rgba(0,229,255,0.35)",borderLeft:"2px solid rgba(0,229,255,0.35)",pointerEvents:"none",zIndex:1 }} />
+      <div style={{ position:"fixed",bottom:8,right:8,width:26,height:26,borderBottom:"2px solid rgba(0,229,255,0.35)",borderRight:"2px solid rgba(0,229,255,0.35)",pointerEvents:"none",zIndex:1 }} />
+      {/* Uçan 3D emoji */}
+      {flyEmoji && <div key={flyEmoji.emoji + (flyEmoji.label||"")} style={{ position:"fixed",top:"42%",left:"50%",zIndex:10002,pointerEvents:"none",textAlign:"center",animation:"emojiFly3d 2.8s cubic-bezier(0.18,1.2,0.4,1) forwards",transformStyle:"preserve-3d" }}>
+        <div style={{ fontSize:84,filter:"drop-shadow(0 12px 24px rgba(0,0,0,0.7)) drop-shadow(0 0 40px rgba(0,229,255,0.35)) saturate(1.4)" }}>{flyEmoji.emoji}</div>
+        <div style={{ fontSize:15,fontWeight:900,color:"#fff",fontFamily:warrior,letterSpacing:3,textTransform:"uppercase",textShadow:"0 2px 0 rgba(0,0,0,0.8), 0 0 24px rgba(0,229,255,0.6)",marginTop:4 }}>{flyEmoji.label}</div>
+      </div>}
       {/* PES ET / OYUNDAN AYRIL butonu */}
       <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-end",marginBottom:4 }}>
         <button onClick={() => setShowSurrenderConfirm(true)} style={{ padding:"4px 12px",background:"transparent",color:t.textDim,border:`1px solid rgba(255,71,87,0.2)`,borderRadius:6,fontSize:9,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior,opacity:0.7 }}>OYUNDAN AYRIL</button>
@@ -2744,7 +2767,7 @@ export default function Game() {
         </div>
       </div>}
       {isOnboarding && <div style={{ fontSize:18,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:8,marginBottom:8,textAlign:"center",textShadow:`0 0 30px ${t.accentGlow}, 0 0 60px rgba(0,229,255,0.2)`,animation:"victoryGlow 3s ease-in-out infinite",textTransform:"uppercase" }}>⚔  EĞİTİM SAVAŞI  ⚔</div>}
-      <div style={{ fontSize:16,fontWeight:800,marginBottom:6,textAlign:"center",fontFamily:warrior,letterSpacing:4,textTransform:"uppercase",color:myTurn?t.accent:t.hit,textShadow:myTurn?`0 0 25px ${t.accentGlow}`:`0 0 20px ${t.hitGlow}`,animation:"fadeUp 0.4s ease-out" }}>{myTurn?"⚡ SENİN SIRAN ⚡":(isOnboarding?"🎯 RAKİBİN SIRASI...":(isBotGame?"🤖 Bot düşünüyor...":"Rakibin sırası..."))}</div>
+      <div style={{ display:"inline-block",alignSelf:"center",fontSize:15,fontWeight:900,marginBottom:8,textAlign:"center",fontFamily:warrior,letterSpacing:4,textTransform:"uppercase",color:myTurn?t.accent:t.hit,padding:"8px 26px",borderRadius:24,border:`2px solid ${myTurn?t.accent:t.hit}`,background:myTurn?"rgba(0,229,255,0.08)":"rgba(255,71,87,0.08)",animation:myTurn?"turnPulse 1.4s ease-in-out infinite":"blink3s 1.2s ease-in-out infinite",textShadow:myTurn?`0 0 20px ${t.accentGlow}`:`0 0 16px ${t.hitGlow}` }}>{myTurn?"⚡ SENİN SIRAN ⚡":(isOnboarding?"🎯 RAKİBİN SIRASI":(isBotGame?"🤖 RAKİP DÜŞÜNÜYOR...":"⏳ RAKİBİN SIRASI"))}</div>
       {!myTurn && !isBotGame && afkTimer !== null && afkTimer <= 15 && (
         <div style={{ background:afkTimer<=5?"rgba(255,71,87,0.2)":"rgba(255,215,0,0.1)",border:`1px solid ${afkTimer<=5?t.hit:t.gold}`,borderRadius:8,padding:"4px 14px",marginBottom:6,fontSize:12,fontWeight:800,color:afkTimer<=5?t.hit:t.gold,fontFamily:warrior,letterSpacing:2,animation:afkTimer<=5?"blink3s 0.4s infinite":"none",textAlign:"center" }}>
           ⏳ Rakip oynamıyor — {afkTimer}s
@@ -2771,7 +2794,7 @@ export default function Game() {
         <RippleButton onClick={fireShots} disabled={currentShots.length===0} style={{ padding:"12px 36px",background:currentShots.length>0?`linear-gradient(135deg,${t.hit},#dc2626)`:t.surfaceLight,color:currentShots.length>0?"#fff":t.textDim,border:"none",borderRadius:10,fontSize:16,fontWeight:700,letterSpacing:3,cursor:currentShots.length===0?"default":"pointer",fontFamily:warrior,boxShadow:currentShots.length>0?`0 0 24px ${t.hitGlow}`:"none",opacity:currentShots.length===0?0.5:1 }}>ATEŞ 🔥</RippleButton>
       </div>)}
       {!isBotGame && <div style={{ position:"fixed",bottom:myTurn&&activeBoard==="attack"&&!markMode?64:0,left:0,right:0,display:"flex",justifyContent:"center",gap:2,background:"rgba(10,14,23,0.92)",backdropFilter:"blur(8px)",borderTop:`1px solid ${t.border}`,padding:"6px 4px",zIndex:90 }}>
-        {QUICK_EMOJIS.map(qe=><button key={qe.id} onClick={()=>sendEmoji(qe)} style={{ padding:"4px 6px",background:"transparent",border:"none",fontSize:18,cursor:"pointer",borderRadius:6,transition:"transform 0.1s" }} title={qe.label}>{qe.emoji}</button>)}
+        {QUICK_EMOJIS.map(qe=><button key={qe.id} onClick={()=>sendEmoji(qe)} style={{ padding:"5px 7px",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(0,229,255,0.15)",fontSize:19,cursor:"pointer",borderRadius:10,transition:"transform 0.12s",filter:"drop-shadow(0 3px 4px rgba(0,0,0,0.6)) saturate(1.3)",transform:"perspective(150px) rotateX(8deg)" }} onMouseDown={e=>e.currentTarget.style.transform="perspective(150px) rotateX(8deg) scale(0.85)"} onMouseUp={e=>e.currentTarget.style.transform="perspective(150px) rotateX(8deg) scale(1)"} title={qe.label}>{qe.emoji}</button>)}
       </div>}
       <canvas id="confetti-canvas" style={{ position:'fixed',inset:0,pointerEvents:'none',zIndex:10002 }} />
       {microFeedback && <MicroFeedback text={microFeedback.text} color={microFeedback.color} onDone={()=>setMicroFeedback(null)} />}
