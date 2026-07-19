@@ -61,6 +61,17 @@ function getTestGold() { return isTestMode() ? 5000 : STARTING_GOLD; }
 // === BOT AI ===
 const BOT_NAMES = ["Kaptan Yıldız","Denizci Ali","Amiral Fırtına","Korsan Barış","Teğmen Dalga","Yüzbaşı Rüzgar","Kaptan Bulut","Denizci Efe"];
 
+
+// === SAVAŞ FEEDBACK MESAJLARI ===
+const FB_HIT1 = ["İSABET! 🎯", "VURDUN! 💥", "TAM 12'DEN!", "HEDEF YANDI! 🔥", "GÜMBÜR GÜMBÜR!"];
+const FB_HIT2 = ["ÇİFTE VURUŞ! ⚡", "GÜZEL! 💪", "SERİ ATIŞ! 🎯🎯", "İKİ GEMİ SARSILDI!"];
+const FB_HIT3 = ["MÜKEMMEL! 👑", "KUSURSUZ SALVO! ⚡⚡⚡", "EFSANESİN! 🌟", "TAM İSABET ×3! 💥"];
+const FB_MISS = ["KARAVANA", "ISKA! 🌊", "SUYA DÜŞTÜ...", "BOŞA GİTTİ 💨"];
+const FB_SUNK = ["BATTI! 💀", "DENİZİN DİBİNE! ⚓", "PARAMPARÇA! 💥", "GEMİ YOK OLDU!"];
+const FB_GOT_HIT = ["VURULDUN! 🚨", "GEMİN YARA ALDI! ⚠️", "İSABET ALDIN!", "ZIRH DELİNDİ! 🛡"];
+const FB_GOT_SUNK = ["GEMİN BATTI! 😱", "KAYIP VERDİN! 🔻", "BİR GEMİ DAHA GİTTİ..."];
+const fbPick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
 // === GÖREV SİSTEMİ ===
 const ALL_MISSIONS = [
   // ── KOLAY (anında dopamin) ──
@@ -275,8 +286,8 @@ class SoundEngine {
   }
   // Oyun heyecanına göre volume ayarla (dışarıdan çağrılır)
   setBattleIntensity(level) { // level: 0.0 - 1.0
-    if (this.currentMusic !== 'battle-mp3') return;
-    const minVol = 0.12, maxVol = 0.72;
+    if (!this._audioEl) return;
+    const minVol = 0.08, maxVol = 0.20;
     const target = minVol + (maxVol - minVol) * level;
     this._rampMp3Volume(target, 3000);
   }
@@ -299,112 +310,16 @@ class SoundEngine {
     }, interval);
   }
 
-  stopMusic() {
-    this.currentMusic = null;
-    if (this._loopTimer) { clearTimeout(this._loopTimer); this._loopTimer = null; }
-    this.musicOscs.forEach(o => { try { o.stop(); } catch(e) {} }); this.musicOscs = [];
-    if (this.musicGain) { try { this.musicGain.disconnect(); } catch(e) {} this.musicGain = null; }
-    this._fadeOutAndStop(1400);
-  }
-  // LOBİ — Sakin, gizemli, deniz ambiyansı
-  playLobbyMusic() {
-    if (!this.enabled || !this.ctx) return;
-    if (this.currentMusic === 'lobby') return; // Zaten çalıyor, tekrar başlatma
-    this.currentMusic = 'lobby';
-    const ctx = this.ctx, now = ctx.currentTime;
-    this.musicGain = ctx.createGain();
-    this.musicGain.gain.setValueAtTime(0, now);
-    this.musicGain.gain.linearRampToValueAtTime(0.04, now + 2.0); // fade in
-    this.musicGain.connect(ctx.destination);
-    // Ocean drone — low wave
-    const drone = ctx.createOscillator(); const dG = ctx.createGain();
-    drone.type = 'sine'; drone.frequency.value = 73.42; // D2
-    dG.gain.setValueAtTime(0.04, now); drone.connect(dG); dG.connect(this.musicGain);
-    drone.start(now); this.musicOscs.push(drone);
-    // Second drone — fifth above
-    const drone2 = ctx.createOscillator(); const dG2 = ctx.createGain();
-    drone2.type = 'sine'; drone2.frequency.value = 110; // A2
-    dG2.gain.setValueAtTime(0.02, now); drone2.connect(dG2); dG2.connect(this.musicGain);
-    drone2.start(now); this.musicOscs.push(drone2);
-    // Ambient melody — mysterious, slow
-    const melody = [293.66,349.23,440,392,349.23,293.66,261.63,293.66,220,261.63,293.66,349.23,329.63,293.66,261.63,220];
-    const durs = [1.2,1.0,0.8,1.4,1.0,1.2,1.4,0.8,1.2,1.0,0.8,1.4,1.0,1.2,1.4,1.6];
-    let time = now + 0.5;
-    for (let loop = 0; loop < 4; loop++) {
-      melody.forEach((freq, i) => {
-        const osc = ctx.createOscillator(); const g = ctx.createGain();
-        osc.type = 'sine'; osc.frequency.value = freq;
-        g.gain.setValueAtTime(0, time);
-        g.gain.linearRampToValueAtTime(0.06, time + 0.15);
-        g.gain.linearRampToValueAtTime(0.03, time + durs[i] * 0.6);
-        g.gain.linearRampToValueAtTime(0, time + durs[i]);
-        osc.connect(g); g.connect(this.musicGain);
-        osc.start(time); osc.stop(time + durs[i] + 0.1);
-        this.musicOscs.push(osc);
-        time += durs[i];
-      });
-    }
-    const totalDur = (time - now) * 1000;
-    drone.stop(time + 2); drone2.stop(time + 2);
-    this._loopTimer = setTimeout(() => { if (this.currentMusic === 'lobby') this.playLobbyMusic(); }, totalDur - 2000);
-  }
-  // SAVAŞ — Iron Tide Rising (mp3) — oyun sırasında alçak, intro'da yüksek
-  // Intro'dan oyuna geçiş: müziği yeniden başlatmadan volume'ü alçalt
-  transitionToBattle() {
-    if (!this.enabled || !this.ctx) return;
-    if (this._audioEl && (this.currentMusic === 'intro' || this.currentMusic === 'battle-mp3')) {
-      this.currentMusic = 'battle-mp3';
-      this._rampMp3Volume(0.10, 2500);
-    } else {
-      this.playBattleMusic(false);
-    }
-  }
-  playBattleMusic(introMode=false) {
-    if (!this.enabled || !this.ctx) return;
-    this.currentMusic = 'battle-mp3';
-    const targetVol = introMode ? 0.52 : 0.10;
-    // Fade in from 0
-    if (this._audioEl && this._audioGainNode) {
-      // Already playing, just ramp
-      this._rampMp3Volume(targetVol, 2000);
+  // TEK PARÇA MÜZİK — iron-tide hep çalar, sadece volume nefes alır
+  ensureMusic(vol=0.10) {
+    if (!this.ctx) this.init();
+    if (!this.ctx) return;
+    if (this._audioEl && !this._audioEl.paused && this._audioGainNode) {
+      this._rampMp3Volume(vol, 2500);
       return;
     }
     this._stopMp3();
-    const audio = new Audio('/music/iron-tide.mp3');
-    audio.loop = true;
-    audio.crossOrigin = 'anonymous';
-    this._audioEl = audio;
-    const gainNode = this.ctx.createGain();
-    gainNode.gain.setValueAtTime(0, this.ctx.currentTime); // start silent
-    gainNode.connect(this.ctx.destination);
-    this._audioGainNode = gainNode;
-    const srcNode = this.ctx.createMediaElementSource(audio);
-    srcNode.connect(gainNode);
-    this._audioSrc = srcNode;
-    this._mp3Volume = 0;
-    audio.play().catch(()=>{});
-    // Fade in
-    setTimeout(() => this._rampMp3Volume(targetVol, 2500), 100);
-  }
-  // KAZANMA — Sunrise at the Citadel (mp3)
-  playEpicMusic() {
-    if (!this.enabled || !this.ctx) return;
-    this.currentMusic = 'epic';
-    this._switchMp3('/music/sunrise.mp3', 0.55, false, 900, 2000);
-  }
-  // KAYBETME — Dignity in Ruins (mp3)
-  playDefeatMusic() {
-    if (!this.enabled || !this.ctx) return;
-    this.currentMusic = 'defeat';
-    this._switchMp3('/music/dignity.mp3', 0.45, false, 900, 1800);
-  }
-  // INTRO — Iron Tide Rising yavaş fade-in + loop sonu fade/yüksel
-  playAmbientIntro() {
-    if (this.currentMusic === 'intro' && this._audioEl && !this._audioEl.paused) return;
-    if (!this.ctx) this.init();
-    if (!this.ctx) return;
-    this.currentMusic = 'intro';
-    this._stopMp3();
+    this.currentMusic = 'main';
     const audio = new Audio('/music/iron-tide.mp3');
     audio.loop = true;
     audio.crossOrigin = 'anonymous';
@@ -417,9 +332,36 @@ class SoundEngine {
     srcNode.connect(gainNode);
     this._audioSrc = srcNode;
     this._mp3Volume = 0;
-    audio.play().catch(() => {});
-    setTimeout(() => this._rampMp3Volume(0.10, 3000), 100);
+    audio.play().catch(()=>{});
+    setTimeout(() => this._rampMp3Volume(vol, 3000), 100);
   }
+  stopMusic() {
+    this.currentMusic = null;
+    if (this._loopTimer) { clearTimeout(this._loopTimer); this._loopTimer = null; }
+    this.musicOscs.forEach(o => { try { o.stop(); } catch(e) {} }); this.musicOscs = [];
+    if (this.musicGain) { try { this.musicGain.disconnect(); } catch(e) {} this.musicGain = null; }
+    this._fadeOutAndStop(1400);
+  }
+  // LOBİ — Sakin, gizemli, deniz ambiyansı
+  playLobbyMusic() { this.ensureMusic(0.10); }
+  // SAVAŞ — Iron Tide Rising (mp3) — oyun sırasında alçak, intro'da yüksek
+  // Intro'dan oyuna geçiş: müziği yeniden başlatmadan volume'ü alçalt
+  transitionToBattle() {
+    if (!this.enabled || !this.ctx) return;
+    if (this._audioEl && (this.currentMusic === 'intro' || this.currentMusic === 'battle-mp3')) {
+      this.currentMusic = 'battle-mp3';
+      this._rampMp3Volume(0.10, 2500);
+    } else {
+      this.playBattleMusic(false);
+    }
+  }
+  playBattleMusic(introMode=false) { this.ensureMusic(introMode ? 0.16 : 0.12); }
+  // KAZANMA — Sunrise at the Citadel (mp3)
+  playEpicMusic() { this.ensureMusic(0.20); }
+  // KAYBETME — Dignity in Ruins (mp3)
+  playDefeatMusic() { this.ensureMusic(0.07); }
+  // INTRO — Iron Tide Rising yavaş fade-in + loop sonu fade/yüksel
+  playAmbientIntro() { this.ensureMusic(0.10); }
   // Yumuşak parça değişimi — eski fade-out, yeni fade-in
   _switchMp3(src, targetVol, loop=true, fadeOutMs=900, fadeInMs=2200) {
     if (!this.ctx) { return; }
@@ -455,79 +397,9 @@ class SoundEngine {
       startNew();
     }
   }
-  playIntroFanfare() {
-    if (!this.enabled || !this.ctx) return;
-    if (this.currentMusic === 'intro' && this._audioEl && !this._audioEl.paused) return;
-    this.currentMusic = 'intro';
-    this._stopMp3();
-    const audio = new Audio('/music/iron-tide.mp3');
-    audio.loop = false;
-    audio.crossOrigin = 'anonymous';
-    this._audioEl = audio;
-    const gainNode = this.ctx.createGain();
-    gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
-    gainNode.connect(this.ctx.destination);
-    this._audioGainNode = gainNode;
-    const srcNode = this.ctx.createMediaElementSource(audio);
-    srcNode.connect(gainNode);
-    this._audioSrc = srcNode;
-    this._mp3Volume = 0;
-    const self = this;
-    const scheduleEndFade = () => {
-      if (!self._audioEl || self.currentMusic !== 'intro') return;
-      const dur = self._audioEl.duration;
-      if (!dur || isNaN(dur)) { setTimeout(scheduleEndFade, 500); return; }
-      const checkTime = () => {
-        if (!self._audioEl || self.currentMusic !== 'intro') return;
-        const remaining = dur - self._audioEl.currentTime;
-        if (remaining <= 6) {
-          self._rampMp3Volume(0, 5000);
-          setTimeout(() => {
-            if (self.currentMusic !== 'intro' || !self._audioEl) return;
-            self._audioEl.currentTime = 0;
-            self._audioEl.play().catch(()=>{});
-            setTimeout(() => { if (self.currentMusic === 'intro') self._rampMp3Volume(0.60, 4000); }, 200);
-            setTimeout(scheduleEndFade, 1000);
-          }, 5200);
-        } else {
-          setTimeout(checkTime, 1000);
-        }
-      };
-      checkTime();
-    };
-    audio.addEventListener('loadedmetadata', scheduleEndFade);
-    audio.play().catch(()=>{});
-    setTimeout(() => self._rampMp3Volume(0.22, 1500), 200);
-    setTimeout(() => self._rampMp3Volume(0.60, 3000), 2000);
-  }
+  playIntroFanfare() { this.ensureMusic(0.10); }
   // YERLEŞTİRME — Taktik müzik (sakin ama gerilimli)
-  playPlacementMusic() {
-    if (!this.enabled || !this.ctx) return;
-    this.stopMusic(); this.currentMusic = 'placement';
-    const ctx = this.ctx, now = ctx.currentTime;
-    this.musicGain = ctx.createGain();
-    this.musicGain.gain.setValueAtTime(0.04, now);
-    this.musicGain.connect(ctx.destination);
-    // Ticking clock + suspense drone
-    const drone = ctx.createOscillator(); const dG = ctx.createGain();
-    drone.type = 'sine'; drone.frequency.value = 98; // G2
-    dG.gain.setValueAtTime(0.03, now); drone.connect(dG); dG.connect(this.musicGain);
-    drone.start(now); this.musicOscs.push(drone);
-    // Tick-tock
-    let tickTime = now + 0.2;
-    for (let i = 0; i < 60; i++) {
-      const osc = ctx.createOscillator(); const g = ctx.createGain();
-      osc.type = 'sine'; osc.frequency.value = i % 2 === 0 ? 1200 : 900;
-      g.gain.setValueAtTime(0.03, tickTime);
-      g.gain.exponentialRampToValueAtTime(0.001, tickTime + 0.04);
-      osc.connect(g); g.connect(this.musicGain);
-      osc.start(tickTime); osc.stop(tickTime + 0.05);
-      this.musicOscs.push(osc);
-      tickTime += 1.0;
-    }
-    drone.stop(now + 62);
-    this._loopTimer = setTimeout(() => { if (this.currentMusic === 'placement') this.playPlacementMusic(); }, 60000);
-  }
+  playPlacementMusic() { this.ensureMusic(0.10); }
   play(type) {
     if (!this.enabled || !this.ctx) return;
     try {
@@ -569,10 +441,38 @@ function OnboardingVictoryScreen({ sfx, t, winner, warrior, mono, onDone }) {
   return (
     <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",minHeight:"100dvh",background:`radial-gradient(ellipse at 50% 30%, rgba(0,229,255,0.15) 0%, rgba(255,215,0,0.05) 30%, ${t.bg} 70%)`,padding:20,overflowY:"auto" }}>
       <div style={{ textAlign:"center",maxWidth:380,width:"90vw",paddingBottom:40 }}>
-        <div style={{ background:`linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))`,border:`3px solid ${t.accent}`,borderRadius:24,padding:"40px 28px",boxShadow:`0 20px 80px rgba(0,0,0,0.7), 0 0 60px ${accentGlow}` }}>
-          <div style={{ fontSize:72,marginBottom:12,filter:"grayscale(1) brightness(8) drop-shadow(0 6px 12px rgba(0,0,0,0.7)) drop-shadow(0 0 40px rgba(255,255,255,0.5)) drop-shadow(0 0 80px rgba(0,229,255,0.4))",transform:"perspective(400px) rotateX(8deg)",animation:"float 3s ease-in-out infinite" }}>⚔</div>
+        <div style={{ background:`linear-gradient(160deg, rgba(16,24,44,0.99) 0%, rgba(10,16,32,0.99) 55%, rgba(24,14,14,0.98) 100%)`,border:"2px solid rgba(255,215,0,0.45)",outline:`1px solid rgba(0,229,255,0.25)`,outlineOffset:4,borderRadius:18,padding:"40px 28px",boxShadow:`0 24px 90px rgba(0,0,0,0.8), 0 0 70px ${accentGlow}, inset 0 1px 0 rgba(255,215,0,0.15), inset 0 -3px 12px rgba(120,20,20,0.25)` }}>
+          <div style={{ width:120,height:105,margin:"0 auto 14px",animation:"float 3s ease-in-out infinite",filter:"drop-shadow(0 8px 16px rgba(0,0,0,0.7)) drop-shadow(0 0 40px rgba(255,255,255,0.4)) drop-shadow(0 0 80px rgba(0,229,255,0.35))" }}>
+            <svg viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg" style={{ width:"100%",height:"100%" }}>
+              <defs>
+                <linearGradient id="vBlade" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#ffffff"/><stop offset="40%" stopColor="#e8f0fa"/><stop offset="100%" stopColor="#9db8d8"/>
+                </linearGradient>
+                <linearGradient id="vHandle" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#c9a34a"/><stop offset="50%" stopColor="#ffd700"/><stop offset="100%" stopColor="#c9a34a"/>
+                </linearGradient>
+                <filter id="vGlow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+              </defs>
+              <g transform="rotate(-40, 100, 90)">
+                <polygon points="100,10 104,128 100,136 96,128" fill="url(#vBlade)" filter="url(#vGlow)"/>
+                <line x1="100" y1="12" x2="102" y2="126" stroke="rgba(255,255,255,0.95)" strokeWidth="1.5"/>
+                <rect x="85" y="124" width="30" height="6" rx="2" fill="url(#vHandle)" filter="url(#vGlow)"/>
+                <rect x="97" y="130" width="6" height="26" rx="3" fill="#8a6d2f"/>
+                <ellipse cx="100" cy="158" rx="6" ry="4" fill="url(#vHandle)"/>
+              </g>
+              <g transform="rotate(40, 100, 90)">
+                <polygon points="100,10 104,128 100,136 96,128" fill="url(#vBlade)" filter="url(#vGlow)"/>
+                <line x1="100" y1="12" x2="98" y2="126" stroke="rgba(255,255,255,0.95)" strokeWidth="1.5"/>
+                <rect x="85" y="124" width="30" height="6" rx="2" fill="url(#vHandle)" filter="url(#vGlow)"/>
+                <rect x="97" y="130" width="6" height="26" rx="3" fill="#8a6d2f"/>
+                <ellipse cx="100" cy="158" rx="6" ry="4" fill="url(#vHandle)"/>
+              </g>
+              <circle cx="100" cy="86" r="18" fill="rgba(255,255,255,0.15)" filter="url(#vGlow)"/>
+              <circle cx="100" cy="86" r="8" fill="rgba(255,240,200,0.5)"/>
+            </svg>
+          </div>
           <div style={{ fontSize:13,fontWeight:700,color:t.textDim,fontFamily:warrior,letterSpacing:6,marginBottom:6 }}>TEBRİKLER, DENİZCİ!</div>
-          <div style={{ fontSize:44,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 40px ${accentGlow}`,marginBottom:12 }}>ZAFER</div>
+          <div style={{ fontSize:52,fontWeight:900,color:"#ffd700",fontFamily:warrior,letterSpacing:10,textShadow:`0 0 50px rgba(255,215,0,0.6), 0 0 100px ${accentGlow}, 0 4px 8px rgba(0,0,0,0.8)`,marginBottom:12,textTransform:"uppercase" }}>ZAFER</div>
           <div style={{ fontSize:13,fontWeight:700,color:"rgba(0,229,255,0.6)",fontFamily:warrior,letterSpacing:2,marginBottom:24 }}>{winner}</div>
           <div style={{ background:"rgba(0,229,255,0.07)",border:`2px solid rgba(0,229,255,0.2)`,borderRadius:14,padding:"16px 20px",marginBottom:16 }}>
             <div style={{ fontSize:11,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:3,marginBottom:6 }}>RÜTBEN BELİRLENDİ</div>
@@ -1501,13 +1401,13 @@ export default function Game() {
             // Sound for incoming hits
             const incomingHits = lastAtk.shots.filter(s => s.result === "hit").length;
             sfx.init(); if (incomingHits > 0) sfx.play('hit');
-            if (game[`${myKey}_ships`]) { const myShips = Object.values(game[`${myKey}_ships`]); const reports = []; lastAtk.shots.forEach(s => { if (s.result === "hit") { const hitShip = myShips.find(sh => sh.cells.some(([r, c]) => r === s.r && c === s.c)); if (hitShip) { const shipDef = SHIPS.find(sd => sd.id === hitShip.id); const totalH = hitShip.cells.filter(([r, c]) => dHitMap[r][c]).length; reports.push(totalH === hitShip.cells.length ? `${shipDef?.name} battı!` : `${shipDef?.name} ${totalH} yara aldı`); } } }); if (reports.length > 0) { setDamageReport(reports.join(" • ")); if (damageTimerRef.current) clearTimeout(damageTimerRef.current); damageTimerRef.current = setTimeout(() => setDamageReport(""), 8000); if (reports.some(r => r.includes('battı'))) setTimeout(() => { sfx.play('sunk'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2); }, 200); } }
+            if (game[`${myKey}_ships`]) { const myShips = Object.values(game[`${myKey}_ships`]); const reports = []; lastAtk.shots.forEach(s => { if (s.result === "hit") { const hitShip = myShips.find(sh => sh.cells.some(([r, c]) => r === s.r && c === s.c)); if (hitShip) { const shipDef = SHIPS.find(sd => sd.id === hitShip.id); const totalH = hitShip.cells.filter(([r, c]) => dHitMap[r][c]).length; reports.push(totalH === hitShip.cells.length ? `${shipDef?.name} battı!` : `${shipDef?.name} ${totalH} yara aldı`); } } }); if (reports.length > 0) { setDamageReport(reports.join(" • ")); setMicroFeedback({ text: fbPick(reports.some(r => r.includes('battı')) ? FB_GOT_SUNK : FB_GOT_HIT), color: t.hit }); if (damageTimerRef.current) clearTimeout(damageTimerRef.current); damageTimerRef.current = setTimeout(() => setDamageReport(""), 8000); if (reports.some(r => r.includes('battı'))) setTimeout(() => { sfx.play('sunk'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2); }, 200); } }
           }
           if (lastAtk.by === pNum && lastAtk.shots) {
             setBlinkCells(lastAtk.shots.map(s => [s.r, s.c])); if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current); blinkTimerRef.current = setTimeout(() => setBlinkCells([]), 3000);
             // Sound for own shots landing
             const myHitCount = lastAtk.shots.filter(s => s.result === "hit").length;
-            sfx.init(); if (myHitCount > 0) { sfx.play('hit'); sfx.setBattleIntensity(0.55 + myHitCount * 0.1); setMicroFeedback({ text: myHitCount === 3 ? 'MÜKEMMEL!' : myHitCount === 2 ? 'GÜZEL!' : 'İSABET!', color: myHitCount === 3 ? t.gold : t.accent }); } else { sfx.play('miss'); sfx.setBattleIntensity(0.18); setMicroFeedback({ text: 'KARAVANA', color: t.miss }); }
+            sfx.init(); if (myHitCount > 0) { sfx.play('hit'); sfx.setBattleIntensity(0.55 + myHitCount * 0.1); setMicroFeedback({ text: fbPick(myHitCount === 3 ? FB_HIT3 : myHitCount === 2 ? FB_HIT2 : FB_HIT1), color: myHitCount === 3 ? t.gold : t.accent }); } else { sfx.play('miss'); sfx.setBattleIntensity(0.18); setMicroFeedback({ text: fbPick(FB_MISS), color: t.miss }); }
           }
         }
       }
@@ -1773,7 +1673,7 @@ export default function Game() {
   };
 
   const resetGame = () => {
-    sfx.stopMusic();
+    /* müzik devam eder */
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
     setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShowSurrenderConfirm(false); setAfkTimer(null); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false });
     if (authUid) { get(ref(db, `profiles/${authUid}`)).then(snap => { if (snap.exists()) setMyProfile(snap.val()); }).catch(() => {}); }
@@ -1870,7 +1770,7 @@ export default function Game() {
     setTimeout(() => setBlinkCells([]), 3000);
     // Sound for incoming damage
     const botHitCount = shots.filter(([r,c]) => defenseBoard[r][c] > 0).length;
-    if (botHitCount > 0) sfx.play('hit');
+    if (botHitCount > 0) { sfx.play('hit'); setMicroFeedback({ text: fbPick(reports.some(r => r.includes('battı')) ? FB_GOT_SUNK : FB_GOT_HIT), color: t.hit }); }
     if (reports.some(r => r.includes('battı'))) setTimeout(() => sfx.play('sunk'), 200);
     if (reports.length > 0) { setDamageReport(reports.join(" • ")); setTimeout(() => setDamageReport(""), 8000); }
     setActiveBoard("defense");
@@ -1899,9 +1799,9 @@ export default function Game() {
     const hitCount0 = currentShots.filter(([r,c]) => botBoard[r][c] > 0).length;
     if (hitCount0 > 0) { sfx.play('hit');
       if (isOnboarding && !onboardingMilestones.firstHit) { setOnboardingMilestones(prev => ({...prev, firstHit: true})); setMicroFeedback({ text: 'İLK İSABET! 🎯', color: t.gold }); }
-      else { setMicroFeedback({ text: hitCount0 === 3 ? 'MÜKEMMEL!' : hitCount0 === 2 ? 'GÜZEL!' : 'İSABET!', color: hitCount0 === 3 ? t.gold : t.accent }); }
+      else { setMicroFeedback({ text: fbPick(hitCount0 === 3 ? FB_HIT3 : hitCount0 === 2 ? FB_HIT2 : FB_HIT1), color: hitCount0 === 3 ? t.gold : t.accent }); }
     }
-    else { sfx.play('miss'); setMicroFeedback({ text: 'KARAVANA', color: t.miss }); }
+    else { sfx.play('miss'); setMicroFeedback({ text: fbPick(FB_MISS), color: t.miss }); }
     // Check for sunk ships
     let sunkThisTurn = false;
     if (botShips) {
@@ -1915,7 +1815,7 @@ export default function Game() {
     }
     if (sunkThisTurn) { setTimeout(() => { sfx.play('sunk'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2);
       if (isOnboarding && !onboardingMilestones.firstSunk) { setOnboardingMilestones(prev => ({...prev, firstSunk: true})); setMicroFeedback({ text: 'İLK BATIŞ! 💀', color: t.sunk }); }
-      else { setMicroFeedback({ text: 'BATTI! 💀', color: t.sunk }); }
+      else { setMicroFeedback({ text: fbPick(FB_SUNK), color: t.sunk }); }
       // Gemi battı → müzik zirveye çıksın
       sfx.setBattleIntensity(1.0);
       setTimeout(() => sfx.setBattleIntensity(0.35), 6000);
@@ -2489,7 +2389,7 @@ export default function Game() {
     // ONBOARDING VICTORY — Special rank reveal ceremony
     if (isOnboarding && isWin) {
       return (<><style>{ANIMS}</style>
-        <OnboardingVictoryScreen sfx={sfx} t={t} winner={winner} warrior={warrior} mono={mono} onDone={() => { sfx.stopMusic(); setIsOnboarding(false); resetGame(); }} />
+        <OnboardingVictoryScreen sfx={sfx} t={t} winner={winner} warrior={warrior} mono={mono} onDone={() => { setIsOnboarding(false); resetGame(); }} />
       </>);
     }
     const myEloDiff = eloChange ? eloChange.myNew - eloChange.myOld : null;
