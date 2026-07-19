@@ -617,12 +617,12 @@ function RippleButton({ children, onClick, style, disabled, ...props }) {
 
 // === MİKRO FEEDBACK ===
 function MicroFeedback({ text, color, onDone }) {
-  useEffect(() => { const tm = setTimeout(()=>onDone?.(), 1500); return ()=>clearTimeout(tm); }, []);
+  useEffect(() => { const tm = setTimeout(()=>onDone?.(), 2400); return ()=>clearTimeout(tm); }, []);
   const clr = color || t.gold;
   return (<div style={{ position:'fixed',top:'44%',left:'50%',zIndex:10001,fontSize:30,fontWeight:900,color:clr,fontFamily:warrior,letterSpacing:5,textTransform:'uppercase',whiteSpace:'nowrap',
     WebkitTextStroke:'1.5px rgba(0,0,0,0.85)',
     textShadow:`0 3px 0 rgba(0,0,0,0.9), 0 6px 0 rgba(0,0,0,0.55), 0 12px 24px rgba(0,0,0,0.9), 0 0 34px ${clr}, 0 0 90px ${clr}66`,
-    animation:'arZoomText 1.5s cubic-bezier(0.25,0.8,0.3,1) forwards',pointerEvents:'none' }}>{text}</div>);
+    animation:'arZoomText 2.4s ease-out forwards',pointerEvents:'none' }}>{text}</div>);
 }
 
 const ARENAS = [
@@ -954,7 +954,7 @@ const ANIMS = `
 @keyframes rewardPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
 @keyframes btnBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
 @keyframes sonarArc{0%,100%{opacity:0.35;transform:scale(1)}50%{opacity:1;transform:scale(1.18)}}
-@keyframes arZoomText{0%{opacity:0;transform:translateX(-50%) scale(0.15)}10%{opacity:1;transform:translateX(-50%) scale(0.9)}100%{opacity:0;transform:translateX(-50%) translateY(-46px) scale(3.1);filter:blur(3px)}}
+@keyframes arZoomText{0%{opacity:0;transform:translateX(-50%) scale(0.2)}8%{opacity:1;transform:translateX(-50%) scale(1.05)}12%{transform:translateX(-50%) scale(1)}70%{opacity:1;transform:translateX(-50%) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-40px) scale(2.6);filter:blur(3px)}}
 @keyframes popFlash{0%{opacity:0;transform:translateX(-50%) scale(0.1) rotate(-8deg)}22%{opacity:1;transform:translateX(-50%) scale(1.45) rotate(4deg)}38%{transform:translateX(-50%) scale(1.05) rotate(0deg)}72%{opacity:1;transform:translateX(-50%) scale(1.05)}100%{opacity:0;transform:translateX(-50%) scale(0.7) translateY(-16px)}}
 @keyframes fbPop3d{0%{opacity:0;transform:translateX(-50%) scale(0.3) perspective(500px) rotateX(40deg)}12%{opacity:1;transform:translateX(-50%) scale(1.25) perspective(500px) rotateX(-6deg)}22%{transform:translateX(-50%) scale(1) perspective(500px) rotateX(0deg)}78%{opacity:1;transform:translateX(-50%) scale(1) translateY(0)}100%{opacity:0;transform:translateX(-50%) scale(0.92) translateY(-30px)}}
 @keyframes floatShadow{0%,100%{transform:translateY(0);filter:drop-shadow(0 8px 20px rgba(0,0,0,0.4))}50%{transform:translateY(-8px);filter:drop-shadow(0 16px 30px rgba(0,0,0,0.6))}}
@@ -2716,12 +2716,10 @@ export default function Game() {
         {/* Köşe sonar dalgaları */}
         {!matchmaking && <>
         <span style={{ position:"absolute",top:-9,left:-9,width:30,height:30,borderTop:"3px solid rgba(0,229,255,0.55)",borderLeft:"3px solid rgba(0,229,255,0.55)",borderTopLeftRadius:18,animation:"sonarArc 2s ease-in-out infinite",pointerEvents:"none" }} />
-        <span style={{ position:"absolute",top:-9,right:-9,width:30,height:30,borderTop:"3px solid rgba(0,229,255,0.55)",borderRight:"3px solid rgba(0,229,255,0.55)",borderTopRightRadius:18,animation:"sonarArc 2s ease-in-out 0.5s infinite",pointerEvents:"none" }} />
-        <span style={{ position:"absolute",bottom:-9,left:-9,width:30,height:30,borderBottom:"3px solid rgba(0,229,255,0.55)",borderLeft:"3px solid rgba(0,229,255,0.55)",borderBottomLeftRadius:18,animation:"sonarArc 2s ease-in-out 1s infinite",pointerEvents:"none" }} />
-        <span style={{ position:"absolute",bottom:-9,right:-9,width:30,height:30,borderBottom:"3px solid rgba(0,229,255,0.55)",borderRight:"3px solid rgba(0,229,255,0.55)",borderBottomRightRadius:18,animation:"sonarArc 2s ease-in-out 1.5s infinite",pointerEvents:"none" }} />
+        <span style={{ position:"absolute",bottom:-9,right:-9,width:30,height:30,borderBottom:"3px solid rgba(0,229,255,0.55)",borderRight:"3px solid rgba(0,229,255,0.55)",borderBottomRightRadius:18,animation:"sonarArc 2s ease-in-out 1s infinite",pointerEvents:"none" }} />
         </>}
-        <RippleButton onClick={()=>startQuickMatch(null)} disabled={matchmaking||authLoading} style={{ width:"100%",padding:"22px 0",background:matchmaking?t.surfaceLight:`linear-gradient(180deg, #22d8ff 0%, ${t.accent} 45%, #0077b6 100%)`,color:matchmaking?t.textDim:"#04202e",border:"3px solid rgba(255,255,255,0.35)",borderRadius:16,fontSize:23,fontWeight:900,letterSpacing:6,cursor:(matchmaking||authLoading)?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:matchmaking?"none":`0 0 34px ${t.accentGlow}, 0 8px 0 #045a80, 0 14px 28px rgba(0,0,0,0.55), inset 0 2px 0 rgba(255,255,255,0.45)`,opacity:authLoading?0.4:1,textShadow:"0 1px 0 rgba(255,255,255,0.4), 0 2px 3px rgba(0,60,90,0.5)",display:"flex",alignItems:"center",justifyContent:"center",gap:14,animation:matchmaking?"none":"btnBreath 2.2s ease-in-out infinite" }}>
-          {!matchmaking && <svg width="24" height="26" viewBox="0 0 24 26" style={{ filter:"drop-shadow(0 3px 3px rgba(0,40,60,0.55))" }}><defs><linearGradient id="playTri" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#ffffff"/><stop offset="60%" stopColor="#d8f6ff"/><stop offset="100%" stopColor="#8ad4f0"/></linearGradient></defs><polygon points="3,2 22,13 3,24" fill="url(#playTri)" stroke="rgba(4,60,90,0.5)" strokeWidth="1.2"/></svg>}
+        <RippleButton onClick={()=>startQuickMatch(null)} disabled={matchmaking||authLoading} style={{ width:"100%",padding:"15px 0",background:matchmaking?t.surfaceLight:`linear-gradient(180deg, #22d8ff 0%, ${t.accent} 45%, #0077b6 100%)`,color:matchmaking?t.textDim:"#04202e",border:"2px solid rgba(255,255,255,0.35)",borderRadius:14,fontSize:27,fontWeight:900,letterSpacing:6,cursor:(matchmaking||authLoading)?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:matchmaking?"none":`0 0 34px ${t.accentGlow}, 0 5px 0 #045a80, 0 10px 22px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,0.45)`,opacity:authLoading?0.4:1,textShadow:"0 1px 0 rgba(255,255,255,0.4), 0 2px 3px rgba(0,60,90,0.5)",display:"flex",alignItems:"center",justifyContent:"center",gap:14,animation:matchmaking?"none":"btnBreath 2.2s ease-in-out infinite" }}>
+          {!matchmaking && <svg width="30" height="32" viewBox="0 0 24 26" style={{ filter:"drop-shadow(0 3px 3px rgba(0,40,60,0.55))" }}><defs><linearGradient id="playTri" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#ffffff"/><stop offset="60%" stopColor="#d8f6ff"/><stop offset="100%" stopColor="#8ad4f0"/></linearGradient></defs><polygon points="3,2 22,13 3,24" fill="url(#playTri)" stroke="rgba(4,60,90,0.5)" strokeWidth="1.2"/></svg>}
           {matchmaking?"EŞLEŞTİRİLİYOR...":"OYNA"}
         </RippleButton>
       </div>
