@@ -296,7 +296,17 @@ class SoundEngine {
     this._audioGainNode = null;  // Web Audio gain for mp3
     this._audioSrc = null;       // MediaElementSourceNode
     this._mp3Volume = 0.7;       // current target volume for mp3
+    this._baseVol = 0.1;         // en son istenen (ölçeksiz) hedef ses seviyesi
     this._dynamicTimer = null;   // for intensity ramp
+    // Ayarlar — kalıcı tercihler
+    this.sfxOn = true;           // vurma/isabet/first-kill vb. ses efektleri
+    this.volumeMult = 1;         // müzik seviyesi çarpanı (ayarlar sürgüsünden)
+    try {
+      const savedSfx = localStorage.getItem('ab_sfxOn');
+      if (savedSfx !== null) this.sfxOn = savedSfx === '1';
+      const savedVol = localStorage.getItem('ab_musicVolume');
+      if (savedVol !== null) this.volumeMult = Math.max(0, parseInt(savedVol, 10)) / 50;
+    } catch(e) {}
   }
   init() { if (this.ctx) return; try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { this.enabled = false; } }
 
@@ -327,6 +337,8 @@ class SoundEngine {
   // Yavaşça volume değiştir (intensity için)
   _rampMp3Volume(targetVol, durationMs=2000) {
     if (!this._audioGainNode || !this.ctx) return;
+    this._baseVol = targetVol;
+    const scaledTarget = targetVol * (this.volumeMult != null ? this.volumeMult : 1);
     const steps = 30, interval = durationMs / steps;
     const startVol = this._mp3Volume;
     let step = 0;
@@ -335,10 +347,24 @@ class SoundEngine {
       step++;
       const t = step / steps;
       const eased = t < 0.5 ? 2*t*t : -1+(4-2*t)*t; // ease in-out
-      const vol = startVol + (targetVol - startVol) * eased;
-      if (this._audioGainNode) this._audioGainNode.gain.setValueAtTime(vol, this.ctx.currentTime);
-      if (step >= steps) { clearInterval(this._dynamicTimer); this._dynamicTimer = null; this._mp3Volume = targetVol; if (targetVol > 0) this._loopTargetVol = targetVol; }
+      const vol = startVol + (scaledTarget - startVol) * eased;
+      if (this._audioGainNode) this._audioGainNode.gain.setValueAtTime(Math.max(0,vol), this.ctx.currentTime);
+      if (step >= steps) { clearInterval(this._dynamicTimer); this._dynamicTimer = null; this._mp3Volume = scaledTarget; if (targetVol > 0) this._loopTargetVol = targetVol; }
     }, interval);
+  }
+  // Ayarlar panelindeki sürgüden anlık çağrılır (0-100)
+  setMusicVolume(pct) {
+    this.volumeMult = Math.max(0, Math.min(100, pct)) / 50;
+    try { localStorage.setItem('ab_musicVolume', String(Math.round(pct))); } catch(e) {}
+    if (this._audioGainNode && this.ctx) {
+      const newVol = (this._baseVol != null ? this._baseVol : this._mp3Volume) * this.volumeMult;
+      this._mp3Volume = newVol;
+      this._audioGainNode.gain.setValueAtTime(Math.max(0,newVol), this.ctx.currentTime);
+    }
+  }
+  setSfxOn(on) {
+    this.sfxOn = on;
+    try { localStorage.setItem('ab_sfxOn', on ? '1' : '0'); } catch(e) {}
   }
   // Oyun heyecanına göre volume ayarla (dışarıdan çağrılır)
   setBattleIntensity(level) { // level: 0.0 - 1.0
@@ -474,6 +500,7 @@ class SoundEngine {
   // YERLEŞTİRME — Taktik müzik (sakin ama gerilimli)
   playPlacementMusic() { this.ensureMusic(0.10); }
   playVoice(name) {
+    if (!this.sfxOn) return;
     // Anons/efekt mp3'leri — üst üste binebilir, kısa dosyalar
     try {
       const a = new Audio(`/sfx/${name}.mp3`);
@@ -482,7 +509,7 @@ class SoundEngine {
     } catch(e) {}
   }
   play(type) {
-    if (!this.enabled || !this.ctx) return;
+    if (!this.enabled || !this.ctx || !this.sfxOn) return;
     try {
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
@@ -688,6 +715,8 @@ async function checkDailyReward(uid) {
     wins: (typeof profile.wins === "number" && !isNaN(profile.wins) && isFinite(profile.wins)) ? profile.wins : 0,
     losses: (typeof profile.losses === "number" && !isNaN(profile.losses) && isFinite(profile.losses)) ? profile.losses : 0,
     totalGames: (typeof profile.totalGames === "number" && !isNaN(profile.totalGames) && isFinite(profile.totalGames)) ? profile.totalGames : 0,
+    botGames: (typeof profile.botGames === "number" && isFinite(profile.botGames)) ? profile.botGames : 0,
+    onlineGames: (typeof profile.onlineGames === "number" && isFinite(profile.onlineGames)) ? profile.onlineGames : 0,
     gold: newGold,
     level: (typeof profile.level === "number" && isFinite(profile.level)) ? profile.level : 0,
     levelProgress: (typeof profile.levelProgress === "number" && isFinite(profile.levelProgress)) ? profile.levelProgress : 0,
@@ -748,12 +777,83 @@ function EmojiDisplay({ emoji, label }) {
   </div>);
 }
 
+// === AYARLAR PANELİ — stil yardımcıları ve alt bileşenler ===
+const rowBtnStyle = { display:"flex",alignItems:"center",gap:12,width:"100%",padding:"14px 14px",background:"rgba(255,255,255,0.04)",border:`1px solid ${t.border}`,borderRadius:12,marginBottom:10,cursor:"pointer",textAlign:"left",color:t.text };
+const rowIconStyle = { fontSize:20,width:28,textAlign:"center",flexShrink:0 };
+const rowTitleStyle = { fontSize:14,fontWeight:800,color:t.text,fontFamily:warrior,letterSpacing:0.5 };
+const rowSubStyle = { fontSize:11,color:t.textDim,fontFamily:mono,marginTop:2 };
+const chevronStyle = { fontSize:20,color:t.textDim,flexShrink:0 };
+const sectionCardStyle = { padding:"14px 14px",background:"rgba(255,255,255,0.04)",border:`1px solid ${t.border}`,borderRadius:12,marginBottom:10 };
+const sliderStyle = { width:"100%",accentColor:t.accent,cursor:"pointer" };
+const langBtnStyle = (active) => ({ flex:1,padding:"10px 0",borderRadius:9,border:`1px solid ${active?t.accent:t.border}`,background:active?"rgba(0,229,255,0.14)":"rgba(255,255,255,0.03)",color:active?t.accent:t.textDim,fontFamily:warrior,fontWeight:800,fontSize:12,cursor:"pointer" });
+
+function ToggleRow({ icon, title, sub, value, onChange }) {
+  return (<div style={sectionCardStyle}>
+    <div style={{ display:"flex",alignItems:"center",gap:10 }}>
+      <span style={rowIconStyle}>{icon}</span>
+      <div style={{ flex:1 }}>
+        <div style={rowTitleStyle}>{title}</div>
+        {sub && <div style={rowSubStyle}>{sub}</div>}
+      </div>
+      <button onClick={()=>onChange(!value)} style={{ width:46,height:26,borderRadius:13,border:"none",cursor:"pointer",padding:2,background:value?"linear-gradient(135deg,#00e5ff,#0891b2)":"rgba(255,255,255,0.12)",transition:"background 0.2s ease",display:"flex",justifyContent:value?"flex-end":"flex-start",flexShrink:0 }}>
+        <div style={{ width:22,height:22,borderRadius:"50%",background:"#fff",boxShadow:"0 2px 4px rgba(0,0,0,0.4)" }} />
+      </button>
+    </div>
+  </div>);
+}
+
+function BackHeader({ title, onBack }) {
+  return (<div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:16 }}>
+    <button onClick={onBack} style={{ width:32,height:32,borderRadius:8,background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,color:t.text,fontSize:16,cursor:"pointer" }}>‹</button>
+    <div style={{ fontSize:16,fontWeight:900,color:t.text,fontFamily:warrior,letterSpacing:1 }}>{title}</div>
+  </div>);
+}
+
+function StatBox({ label, value, color }) {
+  return (<div style={{ background:"rgba(255,255,255,0.04)",border:`1px solid ${t.border}`,borderRadius:12,padding:"14px 10px",textAlign:"center" }}>
+    <div style={{ fontSize:22,fontWeight:900,color:color||t.text,fontFamily:warrior }}>{value}</div>
+    <div style={{ fontSize:9,color:t.textDim,fontFamily:mono,letterSpacing:1.5,marginTop:4 }}>{label}</div>
+  </div>);
+}
+
+const PRIVACY_TEXT = `GİZLİLİK POLİTİKASI
+
+Son güncelleme: Temmuz 2026
+
+1. TOPLANAN VERİLER
+Amiral Battı; görüntü adın, anonim bir cihaz/kullanıcı kimliği, seçtiğin profil simgesi veya yüklediğin profil fotoğrafı, oyun istatistiklerin (galibiyet, mağlubiyet, toplam oyun, altın, seviye) ve oyun içi tercihlerini (müzik/ses ayarları, dil) saklar. Gerçek adın, adresin veya ödeme bilgisi talep edilmez; oyun içi altının gerçek para karşılığı yoktur.
+
+2. VERİLERİN KULLANIM AMACI
+Bu veriler yalnızca oyun deneyimini sağlamak, skor tablosunu ve rütbeni göstermek, rakip eşleştirmesi yapmak ve günlük ödülleri yönetmek için kullanılır.
+
+3. ÜÇÜNCÜ TARAF ALTYAPISI
+Verilerin barındırılması ve kimlik doğrulaması için Google Firebase altyapısı kullanılır. Verilerin başka bir üçüncü tarafla ticari amaçla paylaşılması söz konusu değildir.
+
+4. YEREL DEPOLAMA
+Cihazında yalnızca ses/müzik tercihleri ve günlük ödül takibi gibi teknik ayarlar saklanır.
+
+5. HAKLARIN (KVKK & GDPR)
+KVKK'nın 11. maddesi ve GDPR kapsamında; verilerine erişme, düzeltme, taşınabilirlik talep etme ve verilerinin silinmesini isteme hakkına sahipsin. Ayarlar > Hesabımı/Verilerimi Sil yolunu kullanarak verilerini kalıcı olarak silebilir, ya da ozdenilim@gmail.com adresinden talepte bulunabilirsin.
+
+6. YAŞ SINIRI
+Oyun genel kitleye uygundur. 13 yaş altındaki kullanıcıların ebeveyn gözetiminde oynaması önerilir.
+
+KULLANIM KOŞULLARI
+
+1. Kullanıcılar birbirine saygılı davranmalı; hakaret, argo veya taciz içeren kullanıcı adları ve mesajlar yasaktır.
+2. Hesabın ve cihazının güvenliğinden kullanıcı sorumludur.
+3. Oyun içi altın ve rütbeler yalnızca eğlence amaçlıdır, gerçek para değeri taşımaz ve nakde çevrilemez.
+4. Hizmet "olduğu gibi" sunulur; sunucu bakımı veya bağlantı sorunları nedeniyle geçici kesintiler yaşanabilir.
+5. Bu koşullar önceden haber verilmeksizin güncellenebilir; güncel sürüm her zaman bu ekranda yer alır.
+
+İletişim: ozdenilim@gmail.com`;
+
 async function ensureProfile(uid, displayName) {
   const profileRef = ref(db, `profiles/${uid}`);
   const snap = await get(profileRef);
   if (!snap.exists()) {
     const startGold = isTestMode() ? 5000 : STARTING_GOLD;
-    const profile = { displayName: displayName||"Denizci", wins:0, losses:0, totalGames:0, gold:startGold, level:0, levelProgress:0, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false };
+    const profile = { displayName: displayName||"Denizci", wins:0, losses:0, totalGames:0, botGames:0, onlineGames:0, gold:startGold, level:0, levelProgress:0, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false };
     await set(profileRef, profile);
     return profile;
   }
@@ -764,6 +864,8 @@ async function ensureProfile(uid, displayName) {
     wins: (typeof existing.wins === "number" && !isNaN(existing.wins) && isFinite(existing.wins)) ? existing.wins : 0,
     losses: (typeof existing.losses === "number" && !isNaN(existing.losses) && isFinite(existing.losses)) ? existing.losses : 0,
     totalGames: (typeof existing.totalGames === "number" && !isNaN(existing.totalGames) && isFinite(existing.totalGames)) ? existing.totalGames : 0,
+    botGames: (typeof existing.botGames === "number" && isFinite(existing.botGames)) ? existing.botGames : 0,
+    onlineGames: (typeof existing.onlineGames === "number" && isFinite(existing.onlineGames)) ? existing.onlineGames : 0,
     gold: safeGold(existing.gold),
     level: (typeof existing.level === "number" && !isNaN(existing.level) && isFinite(existing.level)) ? existing.level : 0,
     levelProgress: (typeof existing.levelProgress === "number" && !isNaN(existing.levelProgress) && isFinite(existing.levelProgress)) ? existing.levelProgress : 0,
@@ -799,6 +901,8 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
     wins: ((typeof wd.wins === "number" && !isNaN(wd.wins)) ? wd.wins : 0) + 1,
     losses: (typeof wd.losses === "number" && !isNaN(wd.losses)) ? wd.losses : 0,
     totalGames: ((typeof wd.totalGames === "number" && !isNaN(wd.totalGames)) ? wd.totalGames : 0) + 1,
+    botGames: (typeof wd.botGames === "number" && isFinite(wd.botGames)) ? wd.botGames : 0,
+    onlineGames: ((typeof wd.onlineGames === "number" && isFinite(wd.onlineGames)) ? wd.onlineGames : 0) + 1,
     gold: wNewGold,
     level: wLevel.level, levelProgress: wLevel.levelProgress,
     loginStreak: (typeof wd.loginStreak === "number" && !isNaN(wd.loginStreak)) ? wd.loginStreak : 0,
@@ -810,6 +914,8 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
     wins: (typeof ld.wins === "number" && !isNaN(ld.wins)) ? ld.wins : 0,
     losses: ((typeof ld.losses === "number" && !isNaN(ld.losses)) ? ld.losses : 0) + 1,
     totalGames: ((typeof ld.totalGames === "number" && !isNaN(ld.totalGames)) ? ld.totalGames : 0) + 1,
+    botGames: (typeof ld.botGames === "number" && isFinite(ld.botGames)) ? ld.botGames : 0,
+    onlineGames: ((typeof ld.onlineGames === "number" && isFinite(ld.onlineGames)) ? ld.onlineGames : 0) + 1,
     gold: lNewGold,
     level: lLevel.level, levelProgress: lLevel.levelProgress,
     loginStreak: (typeof ld.loginStreak === "number" && !isNaN(ld.loginStreak)) ? ld.loginStreak : 0,
@@ -979,6 +1085,8 @@ const ANIMS = `
 @keyframes pageEnter{0%{opacity:0;transform:translateY(32px) scale(0.97)}60%{opacity:1;transform:translateY(-4px) scale(1.005)}100%{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes pageFadeIn{0%{opacity:0}100%{opacity:1}}
 @keyframes tutCardEnter{0%{opacity:0;transform:translateY(40px) scale(0.95) perspective(800px) rotateX(8deg)}60%{opacity:1;transform:translateY(-6px) scale(1.02) perspective(800px) rotateX(-2deg)}100%{opacity:1;transform:translateY(0) scale(1) perspective(800px) rotateX(0deg)}}
+@keyframes sheetSlideUp{0%{opacity:0;transform:translateY(40px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes settingsFadeIn{0%{opacity:0}100%{opacity:1}}
 `;
 const warrior = "'Barlow Condensed', sans-serif";
 const mono = "'Space Mono', monospace";
@@ -1568,6 +1676,12 @@ export default function Game() {
   const [streakToast, setStreakToast] = useState(null);
   const [onlineCount, setOnlineCount] = useState(0);
   const [musicOn, setMusicOn] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsView, setSettingsView] = useState(null); // null | 'profile' | 'privacy' | 'delete' | 'deleting'
+  const [musicVolume, setMusicVolumeState] = useState(() => { try { const v = localStorage.getItem('ab_musicVolume'); return v !== null ? parseInt(v,10) : 50; } catch(e) { return 50; } });
+  const [sfxOnState, setSfxOnState] = useState(() => { try { const v = localStorage.getItem('ab_sfxOn'); return v !== null ? v === '1' : true; } catch(e) { return true; } });
+  const [notifOn, setNotifOn] = useState(() => { try { const v = localStorage.getItem('ab_notifOn'); return v !== null ? v === '1' : true; } catch(e) { return true; } });
+  const [appLang, setAppLang] = useState(() => { try { return localStorage.getItem('ab_lang') || 'tr'; } catch(e) { return 'tr'; } });
   const [goldAnim, setGoldAnim] = useState(null);
   const [microFeedback, setMicroFeedback] = useState(null);
   const [extraTimeUsed, setExtraTimeUsed] = useState(false);
@@ -1794,7 +1908,7 @@ export default function Game() {
                   setEloChange({ myOld: result.winnerOldGold, myNew: result.winnerNewGold, oppOld: result.loserOldGold, oppNew: result.loserNewGold });
                   setGoldChange({ amount: result.winGold || 0 });
                   if (result.winGold > 0) { sfx.play('gold'); setGoldAnim({ amount: result.winGold }); }
-                  setMyProfile(prev => prev ? { ...prev, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: result.winnerNewGold, level: result.winnerLevel, levelProgress: result.winnerLevelProgress } : prev);
+                  setMyProfile(prev => prev ? { ...prev, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1, onlineGames: (prev.onlineGames || 0) + 1, gold: result.winnerNewGold, level: result.winnerLevel, levelProgress: result.winnerLevelProgress } : prev);
                 }
               } catch (e) { console.error("ELO update error:", e); }
             }).catch(e => console.error("ELO transaction error:", e));
@@ -1809,7 +1923,7 @@ export default function Game() {
               unsubElo(); // Bir kez oku, kapat
               setEloChange({ myOld: er.loserOldGold, myNew: er.loserNewGold, oppOld: er.winnerOldGold, oppNew: er.winnerNewGold });
               setGoldChange({ amount: er.loseGold || 0 });
-              setMyProfile(prev => prev ? { ...prev, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: er.loserNewGold, level: er.loserLevel, levelProgress: er.loserLevelProgress } : prev);
+              setMyProfile(prev => prev ? { ...prev, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1, onlineGames: (prev.onlineGames || 0) + 1, gold: er.loserNewGold, level: er.loserLevel, levelProgress: er.loserLevelProgress } : prev);
             });
             // 10 saniye timeout — kazanan çökerse sonsuza kadar beklemesin
             setTimeout(() => {
@@ -2166,6 +2280,145 @@ export default function Game() {
 
   const sendEmoji = async (qe) => { setMyEmojiToast({ emoji: qe.emoji, label: qe.label }); setTimeout(() => setMyEmojiToast(null), 3000); if (!roomIdRef.current || isBotGame) return; await set(ref(db, `emojis/${roomIdRef.current}`), { emoji: qe.emoji, label: qe.label, from: playerNumRef.current, time: Date.now() }); };
 
+  // Hesabı/Verileri sil — KVKK/GDPR gereği zorunlu
+  const deleteAccount = async () => {
+    const uid = authUid;
+    if (!uid) return;
+    setSettingsView("deleting");
+    try { await remove(ref(db, `profiles/${uid}`)); } catch(e) {}
+    try { await remove(ref(db, `online_players/${uid}`)); } catch(e) {}
+    try { await signOut(auth); } catch(e) {}
+    setMyProfile(null); setAuthUid(null); setPlayerName("");
+    setShowSettings(false); setSettingsView(null);
+    resetGame();
+    setPhase("splash");
+  };
+
+  const toggleMusic = () => {
+    sfx.init();
+    if (sfx._audioEl && !sfx._audioEl.paused) {
+      sfx._stopMp3(); sfx.currentMusic = null;
+      if (sfx._dynamicTimer) { clearInterval(sfx._dynamicTimer); sfx._dynamicTimer = null; }
+      setMusicOn(false);
+    } else {
+      sfx.playBattleMusic(false); setMusicOn(true);
+    }
+  };
+
+  // Splash'ten oyun bitene kadar tüm ekranlarda sabit duran müzik + ayarlar barı
+  const renderTopBar = () => (
+    <>
+      <div style={{ position:"fixed",top:12,right:14,zIndex:9500,display:"flex",alignItems:"center",gap:8 }}>
+        <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowSettings(true); setSettingsView(null); }} title="Ayarlar" style={{ width:34,height:34,borderRadius:8,background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,fontSize:16,cursor:"pointer",color:t.textDim,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>⚙️</button>
+        <button onClick={toggleMusic} title="Müzik" style={{ width:34,height:34,borderRadius:8,background:musicOn?"rgba(255,255,255,0.06)":"rgba(255,71,87,0.14)",border:`1px solid ${musicOn?t.border:t.hit}`,fontSize:16,cursor:"pointer",color:musicOn?t.textDim:t.hit,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>{musicOn?"🔊":"🔇"}</button>
+      </div>
+      {showSettings && (
+        <div style={{ position:"fixed",inset:0,zIndex:9600,background:"rgba(0,0,0,0.62)",backdropFilter:"blur(4px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"settingsFadeIn 0.2s ease-out" }} onClick={()=>{ setShowSettings(false); setSettingsView(null); }}>
+          <div onClick={e=>e.stopPropagation()} style={{ width:"100%",maxWidth:460,maxHeight:"86vh",overflowY:"auto",background:"linear-gradient(180deg, rgba(14,20,40,0.99), rgba(7,11,24,0.99))",border:`1px solid ${t.border}`,borderBottom:"none",borderRadius:"20px 20px 0 0",padding:"14px 20px 30px",animation:"sheetSlideUp 0.3s cubic-bezier(0.22,1,0.36,1)",boxShadow:"0 -10px 50px rgba(0,0,0,0.5)" }}>
+            <div style={{ width:40,height:4,borderRadius:2,background:"rgba(255,255,255,0.2)",margin:"0 auto 16px" }} />
+
+            {settingsView === null && (<>
+              <div style={{ fontSize:18,fontWeight:900,color:t.text,fontFamily:warrior,letterSpacing:2,marginBottom:16,textAlign:"center" }}>AYARLAR</div>
+
+              <button onClick={()=>setSettingsView("profile")} style={rowBtnStyle}>
+                <span style={rowIconStyle}>👤</span>
+                <div style={{ flex:1,textAlign:"left" }}>
+                  <div style={rowTitleStyle}>Profil</div>
+                  <div style={rowSubStyle}>{myProfile?.displayName || "Denizci"}</div>
+                </div>
+                <span style={chevronStyle}>›</span>
+              </button>
+
+              <div style={sectionCardStyle}>
+                <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:8 }}>
+                  <span style={rowIconStyle}>🎵</span>
+                  <div style={rowTitleStyle}>Müzik Seviyesi</div>
+                  <div style={{ marginLeft:"auto",fontSize:12,color:t.accent,fontFamily:mono,fontWeight:700 }}>{musicVolume}%</div>
+                </div>
+                <input type="range" min={0} max={100} value={musicVolume} onChange={e=>{ const v=parseInt(e.target.value,10); setMusicVolumeState(v); sfx.setMusicVolume(v); if (v>0 && !musicOn) setMusicOn(true); }} style={sliderStyle} />
+              </div>
+
+              <ToggleRow icon="💥" title="Ses Efektleri" sub="Vuruş, isabet, seri vuruş sesleri" value={sfxOnState} onChange={(v)=>{ setSfxOnState(v); sfx.setSfxOn(v); }} />
+
+              <ToggleRow icon="🔔" title="Bildirimler" sub="Günlük ödül ve enerji hatırlatmaları" value={notifOn} onChange={(v)=>{ setNotifOn(v); try{ localStorage.setItem('ab_notifOn', v?'1':'0'); }catch(e){} }} />
+
+              <div style={sectionCardStyle}>
+                <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:10 }}>
+                  <span style={rowIconStyle}>🌐</span>
+                  <div style={rowTitleStyle}>Dil</div>
+                </div>
+                <div style={{ display:"flex",gap:8 }}>
+                  <button onClick={()=>{ setAppLang('tr'); try{ localStorage.setItem('ab_lang','tr'); }catch(e){} }} style={langBtnStyle(appLang==='tr')}>🇹🇷 Türkçe</button>
+                  <button onClick={()=>{ setAppLang('en'); try{ localStorage.setItem('ab_lang','en'); }catch(e){} }} style={langBtnStyle(appLang==='en')}>🇬🇧 English</button>
+                </div>
+              </div>
+
+              <button onClick={()=>setSettingsView("privacy")} style={rowBtnStyle}>
+                <span style={rowIconStyle}>📄</span>
+                <div style={{ flex:1,textAlign:"left" }}><div style={rowTitleStyle}>Gizlilik Politikası & Kullanım Koşulları</div></div>
+                <span style={chevronStyle}>›</span>
+              </button>
+
+              <a href="mailto:ozdenilim@gmail.com?subject=Amiral%20Batt%C4%B1%20Destek&body=Merhaba%2C%0D%0A%0D%0AKar%C5%9F%C4%B1la%C5%9Ft%C4%B1%C4%9F%C4%B1m%20durum%3A%0D%0A" style={{ ...rowBtnStyle, textDecoration:"none",display:"flex" }}>
+                <span style={rowIconStyle}>✉️</span>
+                <div style={{ flex:1,textAlign:"left" }}><div style={rowTitleStyle}>Destek / İletişim</div><div style={rowSubStyle}>ozdenilim@gmail.com</div></div>
+                <span style={chevronStyle}>›</span>
+              </a>
+
+              <button onClick={()=>setSettingsView("delete")} style={{ ...rowBtnStyle,borderColor:"rgba(255,71,87,0.35)" }}>
+                <span style={rowIconStyle}>🗑️</span>
+                <div style={{ flex:1,textAlign:"left" }}><div style={{ ...rowTitleStyle,color:t.hit }}>Hesabımı / Verilerimi Sil</div></div>
+                <span style={{ ...chevronStyle,color:t.hit }}>›</span>
+              </button>
+
+              <button onClick={()=>{ setShowSettings(false); setSettingsView(null); }} style={{ marginTop:6,width:"100%",padding:"12px 0",background:"rgba(255,255,255,0.05)",border:`1px solid ${t.border}`,borderRadius:10,color:t.textDim,fontFamily:warrior,fontWeight:800,letterSpacing:2,cursor:"pointer" }}>KAPAT</button>
+            </>)}
+
+            {settingsView === "profile" && myProfile && (() => {
+              const totalG = myProfile.totalGames || 0, wins = myProfile.wins || 0, losses = myProfile.losses || 0;
+              const winRt = totalG > 0 ? Math.round((wins / totalG) * 100) : 0;
+              const joined = myProfile.createdAt ? new Date(myProfile.createdAt).toLocaleDateString('tr-TR', { year:'numeric', month:'long', day:'numeric' }) : "-";
+              return (<>
+                <BackHeader title="Profil" onBack={()=>setSettingsView(null)} />
+                <div style={{ display:"flex",alignItems:"center",gap:12,marginBottom:18 }}>
+                  <div style={{ width:52,height:52,borderRadius:"50%",background:"rgba(0,229,255,0.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,overflow:"hidden",flexShrink:0 }}>{(myProfile.avatar||"").startsWith("data:") ? <img src={myProfile.avatar} alt="" style={{ width:"100%",height:"100%",objectFit:"cover" }} /> : (myProfile.avatar || "⚓")}</div>
+                  <div>
+                    <div style={{ fontSize:18,fontWeight:900,color:t.text,fontFamily:warrior }}>{myProfile.displayName}</div>
+                    <div style={{ fontSize:11,color:t.textDim,fontFamily:mono }}>Katılım: {joined}</div>
+                  </div>
+                </div>
+                <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
+                  <StatBox label="TOPLAM OYUN" value={totalG} color={t.text} />
+                  <StatBox label="TUTTURMA ORANI" value={`%${winRt}`} color={t.accent} />
+                  <StatBox label="GALİBİYET" value={wins} color="#4ade80" />
+                  <StatBox label="MAĞLUBİYET" value={losses} color={t.hit} />
+                  <StatBox label="BOT MAÇI" value={myProfile.botGames || 0} color={t.textDim} />
+                  <StatBox label="ONLINE MAÇI" value={myProfile.onlineGames || 0} color={t.textDim} />
+                </div>
+              </>);
+            })()}
+
+            {settingsView === "privacy" && (<>
+              <BackHeader title="Gizlilik & Koşullar" onBack={()=>setSettingsView(null)} />
+              <div style={{ fontSize:12.5,lineHeight:1.7,color:t.textDim,fontFamily:mono,whiteSpace:"pre-wrap" }}>{PRIVACY_TEXT}</div>
+            </>)}
+
+            {settingsView === "delete" && (<>
+              <BackHeader title="Hesabı Sil" onBack={()=>setSettingsView(null)} />
+              <div style={{ background:"rgba(255,71,87,0.08)",border:`1px solid ${t.hit}`,borderRadius:12,padding:16,marginBottom:16,fontSize:13,lineHeight:1.6,color:t.text,fontFamily:mono }}>
+                Bu işlem geri alınamaz. Hesabın silindiğinde tüm oyun verilerin (altın, seviye, istatistikler, profil) kalıcı olarak kaldırılır ve kurtarılamaz.
+              </div>
+              <button onClick={deleteAccount} style={{ width:"100%",padding:"14px 0",background:"linear-gradient(135deg,#ff4757,#c0392b)",border:"none",borderRadius:10,color:"#fff",fontFamily:warrior,fontWeight:900,letterSpacing:1,cursor:"pointer",marginBottom:10 }}>EVET, HESABIMI VE VERİLERİMİ SİL</button>
+              <button onClick={()=>setSettingsView(null)} style={{ width:"100%",padding:"12px 0",background:"rgba(255,255,255,0.05)",border:`1px solid ${t.border}`,borderRadius:10,color:t.textDim,fontFamily:warrior,fontWeight:700,cursor:"pointer" }}>Vazgeç</button>
+            </>)}
+
+            {settingsView === "deleting" && (<div style={{ textAlign:"center",padding:"40px 0",color:t.textDim,fontFamily:mono,fontSize:13 }}>Siliniyor...</div>)}
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   const startBotGame = () => {
     if (!playerName.trim()) { setMessage("Adını yaz!"); return; }
     const bot = botPlaceShips();
@@ -2285,8 +2538,8 @@ export default function Game() {
         const oldGold2 = safeGold(myProfile.gold);
         const newGold2 = oldGold2 + consolationGold;
         const lvl2 = applyLevelCredit(myProfile, XP_BOT_LOSS);
-        update(ref(db, `profiles/${authUid}`), { gold: newGold2, losses: (myProfile.losses||0)+1, totalGames: (myProfile.totalGames||0)+1, lastGameAt: Date.now(), level: lvl2.level, levelProgress: lvl2.levelProgress }).catch(()=>{});
-        setMyProfile(prev => prev ? { ...prev, gold: newGold2, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1, level: lvl2.level, levelProgress: lvl2.levelProgress } : prev);
+        update(ref(db, `profiles/${authUid}`), { gold: newGold2, losses: (myProfile.losses||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl2.level, levelProgress: lvl2.levelProgress }).catch(()=>{});
+        setMyProfile(prev => prev ? { ...prev, gold: newGold2, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl2.level, levelProgress: lvl2.levelProgress } : prev);
         setGoldChange({ amount: consolationGold });
         setEloChange({ myOld: oldGold2, myNew: newGold2 });
       }
@@ -2405,8 +2658,8 @@ export default function Game() {
         const lvl1 = applyLevelCredit(myProfile, XP_BOT_WIN);
         const oldGold1 = safeGold(myProfile.gold);
         const newGold1 = oldGold1 + botWinGold;
-        update(ref(db, `profiles/${authUid}`), { gold: newGold1, wins: (myProfile.wins||0)+1, totalGames: (myProfile.totalGames||0)+1, lastGameAt: Date.now(), level: lvl1.level, levelProgress: lvl1.levelProgress }).catch(()=>{});
-        setMyProfile(prev => prev ? { ...prev, gold: newGold1, wins:(prev.wins||0)+1, totalGames:(prev.totalGames||0)+1, level: lvl1.level, levelProgress: lvl1.levelProgress } : prev);
+        update(ref(db, `profiles/${authUid}`), { gold: newGold1, wins: (myProfile.wins||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl1.level, levelProgress: lvl1.levelProgress }).catch(()=>{});
+        setMyProfile(prev => prev ? { ...prev, gold: newGold1, wins:(prev.wins||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl1.level, levelProgress: lvl1.levelProgress } : prev);
         setEloChange({ myOld: oldGold1, myNew: newGold1 });
         setGoldChange({ amount: botWinGold });
         sfx.play('gold'); setGoldAnim({ amount: botWinGold });
@@ -2450,6 +2703,8 @@ export default function Game() {
   const btnSecStyle = { padding: "8px 16px", background: "transparent", color: t.accent, border: `1px solid ${t.accent}`, borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: 1, cursor: "pointer", fontFamily: warrior };
   const inputStyle = { padding: "12px 16px", background: t.surface, color: t.text, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 15, fontFamily: mono, outline: "none", textAlign: "center", width: "100%", maxWidth: 260, boxSizing: "border-box" };
 
+  // Faz bazlı içerik — TopBar'ın (müzik+ayarlar) her ekranda sabit kalması için IIFE'e sarıldı
+  const content = (() => {
   if (phase === "splash") {
     const splashDone = authReady;
     if (!splashDone) {
@@ -2665,7 +2920,7 @@ export default function Game() {
           {[1,2,3,4].map(i => <div key={i} style={{ width:i<=step?20:8,height:8,borderRadius:4,background:i<=step?t.accent:"rgba(255,255,255,0.12)",transition:"all 0.3s ease",boxShadow:i<=step?`0 0 8px ${t.accentGlow}`:"none" }} />)}
         </div>
         {/* Skip */}
-        <button onClick={skipTutorial} style={{ position:"absolute",top:14,right:14,padding:"5px 14px",background:"rgba(255,255,255,0.05)",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:20,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:warrior,letterSpacing:2 }}>GEÇ</button>
+        <button onClick={skipTutorial} style={{ position:"absolute",top:58,right:14,padding:"5px 14px",background:"rgba(255,255,255,0.05)",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:20,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:warrior,letterSpacing:2 }}>GEÇ</button>
         <div style={{ width:"100%",maxWidth:400,zIndex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:0,animation:"tutCardEnter 0.8s cubic-bezier(0.16,1,0.3,1) forwards" }}>
           {children}
         </div>
@@ -2872,12 +3127,7 @@ export default function Game() {
         <div style={{ fontSize:11,color:t.gold,letterSpacing:6,fontFamily:warrior,fontStyle:"italic",fontWeight:700,textShadow:`0 0 14px ${t.goldGlow}`,whiteSpace:"nowrap" }}>savaşların atası</div>
         <div style={{ width:52,height:1,background:"linear-gradient(90deg, rgba(255,215,0,0.55), transparent)" }} />
       </div>
-      {/* Music toggle + online counter */}
-      <div style={{ display:"flex",alignItems:"center",gap:14,marginBottom:12,zIndex:1 }}>
-        {onlineCount > 0 && <div style={{ display:'flex',alignItems:'center',gap:6,animation:'fadeUp 0.5s ease-out' }}><div style={{ width:8,height:8,borderRadius:'50%',background:'#34d399',boxShadow:'0 0 8px rgba(52,211,153,0.6)',animation:'pulse 2s infinite' }} /><span style={{ fontSize:11,color:'#34d399',fontFamily:warrior,letterSpacing:2 }}>{onlineCount} KİŞİ OYNUYOR</span></div>}
-        <button onClick={()=>{sfx.init(); if(sfx._audioEl && !sfx._audioEl.paused){sfx._stopMp3();sfx.currentMusic=null;if(sfx._dynamicTimer){clearInterval(sfx._dynamicTimer);sfx._dynamicTimer=null;}setMusicOn(false);}else{sfx.playBattleMusic(false);setMusicOn(true);}}} style={{ padding:"4px 10px",background:musicOn?"rgba(255,255,255,0.04)":"rgba(255,71,87,0.12)",border:`1px solid ${musicOn?t.border:t.hit}`,borderRadius:8,fontSize:14,cursor:"pointer",color:musicOn?t.textDim:t.hit,lineHeight:1,transition:"all 0.15s ease" }}>{musicOn?'🔊':'🔇'}</button>
-      </div>
-      {myProfile && (<div style={{ width:"100%",maxWidth:360,marginBottom:14,zIndex:1,animation:"fadeUp 0.25s ease-out" }}>
+      {myProfile && (<div style={{ width:"100%",maxWidth:360,marginTop:8,marginBottom:14,zIndex:1,animation:"fadeUp 0.25s ease-out" }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:5,padding:"0 2px" }}>
           <span style={{ fontSize:12,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 10px ${t.goldGlow}` }}>SEVİYE {myLevel}</span>
           <span style={{ fontSize:10,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:1 }}>{Math.floor(myLevelPct*100)}%</span>
@@ -3076,7 +3326,7 @@ export default function Game() {
         <div style={{ fontSize:15,fontWeight:900,color:"#fff",fontFamily:warrior,letterSpacing:3,textTransform:"uppercase",textShadow:"0 2px 0 rgba(0,0,0,0.8), 0 0 24px rgba(0,229,255,0.6)",marginTop:4 }}>{flyEmoji.label}</div>
       </div>}
       {/* PES ET / OYUNDAN AYRIL butonu */}
-      <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-end",marginBottom:4 }}>
+      <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-end",marginTop:38,marginBottom:4 }}>
         <button onClick={() => setShowSurrenderConfirm(true)} style={{ padding:"4px 12px",background:"transparent",color:t.textDim,border:`1px solid rgba(255,71,87,0.2)`,borderRadius:6,fontSize:9,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior,opacity:0.7 }}>OYUNDAN AYRIL</button>
       </div>
       {/* Surrender confirm modal */}
@@ -3139,4 +3389,7 @@ export default function Game() {
   }
 
   return null;
+  })();
+
+  return (<>{content}{renderTopBar()}</>);
 }
