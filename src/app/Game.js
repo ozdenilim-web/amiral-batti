@@ -721,7 +721,7 @@ function DailyRewardPopup({ reward, streak, onClose }) {
     <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, rgba(20,26,52,0.99) 0%, rgba(10,16,32,0.99) 60%, rgba(30,20,8,0.99) 100%)",border:"2px solid rgba(255,215,0,0.6)",outline:"1px solid rgba(0,229,255,0.25)",outlineOffset:5,borderRadius:22,padding:"38px 42px",textAlign:"center",maxWidth:350,width:"90%",boxShadow:"0 0 100px rgba(255,215,0,0.35), 0 0 200px rgba(167,139,250,0.15), 0 24px 70px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,215,0,0.2)",animation:"chestBounceIn 0.7s cubic-bezier(0.34,1.56,0.64,1)",overflow:"hidden" }}>
       {/* Parlama süpürmesi */}
       <div style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg, transparent, rgba(255,255,255,0.10), transparent)",animation:"shineSweep 3s ease-in-out 0.8s infinite",pointerEvents:"none" }} />
-      <div style={{ fontSize:64,marginBottom:10,animation:"chestWiggle 2.2s ease-in-out infinite",filter:"drop-shadow(0 6px 14px rgba(0,0,0,0.6)) drop-shadow(0 0 30px rgba(255,215,0,0.5))" }}>🎁</div>
+      <img src="/img/chest.png" alt="" draggable={false} style={{ width:80,height:80,objectFit:"contain",marginBottom:10,animation:"chestWiggle 2.2s ease-in-out infinite",filter:"drop-shadow(0 6px 14px rgba(0,0,0,0.6)) drop-shadow(0 0 30px rgba(255,215,0,0.5))",userSelect:"none",pointerEvents:"none" }} />
       <div style={{ fontSize:11,fontWeight:700,color:"rgba(255,215,0,0.6)",fontFamily:mono,letterSpacing:5,marginBottom:8 }}>GÜNLÜK GİRİŞ ÖDÜLÜ</div>
       <div style={{ fontSize:50,fontWeight:900,fontFamily:warrior,marginBottom:12,letterSpacing:2,background:"linear-gradient(180deg, #fff7d6 0%, #ffd700 45%, #d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 25px rgba(255,215,0,0.7)) drop-shadow(0 3px 4px rgba(0,0,0,0.8))",animation:"rewardPulse 1.6s ease-in-out infinite" }}>+{reward} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.5))" }} /></div>
       {streak > 1 && <div style={{ fontSize:13,fontWeight:800,color:"#ff9f43",fontFamily:warrior,marginBottom:12,padding:"7px 18px",background:"linear-gradient(135deg, rgba(255,105,60,0.14), rgba(255,215,0,0.10))",borderRadius:10,border:"1px solid rgba(255,159,67,0.35)",display:"inline-block",letterSpacing:2,textShadow:"0 0 12px rgba(255,159,67,0.5)" }}>🔥 {streak} GÜN SERİ {streak>=7?"• x2 BONUS":streak>=3?"• x1.5 BONUS":streak>=2?"• x1.25 BONUS":""}</div>}
@@ -1114,7 +1114,7 @@ function ChestPopup({ reward, onClose }) {
   return (<div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999 }} onClick={opened ? onClose : undefined}>
     <div onClick={e=>e.stopPropagation()} style={{ background:`linear-gradient(135deg,${t.surface},rgba(17,24,39,0.98))`,border:`2px solid ${reward?reward.color:t.gold}`,borderRadius:16,padding:"30px 36px",textAlign:"center",maxWidth:320,width:"90%",boxShadow:`0 0 60px ${t.goldGlow}`,animation:"scaleUp 0.5s ease-out" }}>
       {!opened ? (<>
-        <div style={{ fontSize:64,marginBottom:12,animation:shake?"defeatShake 0.5s ease-in-out infinite":"popIn 0.3s ease-out",cursor:"pointer" }} onClick={()=>{setOpened(true);sfx.init();sfx.play('chest');}}>🎁</div>
+        <img src="/img/chest.png" alt="" draggable={false} style={{ width:80,height:80,objectFit:"contain",marginBottom:12,animation:shake?"defeatShake 0.5s ease-in-out infinite":"popIn 0.3s ease-out",cursor:"pointer",userSelect:"none" }} onClick={()=>{setOpened(true);sfx.init();sfx.play('chest');}} />
         <div style={{ fontSize:18,fontWeight:700,color:t.gold,fontFamily:warrior,letterSpacing:3,marginBottom:8 }}>GİZEMLİ SANDIK</div>
         <div style={{ fontSize:12,color:t.textDim,fontFamily:mono,marginBottom:12 }}>3 görevi tamamladın!</div>
         <button onClick={()=>setOpened(true)} style={{ padding:"12px 36px",background:`linear-gradient(135deg,${t.gold},#d97706)`,color:t.bg,border:"none",borderRadius:8,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,animation:"borderGlow 2s infinite" }}>SANDIĞI AÇ</button>
@@ -1130,8 +1130,8 @@ function ChestPopup({ reward, onClose }) {
 
 // === GÜNLÜK SANDIK — cihaz başına 1 tane, sabit 500 altın ===
 function DailyChestFab({ onOpen }) {
-  return (<button onClick={onOpen} style={{ position:"fixed",top:14,right:14,zIndex:150,width:60,height:60,borderRadius:16,background:"linear-gradient(160deg,#fff9c4 0%,#ffe066 30%,#ffd700 60%,#ffb300 100%)",border:"2px solid #fff7d6",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,boxShadow:"0 0 18px #ffe066, 0 0 40px rgba(255,214,0,0.85), 0 0 70px rgba(255,214,0,0.5), 0 4px 14px rgba(0,0,0,0.5)",animation:"chestWiggle 2s ease-in-out infinite, rewardPulse 1.4s ease-in-out infinite" }} title="Günlük Sandık">
-    🎁
+  return (<button onClick={onOpen} style={{ position:"fixed",top:14,right:14,zIndex:150,width:60,height:60,borderRadius:16,background:"linear-gradient(160deg,#fff9c4 0%,#ffe066 30%,#ffd700 60%,#ffb300 100%)",border:"2px solid #fff7d6",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 18px #ffe066, 0 0 40px rgba(255,214,0,0.85), 0 0 70px rgba(255,214,0,0.5), 0 4px 14px rgba(0,0,0,0.5)",animation:"chestWiggle 2s ease-in-out infinite, rewardPulse 1.4s ease-in-out infinite" }} title="Günlük Sandık">
+    <img src="/img/chest.png" alt="" draggable={false} style={{ width:"72%",height:"72%",objectFit:"contain",userSelect:"none",pointerEvents:"none" }} />
     <span style={{ position:"absolute",top:-6,right:-6,width:18,height:18,borderRadius:"50%",background:"#ff4757",color:"#fff",fontSize:11,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 8px rgba(255,71,87,0.8)",fontFamily:warrior }}>1</span>
   </button>);
 }
@@ -1150,7 +1150,7 @@ function DailyChestPopup({ onClaim }) {
   return (<div style={{ position:"fixed",inset:0,background:"radial-gradient(ellipse at 50% 40%, rgba(255,214,0,0.12) 0%, rgba(0,0,0,0.88) 75%)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(6px)" }} onClick={opened ? undefined : openChest}>
     <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, rgba(20,26,52,0.99) 0%, rgba(10,16,32,0.99) 60%, rgba(30,20,8,0.99) 100%)",border:"2px solid #ffd700",outline:"1px solid rgba(255,240,150,0.4)",outlineOffset:5,borderRadius:22,padding:"38px 42px",textAlign:"center",maxWidth:340,width:"90%",boxShadow:"0 0 30px #ffe066, 0 0 100px rgba(255,214,0,0.5), 0 24px 70px rgba(0,0,0,0.6)",overflow:"visible" }}>
       {!opened ? (<>
-        <div style={{ fontSize:80,marginBottom:12,cursor:"pointer",animation:shake?"chestWiggle 0.5s ease-in-out infinite":"chestWiggle 2s ease-in-out infinite",filter:"drop-shadow(0 0 30px #ffe066) drop-shadow(0 0 60px rgba(255,214,0,0.7))" }} onClick={openChest}>🎁</div>
+        <img src="/img/chest.png" alt="" draggable={false} onClick={openChest} style={{ width:110,height:110,objectFit:"contain",marginBottom:12,cursor:"pointer",animation:shake?"chestWiggle 0.5s ease-in-out infinite":"chestWiggle 2s ease-in-out infinite",filter:"drop-shadow(0 0 30px #ffe066) drop-shadow(0 0 60px rgba(255,214,0,0.7))",userSelect:"none" }} />
         <div style={{ fontSize:12,fontWeight:700,color:"#ffe066",fontFamily:mono,letterSpacing:5,marginBottom:10 }}>GÜNLÜK SANDIK</div>
         <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16 }}>Her cihaza günde 1 sandık!</div>
         <button onClick={openChest} style={{ padding:"16px 48px",background:"linear-gradient(135deg,#fff9c4,#ffd700 45%,#ff9f43)",color:"#1a1206",border:"none",borderRadius:12,fontSize:16,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 30px #ffe066, 0 0 60px rgba(255,214,0,0.5)",animation:"borderGlow 1.5s infinite",textTransform:"uppercase" }}>SANDIĞI AÇ</button>
@@ -1622,7 +1622,10 @@ export default function Game() {
       if (game.phase === "playing") {
         if (phaseRef.current === "placing") { setPhase("ready"); sfx.init(); sfx.playBattleMusic(); }
         else if (phaseRef.current !== "ready") setPhase("playing");
-        setMyTurn(game.turn === pNum);
+        const nowMyTurn = game.turn === pNum;
+        // Sıra bana yeni geçtiyse ekranı otomatik saldırı tahtasına çevir
+        if (nowMyTurn && !myTurnRef.current) setActiveBoard("attack");
+        setMyTurn(nowMyTurn);
         if (game.clocks) { myClockRef.current = game.clocks[myKey] ?? CLOCK_SECONDS; oppClockRef.current = game.clocks[oppKey] ?? CLOCK_SECONDS; setMyClock(myClockRef.current); setOppClock(oppClockRef.current); }
       }
       if (game.attacks) {
@@ -1715,6 +1718,20 @@ export default function Game() {
       }
     });
   }, [placementConfirmed]);
+
+  // Online salon davet/eşleşme geçişi — kararlı referans şart, aksi halde
+  // OnlineLobby'nin davet dinleyicisi her Game render'ında yeniden abone olur
+  // ve davet eden taraf kabul bildirimini kaçırabilir.
+  const handleOnlineChallenge = useCallback((rid, pNum) => {
+    setShowOnlineLobby(false);
+    roomIdRef.current = rid;
+    setRoomId(rid);
+    setPlayerNum(pNum);
+    playerNumRef.current = pNum;
+    setPhase("placing");
+    listenToRoom(rid, pNum);
+    if (authUid) remove(ref(db, `online_players/${authUid}`));
+  }, [authUid, listenToRoom]);
 
   useEffect(() => {
     if (!roomId || (phase !== "playing" && phase !== "placing")) return;
@@ -2014,6 +2031,7 @@ export default function Game() {
     if (isBotGame) { botHandlePlayerShots(); return; }
     sfx.playVoice('explosion');
     const pNum = playerNumRef.current, myKey = pNum === 1 ? "p1" : "p2"; const snapshot = await get(ref(db, `rooms/${roomIdRef.current}`)); const game = snapshot.val(); if (!game || game.turn !== pNum) return; const targetKey = pNum === 1 ? "p2" : "p1"; const shotResults = currentShots.map(([r, c]) => ({ r, c, result: game[`${targetKey}_board`][r][c] > 0 ? "hit" : "miss" })); const existingAttacks = game.attacks ? Object.values(game.attacks) : []; const prevHits = existingAttacks.filter(a => a.target === targetKey).reduce((sum, a) => sum + (a.shots ? a.shots.filter(s => s.result === "hit").length : 0), 0); const totalHits = prevHits + shotResults.filter(s => s.result === "hit").length; const updates = {}; updates[`attacks/${existingAttacks.length}`] = { by: pNum, target: targetKey, shots: shotResults, time: Date.now() }; updates[`clocks/${myKey}`] = myClockRef.current; if (totalHits >= 20) { updates.winner = pNum; updates.winReason = "hits"; } else { updates.turn = pNum === 1 ? 2 : 1; } await update(ref(db, `rooms/${roomIdRef.current}`), updates); setCurrentShots([]);
+    if (totalHits < 20) setActiveBoard("defense");
   };
   const getAttackDisplayOverlay = () => { const ovr = attackOverlay.map(row => [...row]); currentShots.forEach(([r, c]) => { if (!ovr[r][c]) ovr[r][c] = "selected"; }); return ovr; };
   const forceEndGame = async () => { if (!roomIdRef.current) return; await update(ref(db, `rooms/${roomIdRef.current}`), { winner: playerNumRef.current, winReason: "test_force" }); };
@@ -2690,7 +2708,7 @@ export default function Game() {
   }
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} /></>;
   if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => { setSelectedArena(arena); setShowArenaSelect(false); startQuickMatch(arena); }} /></>;
-  if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myGold={myProfile?.gold} onBack={() => setShowOnlineLobby(false)} onChallenge={(rid, pNum) => { setShowOnlineLobby(false); roomIdRef.current = rid; setRoomId(rid); setPlayerNum(pNum); playerNumRef.current = pNum; setPhase("placing"); listenToRoom(rid, pNum); if (authUid) remove(ref(db, `online_players/${authUid}`)); }} /></>;
+  if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myGold={myProfile?.gold} onBack={() => setShowOnlineLobby(false)} onChallenge={handleOnlineChallenge} /></>;
 
   if (phase === "gameover") {
     if (showReview) return <BoardReview defenseBoard={defenseBoard} shipColorMap={shipColorMap} defenseOverlay={defenseOverlay} attackOverlay={attackOverlay} oppShipsData={oppShipsData} myShipsData={myShipsData} defHitMap={defHitMap} atkHitMap={atkHitMap} cellSize={cellSize} onBack={() => setShowReview(false)} />;
