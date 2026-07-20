@@ -771,6 +771,58 @@ function ArenaSelect({ myGold, onSelect, onBack }) {
   </div>);
 }
 
+// === HIZLI EŞLEŞME (QUICK MATCH) MİNİ PENCERESİ ===
+function QuickMatchCard({ label, name, avatar, gold, level, accent, flicker }) {
+  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:6,width:112 }}>
+    <div style={{ width:64,height:64,borderRadius:"50%",background:`${accent}22`,border:`2px solid ${accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,boxShadow:`0 0 20px ${accent}55`,animation: flicker ? "qmFlicker 0.12s ease-out" : "qmSettle 0.5s cubic-bezier(0.34,1.56,0.64,1)" }}>{avatar || "⚓"}</div>
+    <div style={{ fontSize:12,fontWeight:800,color:"#fff",fontFamily:warrior,letterSpacing:0.5,maxWidth:104,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textAlign:"center" }}>{name}</div>
+    {gold != null && <div style={{ display:"flex",alignItems:"center",gap:3,fontSize:11,color:t.gold,fontFamily:mono,fontWeight:700 }}>💰{gold}</div>}
+    {level != null && level > 0 && <div style={{ fontSize:9,color:t.textDim,fontFamily:mono }}>SEV {level}</div>}
+    <div style={{ fontSize:8,color:t.textDim,fontFamily:mono,letterSpacing:2,opacity:0.7 }}>{label}</div>
+  </div>);
+}
+
+function QuickMatchModal({ myProfile, phase, candidate, opponent, secondsLeft, onCancel, onRetry }) {
+  if (!phase) return null;
+  const isFound = phase === "found", isNotFound = phase === "notfound";
+  const themeColor = isFound ? "#4ade80" : isNotFound ? t.hit : t.accent;
+  const themeGlow = isFound ? "rgba(74,222,128,0.4)" : isNotFound ? t.hitGlow : t.accentGlow;
+  return (<div style={{ position:"fixed",inset:0,zIndex:9700,background:"rgba(2,6,16,0.82)",backdropFilter:"blur(6px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,animation:"settingsFadeIn 0.25s ease-out" }}>
+    <div style={{ width:"100%",maxWidth:380,background:"linear-gradient(160deg, rgba(14,22,44,0.98), rgba(6,10,22,0.99))",border:`2px solid ${themeColor}`,borderRadius:22,padding:"26px 20px 22px",textAlign:"center",boxShadow:`0 0 70px ${themeGlow}, 0 20px 60px rgba(0,0,0,0.6)`,position:"relative",overflow:"hidden",animation:"scaleUp 0.35s cubic-bezier(0.34,1.56,0.64,1)" }}>
+      {phase === "searching" && <div style={{ position:"absolute",inset:0,background:"repeating-radial-gradient(circle at 50% 50%, transparent 0, transparent 30px, rgba(0,229,255,0.035) 31px)",animation:"radarSpin 3s linear infinite",pointerEvents:"none" }} />}
+      <div style={{ fontSize:14,fontWeight:900,letterSpacing:3,fontFamily:warrior,color:themeColor,marginBottom:4,textShadow:`0 0 16px ${themeGlow}`,position:"relative" }}>
+        {isFound ? "🎉 RAKİP BULUNDU!" : isNotFound ? "😕 RAKİP BULUNAMADI" : "🔍 RAKİP ARANIYOR"}
+      </div>
+      {phase === "searching" && <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginBottom:16,position:"relative" }}>Salon taranıyor... <span style={{ color:t.accent,fontWeight:800 }}>{secondsLeft}s</span></div>}
+      {isFound && <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginBottom:16,position:"relative" }}>Düello başlıyor, gemilerini yerleştir!</div>}
+      {isNotFound && <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginBottom:16,position:"relative" }}>Salonda uygun rakip yok — tekrar dene</div>}
+
+      {!isNotFound && <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:8,position:"relative" }}>
+        <QuickMatchCard label="SEN" name={myProfile?.displayName || "Sen"} avatar={myProfile?.avatar} gold={safeGold(myProfile?.gold)} accent={t.accent} flicker={false} />
+        <div style={{ fontSize:22,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 20px ${t.goldGlow}`,animation:"qmVsPulse 1s ease-in-out infinite" }}>VS</div>
+        {isFound
+          ? <QuickMatchCard key="opp" label="RAKİP" name={opponent?.name} avatar={opponent?.avatar} gold={opponent?.gold} level={opponent?.level} accent="#4ade80" flicker={false} />
+          : <QuickMatchCard key={candidate?.key || "c0"} label="?" name={candidate?.name || "..."} avatar={candidate?.avatar} gold={candidate?.gold} accent={t.textDim} flicker={true} />}
+      </div>}
+
+      {isNotFound && <div style={{ fontSize:44,margin:"4px 0 16px",position:"relative" }}>🧭</div>}
+
+      {phase === "searching" && <div style={{ width:"100%",height:6,borderRadius:3,background:"rgba(255,255,255,0.08)",overflow:"hidden",marginTop:4,marginBottom:16,position:"relative" }}>
+        <div style={{ width:`${(secondsLeft / 30) * 100}%`,height:"100%",background:`linear-gradient(90deg,${t.accent},#0891b2)`,transition:"width 0.25s linear" }} />
+      </div>}
+
+      <div style={{ display:"flex",gap:10,justifyContent:"center",marginTop:4,position:"relative" }}>
+        {isNotFound ? (<>
+          <button onClick={onRetry} style={{ padding:"12px 26px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:13,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 24px ${t.accentGlow}` }}>🔄 YENİDEN ARA</button>
+          <button onClick={onCancel} style={{ padding:"12px 18px",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:12,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:warrior }}>VAZGEÇ</button>
+        </>) : phase === "searching" ? (
+          <button onClick={onCancel} style={{ padding:"9px 22px",background:"transparent",color:t.hit,border:`1px solid ${t.hit}`,borderRadius:10,fontSize:11,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>İPTAL</button>
+        ) : null}
+      </div>
+    </div>
+  </div>);
+}
+
 function EmojiDisplay({ emoji, label }) {
   if (!emoji) return null;
   return (<div style={{ fontSize:9,color:t.textDim,marginTop:2,display:"flex",alignItems:"center",gap:4,justifyContent:"center",animation:"fadeUp 0.3s ease-out" }}>
@@ -1088,6 +1140,10 @@ const ANIMS = `
 @keyframes pageFadeIn{0%{opacity:0}100%{opacity:1}}
 @keyframes tutCardEnter{0%{opacity:0;transform:translateY(40px) scale(0.95) perspective(800px) rotateX(8deg)}60%{opacity:1;transform:translateY(-6px) scale(1.02) perspective(800px) rotateX(-2deg)}100%{opacity:1;transform:translateY(0) scale(1) perspective(800px) rotateX(0deg)}}
 @keyframes sheetSlideUp{0%{opacity:0;transform:translateY(40px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes qmFlicker{0%{opacity:0;transform:scale(0.7)}50%{opacity:1;transform:scale(1.1)}100%{opacity:1;transform:scale(1)}}
+@keyframes qmSettle{0%{transform:scale(0.5) rotate(-15deg);opacity:0}60%{transform:scale(1.15) rotate(5deg);opacity:1}100%{transform:scale(1) rotate(0deg);opacity:1}}
+@keyframes qmVsPulse{0%,100%{transform:scale(1);opacity:0.85}50%{transform:scale(1.25);opacity:1}}
+@keyframes radarSpin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 @keyframes settingsFadeIn{0%{opacity:0}100%{opacity:1}}
 `;
 
@@ -1479,7 +1535,7 @@ function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack }) {
   </div>);
 }
 
-function findMatch(myUid, myName, myGold, arenaId) {
+function findMatch(myUid, myName, myGold, arenaId, timeoutMs = 60000) {
   const queuePath = arenaId ? `matchmaking_arena/${arenaId}` : "matchmaking";
   let cancelled = false, creating = false, resolved = false;
   let unsubQueue = null, unsubMatch = null, timeoutId = null;
@@ -1586,6 +1642,13 @@ export default function Game() {
   const [showOnlineLobby, setShowOnlineLobby] = useState(false);
   const [matchmaking, setMatchmaking] = useState(false);
   const [matchCancelFn, setMatchCancelFn] = useState(null);
+  const [quickMatchPhase, setQuickMatchPhase] = useState(null); // null | 'searching' | 'found' | 'notfound'
+  const [quickMatchCandidate, setQuickMatchCandidate] = useState(null);
+  const [quickMatchOpponent, setQuickMatchOpponent] = useState(null);
+  const [quickMatchSecondsLeft, setQuickMatchSecondsLeft] = useState(30);
+  const quickMatchCarouselRef = useRef(null);
+  const quickMatchCountdownRef = useRef(null);
+  const lastQuickMatchArenaRef = useRef(null);
   const [selectedArena, setSelectedArena] = useState(null);
   const [showArenaSelect, setShowArenaSelect] = useState(false);
   const [goldChange, setGoldChange] = useState(null);
@@ -2670,33 +2733,88 @@ export default function Game() {
     }
   };
 
+  const QM_AVATARS = ["⚓","🦈","🐙","⚔","🏴‍☠️","🌊","🦅","🐉","💀","🔱"];
+
   const startQuickMatch = async (arenaOverride) => {
     if (!playerName.trim()) { setMessage("Adını yaz!"); return; }
     if (!authUid) { setMessage("Bağlantı bekleniyor..."); return; }
     const arena = arenaOverride || null;
+    lastQuickMatchArenaRef.current = arena;
     if (arena) { const cg = safeGold(myProfile?.gold); if (cg < arena.entryFee) { setMessage("Yeterli altının yok!"); return; } const newGold = cg - arena.entryFee; try { const cleanP = await ensureProfile(authUid); cleanP.gold = newGold; await set(ref(db, `profiles/${authUid}`), cleanP); } catch(e) { console.error(e); } setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev); setEntryFeeDeducted(arena.entryFee); }
+    setMessage("");
     setMatchmaking(true);
-    const matchPromise = findMatch(authUid, playerName.trim(), myProfile?.gold ?? STARTING_GOLD, arena?.id || null);
+    setQuickMatchOpponent(null);
+    setQuickMatchPhase("searching");
+    setQuickMatchSecondsLeft(30);
+    sfx.init(); sfx.play('click');
+
+    // Salon'daki gerçek isim/altınlardan oluşan aday havuzu — heyecan için hızlı kayar
+    let pool = [];
+    try {
+      const snap = await get(ref(db, "online_players"));
+      if (snap.exists()) snap.forEach(child => { if (child.key !== authUid) pool.push({ name: child.val().displayName || "Denizci", gold: safeGold(child.val().gold) }); });
+    } catch (e) {}
+    if (pool.length < 3) { BOT_NAMES.forEach(n => pool.push({ name: n, gold: 200 + Math.floor(Math.random()*4000) })); }
+
+    if (quickMatchCarouselRef.current) clearInterval(quickMatchCarouselRef.current);
+    quickMatchCarouselRef.current = setInterval(() => {
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      setQuickMatchCandidate({ name: pick.name, gold: pick.gold, avatar: QM_AVATARS[Math.floor(Math.random() * QM_AVATARS.length)], key: Math.random() });
+    }, 120);
+
+    if (quickMatchCountdownRef.current) clearInterval(quickMatchCountdownRef.current);
+    const searchStart = Date.now();
+    quickMatchCountdownRef.current = setInterval(() => {
+      setQuickMatchSecondsLeft(Math.max(0, 30 - Math.floor((Date.now() - searchStart) / 1000)));
+    }, 250);
+
+    const matchPromise = findMatch(authUid, playerName.trim(), myProfile?.gold ?? STARTING_GOLD, arena?.id || null, 30000);
     setMatchCancelFn(() => matchPromise._cancel);
-    matchPromise.then(data => {
+    matchPromise.then(async (data) => {
+      if (quickMatchCarouselRef.current) { clearInterval(quickMatchCarouselRef.current); quickMatchCarouselRef.current = null; }
+      if (quickMatchCountdownRef.current) { clearInterval(quickMatchCountdownRef.current); quickMatchCountdownRef.current = null; }
       if (data && data.roomId) {
-        setMatchmaking(false); setMatchCancelFn(null); roomIdRef.current = data.roomId; setRoomId(data.roomId); setPlayerNum(data.playerNum); playerNumRef.current = data.playerNum; setOpponentName(data.oppName); setPhase("placing"); listenToRoom(data.roomId, data.playerNum); if (authUid) remove(ref(db, `online_players/${authUid}`));
-        sfx.init(); sfx.playPlacementMusic();
+        // Rakip profilini zenginleştir — VS ekranında gerçek avatar/altın/seviye göster
+        let oppInfo = { name: data.oppName || "Rakip", avatar: "⚓", gold: null, level: null };
+        try {
+          const roomSnap = await get(ref(db, `rooms/${data.roomId}`));
+          const room = roomSnap.val();
+          const oppUid = room ? (data.playerNum === 1 ? room.p2_uid : room.p1_uid) : null;
+          if (oppUid) {
+            const pSnap = await get(ref(db, `profiles/${oppUid}`));
+            if (pSnap.exists()) { const p = pSnap.val(); oppInfo = { name: p.displayName || oppInfo.name, avatar: p.avatar || "⚓", gold: safeGold(p.gold), level: p.level || 0 }; }
+          }
+        } catch (e) {}
+        setQuickMatchOpponent(oppInfo);
+        setQuickMatchPhase("found");
+        sfx.init(); sfx.play('gold');
+        setTimeout(() => {
+          setMatchmaking(false); setMatchCancelFn(null); setQuickMatchPhase(null); setQuickMatchOpponent(null);
+          roomIdRef.current = data.roomId; setRoomId(data.roomId); setPlayerNum(data.playerNum); playerNumRef.current = data.playerNum; setOpponentName(data.oppName); setPhase("placing"); listenToRoom(data.roomId, data.playerNum); if (authUid) remove(ref(db, `online_players/${authUid}`));
+          sfx.playPlacementMusic();
+        }, 1700);
       } else {
-        // Eşleşme bulunamadı (timeout) — arena ücreti varsa iade et
+        // Eşleşme bulunamadı (30sn timeout) — arena ücreti varsa iade et
         setMatchmaking(false); setMatchCancelFn(null);
+        setQuickMatchPhase("notfound");
         if (arena && entryFeeDeducted) {
           const refundGold = safeGold(myProfile?.gold) + arena.entryFee;
           ensureProfile(authUid).then(cleanP => { cleanP.gold = refundGold; set(ref(db, `profiles/${authUid}`), cleanP); }).catch(() => {});
           setMyProfile(prev => prev ? { ...prev, gold: refundGold } : prev);
           setEntryFeeDeducted(null);
-          setMessage("Rakip bulunamadı — altının iade edildi!");
-        } else {
-          setMessage("Rakip bulunamadı, tekrar dene!");
         }
       }
     });
   };
+
+  const cancelQuickMatch = async () => {
+    if (quickMatchCarouselRef.current) { clearInterval(quickMatchCarouselRef.current); quickMatchCarouselRef.current = null; }
+    if (quickMatchCountdownRef.current) { clearInterval(quickMatchCountdownRef.current); quickMatchCountdownRef.current = null; }
+    if (matchCancelFn) await matchCancelFn();
+    setMatchmaking(false); setMatchCancelFn(null); setQuickMatchPhase(null); setQuickMatchOpponent(null);
+  };
+
+  const retryQuickMatch = () => { startQuickMatch(lastQuickMatchArenaRef.current); };
 
   const appStyle = { minHeight: "100vh", minHeight: "100dvh", width: "100%", background: t.bg, color: t.text, fontFamily: mono, display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 8px", boxSizing: "border-box", overflowX: "hidden" };
   const btnStyle = { padding: "12px 28px", background: `linear-gradient(135deg, ${t.accent}, #0891b2)`, color: t.bg, border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", cursor: "pointer", fontFamily: warrior, boxShadow: `0 0 15px ${t.accentGlow}` };
@@ -3181,12 +3299,12 @@ export default function Game() {
         <span style={{ position:"absolute",top:-9,left:-9,width:30,height:30,borderTop:"3px solid rgba(0,229,255,0.55)",borderLeft:"3px solid rgba(0,229,255,0.55)",borderTopLeftRadius:18,animation:"sonarArc 2s ease-in-out infinite",pointerEvents:"none" }} />
         <span style={{ position:"absolute",bottom:-9,right:-9,width:30,height:30,borderBottom:"3px solid rgba(0,229,255,0.55)",borderRight:"3px solid rgba(0,229,255,0.55)",borderBottomRightRadius:18,animation:"sonarArc 2s ease-in-out 1s infinite",pointerEvents:"none" }} />
         </>}
-        <RippleButton onClick={()=>startQuickMatch(null)} disabled={matchmaking||authLoading} style={{ width:"100%",padding:"15px 0",background:matchmaking?t.surfaceLight:`linear-gradient(180deg, #22d8ff 0%, ${t.accent} 45%, #0077b6 100%)`,color:matchmaking?t.textDim:"#04202e",border:"2px solid rgba(255,255,255,0.35)",borderRadius:14,fontSize:27,fontWeight:900,letterSpacing:6,cursor:(matchmaking||authLoading)?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:matchmaking?"none":`0 0 34px ${t.accentGlow}, 0 5px 0 #045a80, 0 10px 22px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,0.45)`,opacity:authLoading?0.4:1,textShadow:"0 1px 0 rgba(255,255,255,0.4), 0 2px 3px rgba(0,60,90,0.5)",display:"flex",alignItems:"center",justifyContent:"center",gap:14,animation:matchmaking?"none":"btnBreath 2.2s ease-in-out infinite" }}>
-          {!matchmaking && <svg width="30" height="32" viewBox="0 0 24 26" style={{ filter:"drop-shadow(0 3px 3px rgba(0,40,60,0.55))" }}><defs><linearGradient id="playTri" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#ffffff"/><stop offset="60%" stopColor="#d8f6ff"/><stop offset="100%" stopColor="#8ad4f0"/></linearGradient></defs><polygon points="3,2 22,13 3,24" fill="url(#playTri)" stroke="rgba(4,60,90,0.5)" strokeWidth="1.2"/></svg>}
-          {matchmaking?"EŞLEŞTİRİLİYOR...":"OYNA"}
+        <RippleButton onClick={()=>startQuickMatch(null)} disabled={matchmaking||authLoading} style={{ width:"100%",padding:"15px 0",background:`linear-gradient(180deg, #22d8ff 0%, ${t.accent} 45%, #0077b6 100%)`,color:"#04202e",border:"2px solid rgba(255,255,255,0.35)",borderRadius:14,fontSize:27,fontWeight:900,letterSpacing:6,cursor:(matchmaking||authLoading)?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 0 34px ${t.accentGlow}, 0 5px 0 #045a80, 0 10px 22px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,0.45)`,opacity:(authLoading||matchmaking)?0.5:1,textShadow:"0 1px 0 rgba(255,255,255,0.4), 0 2px 3px rgba(0,60,90,0.5)",display:"flex",alignItems:"center",justifyContent:"center",gap:14,animation:matchmaking?"none":"btnBreath 2.2s ease-in-out infinite" }}>
+          <svg width="30" height="32" viewBox="0 0 24 26" style={{ filter:"drop-shadow(0 3px 3px rgba(0,40,60,0.55))" }}><defs><linearGradient id="playTri" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#ffffff"/><stop offset="60%" stopColor="#d8f6ff"/><stop offset="100%" stopColor="#8ad4f0"/></linearGradient></defs><polygon points="3,2 22,13 3,24" fill="url(#playTri)" stroke="rgba(4,60,90,0.5)" strokeWidth="1.2"/></svg>
+          OYNA
         </RippleButton>
       </div>
-      {matchmaking && <button onClick={async()=>{if(matchCancelFn)await matchCancelFn();setMatchmaking(false);setMatchCancelFn(null);}} style={{ marginTop:6,padding:"8px 20px",background:"transparent",color:t.hit,border:`1px solid ${t.hit}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior,zIndex:1 }}>İPTAL</button>}
+      <QuickMatchModal myProfile={myProfile} phase={quickMatchPhase} candidate={quickMatchCandidate} opponent={quickMatchOpponent} secondsLeft={quickMatchSecondsLeft} onCancel={cancelQuickMatch} onRetry={retryQuickMatch} />
       <div style={{ display:"flex",gap:8,marginTop:10,width:"100%",maxWidth:360,animation:"fadeUp 0.6s ease-out",zIndex:1 }}>
         <RippleButton onClick={()=>{if(!authUid){setMessage("Bağlantı bekleniyor...");return;}setShowOnlineLobby(true);}} disabled={authLoading} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(0,212,255,0.1),rgba(0,212,255,0.03))`,color:t.accent,border:`1px solid rgba(0,212,255,0.3)`,borderRadius:10,fontSize:14,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}>🌐 SALON</RippleButton>
         <RippleButton onClick={()=>{if(!authUid){setMessage("Bağlantı bekleniyor...");return;}setShowArenaSelect(true);}} disabled={authLoading} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(167,139,250,0.1),rgba(167,139,250,0.03))`,color:"#a78bfa",border:"1px solid rgba(167,139,250,0.3)",borderRadius:10,fontSize:14,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={14} color="#a78bfa"/> ARENA</RippleButton>
