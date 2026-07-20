@@ -1567,6 +1567,7 @@ export default function Game() {
   const [hitStreak, setHitStreak] = useState(0);
   const [streakToast, setStreakToast] = useState(null);
   const [onlineCount, setOnlineCount] = useState(0);
+  const [musicOn, setMusicOn] = useState(true);
   const [goldAnim, setGoldAnim] = useState(null);
   const [microFeedback, setMicroFeedback] = useState(null);
   const [extraTimeUsed, setExtraTimeUsed] = useState(false);
@@ -2863,7 +2864,7 @@ export default function Game() {
       {/* Music toggle + online counter */}
       <div style={{ display:"flex",alignItems:"center",gap:14,marginBottom:12,zIndex:1 }}>
         {onlineCount > 0 && <div style={{ display:'flex',alignItems:'center',gap:6,animation:'fadeUp 0.5s ease-out' }}><div style={{ width:8,height:8,borderRadius:'50%',background:'#34d399',boxShadow:'0 0 8px rgba(52,211,153,0.6)',animation:'pulse 2s infinite' }} /><span style={{ fontSize:11,color:'#34d399',fontFamily:warrior,letterSpacing:2 }}>{onlineCount} KİŞİ OYNUYOR</span></div>}
-        <button onClick={()=>{sfx.init(); if(sfx._audioEl && !sfx._audioEl.paused){sfx.stopMusic();}else{sfx.playBattleMusic(false);}}} style={{ padding:"4px 10px",background:"rgba(255,255,255,0.04)",border:`1px solid ${t.border}`,borderRadius:8,fontSize:14,cursor:"pointer",color:t.textDim,lineHeight:1 }}>{sfx._audioEl && !sfx._audioEl.paused?'🔊':'🔇'}</button>
+        <button onClick={()=>{sfx.init(); if(sfx._audioEl && !sfx._audioEl.paused){sfx._stopMp3();sfx.currentMusic=null;if(sfx._dynamicTimer){clearInterval(sfx._dynamicTimer);sfx._dynamicTimer=null;}setMusicOn(false);}else{sfx.playBattleMusic(false);setMusicOn(true);}}} style={{ padding:"4px 10px",background:musicOn?"rgba(255,255,255,0.04)":"rgba(255,71,87,0.12)",border:`1px solid ${musicOn?t.border:t.hit}`,borderRadius:8,fontSize:14,cursor:"pointer",color:musicOn?t.textDim:t.hit,lineHeight:1,transition:"all 0.15s ease" }}>{musicOn?'🔊':'🔇'}</button>
       </div>
       {myProfile && (<div style={{ width:"100%",maxWidth:360,marginBottom:14,zIndex:1,animation:"fadeUp 0.25s ease-out" }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:5,padding:"0 2px" }}>
