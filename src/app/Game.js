@@ -2692,16 +2692,12 @@ export default function Game() {
           </div>
           {/* SAVAŞ CTA */}
           <div style={{ textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center",gap:0,width:"100%",maxWidth:340 }}>
-            <div style={{ width:"100%",background:"linear-gradient(180deg, rgba(80,10,5,0.6) 0%, rgba(40,5,2,0.85) 100%)",border:"1px solid rgba(180,40,20,0.35)",borderRadius:12,padding:"20px 16px 14px",position:"relative",overflow:"hidden" }}>
-              <div style={{ position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 100%, rgba(255,80,20,0.12) 0%, transparent 70%)",pointerEvents:"none" }} />
-              <div style={{ position:"absolute",bottom:0,left:0,right:0,height:2,background:"linear-gradient(90deg,transparent,rgba(255,100,40,0.7),rgba(255,160,60,0.9),rgba(255,100,40,0.7),transparent)" }} />
-              <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); sfx.transitionToBattle(); }} style={{ width:"100%",padding:"18px 0",background:"linear-gradient(180deg, #a01f0c 0%, #6b1108 50%, #3a0804 100%)",color:"#fff",border:"1px solid rgba(255,200,120,0.35)",borderRadius:6,fontSize:20,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 60px rgba(200,50,20,0.6), 0 0 120px rgba(180,30,10,0.3), 0 8px 40px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,180,120,0.2)",position:"relative",overflow:"hidden",textTransform:"uppercase",textShadow:"0 0 30px rgba(255,140,60,0.9), 0 0 60px rgba(255,80,20,0.5), 0 2px 8px rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>
-                <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,150,80,0.1),transparent)",animation:"shimmerPass 3s ease-in-out infinite" }} />
-                <XAnchors size={22} color="#ffd8a8" /> SAVAŞA BAŞLA
-              </button>
-              <div style={{ marginTop:10,fontSize:11,fontStyle:"italic",color:"rgba(255,180,100,0.65)",fontFamily:warrior,letterSpacing:4,textShadow:"0 0 10px rgba(255,120,40,0.4)" }}>
-                sular ısınsın...
-              </div>
+            <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); sfx.transitionToBattle(); }} style={{ width:"100%",padding:"18px 0",background:"linear-gradient(180deg, #a01f0c 0%, #6b1108 50%, #3a0804 100%)",color:"#fff",border:"1px solid rgba(255,200,120,0.35)",borderRadius:6,fontSize:20,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 60px rgba(200,50,20,0.6), 0 0 120px rgba(180,30,10,0.3), 0 8px 40px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,180,120,0.2)",position:"relative",overflow:"hidden",textTransform:"uppercase",textShadow:"0 0 30px rgba(255,140,60,0.9), 0 0 60px rgba(255,80,20,0.5), 0 2px 8px rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>
+              <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,150,80,0.1),transparent)",animation:"shimmerPass 3s ease-in-out infinite" }} />
+              <XAnchors size={22} color="#ffd8a8" /> SAVAŞA BAŞLA
+            </button>
+            <div style={{ marginTop:10,fontSize:11,fontStyle:"italic",color:"rgba(255,180,100,0.65)",fontFamily:warrior,letterSpacing:4,textShadow:"0 0 10px rgba(255,120,40,0.4)" }}>
+              sular ısınsın...
             </div>
           </div>
         </TutCard>
