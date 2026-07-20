@@ -1241,10 +1241,29 @@ function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack }) {
   const [players,setPlayers]=useState([]);const [invites,setInvites]=useState([]);const [sentInvite,setSentInvite]=useState(null);
   useEffect(()=>{const unsub=onValue(ref(db,"online_players"),snap=>{if(!snap.exists()){setPlayers([]);return;}const list=[];snap.forEach(child=>{const d=child.val();if(child.key!==myUid&&d.status==="idle")list.push({uid:child.key,...d});});list.sort((a,b)=>(b.gold||0)-(a.gold||0));setPlayers(list);});return()=>unsub();},[myUid]);
   useEffect(()=>{const unsub=onValue(ref(db,`invites/${myUid}`),snap=>{if(!snap.exists()){setInvites([]);return;}const list=[];snap.forEach(child=>list.push({id:child.key,...child.val()}));setInvites(list);});return()=>unsub();},[myUid]);
-  useEffect(()=>{if(!sentInvite)return;const unsub=onValue(ref(db,`invites/${sentInvite.targetUid}/${myUid}`),snap=>{if(!snap.exists()){setSentInvite(null);return;}const d=snap.val();if(d.status==="accepted"&&d.roomId){remove(ref(db,`invites/${sentInvite.targetUid}/${myUid}`));setSentInvite(null);onChallenge(d.roomId,1);}else if(d.status==="rejected"){remove(ref(db,`invites/${sentInvite.targetUid}/${myUid}`));setSentInvite(null);}});return()=>unsub();},[sentInvite,myUid,onChallenge]);
-  const sendInvite=async(targetUid,targetName)=>{if(sentInvite)return;await set(ref(db,`invites/${targetUid}/${myUid}`),{fromName:myName,fromGold:myGold||0,status:"pending",time:Date.now()});setSentInvite({targetUid,targetName});};
-  const cancelInvite=async()=>{if(!sentInvite)return;await remove(ref(db,`invites/${sentInvite.targetUid}/${myUid}`));setSentInvite(null);};
+  useEffect(()=>{if(!sentInvite)return;const unsub=onValue(ref(db,`invites/${sentInvite.targetUid}/${myUid}`),snap=>{if(!snap.exists()){setSentInvite(null);return;}const d=snap.val();if(d.status==="accepted"&&d.roomId){remove(ref(db,`invites/${sentInvite.targetUid}/${myUid}`));remove(ref(db,`invites/${myUid}/${sentInvite.targetUid}`)).catch(()=>{});setSentInvite(null);onChallenge(d.roomId,1);}else if(d.status==="rejected"){remove(ref(db,`invites/${sentInvite.targetUid}/${myUid}`));setSentInvite(null);}});return()=>unsub();},[sentInvite,myUid,onChallenge]);
   const acceptInvite=async(invite)=>{const roomId=Math.random().toString(36).substring(2,8).toUpperCase();await set(ref(db,`rooms/${roomId}`),{p1_name:invite.fromName,p1_uid:invite.id,p2_name:myName,p2_uid:myUid,phase:"placing",p1_board:null,p2_board:null,p1_ships:null,p2_ships:null,attacks:null,turn:1,clocks:{p1:CLOCK_SECONDS,p2:CLOCK_SECONDS},winner:null,winReason:null,eloProcessed:false,created:Date.now()});await update(ref(db,`invites/${myUid}/${invite.id}`),{status:"accepted",roomId});setTimeout(()=>remove(ref(db,`invites/${myUid}/${invite.id}`)),3000);onChallenge(roomId,2);};
+  // Karşılıklı düello: ikisi de birbirine aynı anda davet atarsa bekletmeden otomatik eşleştir.
+  // Çift oda oluşmasın diye küçük UID'li taraf eşleştirmeyi tetikler, diğeri kendi bekleme dinleyicisinden yakalar.
+  const mutualMatchedRef = useRef(false);
+  useEffect(()=>{ mutualMatchedRef.current = false; },[sentInvite]);
+  useEffect(()=>{
+    if(!sentInvite || mutualMatchedRef.current) return;
+    const mutual = invites.find(inv=>inv.id===sentInvite.targetUid && inv.status==="pending");
+    if(mutual && myUid < sentInvite.targetUid){
+      mutualMatchedRef.current = true;
+      remove(ref(db,`invites/${sentInvite.targetUid}/${myUid}`)).catch(()=>{});
+      acceptInvite(mutual);
+    }
+  },[invites,sentInvite,myUid]);
+  const sendInvite=async(targetUid,targetName)=>{
+    if(sentInvite)return;
+    // Karşı taraf zaten bizi davet etmişse beklemeden direkt eşleştir
+    const mutual = invites.find(inv=>inv.id===targetUid && inv.status==="pending");
+    if(mutual){ acceptInvite(mutual); return; }
+    await set(ref(db,`invites/${targetUid}/${myUid}`),{fromName:myName,fromGold:myGold||0,status:"pending",time:Date.now()});setSentInvite({targetUid,targetName});
+  };
+  const cancelInvite=async()=>{if(!sentInvite)return;await remove(ref(db,`invites/${sentInvite.targetUid}/${myUid}`));setSentInvite(null);};
   const rejectInvite=async(invite)=>{await update(ref(db,`invites/${myUid}/${invite.id}`),{status:"rejected"});setTimeout(()=>remove(ref(db,`invites/${myUid}/${invite.id}`)),2000);};
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:t.bg,padding:"20px 12px",fontFamily:"'Space Mono',monospace",color:t.text }}>
     <div style={{ fontSize:22,fontWeight:700,letterSpacing:5,color:t.accent,marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",textShadow:`0 0 20px ${t.accentGlow}` }}>ONLİNE SALON</div>
