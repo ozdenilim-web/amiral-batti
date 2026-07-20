@@ -98,42 +98,42 @@ const fbPick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 // === GÖREV SİSTEMİ ===
 const ALL_MISSIONS = [
   // ── KOLAY (anında dopamin) ──
-  { id: "play1",    text: "1 oyun oyna",               icon: "⚓", check: s => s.gamesPlayed >= 1 },
-  { id: "hit5",     text: "5 isabet yap",               icon: "🎯", check: s => s.totalHits >= 5 },
-  { id: "sink1",    text: "1 gemi batır",               icon: "🚢", check: s => s.shipsSunk >= 1 },
-  { id: "win1",     text: "1 oyun kazan",               icon: "🏆", check: s => s.wins >= 1 },
-  { id: "noMiss1",  text: "Bir turda karavana yeme",    icon: "🛡", check: s => s.perfectTurn },
-  { id: "botWin",   text: "Bot'u yen",                  icon: "🤖", check: s => s.botWin },
-  { id: "mark3",    text: "3 kare işaretle",            icon: "⚑",  check: s => s.markedCells >= 3 },
-  { id: "hit3turn", text: "Tek turda 3 isabet yap",     icon: "💥", check: s => s.perfectTurn3 },
+  { id: "play1",    text: "1 oyun oyna",               textEn: "Play 1 game",                icon: "⚓", check: s => s.gamesPlayed >= 1 },
+  { id: "hit5",     text: "5 isabet yap",               textEn: "Land 5 hits",                icon: "🎯", check: s => s.totalHits >= 5 },
+  { id: "sink1",    text: "1 gemi batır",               textEn: "Sink 1 ship",                icon: "🚢", check: s => s.shipsSunk >= 1 },
+  { id: "win1",     text: "1 oyun kazan",               textEn: "Win 1 game",                 icon: "🏆", check: s => s.wins >= 1 },
+  { id: "noMiss1",  text: "Bir turda karavana yeme",    textEn: "No miss in a turn",           icon: "🛡", check: s => s.perfectTurn },
+  { id: "botWin",   text: "Bot'u yen",                  textEn: "Beat the bot",                icon: "🤖", check: s => s.botWin },
+  { id: "mark3",    text: "3 kare işaretle",            textEn: "Mark 3 cells",                icon: "⚑",  check: s => s.markedCells >= 3 },
+  { id: "hit3turn", text: "Tek turda 3 isabet yap",     textEn: "Land 3 hits in one turn",     icon: "💥", check: s => s.perfectTurn3 },
 
   // ── ORTA (biraz çaba) ──
-  { id: "play3",    text: "3 oyun oyna",                icon: "🌊", check: s => s.gamesPlayed >= 3 },
-  { id: "hit10",    text: "10 isabet yap",              icon: "🔥", check: s => s.totalHits >= 10 },
-  { id: "sink3",    text: "3 gemi batır",               icon: "💣", check: s => s.shipsSunk >= 3 },
-  { id: "win2",     text: "2 oyun kazan",               icon: "⭐", check: s => s.wins >= 2 },
-  { id: "fast5",    text: "5 dakikada kazan",           icon: "⚡", check: s => s.fastWin5 },
-  { id: "noMiss3",  text: "3 turda arka arkaya isabet", icon: "🎖", check: s => s.streakHits >= 3 },
-  { id: "play5",    text: "5 oyun oyna",                icon: "⚓",  check: s => s.gamesPlayed >= 5 },
-  { id: "hit20",    text: "20 isabet yap",              icon: "🎯", check: s => s.totalHits >= 20 },
-  { id: "sink5",    text: "5 gemi batır",               icon: "🔱", check: s => s.shipsSunk >= 5 },
-  { id: "win3",     text: "3 oyun kazan",               icon: "👑", check: s => s.wins >= 3 },
+  { id: "play3",    text: "3 oyun oyna",                textEn: "Play 3 games",                icon: "🌊", check: s => s.gamesPlayed >= 3 },
+  { id: "hit10",    text: "10 isabet yap",              textEn: "Land 10 hits",                icon: "🔥", check: s => s.totalHits >= 10 },
+  { id: "sink3",    text: "3 gemi batır",               textEn: "Sink 3 ships",                icon: "💣", check: s => s.shipsSunk >= 3 },
+  { id: "win2",     text: "2 oyun kazan",               textEn: "Win 2 games",                 icon: "⭐", check: s => s.wins >= 2 },
+  { id: "fast5",    text: "5 dakikada kazan",           textEn: "Win in 5 minutes",             icon: "⚡", check: s => s.fastWin5 },
+  { id: "noMiss3",  text: "3 turda arka arkaya isabet", textEn: "Hit 3 turns in a row",         icon: "🎖", check: s => s.streakHits >= 3 },
+  { id: "play5",    text: "5 oyun oyna",                textEn: "Play 5 games",                 icon: "⚓",  check: s => s.gamesPlayed >= 5 },
+  { id: "hit20",    text: "20 isabet yap",              textEn: "Land 20 hits",                 icon: "🎯", check: s => s.totalHits >= 20 },
+  { id: "sink5",    text: "5 gemi batır",               textEn: "Sink 5 ships",                 icon: "🔱", check: s => s.shipsSunk >= 5 },
+  { id: "win3",     text: "3 oyun kazan",               textEn: "Win 3 games",                  icon: "👑", check: s => s.wins >= 3 },
 
   // ── ZOR (tatmin büyük) ──
-  { id: "fast3",    text: "3 dakikada kazan",           icon: "🚀", check: s => s.fastWin },
-  { id: "noMiss5",  text: "5 turda karavana yeme",      icon: "🏅", check: s => s.perfectTurns >= 5 },
-  { id: "sink8",    text: "8 gemi batır",               icon: "💀", check: s => s.shipsSunk >= 8 },
-  { id: "hit30",    text: "30 isabet yap",              icon: "🌟", check: s => s.totalHits >= 30 },
-  { id: "win5",     text: "5 oyun kazan",               icon: "🥇", check: s => s.wins >= 5 },
-  { id: "play10",   text: "10 oyun oyna",               icon: "🎖", check: s => s.gamesPlayed >= 10 },
-  { id: "streak5",  text: "5 isabet serisi yap",        icon: "🔥", check: s => s.streakHits >= 5 },
-  { id: "sink10",   text: "10 gemi batır",              icon: "⚓", check: s => s.shipsSunk >= 10 },
+  { id: "fast3",    text: "3 dakikada kazan",           textEn: "Win in 3 minutes",             icon: "🚀", check: s => s.fastWin },
+  { id: "noMiss5",  text: "5 turda karavana yeme",      textEn: "No miss for 5 turns",          icon: "🏅", check: s => s.perfectTurns >= 5 },
+  { id: "sink8",    text: "8 gemi batır",               textEn: "Sink 8 ships",                 icon: "💀", check: s => s.shipsSunk >= 8 },
+  { id: "hit30",    text: "30 isabet yap",              textEn: "Land 30 hits",                 icon: "🌟", check: s => s.totalHits >= 30 },
+  { id: "win5",     text: "5 oyun kazan",               textEn: "Win 5 games",                  icon: "🥇", check: s => s.wins >= 5 },
+  { id: "play10",   text: "10 oyun oyna",               textEn: "Play 10 games",                icon: "🎖", check: s => s.gamesPlayed >= 10 },
+  { id: "streak5",  text: "5 isabet serisi yap",        textEn: "Land a 5-hit streak",          icon: "🔥", check: s => s.streakHits >= 5 },
+  { id: "sink10",   text: "10 gemi batır",              textEn: "Sink 10 ships",                icon: "⚓", check: s => s.shipsSunk >= 10 },
 
   // ── EFSANE (nadir, çok tatmin edici) ──
-  { id: "win10",    text: "10 oyun kazan",              icon: "🏆", check: s => s.wins >= 10 },
-  { id: "hit50",    text: "50 isabet yap",              icon: "💫", check: s => s.totalHits >= 50 },
-  { id: "fast2",    text: "2 dakikada kazan",           icon: "⚡", check: s => s.ultraFastWin },
-  { id: "perfect",  text: "Hiç karavana vermeden kazan",icon: "👁",  check: s => s.perfectGame },
+  { id: "win10",    text: "10 oyun kazan",              textEn: "Win 10 games",                 icon: "🏆", check: s => s.wins >= 10 },
+  { id: "hit50",    text: "50 isabet yap",              textEn: "Land 50 hits",                 icon: "💫", check: s => s.totalHits >= 50 },
+  { id: "fast2",    text: "2 dakikada kazan",           textEn: "Win in 2 minutes",              icon: "⚡", check: s => s.ultraFastWin },
+  { id: "perfect",  text: "Hiç karavana vermeden kazan",textEn: "Win without a single miss",     icon: "👁",  check: s => s.perfectGame },
 ];
 
 function pickDailyMissions(seed) {
@@ -273,6 +273,7 @@ const TRANSLATIONS = {
     victory: "ZAFER", defeat: "BOZGUN", newBattle: "YENİ SAVAŞ", chestProgress: "SANDIK İLERLEMESİ",
     missLabel: "KARAVANA", goldLabel: "ALTIN", levelLabel: "SEVİYE", battleMap: "SAVAŞ HARİTASI", homeBtn: "ANA SAYFA",
     oppField: "RAKİP SAHA", myField: "BENİM SAHAM", oppShips: "RAKİP GEMİLER", myShips: "GEMİLERİM",
+    missionsTitle: "GÖREVLER", missionsSub: "HER GÜN YENİLENİR", missionDone: "TAMAMLANDI", missionInProgress: "DEVAM EDİYOR",
   },
   en: {
     welcome: "WELCOME!", chooseName: "Choose your sailor name", namePlaceholder: "Your username", nameHint: "2-16 characters • can't change for 14 days", confirm: "CONFIRM",
@@ -296,6 +297,7 @@ const TRANSLATIONS = {
     victory: "VICTORY", defeat: "DEFEAT", newBattle: "NEW BATTLE", chestProgress: "CHEST PROGRESS",
     missLabel: "MISSES", goldLabel: "GOLD", levelLabel: "LEVEL", battleMap: "BATTLE MAP", homeBtn: "HOME",
     oppField: "ENEMY FIELD", myField: "MY FIELD", oppShips: "ENEMY SHIPS", myShips: "MY SHIPS",
+    missionsTitle: "MISSIONS", missionsSub: "RESETS DAILY", missionDone: "COMPLETED", missionInProgress: "IN PROGRESS",
   },
 };
 function L(lang, key) { return (TRANSLATIONS[lang] && TRANSLATIONS[lang][key]) || TRANSLATIONS.tr[key] || key; }
@@ -1318,7 +1320,7 @@ function MissionIcon({ icon, done, missionId }) {
   return iconMap[icon] || <span style={{ fontSize:22,filter:"drop-shadow(0 3px 5px rgba(0,0,0,0.6)) drop-shadow(0 0 12px rgba(0,229,255,0.35)) saturate(1.4) brightness(1.1)",transform:"perspective(200px) rotateX(6deg)",display:"inline-block" }}>{icon}</span>;
 }
 
-function MissionPanel({ missions, missionProgress, onClose }) {
+function MissionPanel({ missions, missionProgress, onClose, lang = "tr" }) {
   const completed = missions.filter(m => missionProgress[m.id]);
   const allDone = completed.length === 3;
   const progressPct = Math.round((completed.length / 3) * 100);
@@ -1327,8 +1329,8 @@ function MissionPanel({ missions, missionProgress, onClose }) {
       <div style={{ display:"flex",alignItems:"center",gap:8 }}>
         <div style={{ width:32,height:32,borderRadius:10,background:"rgba(0,229,255,0.1)",border:"1px solid rgba(0,229,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center" }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z" fill="rgba(0,229,255,0.3)" stroke="#00e5ff" strokeWidth="1.5" strokeLinejoin="round"/></svg></div>
         <div>
-          <div style={{ fontSize:16,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 15px ${t.accentGlow}` }}>GÖREVLER</div>
-          <div style={{ fontSize:9,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:2,marginTop:1 }}>HER GÜN YENİLENİR</div>
+          <div style={{ fontSize:16,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 15px ${t.accentGlow}` }}>{L(lang,"missionsTitle")}</div>
+          <div style={{ fontSize:9,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:2,marginTop:1 }}>{L(lang,"missionsSub")}</div>
         </div>
       </div>
       <div style={{ textAlign:"center",background:allDone?"rgba(255,215,0,0.15)":"rgba(0,229,255,0.08)",padding:"6px 14px",borderRadius:10,border:`1px solid ${allDone?"rgba(255,215,0,0.3)":"rgba(0,229,255,0.2)"}` }}>
@@ -1342,8 +1344,8 @@ function MissionPanel({ missions, missionProgress, onClose }) {
       const done = missionProgress[m.id];
       return (<div key={m.id} style={{ display:"flex",alignItems:"center",gap:14,padding:"12px 14px",background:done?"linear-gradient(135deg, rgba(74,222,128,0.1), rgba(74,222,128,0.03))":"linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))",borderRadius:12,marginBottom:8,border:`2px solid ${done?"rgba(74,222,128,0.3)":"rgba(30,58,95,0.4)"}`,transition:"all 0.3s ease",boxShadow:done?"0 0 15px rgba(74,222,128,0.08)":"none" }}>
         <div style={{ flex:1,minWidth:0 }}>
-          <div style={{ fontSize:14,fontWeight:800,color:done?"#4ade80":t.text,fontFamily:warrior,letterSpacing:2 }}>{m.text.toLocaleUpperCase('tr-TR')}</div>
-          <div style={{ fontSize:9,fontWeight:600,color:done?"rgba(74,222,128,0.7)":t.textDim,fontFamily:mono,letterSpacing:1,marginTop:2 }}>{done?"TAMAMLANDI":"DEVAM EDİYOR"}</div>
+          <div style={{ fontSize:14,fontWeight:800,color:done?"#4ade80":t.text,fontFamily:warrior,letterSpacing:2 }}>{lang==="en"?(m.textEn||m.text).toUpperCase():m.text.toLocaleUpperCase('tr-TR')}</div>
+          <div style={{ fontSize:9,fontWeight:600,color:done?"rgba(74,222,128,0.7)":t.textDim,fontFamily:mono,letterSpacing:1,marginTop:2 }}>{done?L(lang,"missionDone"):L(lang,"missionInProgress")}</div>
         </div>
         {done ? <div style={{ width:30,height:30,borderRadius:10,background:"rgba(74,222,128,0.15)",display:"flex",alignItems:"center",justifyContent:"center",border:"2px solid rgba(74,222,128,0.3)" }}><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-7" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg></div> : <div style={{ width:30,height:30,borderRadius:10,background:"rgba(255,255,255,0.03)",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(255,255,255,0.06)" }}><div style={{ width:8,height:8,borderRadius:4,border:"2px solid rgba(255,255,255,0.15)" }} /></div>}
       </div>);
@@ -3551,7 +3553,7 @@ export default function Game() {
         </details>
       </div>
       {message && <div style={{ marginTop:8,color:t.hit,fontSize:11,fontFamily:mono,zIndex:1 }}>{message}</div>}
-      <MissionPanel missions={dailyMissions} missionProgress={missionProgress} />
+      <MissionPanel missions={dailyMissions} missionProgress={missionProgress} lang={appLang} />
       {Object.keys(missionProgress).length >= 3 && !chestClaimed && (
         <button onClick={() => { const reward = generateChestReward(); setChestReward(reward); }} style={{ marginTop:10,padding:"16px 0",width:"100%",maxWidth:340,background:`linear-gradient(135deg,rgba(251,191,36,0.2),rgba(251,191,36,0.05))`,color:t.gold,border:`2px solid ${t.gold}`,borderRadius:10,fontSize:16,fontWeight:700,letterSpacing:3,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 0 25px ${t.goldGlow}`,animation:"borderGlow 2s infinite" }}>🎁 SANDIĞI AÇ</button>
       )}
