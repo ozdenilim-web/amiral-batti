@@ -251,7 +251,7 @@ const t = {
   accent: "#00e5ff", accentGlow: "rgba(0,229,255,0.45)",
   hit: "#ff4757", hitGlow: "rgba(255,71,87,0.55)",
   miss: "#3d4f6f", sunk: "#ff8c42",
-  water: "rgba(0,229,255,0.06)", shipCell: "rgba(0,229,255,0.22)",
+  water: "rgba(0,229,255,0.16)", shipCell: "rgba(0,229,255,0.28)",
   gold: "#ffd700", goldGlow: "rgba(255,215,0,0.45)",
 };
 const warrior = "var(--font-warrior), 'Barlow Condensed', sans-serif";
@@ -1286,7 +1286,7 @@ const ANIMS = `
 .ab-cell{transition:transform 0.15s cubic-bezier(0.34,1.56,0.64,1), filter 0.15s ease, box-shadow 0.15s ease;}
 @media (hover:hover){ .ab-cell:hover{transform:scale(1.12);filter:brightness(1.25);z-index:5;box-shadow:0 0 10px rgba(0,229,255,0.5);} }
 .ab-cell:active{transform:scale(0.92);filter:brightness(1.15);}
-@keyframes blink3s{0%,100%{opacity:1}50%{opacity:.15}}
+@keyframes blink3s{0%,100%{opacity:1}50%{opacity:.6}}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
 @keyframes borderGlow{0%,100%{border-color:#00d4ff;box-shadow:0 0 8px rgba(0,212,255,.4)}50%{border-color:#38f0ff;box-shadow:0 0 24px rgba(0,212,255,.7)}}
 @keyframes popIn{0%{transform:scale(0)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
@@ -1362,9 +1362,9 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, on
   const handleClick = (r,c) => { if(disabled)return; sfx.init(); setRippleCell(`${r},${c}`); setTimeout(()=>setRippleCell(null),400); onClick?.(r,c); };
   const handleTouchStart = (r,c) => { longPressRef.current = setTimeout(()=>{ onLongPress?.(r,c); longPressRef.current=null; },500); };
   const handleTouchEnd = () => { if(longPressRef.current){clearTimeout(longPressRef.current);longPressRef.current=null;} };
-  return (<div style={{ background:`linear-gradient(135deg,${t.surface} 0%,rgba(17,24,39,0.95) 100%)`,border:"1px solid rgba(55,65,81,0.6)",borderRadius:10,padding:4,overflow:"hidden",boxShadow:"0 4px 20px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.03)" }}>
-    <div style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize }} />{board[0]?.map((_,i) => <div key={i} style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:cellSize>30?10:8,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:1 }}>{COL_LABELS[i]||""}</div>)}</div>
-    {board.map((row,r) => (<div key={r} style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:cellSize>30?10:8,fontWeight:800,color:t.textDim,fontFamily:warrior }}>{r+1}</div>
+  return (<div style={{ background:`linear-gradient(135deg,${t.surfaceLight} 0%,${t.surface} 100%)`,border:"1px solid rgba(0,229,255,0.3)",borderRadius:10,padding:4,overflow:"hidden",boxShadow:"0 4px 20px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.06)" }}>
+    <div style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize }} />{board[0]?.map((_,i) => <div key={i} style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:cellSize>30?13:11,fontWeight:900,color:t.text,fontFamily:warrior,letterSpacing:1,textShadow:"0 1px 2px rgba(0,0,0,0.6)" }}>{COL_LABELS[i]||""}</div>)}</div>
+    {board.map((row,r) => (<div key={r} style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:cellSize>30?13:11,fontWeight:900,color:t.text,fontFamily:warrior,textShadow:"0 1px 2px rgba(0,0,0,0.6)" }}>{r+1}</div>
       {row.map((val,c) => {
         const ovr=overlay?.[r]?.[c], isHov=hoverCells?.some(([hr,hc])=>hr===r&&hc===c), shipColor=shipColors?.[r]?.[c], isBlink=blinkCells?.some(([br,bc])=>br===r&&bc===c), isManual=manualMarks?.[r]?.[c], isRipple=rippleCell===`${r},${c}`;
         let bg=t.water,content="",shadow="none",clr=t.textDim;
@@ -1389,7 +1389,7 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, on
         if(isHov){bg="rgba(6,182,212,0.35)";shadow=`inset 0 0 10px ${t.accentGlow}`;}
         const isHint = onboardingHint?.some(([hr,hc])=>hr===r&&hc===c) && !ovr;
         if(isHint){bg="rgba(255,215,0,0.25)";shadow=`inset 0 0 12px ${t.goldGlow}, 0 0 8px ${t.goldGlow}`;content="◆";clr=t.gold;}
-        return <div key={c} data-cell="1" data-r={r} data-c={c} className={disabled?"":"ab-cell"} onClick={()=>handleClick(r,c)} onMouseEnter={()=>onHover?.(r,c)} onContextMenu={e=>{e.preventDefault();onRightClick?.(r,c);}} onMouseDown={disabled?undefined:(e)=>onCellPointerDown?.(r,c,e)} onTouchStart={disabled?undefined:(e)=>{ if(onCellPointerDown){ onCellPointerDown(r,c,e); } else { handleTouchStart(r,c); } }} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={{ position:"relative",overflow:"hidden",width:cellSize,height:cellSize,border:"1px solid rgba(55,65,81,0.5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:ovr==="sunk"?10:8,fontWeight:700,cursor:disabled?"default":"pointer",background:bg,boxShadow:shadow,color:clr,boxSizing:"border-box",transition:"background 0.15s ease, box-shadow 0.15s ease",animation:isBlink?"blink3s 0.5s ease-in-out 6":isRipple?"popIn 0.3s ease-out":"none",borderRadius:1,touchAction:onCellPointerDown?"none":"auto" }}>{content}</div>;
+        return <div key={c} data-cell="1" data-r={r} data-c={c} className={disabled?"":"ab-cell"} onClick={()=>handleClick(r,c)} onMouseEnter={()=>onHover?.(r,c)} onContextMenu={e=>{e.preventDefault();onRightClick?.(r,c);}} onMouseDown={disabled?undefined:(e)=>onCellPointerDown?.(r,c,e)} onTouchStart={disabled?undefined:(e)=>{ if(onCellPointerDown){ onCellPointerDown(r,c,e); } else { handleTouchStart(r,c); } }} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={{ position:"relative",overflow:"hidden",width:cellSize,height:cellSize,border:"1px solid rgba(0,229,255,0.22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:ovr==="sunk"?13:11,fontWeight:900,cursor:disabled?"default":"pointer",background:bg,boxShadow:shadow,color:clr,boxSizing:"border-box",transition:"background 0.15s ease, box-shadow 0.15s ease",animation:isBlink?"blink3s 0.5s ease-in-out 6":isRipple?"popIn 0.3s ease-out":"none",borderRadius:1,touchAction:onCellPointerDown?"none":"auto" }}>{content}</div>;
       })}</div>))}
   </div>);
 }
@@ -1401,11 +1401,11 @@ function ShipStatusPanel({ title, ships, hitCells, color, lang = "tr" }) {
   const sunkCount = shipList.filter(ship => { const cells=ship.cells||[]; const hits=cells.filter(([r,c])=>hitCells?.[r]?.[c]).length; return hits===cells.length&&cells.length>0; }).length;
   return (<div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))",border:`2px solid ${color==="rgba(255,71,87,0.55)"||color===t.hit?"rgba(255,71,87,0.25)":"rgba(0,229,255,0.2)"}`,borderRadius:12,padding:"14px 16px",marginTop:8,boxShadow:"0 4px 20px rgba(0,0,0,0.3)" }}>
     <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8 }}>
-      <div style={{ fontSize:13,letterSpacing:4,color:t.text,fontWeight:800,fontFamily:warrior,textTransform:"uppercase",textShadow:"0 1px 3px rgba(0,0,0,0.5)" }}>{title}</div>
-      <div style={{ fontSize:11,fontWeight:700,color:sunkCount>0?t.sunk:t.textDim,fontFamily:mono,background:"rgba(255,255,255,0.04)",padding:"2px 8px",borderRadius:6 }}>{sunkCount}/{totalShips}</div>
+      <div style={{ fontSize:15,letterSpacing:4,color:t.text,fontWeight:900,fontFamily:warrior,textTransform:"uppercase",textShadow:"0 1px 3px rgba(0,0,0,0.5)" }}>{title}</div>
+      <div style={{ fontSize:12,fontWeight:800,color:sunkCount>0?t.sunk:t.textDim,fontFamily:mono,background:"rgba(255,255,255,0.04)",padding:"2px 8px",borderRadius:6 }}>{sunkCount}/{totalShips}</div>
     </div>
     <div style={{ display:"flex",flexWrap:"wrap",gap:8 }}>
-      {shipList.map((ship,idx)=>{const shipDef=SHIPS.find(s=>s.id===ship.id);const cells=ship.cells||[];const hits=cells.filter(([r,c])=>hitCells?.[r]?.[c]).length;const sunk=hits===cells.length&&cells.length>0;return(<div key={idx} style={{ display:"flex",alignItems:"center",gap:6,padding:"4px 8px",background:sunk?"rgba(255,140,66,0.08)":"transparent",borderRadius:6,border:`1px solid ${sunk?"rgba(255,140,66,0.2)":"transparent"}` }}><span style={{ fontSize:12,fontWeight:800,color:sunk?t.sunk:t.text,textDecoration:sunk?"line-through":"none",fontFamily:warrior,letterSpacing:1 }}>{(lang==="en"?shipDef?.nameEn:shipDef?.name)||"?"}</span><div style={{ display:"flex",gap:2 }}>{cells.map((_,i)=><div key={i} style={{ width:10,height:10,borderRadius:3,background:i<hits?(sunk?t.sunk:t.hit):color||t.accent,opacity:i<hits?1:0.25,boxShadow:i<hits&&sunk?`0 0 4px ${t.sunk}`:i<hits?`0 0 4px ${t.hit}`:"none" }} />)}</div></div>);})}
+      {shipList.map((ship,idx)=>{const shipDef=SHIPS.find(s=>s.id===ship.id);const cells=ship.cells||[];const hits=cells.filter(([r,c])=>hitCells?.[r]?.[c]).length;const sunk=hits===cells.length&&cells.length>0;return(<div key={idx} style={{ display:"flex",alignItems:"center",gap:6,padding:"4px 8px",background:sunk?"rgba(255,140,66,0.08)":"transparent",borderRadius:6,border:`1px solid ${sunk?"rgba(255,140,66,0.2)":"transparent"}` }}><span style={{ fontSize:13,fontWeight:900,color:sunk?t.sunk:t.text,textDecoration:sunk?"line-through":"none",fontFamily:warrior,letterSpacing:1 }}>{(lang==="en"?shipDef?.nameEn:shipDef?.name)||"?"}</span><div style={{ display:"flex",gap:2 }}>{cells.map((_,i)=><div key={i} style={{ width:10,height:10,borderRadius:3,background:i<hits?(sunk?t.sunk:t.hit):color||t.accent,opacity:i<hits?1:0.25,boxShadow:i<hits&&sunk?`0 0 4px ${t.sunk}`:i<hits?`0 0 4px ${t.hit}`:"none" }} />)}</div></div>);})}
     </div>
   </div>);
 }
@@ -3781,10 +3781,10 @@ export default function Game() {
     const gridSize = miniGrid ? Math.min(38, Math.floor((Math.min((typeof window !== "undefined" ? window.innerWidth : 400) - 24, 320)) / 8)) : cellSize;
     const flyEmoji = emojiToast || myEmojiToast;
     return (<div style={{ ...appStyle, paddingBottom: "calc(130px + env(safe-area-inset-bottom, 0px))", background:`
-      radial-gradient(ellipse at 15% 10%, rgba(0,229,255,0.06) 0%, transparent 45%),
-      radial-gradient(ellipse at 85% 90%, rgba(255,71,87,0.05) 0%, transparent 45%),
-      repeating-linear-gradient(0deg, transparent 0px, transparent 39px, rgba(0,229,255,0.030) 39px, rgba(0,229,255,0.030) 40px),
-      repeating-linear-gradient(90deg, transparent 0px, transparent 39px, rgba(0,229,255,0.030) 39px, rgba(0,229,255,0.030) 40px),
+      radial-gradient(ellipse at 15% 10%, rgba(0,229,255,0.14) 0%, transparent 50%),
+      radial-gradient(ellipse at 85% 90%, rgba(255,71,87,0.12) 0%, transparent 50%),
+      repeating-linear-gradient(0deg, transparent 0px, transparent 39px, rgba(0,229,255,0.07) 39px, rgba(0,229,255,0.07) 40px),
+      repeating-linear-gradient(90deg, transparent 0px, transparent 39px, rgba(0,229,255,0.07) 39px, rgba(0,229,255,0.07) 40px),
       ${t.bg}`, position:"relative" }}><style>{ANIMS}</style>
       {/* HUD tarama çizgisi */}
       <div style={{ position:"fixed",left:0,right:0,height:2,background:"linear-gradient(90deg, transparent, rgba(0,229,255,0.25), transparent)",animation:"scanline 7s linear infinite",pointerEvents:"none",zIndex:1 }} />
@@ -3817,11 +3817,11 @@ export default function Game() {
       {/* Onboarding mini guide — kaldırıldı */}
       {!isOnboarding && <div style={{ display:"flex",gap:8,alignItems:"stretch",marginBottom:6,width:"100%",maxWidth:400,justifyContent:"center" }}>
         <div style={{ flex:1,padding:"4px 10px",borderRadius:6,background:myTurn?(myLow?"rgba(239,68,68,0.15)":"rgba(6,182,212,0.12)"):t.surfaceLight,border:`1px solid ${myTurn?(myLow?t.hit:t.accent):t.border}`,textAlign:"center" }}>
-          <div style={{ fontSize:13,fontWeight:700,fontFamily:warrior,color:myTurn?(myLow?t.hit:t.accent):t.textDim,letterSpacing:1 }}>{playerName}: {formatTime(myClock)}</div>
+          <div style={{ fontSize:15,fontWeight:900,fontFamily:warrior,color:myTurn?(myLow?t.hit:t.accent):t.textDim,letterSpacing:1 }}>{playerName}: {formatTime(myClock)}</div>
           <EmojiDisplay emoji={myEmojiToast?.emoji} label={myEmojiToast?.label} />
         </div>
         <div style={{ flex:1,padding:"4px 10px",borderRadius:6,background:!myTurn?(oppLow?"rgba(239,68,68,0.15)":"rgba(6,182,212,0.12)"):t.surfaceLight,border:`1px solid ${!myTurn?(oppLow?t.hit:t.accent):t.border}`,textAlign:"center" }}>
-          <div style={{ fontSize:13,fontWeight:700,fontFamily:warrior,color:!myTurn?(oppLow?t.hit:t.accent):t.textDim,letterSpacing:1 }}>{opponentName}: {formatTime(oppClock)}</div>
+          <div style={{ fontSize:15,fontWeight:900,fontFamily:warrior,color:!myTurn?(oppLow?t.hit:t.accent):t.textDim,letterSpacing:1 }}>{opponentName}: {formatTime(oppClock)}</div>
           <EmojiDisplay emoji={emojiToast?.emoji} label={emojiToast?.label} />
         </div>
       </div>}
