@@ -784,16 +784,17 @@ function QuickMatchCard({ label, name, avatar, gold, level, accent, flicker }) {
 
 function QuickMatchModal({ myProfile, phase, candidate, opponent, secondsLeft, onCancel, onRetry }) {
   if (!phase) return null;
-  const isFound = phase === "found", isNotFound = phase === "notfound";
-  const themeColor = isFound ? "#4ade80" : isNotFound ? t.hit : t.accent;
-  const themeGlow = isFound ? "rgba(74,222,128,0.4)" : isNotFound ? t.hitGlow : t.accentGlow;
+  const isFound = phase === "found", isNotFound = phase === "notfound", isInviting = phase === "inviting", isSearching = phase === "searching";
+  const themeColor = isFound ? "#4ade80" : isNotFound ? t.hit : isInviting ? t.gold : t.accent;
+  const themeGlow = isFound ? "rgba(74,222,128,0.4)" : isNotFound ? t.hitGlow : isInviting ? t.goldGlow : t.accentGlow;
   return (<div style={{ position:"fixed",inset:0,zIndex:9700,background:"rgba(2,6,16,0.82)",backdropFilter:"blur(6px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,animation:"settingsFadeIn 0.25s ease-out" }}>
     <div style={{ width:"100%",maxWidth:380,background:"linear-gradient(160deg, rgba(14,22,44,0.98), rgba(6,10,22,0.99))",border:`2px solid ${themeColor}`,borderRadius:22,padding:"26px 20px 22px",textAlign:"center",boxShadow:`0 0 70px ${themeGlow}, 0 20px 60px rgba(0,0,0,0.6)`,position:"relative",overflow:"hidden",animation:"scaleUp 0.35s cubic-bezier(0.34,1.56,0.64,1)" }}>
-      {phase === "searching" && <div style={{ position:"absolute",inset:0,background:"repeating-radial-gradient(circle at 50% 50%, transparent 0, transparent 30px, rgba(0,229,255,0.035) 31px)",animation:"radarSpin 3s linear infinite",pointerEvents:"none" }} />}
+      {isSearching && <div style={{ position:"absolute",inset:0,background:"repeating-radial-gradient(circle at 50% 50%, transparent 0, transparent 30px, rgba(0,229,255,0.035) 31px)",animation:"radarSpin 3s linear infinite",pointerEvents:"none" }} />}
       <div style={{ fontSize:14,fontWeight:900,letterSpacing:3,fontFamily:warrior,color:themeColor,marginBottom:4,textShadow:`0 0 16px ${themeGlow}`,position:"relative" }}>
-        {isFound ? "🎉 RAKİP BULUNDU!" : isNotFound ? "😕 RAKİP BULUNAMADI" : "🔍 RAKİP ARANIYOR"}
+        {isFound ? "🎉 RAKİP BULUNDU!" : isNotFound ? "😕 RAKİP BULUNAMADI" : isInviting ? "📨 TEKLİF GÖNDERİLDİ" : "🔍 RAKİP ARANIYOR"}
       </div>
-      {phase === "searching" && <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginBottom:16,position:"relative" }}>Salon taranıyor... <span style={{ color:t.accent,fontWeight:800 }}>{secondsLeft}s</span></div>}
+      {isSearching && <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginBottom:16,position:"relative" }}>Salon taranıyor... <span style={{ color:t.accent,fontWeight:800 }}>{secondsLeft}s</span></div>}
+      {isInviting && <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginBottom:16,position:"relative" }}><span style={{ fontWeight:800,color:t.gold }}>{candidate?.name}</span> hazır — yanıtı bekleniyor... <span style={{ color:t.gold,fontWeight:800 }}>{secondsLeft}s</span></div>}
       {isFound && <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginBottom:16,position:"relative" }}>Düello başlıyor, gemilerini yerleştir!</div>}
       {isNotFound && <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginBottom:16,position:"relative" }}>Salonda uygun rakip yok — tekrar dene</div>}
 
@@ -802,20 +803,22 @@ function QuickMatchModal({ myProfile, phase, candidate, opponent, secondsLeft, o
         <div style={{ fontSize:22,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 20px ${t.goldGlow}`,animation:"qmVsPulse 1s ease-in-out infinite" }}>VS</div>
         {isFound
           ? <QuickMatchCard key="opp" label="RAKİP" name={opponent?.name} avatar={opponent?.avatar} gold={opponent?.gold} level={opponent?.level} accent="#4ade80" flicker={false} />
+          : isInviting
+          ? <QuickMatchCard key="invite-target" label="HAZIR ⚡" name={candidate?.name} avatar={candidate?.avatar} gold={candidate?.gold} accent={t.gold} flicker={false} />
           : <QuickMatchCard key={candidate?.key || "c0"} label="?" name={candidate?.name || "..."} avatar={candidate?.avatar} gold={candidate?.gold} accent={t.textDim} flicker={true} />}
       </div>}
 
       {isNotFound && <div style={{ fontSize:44,margin:"4px 0 16px",position:"relative" }}>🧭</div>}
 
-      {phase === "searching" && <div style={{ width:"100%",height:6,borderRadius:3,background:"rgba(255,255,255,0.08)",overflow:"hidden",marginTop:4,marginBottom:16,position:"relative" }}>
-        <div style={{ width:`${(secondsLeft / 30) * 100}%`,height:"100%",background:`linear-gradient(90deg,${t.accent},#0891b2)`,transition:"width 0.25s linear" }} />
+      {(isSearching || isInviting) && <div style={{ width:"100%",height:6,borderRadius:3,background:"rgba(255,255,255,0.08)",overflow:"hidden",marginTop:4,marginBottom:16,position:"relative" }}>
+        <div style={{ width:`${(secondsLeft / (isInviting ? 10 : 30)) * 100}%`,height:"100%",background:isInviting?`linear-gradient(90deg,${t.gold},#d97706)`:`linear-gradient(90deg,${t.accent},#0891b2)`,transition:"width 0.25s linear" }} />
       </div>}
 
       <div style={{ display:"flex",gap:10,justifyContent:"center",marginTop:4,position:"relative" }}>
         {isNotFound ? (<>
           <button onClick={onRetry} style={{ padding:"12px 26px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:13,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 24px ${t.accentGlow}` }}>🔄 YENİDEN ARA</button>
           <button onClick={onCancel} style={{ padding:"12px 18px",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:12,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:warrior }}>VAZGEÇ</button>
-        </>) : phase === "searching" ? (
+        </>) : (isSearching || isInviting) ? (
           <button onClick={onCancel} style={{ padding:"9px 22px",background:"transparent",color:t.hit,border:`1px solid ${t.hit}`,borderRadius:10,fontSize:11,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>İPTAL</button>
         ) : null}
       </div>
@@ -1462,7 +1465,7 @@ function BoardReview({ defenseBoard, shipColorMap, defenseOverlay, attackOverlay
   </div>);
 }
 
-function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack }) {
+function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack, ready, onToggleReady }) {
   const [players,setPlayers]=useState([]);const [invites,setInvites]=useState([]);const [sentInvite,setSentInvite]=useState(null);
   useEffect(()=>{const unsub=onValue(ref(db,"online_players"),snap=>{if(!snap.exists()){setPlayers([]);return;}const list=[];snap.forEach(child=>{const d=child.val();if(child.key!==myUid&&d.status==="idle")list.push({uid:child.key,...d});});list.sort((a,b)=>(b.gold||0)-(a.gold||0));setPlayers(list);});return()=>unsub();},[myUid]);
   useEffect(()=>{const unsub=onValue(ref(db,`invites/${myUid}`),snap=>{if(!snap.exists()){setInvites([]);return;}const list=[];snap.forEach(child=>list.push({id:child.key,...child.val()}));setInvites(list);});return()=>unsub();},[myUid]);
@@ -1507,7 +1510,9 @@ function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack }) {
   const rejectInvite=async(invite)=>{await update(ref(db,`invites/${myUid}/${invite.id}`),{status:"rejected"});setTimeout(()=>remove(ref(db,`invites/${myUid}/${invite.id}`)),2000);};
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:t.bg,padding:"20px 12px",fontFamily:"'Space Mono',monospace",color:t.text }}>
     <div style={{ fontSize:22,fontWeight:700,letterSpacing:5,color:t.accent,marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",textShadow:`0 0 20px ${t.accentGlow}` }}>ONLINE SALON</div>
-    <div style={{ fontSize:10,color:t.textDim,letterSpacing:4,marginBottom:16,fontFamily:"'Barlow Condensed',sans-serif" }}>AKTİF DENİZCİLER</div>
+    <div style={{ fontSize:10,color:t.textDim,letterSpacing:4,marginBottom:14,fontFamily:"'Barlow Condensed',sans-serif" }}>AKTİF DENİZCİLER</div>
+    <button onClick={onToggleReady} style={{ width:"100%",maxWidth:420,marginBottom:14,padding:"13px 0",background:ready?"linear-gradient(135deg,#34d399,#0d9488)":"rgba(255,255,255,0.05)",color:ready?"#04231a":t.textDim,border:`2px solid ${ready?"#34d399":t.border}`,borderRadius:12,fontSize:14,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",textTransform:"uppercase",boxShadow:ready?"0 0 24px rgba(52,211,153,0.5)":"none",animation:ready?"borderGlow 2s infinite":"none",transition:"all 0.2s ease" }}>{ready?"✅ OYUNA HAZIRIM":"⚡ OYUNA HAZIRIM"}</button>
+    {ready && <div style={{ fontSize:10,color:"#34d399",fontFamily:"'Space Mono',monospace",marginBottom:14,textAlign:"center" }}>Biri hızlı oyun aradığında seni direkt yakalayabilir</div>}
     {invites.filter(inv=>inv.status==="pending").map(invite=>(<div key={invite.id} style={{ width:"100%",maxWidth:420,marginBottom:8,padding:"12px 16px",background:"rgba(6,182,212,0.1)",border:`1px solid ${t.accent}`,borderRadius:10,animation:"borderGlow 2s infinite" }}>
       <div style={{ fontSize:12,color:t.accent,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,marginBottom:6,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={14} color={t.accent}/> DÜELLO DAVETİ</div>
       <div style={{ fontSize:13,color:t.text,marginBottom:8 }}><span style={{ fontWeight:700 }}>{invite.fromName}</span><span style={{ color:t.textDim,fontSize:10,marginLeft:8 }}>💰 {invite.fromGold||0}</span></div>
@@ -1526,7 +1531,7 @@ function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack }) {
         <div style={{ fontSize:9,color:t.textDim,letterSpacing:2,marginBottom:4 }}>{players.length} DENİZCİ AKTİF</div>
         {players.map(p=>{const rank=getRankInfo(p.gold||0);const alreadySent=sentInvite?.targetUid===p.uid;return(<div key={p.uid} style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:t.surface,border:`1px solid ${t.border}`,borderRadius:8 }}>
           <div style={{ width:8,height:8,borderRadius:"50%",background:"#34d399",boxShadow:"0 0 6px rgba(52,211,153,0.5)" }} />
-          <div style={{ flex:1,minWidth:0 }}><div style={{ display:"flex",alignItems:"center",gap:6 }}><span style={{ fontSize:13,fontWeight:700,color:t.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.displayName}</span><span style={{ fontSize:9,color:rank.color,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1 }}>{rank.icon} {rank.title}</span></div><div style={{ fontSize:9,color:t.textDim,marginTop:1 }}>💰 {p.gold||0} • {p.wins||0}G/{p.losses||0}M</div></div>
+          <div style={{ flex:1,minWidth:0 }}><div style={{ display:"flex",alignItems:"center",gap:6 }}><span style={{ fontSize:13,fontWeight:700,color:t.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.displayName}</span><span style={{ fontSize:9,color:rank.color,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1 }}>{rank.icon} {rank.title}</span>{p.ready && <span style={{ fontSize:8,fontWeight:900,color:"#04231a",background:"#34d399",padding:"2px 6px",borderRadius:5,letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif" }}>HAZIR</span>}</div><div style={{ fontSize:9,color:t.textDim,marginTop:1 }}>💰 {p.gold||0} • {p.wins||0}G/{p.losses||0}M</div></div>
           <button onClick={()=>sendInvite(p.uid,p.displayName)} disabled={!!sentInvite} style={{ padding:"6px 14px",background:alreadySent?t.surfaceLight:`linear-gradient(135deg,${t.hit},#dc2626)`,color:alreadySent?t.textDim:"#fff",border:"none",borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:sentInvite?"default":"pointer",fontFamily:"'Barlow Condensed',sans-serif",opacity:sentInvite&&!alreadySent?0.4:1 }}>{alreadySent?"BEKLENİYOR":"⚓ DÜELLO"}</button>
         </div>);})}
       </div>
@@ -1626,6 +1631,47 @@ function findMatch(myUid, myName, myGold, arenaId, timeoutMs = 60000) {
   return promise;
 }
 
+// Salonda "OYUNA HAZIRIM" diyen (ready:true, status:"idle") en yakın altınlı oyuncuyu bulur.
+async function findReadyCandidate(myUid, myGold) {
+  try {
+    const snap = await get(ref(db, "online_players"));
+    if (!snap.exists()) return null;
+    const list = [];
+    snap.forEach(child => { const d = child.val(); if (child.key !== myUid && d && d.ready === true && d.status === "idle") list.push({ uid: child.key, ...d }); });
+    if (list.length === 0) return null;
+    list.sort((a, b) => Math.abs((a.gold || 0) - (myGold || 0)) - Math.abs((b.gold || 0) - (myGold || 0)));
+    return list[0];
+  } catch (e) { return null; }
+}
+
+// Hazır bulunan oyuncuya doğrudan davet gönderir, kabul/red/zaman aşımını bekler.
+function sendReadyInviteAndAwait(myUid, myName, myGold, candidate, timeoutMs = 10000) {
+  return new Promise((resolve) => {
+    let done = false, unsubStatus = null, unsubMatch = null, timeoutId = null;
+    const cleanup = () => { if (unsubStatus) unsubStatus(); if (unsubMatch) unsubMatch(); if (timeoutId) clearTimeout(timeoutId); };
+    const finish = (result) => { if (done) return; done = true; cleanup(); resolve(result); };
+    set(ref(db, `invites/${candidate.uid}/${myUid}`), { fromName: myName, fromGold: myGold || 0, status: "pending", time: Date.now() }).then(() => {
+      if (done) return;
+      unsubStatus = onValue(ref(db, `invites/${candidate.uid}/${myUid}`), (snap) => {
+        if (!snap.exists()) return;
+        const d = snap.val();
+        if (d.status === "rejected") { remove(ref(db, `invites/${candidate.uid}/${myUid}`)).catch(() => {}); finish({ accepted: false, rejected: true }); }
+      });
+      unsubMatch = onValue(ref(db, `match_found/${myUid}`), (snap) => {
+        if (!snap.exists()) return;
+        const d = snap.val(); if (!d.roomId) return;
+        remove(ref(db, `match_found/${myUid}`)).catch(() => {});
+        remove(ref(db, `invites/${candidate.uid}/${myUid}`)).catch(() => {});
+        finish({ accepted: true, roomId: d.roomId, playerNum: d.playerNum || 1 });
+      });
+      timeoutId = setTimeout(() => {
+        remove(ref(db, `invites/${candidate.uid}/${myUid}`)).catch(() => {});
+        finish({ accepted: false, timedOut: true });
+      }, timeoutMs);
+    }).catch(() => finish({ accepted: false }));
+  });
+}
+
 export default function Game() {
   const [phase, setPhase] = useState("splash");
   const [roomId, setRoomId] = useState("");
@@ -1649,6 +1695,9 @@ export default function Game() {
   const quickMatchCarouselRef = useRef(null);
   const quickMatchCountdownRef = useRef(null);
   const lastQuickMatchArenaRef = useRef(null);
+  const quickMatchCancelledRef = useRef(false);
+  const [readyToPlay, setReadyToPlay] = useState(false);
+  const [incomingInvite, setIncomingInvite] = useState(null);
   const [selectedArena, setSelectedArena] = useState(null);
   const [showArenaSelect, setShowArenaSelect] = useState(false);
   const [goldChange, setGoldChange] = useState(null);
@@ -1809,10 +1858,10 @@ export default function Game() {
     if (!authUid || !playerName.trim()) return;
     if (phase !== "lobby") { remove(ref(db, `online_players/${authUid}`)); return; }
     const presenceRef = ref(db, `online_players/${authUid}`);
-    set(presenceRef, { displayName: playerName.trim(), gold: safeGold(myProfile?.gold), wins: myProfile?.wins || 0, losses: myProfile?.losses || 0, status: "idle", lastSeen: Date.now() });
+    set(presenceRef, { displayName: playerName.trim(), gold: safeGold(myProfile?.gold), wins: myProfile?.wins || 0, losses: myProfile?.losses || 0, status: "idle", lastSeen: Date.now(), ready: readyToPlay, avatar: myProfile?.avatar || "⚓" });
     onDisconnect(presenceRef).remove();
     return () => { remove(presenceRef); };
-  }, [authUid, playerName, phase, myProfile?.gold]);
+  }, [authUid, playerName, phase, myProfile?.gold, readyToPlay]);
 
   useEffect(() => {
     if (phase === "placing" && !placementConfirmed) {
@@ -2016,6 +2065,35 @@ export default function Game() {
     listenToRoom(rid, pNum);
     if (authUid) remove(ref(db, `online_players/${authUid}`));
   }, [authUid, listenToRoom]);
+
+  // "OYUNA HAZIRIM" olan kullanıcıya gelen davetleri global olarak dinle (Salon ekranı açık olmasa da çalışsın)
+  useEffect(() => {
+    if (!authUid) { setIncomingInvite(null); return; }
+    const unsub = onValue(ref(db, `invites/${authUid}`), (snap) => {
+      if (!snap.exists()) { setIncomingInvite(null); return; }
+      let found = null;
+      snap.forEach(child => { const d = child.val(); if (d && d.status === "pending" && !found) found = { id: child.key, ...d }; });
+      setIncomingInvite(found);
+    });
+    return () => unsub();
+  }, [authUid]);
+
+  const acceptIncomingInvite = async (invite) => {
+    const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    await set(ref(db, `rooms/${roomId}`), { p1_name: invite.fromName, p1_uid: invite.id, p2_name: playerName, p2_uid: authUid, phase: "placing", p1_board: null, p2_board: null, p1_ships: null, p2_ships: null, attacks: null, turn: 1, clocks: { p1: CLOCK_SECONDS, p2: CLOCK_SECONDS }, winner: null, winReason: null, eloProcessed: false, created: Date.now() });
+    await set(ref(db, `match_found/${invite.id}`), { roomId, playerNum: 1 });
+    await update(ref(db, `invites/${authUid}/${invite.id}`), { status: "accepted", roomId });
+    setTimeout(() => remove(ref(db, `invites/${authUid}/${invite.id}`)), 3000);
+    setIncomingInvite(null);
+    sfx.init(); sfx.playPlacementMusic();
+    handleOnlineChallenge(roomId, 2);
+  };
+
+  const rejectIncomingInvite = async (invite) => {
+    await update(ref(db, `invites/${authUid}/${invite.id}`), { status: "rejected" });
+    setTimeout(() => remove(ref(db, `invites/${authUid}/${invite.id}`)), 2000);
+    setIncomingInvite(null);
+  };
 
   useEffect(() => {
     if (!roomId || (phase !== "playing" && phase !== "placing")) return;
@@ -2479,6 +2557,18 @@ export default function Game() {
           </div>
         </div>
       )}
+      {incomingInvite && phase === "lobby" && !showOnlineLobby && (
+        <div style={{ position:"fixed",top:64,left:0,right:0,display:"flex",justifyContent:"center",zIndex:9650,padding:"0 14px",animation:"fadeUp 0.35s ease-out" }}>
+          <div style={{ width:"100%",maxWidth:360,background:"linear-gradient(145deg, rgba(12,21,41,0.99), rgba(8,14,30,0.99))",border:`2px solid #34d399`,borderRadius:14,padding:"14px 18px",boxShadow:"0 0 40px rgba(52,211,153,0.4), 0 10px 30px rgba(0,0,0,0.5)",animation:"borderGlow 2s infinite" }}>
+            <div style={{ fontSize:11,fontWeight:900,color:"#34d399",letterSpacing:2,fontFamily:warrior,marginBottom:6,display:"flex",alignItems:"center",gap:6 }}>⚡ DÜELLO DAVETİ</div>
+            <div style={{ fontSize:14,color:t.text,fontFamily:mono,marginBottom:10 }}><span style={{ fontWeight:800 }}>{incomingInvite.fromName}</span> seninle oynamak istiyor <span style={{ color:t.gold,fontSize:11 }}>(💰{incomingInvite.fromGold || 0})</span></div>
+            <div style={{ display:"flex",gap:8 }}>
+              <button onClick={()=>acceptIncomingInvite(incomingInvite)} style={{ flex:1,padding:"10px 0",background:"linear-gradient(135deg,#34d399,#0d9488)",color:"#04231a",border:"none",borderRadius:8,fontSize:13,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>KABUL ET</button>
+              <button onClick={()=>rejectIncomingInvite(incomingInvite)} style={{ flex:1,padding:"10px 0",background:"transparent",color:t.hit,border:`1px solid ${t.hit}`,borderRadius:8,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>REDDET</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 
@@ -2735,20 +2825,25 @@ export default function Game() {
 
   const QM_AVATARS = ["⚓","🦈","🐙","⚔","🏴‍☠️","🌊","🦅","🐉","💀","🔱"];
 
-  const startQuickMatch = async (arenaOverride) => {
-    if (!playerName.trim()) { setMessage("Adını yaz!"); return; }
-    if (!authUid) { setMessage("Bağlantı bekleniyor..."); return; }
-    const arena = arenaOverride || null;
-    lastQuickMatchArenaRef.current = arena;
-    if (arena) { const cg = safeGold(myProfile?.gold); if (cg < arena.entryFee) { setMessage("Yeterli altının yok!"); return; } const newGold = cg - arena.entryFee; try { const cleanP = await ensureProfile(authUid); cleanP.gold = newGold; await set(ref(db, `profiles/${authUid}`), cleanP); } catch(e) { console.error(e); } setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev); setEntryFeeDeducted(arena.entryFee); }
-    setMessage("");
-    setMatchmaking(true);
-    setQuickMatchOpponent(null);
+  // Sonuca ulaşınca (hazır-davet ya da kuyruk) ortak bitiş: VS reveal göster, sonra yerleştirmeye geç
+  const finalizeQuickMatch = (roomId, playerNum, oppName, oppAvatar, oppGold, oppLevel) => {
+    setQuickMatchOpponent({ name: oppName || "Rakip", avatar: oppAvatar || "⚓", gold: oppGold ?? null, level: oppLevel ?? null });
+    setQuickMatchPhase("found");
+    sfx.init(); sfx.play('gold');
+    setTimeout(() => {
+      if (quickMatchCancelledRef.current) return;
+      setMatchmaking(false); setMatchCancelFn(null); setQuickMatchPhase(null); setQuickMatchOpponent(null);
+      roomIdRef.current = roomId; setRoomId(roomId); setPlayerNum(playerNum); playerNumRef.current = playerNum; setOpponentName(oppName); setPhase("placing"); listenToRoom(roomId, playerNum); if (authUid) remove(ref(db, `online_players/${authUid}`));
+      sfx.playPlacementMusic();
+    }, 1700);
+  };
+
+  // 2. adım: genel kuyruk tabanlı hızlı eşleşme (aday carousel + 30sn arama) — hazır oyuncu bulunamazsa/kabul etmezse buraya düşülür
+  const runQueueSearch = async (arena) => {
+    if (quickMatchCancelledRef.current) return;
     setQuickMatchPhase("searching");
     setQuickMatchSecondsLeft(30);
-    sfx.init(); sfx.play('click');
 
-    // Salon'daki gerçek isim/altınlardan oluşan aday havuzu — heyecan için hızlı kayar
     let pool = [];
     try {
       const snap = await get(ref(db, "online_players"));
@@ -2773,6 +2868,7 @@ export default function Game() {
     matchPromise.then(async (data) => {
       if (quickMatchCarouselRef.current) { clearInterval(quickMatchCarouselRef.current); quickMatchCarouselRef.current = null; }
       if (quickMatchCountdownRef.current) { clearInterval(quickMatchCountdownRef.current); quickMatchCountdownRef.current = null; }
+      if (quickMatchCancelledRef.current) return;
       if (data && data.roomId) {
         // Rakip profilini zenginleştir — VS ekranında gerçek avatar/altın/seviye göster
         let oppInfo = { name: data.oppName || "Rakip", avatar: "⚓", gold: null, level: null };
@@ -2785,14 +2881,7 @@ export default function Game() {
             if (pSnap.exists()) { const p = pSnap.val(); oppInfo = { name: p.displayName || oppInfo.name, avatar: p.avatar || "⚓", gold: safeGold(p.gold), level: p.level || 0 }; }
           }
         } catch (e) {}
-        setQuickMatchOpponent(oppInfo);
-        setQuickMatchPhase("found");
-        sfx.init(); sfx.play('gold');
-        setTimeout(() => {
-          setMatchmaking(false); setMatchCancelFn(null); setQuickMatchPhase(null); setQuickMatchOpponent(null);
-          roomIdRef.current = data.roomId; setRoomId(data.roomId); setPlayerNum(data.playerNum); playerNumRef.current = data.playerNum; setOpponentName(data.oppName); setPhase("placing"); listenToRoom(data.roomId, data.playerNum); if (authUid) remove(ref(db, `online_players/${authUid}`));
-          sfx.playPlacementMusic();
-        }, 1700);
+        finalizeQuickMatch(data.roomId, data.playerNum, oppInfo.name, oppInfo.avatar, oppInfo.gold, oppInfo.level);
       } else {
         // Eşleşme bulunamadı (30sn timeout) — arena ücreti varsa iade et
         setMatchmaking(false); setMatchCancelFn(null);
@@ -2807,7 +2896,48 @@ export default function Game() {
     });
   };
 
+  const startQuickMatch = async (arenaOverride) => {
+    if (!playerName.trim()) { setMessage("Adını yaz!"); return; }
+    if (!authUid) { setMessage("Bağlantı bekleniyor..."); return; }
+    const arena = arenaOverride || null;
+    lastQuickMatchArenaRef.current = arena;
+    if (arena) { const cg = safeGold(myProfile?.gold); if (cg < arena.entryFee) { setMessage("Yeterli altının yok!"); return; } const newGold = cg - arena.entryFee; try { const cleanP = await ensureProfile(authUid); cleanP.gold = newGold; await set(ref(db, `profiles/${authUid}`), cleanP); } catch(e) { console.error(e); } setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev); setEntryFeeDeducted(arena.entryFee); }
+    setMessage("");
+    quickMatchCancelledRef.current = false;
+    setMatchmaking(true);
+    setQuickMatchOpponent(null);
+    setQuickMatchCandidate(null);
+    sfx.init(); sfx.play('click');
+
+    // 1. adım: salonda "OYUNA HAZIRIM" diyen biri varsa — en hızlı yol — direkt ona teklif at
+    if (!arena) {
+      const candidate = await findReadyCandidate(authUid, myProfile?.gold ?? STARTING_GOLD);
+      if (candidate && !quickMatchCancelledRef.current) {
+        setQuickMatchPhase("inviting");
+        setQuickMatchSecondsLeft(10);
+        setQuickMatchCandidate({ name: candidate.displayName || "Denizci", gold: safeGold(candidate.gold), avatar: candidate.avatar || "⚓" });
+        if (quickMatchCountdownRef.current) clearInterval(quickMatchCountdownRef.current);
+        const inviteStart = Date.now();
+        quickMatchCountdownRef.current = setInterval(() => {
+          setQuickMatchSecondsLeft(Math.max(0, 10 - Math.floor((Date.now() - inviteStart) / 1000)));
+        }, 250);
+        const result = await sendReadyInviteAndAwait(authUid, playerName.trim(), myProfile?.gold ?? STARTING_GOLD, candidate, 10000);
+        if (quickMatchCountdownRef.current) { clearInterval(quickMatchCountdownRef.current); quickMatchCountdownRef.current = null; }
+        if (quickMatchCancelledRef.current) return;
+        if (result.accepted) {
+          finalizeQuickMatch(result.roomId, result.playerNum, candidate.displayName, candidate.avatar, safeGold(candidate.gold), candidate.level || 0);
+          return;
+        }
+        // Reddedildi / yanıt yok → normal kuyruğa devam
+      }
+    }
+
+    // 2. adım: genel kuyruk tabanlı eşleşme
+    await runQueueSearch(arena);
+  };
+
   const cancelQuickMatch = async () => {
+    quickMatchCancelledRef.current = true;
     if (quickMatchCarouselRef.current) { clearInterval(quickMatchCarouselRef.current); quickMatchCarouselRef.current = null; }
     if (quickMatchCountdownRef.current) { clearInterval(quickMatchCountdownRef.current); quickMatchCountdownRef.current = null; }
     if (matchCancelFn) await matchCancelFn();
@@ -3183,7 +3313,7 @@ export default function Game() {
   }
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} /></>;
   if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => { setSelectedArena(arena); setShowArenaSelect(false); startQuickMatch(arena); }} /></>;
-  if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myGold={myProfile?.gold} onBack={() => setShowOnlineLobby(false)} onChallenge={handleOnlineChallenge} /></>;
+  if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myGold={myProfile?.gold} onBack={() => setShowOnlineLobby(false)} onChallenge={handleOnlineChallenge} ready={readyToPlay} onToggleReady={()=>setReadyToPlay(v=>!v)} /></>;
 
   if (phase === "gameover") {
     if (showReview) return <BoardReview defenseBoard={defenseBoard} shipColorMap={shipColorMap} defenseOverlay={defenseOverlay} attackOverlay={attackOverlay} oppShipsData={oppShipsData} myShipsData={myShipsData} defHitMap={defHitMap} atkHitMap={atkHitMap} cellSize={cellSize} onBack={() => setShowReview(false)} />;
