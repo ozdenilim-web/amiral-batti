@@ -1509,6 +1509,7 @@ export default function Game() {
   const myClockRef = useRef(CLOCK_SECONDS);
   const oppClockRef = useRef(CLOCK_SECONDS);
   const myTurnRef = useRef(false);
+  const lastKnownTurnRef = useRef(null); // null = henüz bilinmiyor — saldiri/savunma otomatik geçişi için
   const phaseRef = useRef("splash");
   const lastAttackCountRef = useRef(0);
   const eloUpdatedRef = useRef(false);
@@ -1622,6 +1623,7 @@ export default function Game() {
 
   const listenToRoom = useCallback((rid, pNum) => {
     if (unsubRef.current) unsubRef.current();
+    lastKnownTurnRef.current = null; // yeni oda — saldiri/savunma otomatik geçişini sıfırdan öğren
     const gameRef = ref(db, `rooms/${rid}`);
     unsubRef.current = onValue(gameRef, (snapshot) => {
       const game = snapshot.val(); if (!game) return;
@@ -1637,8 +1639,11 @@ export default function Game() {
         if (phaseRef.current === "placing") { setPhase("ready"); sfx.init(); sfx.playBattleMusic(); }
         else if (phaseRef.current !== "ready") setPhase("playing");
         const nowMyTurn = game.turn === pNum;
-        // Sıra bana yeni geçtiyse ekranı otomatik saldırı tahtasına çevir
-        if (nowMyTurn && !myTurnRef.current) setActiveBoard("attack");
+        // Sıra değiştiyse (veya ilk kez öğreniyorsak) ekranı otomatik doğru tahtaya çevir — her iki yönde de
+        if (lastKnownTurnRef.current !== nowMyTurn) {
+          lastKnownTurnRef.current = nowMyTurn;
+          setActiveBoard(nowMyTurn ? "attack" : "defense");
+        }
         setMyTurn(nowMyTurn);
         if (game.clocks) { myClockRef.current = game.clocks[myKey] ?? CLOCK_SECONDS; oppClockRef.current = game.clocks[oppKey] ?? CLOCK_SECONDS; setMyClock(myClockRef.current); setOppClock(oppClockRef.current); }
       }
