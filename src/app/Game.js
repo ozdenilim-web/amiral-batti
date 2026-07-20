@@ -254,8 +254,18 @@ const t = {
   water: "rgba(0,229,255,0.06)", shipCell: "rgba(0,229,255,0.22)",
   gold: "#ffd700", goldGlow: "rgba(255,215,0,0.45)",
 };
-const warrior = "'Barlow Condensed', sans-serif";
-const mono = "'Space Mono', monospace";
+const warrior = "var(--font-warrior), 'Barlow Condensed', sans-serif";
+const mono = "var(--font-mono), 'Space Mono', monospace";
+
+// Ask the browser/WebView for immersive fullscreen (hides Android system nav bar in the TWA).
+// Must be called from within a user-gesture handler; safe no-op everywhere else (desktop, iOS Safari, etc).
+function requestImmersive() {
+  try {
+    const el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  } catch (e) {}
+}
 
 // === LOKALİZASYON ===
 const TRANSLATIONS = {
@@ -1273,7 +1283,6 @@ function Leaderboard({ onBack, myUid, lang = "tr" }) {
 }
 
 const ANIMS = `
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700;1,800&family=Space+Mono:wght@400;700&display=swap');
 .ab-cell{transition:transform 0.15s cubic-bezier(0.34,1.56,0.64,1), filter 0.15s ease, box-shadow 0.15s ease;}
 @media (hover:hover){ .ab-cell:hover{transform:scale(1.12);filter:brightness(1.25);z-index:5;box-shadow:0 0 10px rgba(0,229,255,0.5);} }
 .ab-cell:active{transform:scale(0.92);filter:brightness(1.15);}
@@ -2011,7 +2020,7 @@ export default function Game() {
   const lastAttackCountRef = useRef(0);
   const eloUpdatedRef = useRef(false);
 
-  const cellSize = typeof window !== "undefined" ? Math.min(30, Math.floor((Math.min(window.innerWidth - 24, 400)) / 12)) : 28;
+  const cellSize = typeof window !== "undefined" ? Math.max(16, Math.min(30, Math.floor((Math.min(window.innerWidth - 24, 400)) / 12), Math.floor((window.innerHeight - 300) / 12))) : 28;
   useEffect(() => { myTurnRef.current = myTurn; }, [myTurn]);
   useEffect(() => {
     if (phase === "lobby" && authUid && myProfile && !hasClaimedDailyChestToday()) setShowDailyChest(true);
@@ -2424,6 +2433,23 @@ export default function Game() {
     setPhase("waiting"); listenToRoom(id, 1);
   };
 
+  // Rakip henüz katılmadan odayı iptal et — girildiyse giriş ücretini iade et
+  const cancelWaitingRoom = async () => {
+    const rid = roomIdRef.current;
+    if (rid) { try { await remove(ref(db, `rooms/${rid}`)); } catch(e) {} }
+    if (entryFeeDeducted && authUid) {
+      try {
+        const snap = await get(ref(db, `profiles/${authUid}`));
+        if (snap.exists()) {
+          const refunded = safeGold(snap.val().gold) + entryFeeDeducted;
+          await set(ref(db, `profiles/${authUid}/gold`), refunded);
+          setMyProfile(prev => prev ? { ...prev, gold: refunded } : prev);
+        }
+      } catch(e) {}
+    }
+    resetGame();
+  };
+
   const joinRoom = async () => {
     if (!playerName.trim() || !inputRoomId.trim()) { setMessage(L(appLang,"msgTypeNameAndRoom")); return; }
     if (!authUid) { setMessage(L(appLang,"msgConnecting")); return; }
@@ -2644,7 +2670,7 @@ export default function Game() {
   // Splash'ten oyun bitene kadar tüm ekranlarda sabit duran müzik + ayarlar barı
   const renderTopBar = () => (
     <>
-      <div style={{ position:"fixed",top:12,right:14,zIndex:9500,display:"flex",alignItems:"center",gap:8 }}>
+      <div style={{ position:"fixed",top:"calc(12px + env(safe-area-inset-top, 0px))",right:14,zIndex:9500,display:"flex",alignItems:"center",gap:8 }}>
         <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowSettings(true); setSettingsView(null); }} title={L(appLang,"settingsTooltip")} style={{ width:34,height:34,borderRadius:8,background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,fontSize:16,cursor:"pointer",color:t.textDim,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>⚙️</button>
         <button onClick={toggleMusic} title={L(appLang,"musicTooltip")} style={{ width:34,height:34,borderRadius:8,background:musicOn?"rgba(255,255,255,0.06)":"rgba(255,71,87,0.14)",border:`1px solid ${musicOn?t.border:t.hit}`,fontSize:16,cursor:"pointer",color:musicOn?t.textDim:t.hit,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>{musicOn?"🔊":"🔇"}</button>
       </div>
@@ -3160,7 +3186,7 @@ export default function Game() {
     // Not logged in — Google login required
     function LoginScreen() {
       const [musicStarted, setMusicStarted] = useState(false);
-      const startMusic = () => { if (!musicStarted) { sfx.init(); sfx.playAmbientIntro(); setMusicStarted(true); } };
+      const startMusic = () => { requestImmersive(); if (!musicStarted) { sfx.init(); sfx.playAmbientIntro(); setMusicStarted(true); } };
       return (<div onClick={startMusic} style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 18% 15%, rgba(167,139,250,0.10) 0%, transparent 45%), radial-gradient(ellipse at 85% 80%, rgba(255,215,0,0.07) 0%, transparent 45%), radial-gradient(ellipse at 80% 15%, rgba(255,71,87,0.06) 0%, transparent 40%), radial-gradient(ellipse at 50% 35%, rgba(0,229,255,0.12) 0%, rgba(255,71,87,0.04) 40%, ${t.bg} 80%)`, overflow:"hidden", position:"relative", cursor:"default", animation:"pageEnter 1.2s cubic-bezier(0.16,1,0.3,1) forwards" }}><style>{ANIMS}{`
 @keyframes sword3d{0%{transform:perspective(600px) rotateY(-60deg) rotateX(20deg) scale(0.3);opacity:0;filter:brightness(3)}40%{opacity:1}60%{transform:perspective(600px) rotateY(12deg) rotateX(-6deg) scale(1.18);filter:brightness(1.5)}80%{transform:perspective(600px) rotateY(-4deg) rotateX(3deg) scale(1.02);filter:brightness(1)}100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) scale(1.05);filter:brightness(1)}}
 @keyframes sword3dFloat{0%,100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) translateY(0) scale(1.05)}50%{transform:perspective(600px) rotateY(-8deg) rotateX(5deg) translateY(-16px) scale(1.08)}}
@@ -3691,6 +3717,7 @@ export default function Game() {
         {entryFeeDeducted && <div style={{ fontSize:11,color:t.gold,fontFamily:warrior,marginTop:8,letterSpacing:1 }}>{L(appLang,"entryFeePaid")(entryFeeDeducted)}</div>}
         <div style={{ marginTop:20 }}><div style={{ width:12,height:12,borderRadius:"50%",background:t.accent,margin:"0 auto",animation:"pulse 1.5s infinite" }} /></div>
       </div>
+      <button onClick={cancelWaitingRoom} style={{ marginTop:20,padding:"12px 32px",background:"transparent",color:t.textDim,border:`2px solid ${t.border}`,borderRadius:10,fontSize:13,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"backBtn")}</button>
     </div>);
   }
 
@@ -3753,7 +3780,7 @@ export default function Game() {
     const miniGrid = isOnboarding; // 7x7 grid for onboarding
     const gridSize = miniGrid ? Math.min(38, Math.floor((Math.min((typeof window !== "undefined" ? window.innerWidth : 400) - 24, 320)) / 8)) : cellSize;
     const flyEmoji = emojiToast || myEmojiToast;
-    return (<div style={{ ...appStyle, paddingBottom: 74, background:`
+    return (<div style={{ ...appStyle, paddingBottom: "calc(130px + env(safe-area-inset-bottom, 0px))", background:`
       radial-gradient(ellipse at 15% 10%, rgba(0,229,255,0.06) 0%, transparent 45%),
       radial-gradient(ellipse at 85% 90%, rgba(255,71,87,0.05) 0%, transparent 45%),
       repeating-linear-gradient(0deg, transparent 0px, transparent 39px, rgba(0,229,255,0.030) 39px, rgba(0,229,255,0.030) 40px),
@@ -3822,11 +3849,11 @@ export default function Game() {
         {microFeedback && <MicroFeedback text={microFeedback.text} color={microFeedback.color} onDone={()=>setMicroFeedback(null)} />}
       </div>
       {isTestMode() && <button onClick={forceEndGame} style={{ marginTop:8,padding:"8px 16px",background:"rgba(251,191,36,0.2)",color:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"endGameTestBtn")}</button>}
-      {myTurn && isAttack && !markMode && (<div style={{ position:"fixed",bottom:0,left:0,right:0,background:"rgba(10,14,23,0.96)",backdropFilter:"blur(10px)",borderTop:`1px solid ${t.border}`,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"center",gap:14,zIndex:100 }}>
+      {myTurn && isAttack && !markMode && (<div style={{ position:"fixed",bottom:0,left:0,right:0,background:"rgba(10,14,23,0.96)",backdropFilter:"blur(10px)",borderTop:`1px solid ${t.border}`,paddingTop:10,paddingLeft:16,paddingRight:16,paddingBottom:"calc(10px + env(safe-area-inset-bottom, 0px))",display:"flex",alignItems:"center",justifyContent:"center",gap:14,zIndex:100 }}>
         <div style={{ display:"flex",gap:5 }}>{[0,1,2].map(i=><div key={i} style={{ width:14,height:14,borderRadius:"50%",background:i<currentShots.length?t.hit:t.accent,opacity:i<currentShots.length?0.3:1,animation:i<currentShots.length?"popIn 0.3s ease-out":"none" }} />)}</div>
         <RippleButton onClick={fireShots} disabled={currentShots.length===0} style={{ padding:"12px 36px",background:currentShots.length>0?`linear-gradient(135deg,${t.hit},#dc2626)`:t.surfaceLight,color:currentShots.length>0?"#fff":t.textDim,border:"none",borderRadius:10,fontSize:16,fontWeight:700,letterSpacing:3,cursor:currentShots.length===0?"default":"pointer",fontFamily:warrior,boxShadow:currentShots.length>0?`0 0 24px ${t.hitGlow}`:"none",opacity:currentShots.length===0?0.5:1 }}>{L(appLang,"fire")} 🔥</RippleButton>
       </div>)}
-      {!isOnboarding && <div style={{ position:"fixed",bottom:myTurn&&activeBoard==="attack"&&!markMode?64:0,left:0,right:0,display:"flex",justifyContent:"center",gap:2,background:"rgba(10,14,23,0.92)",backdropFilter:"blur(8px)",borderTop:`1px solid ${t.border}`,padding:"6px 4px",zIndex:90 }}>
+      {!isOnboarding && <div style={{ position:"fixed",bottom:myTurn&&activeBoard==="attack"&&!markMode?"calc(64px + env(safe-area-inset-bottom, 0px))":0,left:0,right:0,display:"flex",justifyContent:"center",gap:2,background:"rgba(10,14,23,0.92)",backdropFilter:"blur(8px)",borderTop:`1px solid ${t.border}`,paddingTop:6,paddingLeft:4,paddingRight:4,paddingBottom:"calc(6px + env(safe-area-inset-bottom, 0px))",zIndex:90 }}>
         {QUICK_EMOJIS.map(qe=><button key={qe.id} onClick={()=>sendEmoji(qe)} style={{ padding:"5px 7px",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(0,229,255,0.15)",fontSize:19,cursor:"pointer",borderRadius:10,transition:"transform 0.12s",filter:"drop-shadow(0 3px 4px rgba(0,0,0,0.6)) saturate(1.3)",transform:"perspective(150px) rotateX(8deg)" }} onMouseDown={e=>e.currentTarget.style.transform="perspective(150px) rotateX(8deg) scale(0.85)"} onMouseUp={e=>e.currentTarget.style.transform="perspective(150px) rotateX(8deg) scale(1)"} title={appLang==="en"?qe.labelEn:qe.label}>{qe.emoji}</button>)}
       </div>}
       <canvas id="confetti-canvas" style={{ position:'fixed',inset:0,pointerEvents:'none',zIndex:10002 }} />
