@@ -1197,11 +1197,13 @@ function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoar
         <div style={{ fontSize:13,fontWeight:700,color:isWin?"rgba(0,229,255,0.8)":"rgba(255,71,87,0.8)",fontFamily:warrior,letterSpacing:3,marginBottom:24 }}>{winner}</div>
         {/* Stats with staggered animation */}
         {showStats && <div style={{ display:"flex",gap:16,justifyContent:"center",marginBottom:24 }}>
-          <div style={{ padding:"16px 28px",background:isWin?"rgba(0,229,255,0.1)":"rgba(255,255,255,0.03)",borderRadius:16,border:`2px solid ${isWin?"rgba(0,229,255,0.25)":"rgba(255,255,255,0.08)"}`,animation:"arSlideIn 0.6s ease-out forwards" }}>
+          <div style={{ padding:"14px 26px 16px",background:isWin?"rgba(0,229,255,0.1)":"rgba(255,255,255,0.03)",borderRadius:16,border:`2px solid ${isWin?"rgba(0,229,255,0.25)":"rgba(255,255,255,0.08)"}`,animation:"arSlideIn 0.6s ease-out forwards",display:"flex",flexDirection:"column",alignItems:"center" }}>
+            <img src="/img/isabet.png" alt="" style={{ width:104,height:"auto",objectFit:"contain",filter:`drop-shadow(0 0 10px ${t.accentGlow}) drop-shadow(0 0 26px ${t.accentGlow}) drop-shadow(0 4px 10px rgba(0,0,0,0.7))`,marginBottom:2 }} />
             <div style={{ fontSize:40,fontWeight:800,color:t.accent,fontFamily:mono,textShadow:`0 0 15px ${t.accentGlow}` }}>{myHits}</div>
             <div style={{ fontSize:11,color:t.textDim,letterSpacing:4,fontFamily:warrior,fontWeight:800,marginTop:4 }}>İSABET</div>
           </div>
-          <div style={{ padding:"16px 28px",background:"rgba(255,71,87,0.06)",borderRadius:16,border:"2px solid rgba(255,71,87,0.15)",animation:"arSlideIn 0.6s ease-out 0.2s both" }}>
+          <div style={{ padding:"14px 26px 16px",background:"rgba(255,71,87,0.06)",borderRadius:16,border:"2px solid rgba(255,71,87,0.15)",animation:"arSlideIn 0.6s ease-out 0.2s both",display:"flex",flexDirection:"column",alignItems:"center" }}>
+            <img src="/img/karavana.png" alt="" style={{ width:104,height:"auto",objectFit:"contain",filter:"drop-shadow(0 0 10px rgba(120,200,255,0.55)) drop-shadow(0 0 26px rgba(80,160,255,0.4)) drop-shadow(0 4px 10px rgba(0,0,0,0.7))",marginBottom:2 }} />
             <div style={{ fontSize:40,fontWeight:800,color:t.hit,fontFamily:mono }}>{oppHits}</div>
             <div style={{ fontSize:11,color:t.textDim,letterSpacing:4,fontFamily:warrior,fontWeight:800,marginTop:4 }}>KARAVANA</div>
           </div>
