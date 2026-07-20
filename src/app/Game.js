@@ -276,12 +276,14 @@ function applyLevelCredit(profile, credit) {
   return { level, levelProgress: progress };
 }
 
-function getRankInfo(elo) {
-  if (elo >= 2000) return { title: "AMİRAL", color: "#fbbf24", icon: "⭐" };
-  if (elo >= 1600) return { title: "KOMODOR", color: "#a78bfa", icon: "🎖" };
-  if (elo >= 1400) return { title: "KAPTAN", color: "#06b6d4", icon: "⚓" };
-  if (elo >= 1200) return { title: "YÜZBAŞI", color: "#34d399", icon: "🏅" };
-  if (elo >= 1000) return { title: "TEĞMEN", color: "#60a5fa", icon: "📛" };
+// Not: eski ELO sistemi kaldırıldı — rütbe artık ALTIN miktarına göre belirleniyor
+function getRankInfo(gold) {
+  const g = gold || 0;
+  if (g >= 50000) return { title: "AMİRAL", color: "#fbbf24", icon: "⭐" };
+  if (g >= 20000) return { title: "KOMODOR", color: "#a78bfa", icon: "🎖" };
+  if (g >= 8000) return { title: "KAPTAN", color: "#06b6d4", icon: "⚓" };
+  if (g >= 3000) return { title: "YÜZBAŞI", color: "#34d399", icon: "🏅" };
+  if (g >= 1000) return { title: "TEĞMEN", color: "#60a5fa", icon: "📛" };
   return { title: "ER", color: "#9ca3af", icon: "🔰" };
 }
 
@@ -530,10 +532,10 @@ function OnboardingVictoryScreen({ sfx, t, winner, warrior, mono, onDone }) {
           <div style={{ background:"rgba(0,229,255,0.07)",border:`2px solid rgba(0,229,255,0.2)`,borderRadius:14,padding:"16px 20px",marginBottom:16 }}>
             <div style={{ fontSize:11,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:3,marginBottom:6 }}>RÜTBEN BELİRLENDİ</div>
             <div style={{ fontSize:20,marginBottom:4 }}>🔰</div>
-            <div style={{ fontSize:26,fontWeight:800,color:"#60a5fa",fontFamily:warrior,letterSpacing:4 }}>TEĞMEN</div>
+            <div style={{ fontSize:26,fontWeight:800,color:"#9ca3af",fontFamily:warrior,letterSpacing:4 }}>ER</div>
             <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginTop:8 }}>
-              <div style={{ fontSize:32,fontWeight:800,color:t.accent,fontFamily:warrior }}>1200</div>
-              <div style={{ fontSize:10,fontWeight:700,color:t.textDim,fontFamily:mono }}>ELO</div>
+              <div style={{ fontSize:32,fontWeight:800,color:t.gold,fontFamily:warrior }}>{STARTING_GOLD}</div>
+              <div style={{ fontSize:10,fontWeight:700,color:t.textDim,fontFamily:mono }}>ALTIN</div>
             </div>
           </div>
           <div style={{ background:"rgba(255,215,0,0.07)",border:`1px solid rgba(255,215,0,0.18)`,borderRadius:12,padding:"10px 16px",marginBottom:20 }}>
@@ -643,11 +645,11 @@ function MicroFeedback({ text, color, onDone }) {
 }
 
 const ARENAS = [
-  { id: "liman", name: "LİMAN", minElo: 0, entryFee: 50, winGold: 120, loseGold: 30, color: "#9ca3af", icon: "⚓" },
-  { id: "kiyi", name: "KIYI", minElo: 1000, entryFee: 100, winGold: 250, loseGold: 50, color: "#60a5fa", icon: "🌊" },
-  { id: "acikdeniz", name: "AÇIK DENİZ", minElo: 1200, entryFee: 200, winGold: 520, loseGold: 80, color: "#06b6d4", icon: "🚢" },
-  { id: "firtina", name: "FIRTINA", minElo: 1400, entryFee: 500, winGold: 1300, loseGold: 150, color: "#a78bfa", icon: "⛈" },
-  { id: "amiral", name: "AMİRAL", minElo: 1600, entryFee: 1000, winGold: 2700, loseGold: 250, color: "#fbbf24", icon: "👑" },
+  { id: "liman", name: "LİMAN", minGold: 0, entryFee: 50, winGold: 120, loseGold: 30, color: "#9ca3af", icon: "⚓" },
+  { id: "kiyi", name: "KIYI", minGold: 1000, entryFee: 100, winGold: 250, loseGold: 50, color: "#60a5fa", icon: "🌊" },
+  { id: "acikdeniz", name: "AÇIK DENİZ", minGold: 3000, entryFee: 200, winGold: 520, loseGold: 80, color: "#06b6d4", icon: "🚢" },
+  { id: "firtina", name: "FIRTINA", minGold: 8000, entryFee: 500, winGold: 1300, loseGold: 150, color: "#a78bfa", icon: "⛈" },
+  { id: "amiral", name: "AMİRAL", minGold: 20000, entryFee: 1000, winGold: 2700, loseGold: 250, color: "#fbbf24", icon: "👑" },
 ];
 const STARTING_GOLD = 500;
 
@@ -691,7 +693,6 @@ async function checkDailyReward(uid) {
   // Use set() with full clean profile to avoid NaN contamination from other fields
   const cleanProfile = {
     displayName: profile.displayName || "Denizci",
-    elo: (typeof profile.elo === "number" && !isNaN(profile.elo) && isFinite(profile.elo)) ? profile.elo : 1200,
     wins: (typeof profile.wins === "number" && !isNaN(profile.wins) && isFinite(profile.wins)) ? profile.wins : 0,
     losses: (typeof profile.losses === "number" && !isNaN(profile.losses) && isFinite(profile.losses)) ? profile.losses : 0,
     totalGames: (typeof profile.totalGames === "number" && !isNaN(profile.totalGames) && isFinite(profile.totalGames)) ? profile.totalGames : 0,
@@ -729,16 +730,16 @@ function DailyRewardPopup({ reward, streak, onClose }) {
   </div>);
 }
 
-function ArenaSelect({ myElo, myGold, onSelect, onBack }) {
+function ArenaSelect({ myGold, onSelect, onBack }) {
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:`linear-gradient(180deg, ${t.bg} 0%, #071428 100%)`,padding:"24px 14px",fontFamily:mono,color:t.text }}>
     <div style={{ fontSize:26,fontWeight:800,letterSpacing:6,color:t.accent,marginBottom:6,fontFamily:warrior,textShadow:`0 0 25px ${t.accentGlow}` }}>ARENA SEÇ</div>
     <div style={{ fontSize:14,fontWeight:800,color:t.gold,fontFamily:warrior,marginBottom:20,padding:"6px 20px",background:"rgba(255,215,0,0.08)",borderRadius:10,border:"1px solid rgba(255,215,0,0.2)",letterSpacing:2 }}><img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.5))" }} /> {myGold} ALTIN</div>
     <div style={{ width:"100%",maxWidth:420,display:"flex",flexDirection:"column",gap:10 }}>
       {ARENAS.map(arena => {
-        const locked = (myElo||1200) < arena.minElo, cantAfford = (myGold||0) < arena.entryFee, disabled = locked||cantAfford;
+        const locked = (myGold||0) < arena.minGold, cantAfford = (myGold||0) < arena.entryFee, disabled = locked||cantAfford;
         return (<button key={arena.id} onClick={()=>!disabled&&onSelect(arena)} disabled={disabled} style={{ display:"flex",alignItems:"center",gap:16,padding:"18px 20px",background:disabled?"rgba(22,32,64,0.5)":`linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))`,border:`2px solid ${disabled?"rgba(30,58,95,0.3)":arena.color}`,borderRadius:14,cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.45:1,textAlign:"left",width:"100%",boxShadow:disabled?"none":`0 0 20px ${arena.color}22, 0 4px 20px rgba(0,0,0,0.3)`,transition:"all 0.2s ease" }}>
           <div style={{ fontSize:32,width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",background:`${arena.color}15`,borderRadius:12,border:`1px solid ${arena.color}33` }}>{arena.icon}</div>
-          <div style={{ flex:1 }}><div style={{ fontSize:16,fontWeight:800,color:arena.color,fontFamily:warrior,letterSpacing:4 }}>{arena.name}</div><div style={{ fontSize:10,fontWeight:700,color:t.textDim,marginTop:3,fontFamily:mono }}>{locked?`🔒 ELO ${arena.minElo} GEREKLİ`:`Min ELO: ${arena.minElo}`}</div></div>
+          <div style={{ flex:1 }}><div style={{ fontSize:16,fontWeight:800,color:arena.color,fontFamily:warrior,letterSpacing:4 }}>{arena.name}</div><div style={{ fontSize:10,fontWeight:700,color:t.textDim,marginTop:3,fontFamily:mono }}>{locked?`🔒 ${arena.minGold} ALTIN GEREKLİ`:`Min: ${arena.minGold} 💰`}</div></div>
           <div style={{ textAlign:"right" }}><div style={{ fontSize:16,fontWeight:800,color:cantAfford?t.hit:t.gold,fontFamily:warrior }}>{arena.entryFee} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.5))" }} /></div><div style={{ fontSize:9,color:t.textDim,fontWeight:700,letterSpacing:1 }}>GİRİŞ</div><div style={{ fontSize:12,fontWeight:800,color:"#4ade80",fontFamily:warrior,marginTop:3 }}>🏆 {arena.winGold} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.5))" }} /></div></div>
         </button>);
       })}
@@ -760,7 +761,7 @@ async function ensureProfile(uid, displayName) {
   const snap = await get(profileRef);
   if (!snap.exists()) {
     const startGold = isTestMode() ? 5000 : STARTING_GOLD;
-    const profile = { displayName: displayName||"Denizci", elo:1200, wins:0, losses:0, totalGames:0, gold:startGold, level:0, levelProgress:0, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false };
+    const profile = { displayName: displayName||"Denizci", wins:0, losses:0, totalGames:0, gold:startGold, level:0, levelProgress:0, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false };
     await set(profileRef, profile);
     return profile;
   }
@@ -768,7 +769,6 @@ async function ensureProfile(uid, displayName) {
   // ALWAYS build a clean profile — never trust existing data
   const sanitized = {
     displayName: (displayName && displayName.trim()) || existing.displayName || "Denizci",
-    elo: (typeof existing.elo === "number" && !isNaN(existing.elo) && isFinite(existing.elo)) ? existing.elo : 1200,
     wins: (typeof existing.wins === "number" && !isNaN(existing.wins) && isFinite(existing.wins)) ? existing.wins : 0,
     losses: (typeof existing.losses === "number" && !isNaN(existing.losses) && isFinite(existing.losses)) ? existing.losses : 0,
     totalGames: (typeof existing.totalGames === "number" && !isNaN(existing.totalGames) && isFinite(existing.totalGames)) ? existing.totalGames : 0,
@@ -796,30 +796,29 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
   const loserSnap = await get(ref(db, `profiles/${loserUid}`));
   if (!winnerSnap.exists() || !loserSnap.exists()) return;
   const wd = winnerSnap.val(), ld = loserSnap.val();
-  const wOldElo = (typeof wd.elo === "number" && !isNaN(wd.elo)) ? wd.elo : 1200;
-  const lOldElo = (typeof ld.elo === "number" && !isNaN(ld.elo)) ? ld.elo : 1200;
-  const wNew = calculateElo(wOldElo, lOldElo, true), lNew = calculateElo(lOldElo, wOldElo, false);
   const now = Date.now(), winGold = arena?arena.winGold:100, loseGold = arena?arena.loseGold:20;
+  const wOldGold = safeGold(wd.gold), lOldGold = safeGold(ld.gold);
+  const wNewGold = wOldGold + winGold, lNewGold = lOldGold + loseGold;
   // Full clean profiles with set() — no NaN can survive
   const wLevel = applyLevelCredit(wd, XP_ONLINE_WIN);
   const lLevel = applyLevelCredit(ld, XP_ONLINE_LOSS);
   const winnerProfile = {
-    displayName: wd.displayName || "Denizci", elo: wNew,
+    displayName: wd.displayName || "Denizci",
     wins: ((typeof wd.wins === "number" && !isNaN(wd.wins)) ? wd.wins : 0) + 1,
     losses: (typeof wd.losses === "number" && !isNaN(wd.losses)) ? wd.losses : 0,
     totalGames: ((typeof wd.totalGames === "number" && !isNaN(wd.totalGames)) ? wd.totalGames : 0) + 1,
-    gold: safeGold(wd.gold) + winGold,
+    gold: wNewGold,
     level: wLevel.level, levelProgress: wLevel.levelProgress,
     loginStreak: (typeof wd.loginStreak === "number" && !isNaN(wd.loginStreak)) ? wd.loginStreak : 0,
     lastDailyReward: wd.lastDailyReward || null, createdAt: wd.createdAt || now, lastGameAt: now,
     onboardingDone: wd.onboardingDone === true, nameSetAt: wd.nameSetAt || null, avatar: wd.avatar || "⚓", dailyRewardCount: wd.dailyRewardCount || 0,
   };
   const loserProfile = {
-    displayName: ld.displayName || "Denizci", elo: lNew,
+    displayName: ld.displayName || "Denizci",
     wins: (typeof ld.wins === "number" && !isNaN(ld.wins)) ? ld.wins : 0,
     losses: ((typeof ld.losses === "number" && !isNaN(ld.losses)) ? ld.losses : 0) + 1,
     totalGames: ((typeof ld.totalGames === "number" && !isNaN(ld.totalGames)) ? ld.totalGames : 0) + 1,
-    gold: safeGold(ld.gold) + loseGold,
+    gold: lNewGold,
     level: lLevel.level, levelProgress: lLevel.levelProgress,
     loginStreak: (typeof ld.loginStreak === "number" && !isNaN(ld.loginStreak)) ? ld.loginStreak : 0,
     lastDailyReward: ld.lastDailyReward || null, createdAt: ld.createdAt || now, lastGameAt: now,
@@ -827,10 +826,10 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
   };
   await set(ref(db, `profiles/${winnerUid}`), winnerProfile);
   await set(ref(db, `profiles/${loserUid}`), loserProfile);
-  return { winnerNewElo:wNew, loserNewElo:lNew, winnerOldElo:wOldElo, loserOldElo:lOldElo, winGold, loseGold, winnerLevel: wLevel.level, winnerLevelProgress: wLevel.levelProgress, loserLevel: lLevel.level, loserLevelProgress: lLevel.levelProgress };
+  return { winnerOldGold:wOldGold, winnerNewGold:wNewGold, loserOldGold:lOldGold, loserNewGold:lNewGold, winGold, loseGold, winnerLevel: wLevel.level, winnerLevelProgress: wLevel.levelProgress, loserLevel: lLevel.level, loserLevelProgress: lLevel.levelProgress };
 }
 
-async function fetchLeaderboard(sortBy='elo', count=15) {
+async function fetchLeaderboard(sortBy='gold', count=15) {
   const snap = await get(ref(db, "profiles"));
   if (!snap.exists()) return [];
   const profiles = [];
@@ -839,21 +838,19 @@ async function fetchLeaderboard(sortBy='elo', count=15) {
     profiles.push({
       uid: child.key,
       displayName: v.displayName || "Denizci",
-      elo: (typeof v.elo === "number" && !isNaN(v.elo)) ? v.elo : 1200,
       wins: (typeof v.wins === "number" && !isNaN(v.wins)) ? v.wins : 0,
       losses: (typeof v.losses === "number" && !isNaN(v.losses)) ? v.losses : 0,
       totalGames: (typeof v.totalGames === "number" && !isNaN(v.totalGames)) ? v.totalGames : 0,
       gold: (typeof v.gold === "number" && !isNaN(v.gold) && isFinite(v.gold)) ? Math.max(0, Math.floor(v.gold)) : 0,
     });
   });
-  if (sortBy === 'elo') profiles.sort((a,b) => b.elo - a.elo);
-  else if (sortBy === 'wins') profiles.sort((a,b) => b.wins - a.wins);
-  else if (sortBy === 'gold') profiles.sort((a,b) => b.gold - a.gold);
+  if (sortBy === 'wins') profiles.sort((a,b) => b.wins - a.wins);
+  else profiles.sort((a,b) => b.gold - a.gold);
   return profiles.slice(0, count);
 }
 
 function Leaderboard({ onBack, myUid }) {
-  const [sortBy, setSortBy] = useState('elo');
+  const [sortBy, setSortBy] = useState('gold');
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [revealed, setRevealed] = useState(0);
@@ -865,7 +862,7 @@ function Leaderboard({ onBack, myUid }) {
       if (!snap.exists()) { setPlayers([]); setLoading(false); return; }
       const list = [];
       snap.forEach(child => { const v = child.val(); list.push({ uid: child.key, ...v }); });
-      list.sort((a, b) => sortBy === 'gold' ? (safeGold(b.gold) - safeGold(a.gold)) : ((b.elo||1200) - (a.elo||1200)));
+      list.sort((a, b) => sortBy === 'wins' ? ((b.wins||0) - (a.wins||0)) : (safeGold(b.gold) - safeGold(a.gold)));
       setPlayers(list.slice(0, 15));
       setLoading(false);
     });
@@ -885,9 +882,8 @@ function Leaderboard({ onBack, myUid }) {
     return "⚓ Sıralamaya girmek için savaş!";
   };
   const tabs = [
-    { key:'elo', label:'ELO', icon:'🏆' },
-    { key:'wins', label:'GALİBİYET', icon:'⚓' },
     { key:'gold', label:'ALTIN', icon:'🪙' },
+    { key:'wins', label:'GALİBİYET', icon:'🏆' },
   ];
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:`linear-gradient(180deg, ${t.bg} 0%, #071428 50%, rgba(255,215,0,0.02) 100%)`,padding:"20px 12px",fontFamily:mono,color:t.text }}>
     <div style={{ fontSize:30,fontWeight:900,letterSpacing:8,color:t.gold,marginBottom:2,fontFamily:warrior,textShadow:`0 0 30px ${t.goldGlow}`,animation:"fadeUp 0.4s ease-out" }}>SIRALAMA</div>
@@ -904,7 +900,7 @@ function Leaderboard({ onBack, myUid }) {
       <div style={{ width:"100%",maxWidth:440,display:"flex",flexDirection:"column",gap:6 }}>
         {players.slice(0,15).map((p,i) => {
           if (i >= revealed) return null;
-          const rank = getRankInfo(p.elo||1200), isMe = p.uid===myUid;
+          const rank = getRankInfo(p.gold||0), isMe = p.uid===myUid;
           const winRate = p.totalGames>0?Math.round((p.wins/p.totalGames)*100):0;
           const medalColors = [["#ffd700","rgba(255,215,0,0.18)","rgba(255,215,0,0.4)"],["#c0c0c0","rgba(192,192,192,0.12)","rgba(192,192,192,0.3)"],["#cd7f32","rgba(205,127,50,0.12)","rgba(205,127,50,0.3)"]];
           const isMedal = i < 3;
@@ -926,7 +922,6 @@ function Leaderboard({ onBack, myUid }) {
             </div>
             {/* Primary sort value */}
             <div style={{ textAlign:"right",flexShrink:0 }}>
-              {sortBy==='elo' && <><div style={{ fontSize:22,fontWeight:900,color:rank.color,fontFamily:warrior,textShadow:`0 0 10px ${rank.color}44` }}>{p.elo||1200}</div><div style={{ fontSize:8,color:t.textDim,letterSpacing:2,fontWeight:700 }}>ELO</div></>}
               {sortBy==='wins' && <><div style={{ fontSize:22,fontWeight:900,color:"#4ade80",fontFamily:warrior }}>{p.wins||0}</div><div style={{ fontSize:8,color:t.textDim,letterSpacing:2,fontWeight:700 }}>GALİBİYET</div></>}
               {sortBy==='gold' && <><div style={{ fontSize:22,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}` }}>{p.gold||0}</div><div style={{ fontSize:8,color:t.textDim,letterSpacing:2,fontWeight:700 }}>ALTIN</div></>}
             </div>
@@ -1002,47 +997,8 @@ function XAnchors({ size = 18, color = "currentColor", style }) {
   </svg>);
 }
 function AnchorHeroLogo() {
-  // Splash logosu — çapraz çapa (eski çapraz kılıç yerine)
-  return (<svg viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg" style={{ width:"100%",height:"100%" }}>
-    <defs>
-      <linearGradient id="anchor1" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#fff4d6"/><stop offset="35%" stopColor="#f0c96b"/><stop offset="65%" stopColor="#c9962e"/><stop offset="100%" stopColor="#8a611a"/>
-      </linearGradient>
-      <linearGradient id="anchor2" x1="100%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#fff4d6"/><stop offset="35%" stopColor="#f0c96b"/><stop offset="65%" stopColor="#c9962e"/><stop offset="100%" stopColor="#8a611a"/>
-      </linearGradient>
-      <linearGradient id="anchorRope" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stopColor="#a0703a"/><stop offset="50%" stopColor="#d8ac5f"/><stop offset="100%" stopColor="#a0703a"/>
-      </linearGradient>
-      <radialGradient id="anchorGem" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor="#fff8e0"/><stop offset="50%" stopColor="#ffd85e"/><stop offset="100%" stopColor="#b8811a"/>
-      </radialGradient>
-      <filter id="aglow"><feGaussianBlur stdDeviation="4" result="cb"/><feMerge><feMergeNode in="cb"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-    </defs>
-    {/* Çapa 1 */}
-    <g transform="rotate(-38, 100, 90)" filter="url(#aglow)">
-      <circle cx="100" cy="22" r="11" fill="none" stroke="url(#anchor1)" strokeWidth="6"/>
-      <rect x="96" y="30" width="8" height="92" rx="3" fill="url(#anchor1)"/>
-      <rect x="72" y="46" width="56" height="8" rx="4" fill="url(#anchorRope)"/>
-      <path d="M100,120 C100,146 92,156 60,163" stroke="url(#anchor1)" strokeWidth="10" fill="none" strokeLinecap="round"/>
-      <polygon points="52,166 72,155 68,175" fill="url(#anchor1)"/>
-      <path d="M100,120 C100,146 108,156 140,163" stroke="url(#anchor1)" strokeWidth="10" fill="none" strokeLinecap="round"/>
-      <polygon points="148,166 128,155 132,175" fill="url(#anchor1)"/>
-    </g>
-    {/* Çapa 2 */}
-    <g transform="rotate(38, 100, 90)" filter="url(#aglow)">
-      <circle cx="100" cy="22" r="11" fill="none" stroke="url(#anchor2)" strokeWidth="6"/>
-      <rect x="96" y="30" width="8" height="92" rx="3" fill="url(#anchor2)"/>
-      <rect x="72" y="46" width="56" height="8" rx="4" fill="url(#anchorRope)"/>
-      <path d="M100,120 C100,146 92,156 60,163" stroke="url(#anchor2)" strokeWidth="10" fill="none" strokeLinecap="round"/>
-      <polygon points="52,166 72,155 68,175" fill="url(#anchor2)"/>
-      <path d="M100,120 C100,146 108,156 140,163" stroke="url(#anchor2)" strokeWidth="10" fill="none" strokeLinecap="round"/>
-      <polygon points="148,166 128,155 132,175" fill="url(#anchor2)"/>
-    </g>
-    {/* Kavşak ışık efekti */}
-    <circle cx="100" cy="88" r="18" fill="url(#anchorGem)" filter="url(#aglow)"/>
-    <circle cx="100" cy="88" r="8" fill="rgba(255,255,255,0.75)"/>
-  </svg>);
+  // Splash / zafer / logo görseli — kullanıcının sağladığı resmi çapa görseli
+  return (<img src="/img/anchor-logo.png" alt="Amiral Battı" draggable={false} style={{ width:"100%",height:"100%",objectFit:"contain",userSelect:"none",pointerEvents:"none" }} />);
 }
 
 function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, onCellPointerDown, overlay, hoverCells, isDefense, shipColors, disabled, blinkCells, manualMarks, showShipStatus, onboardingHint }) {
@@ -1286,12 +1242,12 @@ function BoardReview({ defenseBoard, shipColorMap, defenseOverlay, attackOverlay
   </div>);
 }
 
-function OnlineLobby({ myUid, myName, myElo, onChallenge, onBack }) {
+function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack }) {
   const [players,setPlayers]=useState([]);const [invites,setInvites]=useState([]);const [sentInvite,setSentInvite]=useState(null);
-  useEffect(()=>{const unsub=onValue(ref(db,"online_players"),snap=>{if(!snap.exists()){setPlayers([]);return;}const list=[];snap.forEach(child=>{const d=child.val();if(child.key!==myUid&&d.status==="idle")list.push({uid:child.key,...d});});list.sort((a,b)=>(b.elo||1200)-(a.elo||1200));setPlayers(list);});return()=>unsub();},[myUid]);
+  useEffect(()=>{const unsub=onValue(ref(db,"online_players"),snap=>{if(!snap.exists()){setPlayers([]);return;}const list=[];snap.forEach(child=>{const d=child.val();if(child.key!==myUid&&d.status==="idle")list.push({uid:child.key,...d});});list.sort((a,b)=>(b.gold||0)-(a.gold||0));setPlayers(list);});return()=>unsub();},[myUid]);
   useEffect(()=>{const unsub=onValue(ref(db,`invites/${myUid}`),snap=>{if(!snap.exists()){setInvites([]);return;}const list=[];snap.forEach(child=>list.push({id:child.key,...child.val()}));setInvites(list);});return()=>unsub();},[myUid]);
   useEffect(()=>{if(!sentInvite)return;const unsub=onValue(ref(db,`invites/${sentInvite.targetUid}/${myUid}`),snap=>{if(!snap.exists()){setSentInvite(null);return;}const d=snap.val();if(d.status==="accepted"&&d.roomId){remove(ref(db,`invites/${sentInvite.targetUid}/${myUid}`));setSentInvite(null);onChallenge(d.roomId,1);}else if(d.status==="rejected"){remove(ref(db,`invites/${sentInvite.targetUid}/${myUid}`));setSentInvite(null);}});return()=>unsub();},[sentInvite,myUid,onChallenge]);
-  const sendInvite=async(targetUid,targetName)=>{if(sentInvite)return;await set(ref(db,`invites/${targetUid}/${myUid}`),{fromName:myName,fromElo:myElo||1200,status:"pending",time:Date.now()});setSentInvite({targetUid,targetName});};
+  const sendInvite=async(targetUid,targetName)=>{if(sentInvite)return;await set(ref(db,`invites/${targetUid}/${myUid}`),{fromName:myName,fromGold:myGold||0,status:"pending",time:Date.now()});setSentInvite({targetUid,targetName});};
   const cancelInvite=async()=>{if(!sentInvite)return;await remove(ref(db,`invites/${sentInvite.targetUid}/${myUid}`));setSentInvite(null);};
   const acceptInvite=async(invite)=>{const roomId=Math.random().toString(36).substring(2,8).toUpperCase();await set(ref(db,`rooms/${roomId}`),{p1_name:invite.fromName,p1_uid:invite.id,p2_name:myName,p2_uid:myUid,phase:"placing",p1_board:null,p2_board:null,p1_ships:null,p2_ships:null,attacks:null,turn:1,clocks:{p1:CLOCK_SECONDS,p2:CLOCK_SECONDS},winner:null,winReason:null,eloProcessed:false,created:Date.now()});await update(ref(db,`invites/${myUid}/${invite.id}`),{status:"accepted",roomId});setTimeout(()=>remove(ref(db,`invites/${myUid}/${invite.id}`)),3000);onChallenge(roomId,2);};
   const rejectInvite=async(invite)=>{await update(ref(db,`invites/${myUid}/${invite.id}`),{status:"rejected"});setTimeout(()=>remove(ref(db,`invites/${myUid}/${invite.id}`)),2000);};
@@ -1300,7 +1256,7 @@ function OnlineLobby({ myUid, myName, myElo, onChallenge, onBack }) {
     <div style={{ fontSize:10,color:t.textDim,letterSpacing:4,marginBottom:16,fontFamily:"'Barlow Condensed',sans-serif" }}>AKTİF DENİZCİLER</div>
     {invites.filter(inv=>inv.status==="pending").map(invite=>(<div key={invite.id} style={{ width:"100%",maxWidth:420,marginBottom:8,padding:"12px 16px",background:"rgba(6,182,212,0.1)",border:`1px solid ${t.accent}`,borderRadius:10,animation:"borderGlow 2s infinite" }}>
       <div style={{ fontSize:12,color:t.accent,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,marginBottom:6,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={14} color={t.accent}/> DÜELLO DAVETİ</div>
-      <div style={{ fontSize:13,color:t.text,marginBottom:8 }}><span style={{ fontWeight:700 }}>{invite.fromName}</span><span style={{ color:t.textDim,fontSize:10,marginLeft:8 }}>ELO: {invite.fromElo}</span></div>
+      <div style={{ fontSize:13,color:t.text,marginBottom:8 }}><span style={{ fontWeight:700 }}>{invite.fromName}</span><span style={{ color:t.textDim,fontSize:10,marginLeft:8 }}>💰 {invite.fromGold||0}</span></div>
       <div style={{ display:"flex",gap:8 }}>
         <button onClick={()=>acceptInvite(invite)} style={{ flex:1,padding:"8px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:6,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif" }}>KABUL</button>
         <button onClick={()=>rejectInvite(invite)} style={{ flex:1,padding:"8px 0",background:"transparent",color:t.hit,border:`1px solid ${t.hit}`,borderRadius:6,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif" }}>REDDET</button>
@@ -1314,9 +1270,9 @@ function OnlineLobby({ myUid, myName, myElo, onChallenge, onBack }) {
     {players.length===0?(<div style={{ width:"100%",maxWidth:420,padding:"30px 20px",textAlign:"center",background:t.surface,border:`1px solid ${t.border}`,borderRadius:10,marginTop:8 }}><div style={{ fontSize:24,marginBottom:8 }}>🌊</div><div style={{ fontSize:12,color:t.textDim }}>Şu an salonda kimse yok</div><div style={{ fontSize:10,color:t.textDim,marginTop:4 }}>Hızlı Oyun ile otomatik eşleşebilirsin</div></div>):(
       <div style={{ width:"100%",maxWidth:420,display:"flex",flexDirection:"column",gap:4 }}>
         <div style={{ fontSize:9,color:t.textDim,letterSpacing:2,marginBottom:4 }}>{players.length} DENİZCİ AKTİF</div>
-        {players.map(p=>{const rank=getRankInfo(p.elo||1200);const alreadySent=sentInvite?.targetUid===p.uid;return(<div key={p.uid} style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:t.surface,border:`1px solid ${t.border}`,borderRadius:8 }}>
+        {players.map(p=>{const rank=getRankInfo(p.gold||0);const alreadySent=sentInvite?.targetUid===p.uid;return(<div key={p.uid} style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:t.surface,border:`1px solid ${t.border}`,borderRadius:8 }}>
           <div style={{ width:8,height:8,borderRadius:"50%",background:"#34d399",boxShadow:"0 0 6px rgba(52,211,153,0.5)" }} />
-          <div style={{ flex:1,minWidth:0 }}><div style={{ display:"flex",alignItems:"center",gap:6 }}><span style={{ fontSize:13,fontWeight:700,color:t.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.displayName}</span><span style={{ fontSize:9,color:rank.color,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1 }}>{rank.icon} {rank.title}</span></div><div style={{ fontSize:9,color:t.textDim,marginTop:1 }}>ELO: {p.elo||1200} • {p.wins||0}G/{p.losses||0}M</div></div>
+          <div style={{ flex:1,minWidth:0 }}><div style={{ display:"flex",alignItems:"center",gap:6 }}><span style={{ fontSize:13,fontWeight:700,color:t.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.displayName}</span><span style={{ fontSize:9,color:rank.color,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1 }}>{rank.icon} {rank.title}</span></div><div style={{ fontSize:9,color:t.textDim,marginTop:1 }}>💰 {p.gold||0} • {p.wins||0}G/{p.losses||0}M</div></div>
           <button onClick={()=>sendInvite(p.uid,p.displayName)} disabled={!!sentInvite} style={{ padding:"6px 14px",background:alreadySent?t.surfaceLight:`linear-gradient(135deg,${t.hit},#dc2626)`,color:alreadySent?t.textDim:"#fff",border:"none",borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:sentInvite?"default":"pointer",fontFamily:"'Barlow Condensed',sans-serif",opacity:sentInvite&&!alreadySent?0.4:1 }}>{alreadySent?"BEKLENİYOR":"⚓ DÜELLO"}</button>
         </div>);})}
       </div>
@@ -1325,7 +1281,7 @@ function OnlineLobby({ myUid, myName, myElo, onChallenge, onBack }) {
   </div>);
 }
 
-function findMatch(myUid, myName, myElo, arenaId) {
+function findMatch(myUid, myName, myGold, arenaId) {
   const queuePath = arenaId ? `matchmaking_arena/${arenaId}` : "matchmaking";
   let cancelled = false, creating = false, resolved = false;
   let unsubQueue = null, unsubMatch = null, timeoutId = null;
@@ -1345,7 +1301,7 @@ function findMatch(myUid, myName, myElo, arenaId) {
 
   const queueJoinTime = Date.now();
   const promise = new Promise(async (resolve) => {
-    await set(ref(db, `${queuePath}/${myUid}`), { displayName: myName, elo: myElo || 1200, time: Date.now() });
+    await set(ref(db, `${queuePath}/${myUid}`), { displayName: myName, gold: myGold || STARTING_GOLD, time: Date.now() });
     onDisconnect(ref(db, `${queuePath}/${myUid}`)).remove();
 
     // Timeout: 60 saniye sonra eşleşme bulunamazsa iptal
@@ -1375,11 +1331,11 @@ function findMatch(myUid, myName, myElo, arenaId) {
       const queue = [];
       snap.forEach(child => { if (child.key !== myUid) queue.push({ uid: child.key, ...child.val() }); });
       if (queue.length === 0) return;
-      queue.sort((a, b) => Math.abs((a.elo || 1200) - (myElo || 1200)) - Math.abs((b.elo || 1200) - (myElo || 1200)));
-      // ELO penceresi: ilk 15s ±150, 15-35s ±400, sonra herkes
+      queue.sort((a, b) => Math.abs((a.gold || STARTING_GOLD) - (myGold || STARTING_GOLD)) - Math.abs((b.gold || STARTING_GOLD) - (myGold || STARTING_GOLD)));
+      // Altın penceresi: ilk 15s ±300, 15-35s ±1500, sonra herkes
       const waitedMs = Date.now() - queueJoinTime;
-      const eloWindow = waitedMs < 15000 ? 150 : waitedMs < 35000 ? 400 : 99999;
-      const eligible = queue.filter(q => Math.abs((q.elo || 1200) - (myElo || 1200)) <= eloWindow);
+      const goldWindow = waitedMs < 15000 ? 300 : waitedMs < 35000 ? 1500 : 9999999;
+      const eligible = queue.filter(q => Math.abs((q.gold || STARTING_GOLD) - (myGold || STARTING_GOLD)) <= goldWindow);
       if (eligible.length === 0) return;
       const opponent = eligible[0];
 
@@ -1583,10 +1539,10 @@ export default function Game() {
     if (!authUid || !playerName.trim()) return;
     if (phase !== "lobby") { remove(ref(db, `online_players/${authUid}`)); return; }
     const presenceRef = ref(db, `online_players/${authUid}`);
-    set(presenceRef, { displayName: playerName.trim(), elo: myProfile?.elo || 1200, wins: myProfile?.wins || 0, losses: myProfile?.losses || 0, status: "idle", lastSeen: Date.now() });
+    set(presenceRef, { displayName: playerName.trim(), gold: safeGold(myProfile?.gold), wins: myProfile?.wins || 0, losses: myProfile?.losses || 0, status: "idle", lastSeen: Date.now() });
     onDisconnect(presenceRef).remove();
     return () => { remove(presenceRef); };
-  }, [authUid, playerName, phase, myProfile?.elo]);
+  }, [authUid, playerName, phase, myProfile?.gold]);
 
   useEffect(() => {
     if (phase === "placing" && !placementConfirmed) {
@@ -1724,11 +1680,11 @@ export default function Game() {
               try {
                 const result = await updateEloAfterGame(winnerUid, loserUid, gameArena);
                 if (result) {
-                  await update(ref(db, `rooms/${roomIdRef.current}`), { eloResult: { winnerOldElo: result.winnerOldElo, winnerNewElo: result.winnerNewElo, loserOldElo: result.loserOldElo, loserNewElo: result.loserNewElo, winGold: result.winGold || 0, loseGold: result.loseGold || 0, winnerLevel: result.winnerLevel, winnerLevelProgress: result.winnerLevelProgress, loserLevel: result.loserLevel, loserLevelProgress: result.loserLevelProgress } });
-                  setEloChange({ myOld: result.winnerOldElo, myNew: result.winnerNewElo, oppOld: result.loserOldElo, oppNew: result.loserNewElo });
+                  await update(ref(db, `rooms/${roomIdRef.current}`), { eloResult: { winnerOldGold: result.winnerOldGold, winnerNewGold: result.winnerNewGold, loserOldGold: result.loserOldGold, loserNewGold: result.loserNewGold, winGold: result.winGold || 0, loseGold: result.loseGold || 0, winnerLevel: result.winnerLevel, winnerLevelProgress: result.winnerLevelProgress, loserLevel: result.loserLevel, loserLevelProgress: result.loserLevelProgress } });
+                  setEloChange({ myOld: result.winnerOldGold, myNew: result.winnerNewGold, oppOld: result.loserOldGold, oppNew: result.loserNewGold });
                   setGoldChange({ amount: result.winGold || 0 });
                   if (result.winGold > 0) { sfx.play('gold'); setGoldAnim({ amount: result.winGold }); }
-                  setMyProfile(prev => prev ? { ...prev, elo: result.winnerNewElo, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: safeGold(prev.gold) + (result.winGold || 0), level: result.winnerLevel, levelProgress: result.winnerLevelProgress } : prev);
+                  setMyProfile(prev => prev ? { ...prev, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: result.winnerNewGold, level: result.winnerLevel, levelProgress: result.winnerLevelProgress } : prev);
                 }
               } catch (e) { console.error("ELO update error:", e); }
             }).catch(e => console.error("ELO transaction error:", e));
@@ -1741,9 +1697,9 @@ export default function Game() {
               if (!eloSnap.exists()) return;
               const er = eloSnap.val();
               unsubElo(); // Bir kez oku, kapat
-              setEloChange({ myOld: er.loserOldElo, myNew: er.loserNewElo, oppOld: er.winnerOldElo, oppNew: er.winnerNewElo });
+              setEloChange({ myOld: er.loserOldGold, myNew: er.loserNewGold, oppOld: er.winnerOldGold, oppNew: er.winnerNewGold });
               setGoldChange({ amount: er.loseGold || 0 });
-              setMyProfile(prev => prev ? { ...prev, elo: er.loserNewElo, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: safeGold(prev.gold) + (er.loseGold || 0), level: er.loserLevel, levelProgress: er.loserLevelProgress } : prev);
+              setMyProfile(prev => prev ? { ...prev, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: er.loserNewGold, level: er.loserLevel, levelProgress: er.loserLevelProgress } : prev);
             });
             // 10 saniye timeout — kazanan çökerse sonsuza kadar beklemesin
             setTimeout(() => {
@@ -2198,15 +2154,16 @@ export default function Game() {
       setWinner("Gemilerin battı!"); setIsWin(false); setPhase("gameover");
       sfx.init(); sfx.play('lose'); sfx.playDefeatMusic();
       setMissionStats(prev => ({ ...prev, gamesPlayed: prev.gamesPlayed + 1 }));
-      // Bot'a yenilince ELO düşer — düşük ELO'lu bota yenilirsen çok gider
+      // Bot'a yenilince küçük bir teselli altını verilir
       if (authUid && myProfile && !isOnboarding) {
-        const botElo2 = (myProfile.elo || 1200) + Math.floor(Math.random() * 160) - 40;
-        const myOld2 = myProfile.elo || 1200;
-        const myNew2 = calculateElo(myOld2, botElo2, false);
+        const consolationGold = 15;
+        const oldGold2 = safeGold(myProfile.gold);
+        const newGold2 = oldGold2 + consolationGold;
         const lvl2 = applyLevelCredit(myProfile, XP_BOT_LOSS);
-        update(ref(db, `profiles/${authUid}`), { elo: myNew2, losses: (myProfile.losses||0)+1, totalGames: (myProfile.totalGames||0)+1, lastGameAt: Date.now(), level: lvl2.level, levelProgress: lvl2.levelProgress }).catch(()=>{});
-        setMyProfile(prev => prev ? { ...prev, elo: myNew2, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1, level: lvl2.level, levelProgress: lvl2.levelProgress } : prev);
-        setEloChange({ myOld: myOld2, myNew: myNew2, oppOld: botElo2, oppNew: calculateElo(botElo2, myOld2, true) });
+        update(ref(db, `profiles/${authUid}`), { gold: newGold2, losses: (myProfile.losses||0)+1, totalGames: (myProfile.totalGames||0)+1, lastGameAt: Date.now(), level: lvl2.level, levelProgress: lvl2.levelProgress }).catch(()=>{});
+        setMyProfile(prev => prev ? { ...prev, gold: newGold2, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1, level: lvl2.level, levelProgress: lvl2.levelProgress } : prev);
+        setGoldChange({ amount: consolationGold });
+        setEloChange({ myOld: oldGold2, myNew: newGold2 });
       }
     } else {
       setTimeout(() => { setMyTurn(true); setActiveBoard("attack"); }, botSunkSomething ? 4200 : 3200);
@@ -2317,30 +2274,16 @@ export default function Game() {
       const sunkCount = botShips ? Object.values(botShips).filter(ship => ship.cells.every(([r,c]) => newAtkOverlay[r][c] === "hit" || newAtkOverlay[r][c] === "sunk")).length : 0;
       const elapsed = gameStartTime ? (Date.now() - gameStartTime) / 1000 : 999;
       setMissionStats(prev => ({ ...prev, wins: prev.wins + 1, botWin: true, gamesPlayed: prev.gamesPlayed + 1, totalHits: prev.totalHits + newMyHits, shipsSunk: prev.shipsSunk + sunkCount, fastWin: elapsed < 180 }));
-      // +2 gold for bot win (with streak multiplier)
+      // Bot galibiyeti altını (seri çarpanlı)
       const streakMult = hitStreak >= 9 ? 4 : hitStreak >= 6 ? 3 : hitStreak >= 3 ? 2 : 1;
-      // Bot ELO'su: oyuncuya yakın ± sapma — yüksek ELO'lu botu yenersen çok kazanırsın
-      const botElo = (myProfile?.elo || 1200) + Math.floor(Math.random() * 160) - 40;
-      const myOldElo = myProfile?.elo || 1200;
-      const myNewElo = calculateElo(myOldElo, botElo, true);
-      const eloGain = myNewElo - myOldElo;
-      const botWinGold = Math.max(2, Math.round(eloGain * 1.5)) * streakMult;
+      const botWinGold = 25 * streakMult;
       if (authUid && myProfile && !isOnboarding) {
         const lvl1 = applyLevelCredit(myProfile, XP_BOT_WIN);
-        update(ref(db, `profiles/${authUid}`), { elo: myNewElo, wins: (myProfile.wins||0)+1, totalGames: (myProfile.totalGames||0)+1, lastGameAt: Date.now(), level: lvl1.level, levelProgress: lvl1.levelProgress }).catch(()=>{});
-        setMyProfile(prev => prev ? { ...prev, elo: myNewElo, wins:(prev.wins||0)+1, totalGames:(prev.totalGames||0)+1, level: lvl1.level, levelProgress: lvl1.levelProgress } : prev);
-        setEloChange({ myOld: myOldElo, myNew: myNewElo, oppOld: botElo, oppNew: calculateElo(botElo, myOldElo, false) });
-      }
-      if (authUid && myProfile && !isOnboarding) {
-        const newGold = safeGold(myProfile.gold) + botWinGold;
-        get(ref(db, `profiles/${authUid}`)).then(snap => {
-          if (snap.exists()) {
-            const p = snap.val();
-            const clean = { ...p, gold: safeGold(p.gold) + botWinGold };
-            set(ref(db, `profiles/${authUid}`), clean);
-            setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev);
-          }
-        }).catch(() => {});
+        const oldGold1 = safeGold(myProfile.gold);
+        const newGold1 = oldGold1 + botWinGold;
+        update(ref(db, `profiles/${authUid}`), { gold: newGold1, wins: (myProfile.wins||0)+1, totalGames: (myProfile.totalGames||0)+1, lastGameAt: Date.now(), level: lvl1.level, levelProgress: lvl1.levelProgress }).catch(()=>{});
+        setMyProfile(prev => prev ? { ...prev, gold: newGold1, wins:(prev.wins||0)+1, totalGames:(prev.totalGames||0)+1, level: lvl1.level, levelProgress: lvl1.levelProgress } : prev);
+        setEloChange({ myOld: oldGold1, myNew: newGold1 });
         setGoldChange({ amount: botWinGold });
         sfx.play('gold'); setGoldAnim({ amount: botWinGold });
       }
@@ -2356,7 +2299,7 @@ export default function Game() {
     const arena = arenaOverride || null;
     if (arena) { const cg = safeGold(myProfile?.gold); if (cg < arena.entryFee) { setMessage("Yeterli altının yok!"); return; } const newGold = cg - arena.entryFee; try { const cleanP = await ensureProfile(authUid); cleanP.gold = newGold; await set(ref(db, `profiles/${authUid}`), cleanP); } catch(e) { console.error(e); } setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev); setEntryFeeDeducted(arena.entryFee); }
     setMatchmaking(true);
-    const matchPromise = findMatch(authUid, playerName.trim(), myProfile?.elo || 1200, arena?.id || null);
+    const matchPromise = findMatch(authUid, playerName.trim(), myProfile?.gold ?? STARTING_GOLD, arena?.id || null);
     setMatchCancelFn(() => matchPromise._cancel);
     matchPromise.then(data => {
       if (data && data.roomId) {
@@ -2746,8 +2689,8 @@ export default function Game() {
     }
   }
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} /></>;
-  if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myElo={myProfile?.elo || 1200} myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => { setSelectedArena(arena); setShowArenaSelect(false); startQuickMatch(arena); }} /></>;
-  if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myElo={myProfile?.elo} onBack={() => setShowOnlineLobby(false)} onChallenge={(rid, pNum) => { setShowOnlineLobby(false); roomIdRef.current = rid; setRoomId(rid); setPlayerNum(pNum); playerNumRef.current = pNum; setPhase("placing"); listenToRoom(rid, pNum); if (authUid) remove(ref(db, `online_players/${authUid}`)); }} /></>;
+  if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => { setSelectedArena(arena); setShowArenaSelect(false); startQuickMatch(arena); }} /></>;
+  if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myGold={myProfile?.gold} onBack={() => setShowOnlineLobby(false)} onChallenge={(rid, pNum) => { setShowOnlineLobby(false); roomIdRef.current = rid; setRoomId(rid); setPlayerNum(pNum); playerNumRef.current = pNum; setPhase("placing"); listenToRoom(rid, pNum); if (authUid) remove(ref(db, `online_players/${authUid}`)); }} /></>;
 
   if (phase === "gameover") {
     if (showReview) return <BoardReview defenseBoard={defenseBoard} shipColorMap={shipColorMap} defenseOverlay={defenseOverlay} attackOverlay={attackOverlay} oppShipsData={oppShipsData} myShipsData={myShipsData} defHitMap={defHitMap} atkHitMap={atkHitMap} cellSize={cellSize} onBack={() => setShowReview(false)} />;
@@ -2758,26 +2701,24 @@ export default function Game() {
       </>);
     }
     const myEloDiff = eloChange ? eloChange.myNew - eloChange.myOld : null;
-    const myRank = eloChange ? getRankInfo(eloChange.myNew) : (myProfile ? getRankInfo(myProfile.elo) : null);
+    const myRank = eloChange ? getRankInfo(eloChange.myNew) : (myProfile ? getRankInfo(myProfile.gold) : null);
     return (<><style>{ANIMS}</style>
       <GameOverScreen winner={winner} myHits={myHits} oppHits={oppHits} isWin={isWin} onNewGame={resetGame} onHome={resetGame} onViewBoard={() => setShowReview(true)} />
       <canvas id="confetti-canvas" style={{ position:'fixed',inset:0,pointerEvents:'none',zIndex:10002 }} />
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
       {eloChange && (<div style={{ position:"fixed",bottom:80,left:0,right:0,display:"flex",justifyContent:"center",zIndex:200,perspective:"600px" }}>
         <div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))",border:`2px solid ${isWin?t.accent:t.hit}`,borderRadius:16,padding:"18px 28px",textAlign:"center",animation:"arSlideIn 0.7s ease-out forwards",'--ar-color':isWin?t.accentGlow:t.hitGlow,boxShadow:`0 15px 50px rgba(0,0,0,0.6), 0 0 30px ${isWin?t.accentGlow:t.hitGlow}` }}>
-          <div style={{ fontSize:12,letterSpacing:4,color:t.textDim,marginBottom:8,fontFamily:warrior,fontWeight:700 }}>ELO DEĞİŞİMİ</div>
+          <div style={{ fontSize:12,letterSpacing:4,color:t.textDim,marginBottom:8,fontFamily:warrior,fontWeight:700 }}>ALTIN DEĞİŞİMİ</div>
           <div style={{ display:"flex",alignItems:"center",gap:14,justifyContent:"center" }}>
-            <span style={{ fontSize:22,fontWeight:700,color:t.textDim,fontFamily:warrior }}>{eloChange.myOld}</span>
+            <span style={{ fontSize:22,fontWeight:700,color:t.textDim,fontFamily:warrior }}>{eloChange.myOld} 💰</span>
             <span style={{ fontSize:22,color:t.accent }}>→</span>
-            <span style={{ fontSize:28,fontWeight:800,color:myRank?.color||t.accent,fontFamily:warrior,textShadow:`0 0 12px ${myRank?.color||t.accent}44` }}>{eloChange.myNew}</span>
+            <span style={{ fontSize:28,fontWeight:800,color:myRank?.color||t.gold,fontFamily:warrior,textShadow:`0 0 12px ${myRank?.color||t.gold}44` }}>{eloChange.myNew} 💰</span>
             <span style={{ fontSize:20,fontWeight:800,fontFamily:warrior,color:myEloDiff>=0?"#4ade80":t.hit,padding:"4px 12px",background:myEloDiff>=0?"rgba(74,222,128,0.1)":"rgba(255,71,87,0.1)",borderRadius:8 }}>{myEloDiff>=0?`+${myEloDiff}`:myEloDiff}</span>
           </div>
           {myRank && <div style={{ fontSize:13,fontWeight:800,color:myRank.color,marginTop:8,fontFamily:warrior,letterSpacing:3 }}>{myRank.icon} {myRank.title}</div>}
-          {(entryFeeDeducted || (goldChange && goldChange.amount > 0)) && (
+          {entryFeeDeducted && (
             <div style={{ marginTop:10,borderTop:`1px solid rgba(255,255,255,0.06)`,paddingTop:10 }}>
-              {entryFeeDeducted && <div style={{ fontSize:12,fontWeight:700,color:t.hit,fontFamily:warrior,letterSpacing:2 }}>Giriş: -{entryFeeDeducted} 💰</div>}
-              {goldChange && goldChange.amount > 0 && <div style={{ fontSize:16,color:t.gold,fontWeight:800,fontFamily:warrior,textShadow:`0 0 12px ${t.goldGlow}`,marginTop:4 }}>{isWin?"Kazanç":"Teselli"}: +{goldChange.amount} 💰</div>}
-              {entryFeeDeducted && goldChange && <div style={{ fontSize:14,color:(goldChange.amount-entryFeeDeducted)>=0?"#4ade80":t.hit,fontWeight:800,fontFamily:warrior,marginTop:4 }}>Net: {(goldChange.amount-entryFeeDeducted)>=0?"+":""}{goldChange.amount-entryFeeDeducted} 💰</div>}
+              <div style={{ fontSize:12,fontWeight:700,color:t.hit,fontFamily:warrior,letterSpacing:2 }}>Giriş: -{entryFeeDeducted} 💰</div>
             </div>
           )}
         </div>
@@ -2786,7 +2727,7 @@ export default function Game() {
   }
 
   if (phase === "lobby") {
-    const rank = myProfile ? getRankInfo(myProfile.elo) : null;
+    const rank = myProfile ? getRankInfo(myProfile.gold) : null;
     const myLevel = myProfile?.level || 0;
     const myGamesNeeded = gamesNeededForLevel(myLevel);
     const myLevelPct = Math.max(0, Math.min(1, (myProfile?.levelProgress || 0) / myGamesNeeded));
@@ -2847,13 +2788,13 @@ export default function Game() {
               {["⚓","🦈","🐙","⚔","🏴‍☠️","🌊","🦅","🐉","💀","🔱"].map(av=>(<button key={av} onClick={()=>{ setShowAvatarPick(false); if(authUid){ update(ref(db,`profiles/${authUid}`),{avatar:av}).catch(()=>{}); } setMyProfile(prev=>prev?{...prev,avatar:av}:prev); }} style={{ width:36,height:36,borderRadius:"50%",background:myProfile.avatar===av?"rgba(0,229,255,0.25)":"rgba(255,255,255,0.05)",border:`2px solid ${myProfile.avatar===av?t.accent:"transparent"}`,fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>{av}</button>))}
             </div>}
             <div style={{ display:"flex",alignItems:"center",gap:6,marginTop:4 }}>
-              <span style={{ fontSize:13,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:1 }}>{safeGold(myProfile.gold)} ALTIN</span>
+              <span style={{ fontSize:13,fontWeight:800,color:rank?.color||t.gold,fontFamily:warrior,letterSpacing:1 }}>{rank?.icon} {rank?.title}</span>
               {canChangeName() && <button onClick={()=>{setPhase("splash");}} style={{ fontSize:8,color:t.textDim,background:"transparent",border:`1px solid ${t.border}`,borderRadius:4,padding:"2px 6px",cursor:"pointer",fontFamily:mono }}>✏</button>}
             </div>
           </div>
           <div style={{ textAlign:"center",background:"rgba(0,212,255,0.08)",borderRadius:12,padding:"8px 14px" }}>
-            <div style={{ fontSize:30,fontWeight:800,color:rank?.color||t.accent,fontFamily:warrior,lineHeight:1,textShadow:`0 0 15px ${rank?.color||t.accent}44` }}>{myProfile.elo}</div>
-            <div style={{ fontSize:8,color:t.textDim,letterSpacing:3,marginTop:2,fontFamily:warrior,fontWeight:700 }}>ELO</div>
+            <div style={{ fontSize:30,fontWeight:800,color:rank?.color||t.accent,fontFamily:warrior,lineHeight:1,textShadow:`0 0 15px ${rank?.color||t.accent}44` }}>{safeGold(myProfile.gold)}</div>
+            <div style={{ fontSize:8,color:t.textDim,letterSpacing:3,marginTop:2,fontFamily:warrior,fontWeight:700 }}>ALTIN</div>
           </div>
         </div>
         <div style={{ display:"flex",gap:0,background:t.bg,borderRadius:10,overflow:"hidden" }}>
