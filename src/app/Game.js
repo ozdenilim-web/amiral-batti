@@ -627,13 +627,13 @@ function RippleButton({ children, onClick, style, disabled, ...props }) {
 
 // === MİKRO FEEDBACK ===
 function MicroFeedback({ text, color, onDone }) {
-  useEffect(() => { const tm = setTimeout(()=>onDone?.(), 2700); return ()=>clearTimeout(tm); }, []);
+  useEffect(() => { const tm = setTimeout(()=>onDone?.(), 2100); return ()=>clearTimeout(tm); }, []);
   const clr = color || t.gold;
-  // Platformun (oyun tahtası) hemen altında 2 saniye okunaklı durur, sonra AR tarzı yukarı süzülüp kaybolur
+  // İlk anda maksimum parlaklıkla belirir, platformun hemen altında 1.5sn sabit durur, sonra ekrana doğru küçülüp solarak kaybolur
   return (<div style={{ position:'absolute',top:'100%',left:'50%',marginTop:12,zIndex:10001,fontSize:24,fontWeight:900,color:clr,fontFamily:warrior,letterSpacing:4,textTransform:'uppercase',whiteSpace:'nowrap',
     WebkitTextStroke:'1.5px rgba(0,0,0,0.85)',
     textShadow:`0 3px 0 rgba(0,0,0,0.9), 0 6px 0 rgba(0,0,0,0.55), 0 12px 24px rgba(0,0,0,0.9), 0 0 34px ${clr}, 0 0 90px ${clr}66`,
-    animation:'feedbackHoldRise 2.7s cubic-bezier(0.22,1,0.36,1) forwards',pointerEvents:'none' }}>{text}</div>);
+    animation:'feedbackHoldRise 2.1s ease-out forwards',pointerEvents:'none' }}>{text}</div>);
 }
 
 const ARENAS = [
@@ -972,7 +972,7 @@ const ANIMS = `
 @keyframes btnBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
 @keyframes sonarArc{0%,100%{opacity:0.35;transform:scale(1)}50%{opacity:1;transform:scale(1.18)}}
 @keyframes arZoomText{0%{opacity:0;transform:translateX(-50%) scale(0.2)}8%{opacity:1;transform:translateX(-50%) scale(1.05)}12%{transform:translateX(-50%) scale(1)}70%{opacity:1;transform:translateX(-50%) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-40px) scale(2.6);filter:blur(3px)}}
-@keyframes feedbackHoldRise{0%{opacity:0;transform:translateX(-50%) translateY(8px) scale(0.6)}8%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.08)}14%{transform:translateX(-50%) translateY(0) scale(1)}90%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-46px) scale(1.9);filter:blur(2px)}}
+@keyframes feedbackHoldRise{0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}71%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-14px) scale(0.5);filter:blur(3px)}}
 @keyframes popFlash{0%{opacity:0;transform:translateX(-50%) scale(0.1) rotate(-8deg)}22%{opacity:1;transform:translateX(-50%) scale(1.45) rotate(4deg)}38%{transform:translateX(-50%) scale(1.05) rotate(0deg)}72%{opacity:1;transform:translateX(-50%) scale(1.05)}100%{opacity:0;transform:translateX(-50%) scale(0.7) translateY(-16px)}}
 @keyframes fbPop3d{0%{opacity:0;transform:translateX(-50%) scale(0.3) perspective(500px) rotateX(40deg)}12%{opacity:1;transform:translateX(-50%) scale(1.25) perspective(500px) rotateX(-6deg)}22%{transform:translateX(-50%) scale(1) perspective(500px) rotateX(0deg)}78%{opacity:1;transform:translateX(-50%) scale(1) translateY(0)}100%{opacity:0;transform:translateX(-50%) scale(0.92) translateY(-30px)}}
 @keyframes floatShadow{0%,100%{transform:translateY(0);filter:drop-shadow(0 8px 20px rgba(0,0,0,0.4))}50%{transform:translateY(-8px);filter:drop-shadow(0 16px 30px rgba(0,0,0,0.6))}}
@@ -1587,6 +1587,7 @@ export default function Game() {
   const oppClockRef = useRef(CLOCK_SECONDS);
   const myTurnRef = useRef(false);
   const lastKnownTurnRef = useRef(null); // null = henüz bilinmiyor — saldiri/savunma otomatik geçişi için
+  const activeBoardTimerRef = useRef(null); // atış sonucu görülsün diye 2sn gecikmeli tahta geçişi
   const phaseRef = useRef("splash");
   const lastAttackCountRef = useRef(0);
   const eloUpdatedRef = useRef(false);
@@ -1701,6 +1702,7 @@ export default function Game() {
   const listenToRoom = useCallback((rid, pNum) => {
     if (unsubRef.current) unsubRef.current();
     lastKnownTurnRef.current = null; // yeni oda — saldiri/savunma otomatik geçişini sıfırdan öğren
+    if (activeBoardTimerRef.current) { clearTimeout(activeBoardTimerRef.current); activeBoardTimerRef.current = null; }
     const gameRef = ref(db, `rooms/${rid}`);
     unsubRef.current = onValue(gameRef, (snapshot) => {
       const game = snapshot.val(); if (!game) return;
@@ -1716,10 +1718,13 @@ export default function Game() {
         if (phaseRef.current === "placing") { setPhase("ready"); sfx.init(); sfx.playBattleMusic(); }
         else if (phaseRef.current !== "ready") setPhase("playing");
         const nowMyTurn = game.turn === pNum;
-        // Sıra değiştiyse (veya ilk kez öğreniyorsak) ekranı otomatik doğru tahtaya çevir — her iki yönde de
-        if (lastKnownTurnRef.current !== nowMyTurn) {
+        // Sadece odaya ilk girişte anında doğru tahtayı göster. Sonraki geçişler
+        // atış sonucunu görebilsin diye aşağıdaki attacks bloğunda 2sn gecikmeli yapılır.
+        if (lastKnownTurnRef.current === null) {
           lastKnownTurnRef.current = nowMyTurn;
           setActiveBoard(nowMyTurn ? "attack" : "defense");
+        } else {
+          lastKnownTurnRef.current = nowMyTurn;
         }
         setMyTurn(nowMyTurn);
         if (game.clocks) { myClockRef.current = game.clocks[myKey] ?? CLOCK_SECONDS; oppClockRef.current = game.clocks[oppKey] ?? CLOCK_SECONDS; setMyClock(myClockRef.current); setOppClock(oppClockRef.current); }
@@ -1741,6 +1746,9 @@ export default function Game() {
           const lastAtk = attacks[attacks.length - 1]; lastAttackCountRef.current = attacks.length;
           if (lastAtk.target === myKey && lastAtk.shots) {
             setBlinkCells(lastAtk.shots.map(s => [s.r, s.c])); if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current); blinkTimerRef.current = setTimeout(() => setBlinkCells([]), 3000); setActiveBoard("defense");
+            // Nereyi vurduğunu görsün diye 2sn savunmada kal, sonra (sıra bendeyse) saldırıya geç
+            if (activeBoardTimerRef.current) clearTimeout(activeBoardTimerRef.current);
+            if (!game.winner && game.turn === pNum) { activeBoardTimerRef.current = setTimeout(() => setActiveBoard("attack"), 2000); }
             // Sound for incoming hits
             const incomingHits = lastAtk.shots.filter(s => s.result === "hit").length;
             sfx.init(); if (incomingHits > 0) sfx.play('hit');
@@ -1748,6 +1756,9 @@ export default function Game() {
           }
           if (lastAtk.by === pNum && lastAtk.shots) {
             setBlinkCells(lastAtk.shots.map(s => [s.r, s.c])); if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current); blinkTimerRef.current = setTimeout(() => setBlinkCells([]), 3000);
+            // Nereyi vurduğunu görsün diye 2sn saldırıda kal, sonra savunmaya geç
+            if (activeBoardTimerRef.current) clearTimeout(activeBoardTimerRef.current);
+            if (!game.winner) { activeBoardTimerRef.current = setTimeout(() => setActiveBoard("defense"), 2000); }
             // Sound for own shots landing
             const myHitCount = lastAtk.shots.filter(s => s.result === "hit").length;
             sfx.init(); if (myHitCount > 0) { sfx.play('hit'); sfx.setBattleIntensity(0.55 + myHitCount * 0.1); if (!firstHitVoiceRef.current) { firstHitVoiceRef.current = true; sfx.playVoice('first_kill'); } if (myHitCount === 3) sfx.playVoice('triple_kill'); else if (myHitCount === 2) sfx.playVoice('double_kill'); setMicroFeedback({ text: fbPick(myHitCount === 3 ? FB_HIT3 : myHitCount === 2 ? FB_HIT2 : FB_HIT1), color: myHitCount === 3 ? t.gold : t.accent }); } else { sfx.play('miss'); sfx.setBattleIntensity(0.18); setMicroFeedback({ text: fbPick(FB_MISS), color: '#4dd8ff' }); }
@@ -2127,7 +2138,7 @@ export default function Game() {
     if (isBotGame) { botHandlePlayerShots(); return; }
     sfx.playVoice('explosion');
     const pNum = playerNumRef.current, myKey = pNum === 1 ? "p1" : "p2"; const snapshot = await get(ref(db, `rooms/${roomIdRef.current}`)); const game = snapshot.val(); if (!game || game.turn !== pNum) return; const targetKey = pNum === 1 ? "p2" : "p1"; const shotResults = currentShots.map(([r, c]) => ({ r, c, result: game[`${targetKey}_board`][r][c] > 0 ? "hit" : "miss" })); const existingAttacks = game.attacks ? Object.values(game.attacks) : []; const prevHits = existingAttacks.filter(a => a.target === targetKey).reduce((sum, a) => sum + (a.shots ? a.shots.filter(s => s.result === "hit").length : 0), 0); const totalHits = prevHits + shotResults.filter(s => s.result === "hit").length; const updates = {}; updates[`attacks/${existingAttacks.length}`] = { by: pNum, target: targetKey, shots: shotResults, time: Date.now() }; updates[`clocks/${myKey}`] = myClockRef.current; if (totalHits >= 20) { updates.winner = pNum; updates.winReason = "hits"; } else { updates.turn = pNum === 1 ? 2 : 1; } await update(ref(db, `rooms/${roomIdRef.current}`), updates); setCurrentShots([]);
-    if (totalHits < 20) setActiveBoard("defense");
+    // Tahta geçişi listenToRoom içinde 2sn gecikmeli olarak yapılıyor (atış sonucunu görsün diye)
   };
   const getAttackDisplayOverlay = () => { const ovr = attackOverlay.map(row => [...row]); currentShots.forEach(([r, c]) => { if (!ovr[r][c]) ovr[r][c] = "selected"; }); return ovr; };
   const forceEndGame = async () => { if (!roomIdRef.current) return; await update(ref(db, `rooms/${roomIdRef.current}`), { winner: playerNumRef.current, winReason: "test_force" }); };
