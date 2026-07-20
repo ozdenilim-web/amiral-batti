@@ -315,6 +315,10 @@ const TRANSLATIONS = {
     editBtn: "↩ DÜZENLE", confirmStartBattleBtn: "✓ SAVAŞA BAŞLA",
     settingsTooltip: "Ayarlar", musicTooltip: "Müzik", endGameTestBtn: "🧪 OYUNU BİTİR (TEST)",
     wantsToPlayMsg: "seninle oynamak istiyor", acceptFullBtn: "KABUL ET",
+    arenaInfoEntry: (n) => `${n} altın öde, bu odaya gir.`, arenaInfoWin: (n) => `Kazanırsan ${n} altın kazanırsın.`,
+    arenaInfoXpBonus: "Ayrıca normal oyunlardan %10 daha fazla deneyim puanı (XP) kazanırsın.",
+    arenaGeneralNote: "Arenalar ücretlidir ama daha çok altın ve deneyim kazandırır. Salon, Bot ve Oda Kodu ile oynanan oyunlar ise ücretsizdir, sadece kazandırdığı altın ve deneyim daha azdır.",
+    infoIconTooltip: "Bilgi",
   },
   en: {
     welcome: "WELCOME!", chooseName: "Choose your sailor name", namePlaceholder: "Your username", nameHint: "2-16 characters • can't change for 14 days", confirm: "CONFIRM",
@@ -372,6 +376,10 @@ const TRANSLATIONS = {
     editBtn: "↩ EDIT", confirmStartBattleBtn: "✓ START BATTLE",
     settingsTooltip: "Settings", musicTooltip: "Music", endGameTestBtn: "🧪 END GAME (TEST)",
     wantsToPlayMsg: "wants to play with you", acceptFullBtn: "ACCEPT",
+    arenaInfoEntry: (n) => `Pay ${n} gold to enter this room.`, arenaInfoWin: (n) => `If you win, you get ${n} gold.`,
+    arenaInfoXpBonus: "You also earn 10% more XP (experience) than normal games.",
+    arenaGeneralNote: "Arenas cost gold to enter but pay out more gold and XP. Lobby, Bot, and Room Code games are free, but pay out less gold and XP.",
+    infoIconTooltip: "Info",
   },
 };
 function L(lang, key) { return (TRANSLATIONS[lang] && TRANSLATIONS[lang][key]) || TRANSLATIONS.tr[key] || key; }
@@ -882,17 +890,33 @@ function DailyRewardPopup({ reward, streak, onClose, lang = "tr" }) {
 }
 
 function ArenaSelect({ myGold, onSelect, onBack, lang = "tr" }) {
+  const [openInfo, setOpenInfo] = useState(null);
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:`linear-gradient(180deg, ${t.bg} 0%, #071428 100%)`,padding:"24px 14px",fontFamily:mono,color:t.text }}>
     <div style={{ fontSize:26,fontWeight:800,letterSpacing:6,color:t.accent,marginBottom:6,fontFamily:warrior,textShadow:`0 0 25px ${t.accentGlow}` }}>{L(lang,"arenaSelectTitle")}</div>
-    <div style={{ fontSize:14,fontWeight:800,color:t.gold,fontFamily:warrior,marginBottom:20,padding:"6px 20px",background:"rgba(255,215,0,0.08)",borderRadius:10,border:"1px solid rgba(255,215,0,0.2)",letterSpacing:2 }}><img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px #ffd700) drop-shadow(0 0 18px rgba(255,215,0,0.85))" }} /> {myGold} {L(lang,"goldLabel")}</div>
+    <div style={{ fontSize:14,fontWeight:800,color:t.gold,fontFamily:warrior,marginBottom:14,padding:"6px 20px",background:"rgba(255,215,0,0.08)",borderRadius:10,border:"1px solid rgba(255,215,0,0.2)",letterSpacing:2 }}><img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px #ffd700) drop-shadow(0 0 18px rgba(255,215,0,0.85))" }} /> {myGold} {L(lang,"goldLabel")}</div>
+    <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,textAlign:"center",marginBottom:16,maxWidth:400,lineHeight:1.6,padding:"0 8px" }}>{L(lang,"arenaGeneralNote")}</div>
     <div style={{ width:"100%",maxWidth:420,display:"flex",flexDirection:"column",gap:10 }}>
       {ARENAS.map(arena => {
         const locked = (myGold||0) < arena.minGold, cantAfford = (myGold||0) < arena.entryFee, disabled = locked||cantAfford;
-        return (<button key={arena.id} onClick={()=>!disabled&&onSelect(arena)} disabled={disabled} style={{ display:"flex",alignItems:"center",gap:16,padding:"18px 20px",background:disabled?"rgba(22,32,64,0.5)":`linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))`,border:`2px solid ${disabled?"rgba(30,58,95,0.3)":arena.color}`,borderRadius:14,cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.45:1,textAlign:"left",width:"100%",boxShadow:disabled?"none":`0 0 20px ${arena.color}22, 0 4px 20px rgba(0,0,0,0.3)`,transition:"all 0.2s ease" }}>
-          <div style={{ fontSize:32,width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",background:`${arena.color}15`,borderRadius:12,border:`1px solid ${arena.color}33` }}>{arena.icon}</div>
-          <div style={{ flex:1 }}><div style={{ fontSize:16,fontWeight:800,color:arena.color,fontFamily:warrior,letterSpacing:4 }}>{lang==="en"?arena.nameEn:arena.name}</div><div style={{ fontSize:10,fontWeight:700,color:t.textDim,marginTop:3,fontFamily:mono }}>{locked?L(lang,"goldRequired")(arena.minGold):L(lang,"minGoldLabel")(arena.minGold)}</div></div>
-          <div style={{ textAlign:"right" }}><div style={{ fontSize:16,fontWeight:800,color:cantAfford?t.hit:t.gold,fontFamily:warrior }}>{arena.entryFee} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px #ffd700) drop-shadow(0 0 18px rgba(255,215,0,0.85))" }} /></div><div style={{ fontSize:9,color:t.textDim,fontWeight:700,letterSpacing:1 }}>{L(lang,"entryLabel")}</div><div style={{ fontSize:12,fontWeight:800,color:"#4ade80",fontFamily:warrior,marginTop:3 }}>🏆 {arena.winGold} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px #ffd700) drop-shadow(0 0 18px rgba(255,215,0,0.85))" }} /></div></div>
-        </button>);
+        const infoOpen = openInfo === arena.id;
+        return (<div key={arena.id}>
+          <div onClick={()=>!disabled&&onSelect(arena)} style={{ display:"flex",alignItems:"center",gap:16,padding:"18px 20px",background:disabled?"rgba(22,32,64,0.5)":`linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))`,border:`2px solid ${disabled?"rgba(30,58,95,0.3)":arena.color}`,borderRadius:infoOpen?"14px 14px 0 0":14,cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.45:1,textAlign:"left",width:"100%",boxShadow:disabled?"none":`0 0 20px ${arena.color}22, 0 4px 20px rgba(0,0,0,0.3)`,transition:"all 0.2s ease" }}>
+            <div style={{ fontSize:32,width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",background:`${arena.color}15`,borderRadius:12,border:`1px solid ${arena.color}33`,flexShrink:0 }}>{arena.icon}</div>
+            <div style={{ flex:1,minWidth:0 }}>
+              <div style={{ display:"flex",alignItems:"center",gap:6 }}>
+                <div style={{ fontSize:16,fontWeight:800,color:arena.color,fontFamily:warrior,letterSpacing:4 }}>{lang==="en"?arena.nameEn:arena.name}</div>
+                <button onClick={(e)=>{e.stopPropagation();setOpenInfo(infoOpen?null:arena.id);}} title={L(lang,"infoIconTooltip")} style={{ width:18,height:18,borderRadius:"50%",background:"rgba(255,255,255,0.08)",border:`1px solid ${arena.color}66`,color:arena.color,fontSize:11,fontWeight:900,fontFamily:mono,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,flexShrink:0 }}>i</button>
+              </div>
+              <div style={{ fontSize:10,fontWeight:700,color:t.textDim,marginTop:3,fontFamily:mono }}>{locked?L(lang,"goldRequired")(arena.minGold):L(lang,"minGoldLabel")(arena.minGold)}</div>
+            </div>
+            <div style={{ textAlign:"right",flexShrink:0 }}><div style={{ fontSize:16,fontWeight:800,color:cantAfford?t.hit:t.gold,fontFamily:warrior }}>{arena.entryFee} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px #ffd700) drop-shadow(0 0 18px rgba(255,215,0,0.85))" }} /></div><div style={{ fontSize:9,color:t.textDim,fontWeight:700,letterSpacing:1 }}>{L(lang,"entryLabel")}</div><div style={{ fontSize:12,fontWeight:800,color:"#4ade80",fontFamily:warrior,marginTop:3 }}>🏆 {arena.winGold} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px #ffd700) drop-shadow(0 0 18px rgba(255,215,0,0.85))" }} /></div></div>
+          </div>
+          {infoOpen && <div style={{ background:"rgba(6,10,22,0.96)",border:`2px solid ${arena.color}`,borderTop:"none",borderRadius:"0 0 14px 14px",padding:"12px 18px",fontSize:12,color:t.text,fontFamily:mono,lineHeight:1.8,animation:"fadeUp 0.2s ease-out" }}>
+            <div>💰 {L(lang,"arenaInfoEntry")(arena.entryFee)}</div>
+            <div>🏆 {L(lang,"arenaInfoWin")(arena.winGold)}</div>
+            <div>⭐ {L(lang,"arenaInfoXpBonus")}</div>
+          </div>}
+        </div>);
       })}
     </div>
     <button onClick={onBack} style={{ marginTop:24,padding:"14px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:14,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 4px 20px ${t.accentGlow}` }}>{L(lang,"backBtn")}</button>
@@ -1111,7 +1135,7 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
   const wOldGold = safeGold(wd.gold), lOldGold = safeGold(ld.gold);
   const wNewGold = wOldGold + winGold, lNewGold = lOldGold + loseGold;
   // Full clean profiles with set() — no NaN can survive
-  const wLevel = applyLevelCredit(wd, XP_ONLINE_WIN);
+  const wLevel = applyLevelCredit(wd, arena ? XP_ONLINE_WIN * 1.1 : XP_ONLINE_WIN);
   const lLevel = applyLevelCredit(ld, XP_ONLINE_LOSS);
   const winnerProfile = {
     displayName: wd.displayName || "Denizci",
