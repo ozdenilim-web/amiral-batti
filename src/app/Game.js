@@ -246,6 +246,8 @@ const t = {
   water: "rgba(0,229,255,0.06)", shipCell: "rgba(0,229,255,0.22)",
   gold: "#ffd700", goldGlow: "rgba(255,215,0,0.45)",
 };
+const warrior = "'Barlow Condensed', sans-serif";
+const mono = "'Space Mono', monospace";
 
 function calculateElo(myElo, oppElo, didWin, k = 32) {
   const expected = 1 / (1 + Math.pow(10, (oppElo - myElo) / 400));
@@ -1088,8 +1090,6 @@ const ANIMS = `
 @keyframes sheetSlideUp{0%{opacity:0;transform:translateY(40px)}100%{opacity:1;transform:translateY(0)}}
 @keyframes settingsFadeIn{0%{opacity:0}100%{opacity:1}}
 `;
-const warrior = "'Barlow Condensed', sans-serif";
-const mono = "'Space Mono', monospace";
 
 // === ÇAPRAZ ÇAPA LOGO/İKON ===
 const ANCHOR_PATH = "M12 2a3 3 0 0 0-3 3c0 1.31.84 2.42 2 2.83V9H8a1 1 0 0 0 0 2h1v7.94A6 6 0 0 1 4 13a1 1 0 1 0-2 0 8 8 0 0 0 16 0 1 1 0 1 0-2 0 6 6 0 0 1-5 5.94V11h1a1 1 0 1 0 0-2h-1V7.83A3 3 0 0 0 15 5a3 3 0 0 0-3-3zm0 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2z";
