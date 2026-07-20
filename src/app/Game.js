@@ -1437,12 +1437,12 @@ function MissionPanel({ missions, missionProgress, onClose, lang = "tr" }) {
       <div style={{ display:"flex",alignItems:"center",gap:8 }}>
         <div style={{ width:32,height:32,borderRadius:10,background:"rgba(0,229,255,0.1)",border:"1px solid rgba(0,229,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center" }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z" fill="rgba(0,229,255,0.3)" stroke="#00e5ff" strokeWidth="1.5" strokeLinejoin="round"/></svg></div>
         <div>
-          <div style={{ fontSize:16,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,textShadow:`0 0 15px ${t.accentGlow}` }}>{L(lang,"missionsTitle")}</div>
-          <div style={{ fontSize:9,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:2,marginTop:1 }}>{L(lang,"missionsSub")}</div>
+          <div style={{ fontSize:19,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 15px ${t.accentGlow}` }}>{L(lang,"missionsTitle")}</div>
+          <div style={{ fontSize:12,fontWeight:800,color:t.textDim,fontFamily:mono,letterSpacing:1,marginTop:1 }}>{L(lang,"missionsSub")}</div>
         </div>
       </div>
       <div style={{ textAlign:"center",background:allDone?"rgba(255,215,0,0.15)":"rgba(0,229,255,0.08)",padding:"6px 14px",borderRadius:10,border:`1px solid ${allDone?"rgba(255,215,0,0.3)":"rgba(0,229,255,0.2)"}` }}>
-        <div style={{ fontSize:16,fontWeight:800,color:allDone?t.gold:t.accent,fontFamily:mono }}>{completed.length}/3</div>
+        <div style={{ fontSize:19,fontWeight:900,color:allDone?t.gold:t.accent,fontFamily:mono }}>{completed.length}/3</div>
       </div>
     </div>
     <div style={{ width:"100%",height:4,background:"rgba(255,255,255,0.06)",borderRadius:2,marginBottom:14,overflow:"hidden" }}>
@@ -1452,8 +1452,8 @@ function MissionPanel({ missions, missionProgress, onClose, lang = "tr" }) {
       const done = missionProgress[m.id];
       return (<div key={m.id} style={{ display:"flex",alignItems:"center",gap:14,padding:"12px 14px",background:done?"linear-gradient(135deg, rgba(74,222,128,0.1), rgba(74,222,128,0.03))":"linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))",borderRadius:12,marginBottom:8,border:`2px solid ${done?"rgba(74,222,128,0.3)":"rgba(30,58,95,0.4)"}`,transition:"all 0.3s ease",boxShadow:done?"0 0 15px rgba(74,222,128,0.08)":"none" }}>
         <div style={{ flex:1,minWidth:0 }}>
-          <div style={{ fontSize:14,fontWeight:800,color:done?"#4ade80":t.text,fontFamily:warrior,letterSpacing:2 }}>{lang==="en"?(m.textEn||m.text).toUpperCase():m.text.toLocaleUpperCase('tr-TR')}</div>
-          <div style={{ fontSize:9,fontWeight:600,color:done?"rgba(74,222,128,0.7)":t.textDim,fontFamily:mono,letterSpacing:1,marginTop:2 }}>{done?L(lang,"missionDone"):L(lang,"missionInProgress")}</div>
+          <div style={{ fontSize:16,fontWeight:900,color:done?"#4ade80":t.text,fontFamily:warrior,letterSpacing:1 }}>{lang==="en"?(m.textEn||m.text).toUpperCase():m.text.toLocaleUpperCase('tr-TR')}</div>
+          <div style={{ fontSize:12,fontWeight:700,color:done?"rgba(74,222,128,0.8)":t.textDim,fontFamily:mono,letterSpacing:1,marginTop:2 }}>{done?L(lang,"missionDone"):L(lang,"missionInProgress")}</div>
         </div>
         {done ? <div style={{ width:30,height:30,borderRadius:10,background:"rgba(74,222,128,0.15)",display:"flex",alignItems:"center",justifyContent:"center",border:"2px solid rgba(74,222,128,0.3)" }}><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-7" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg></div> : <div style={{ width:30,height:30,borderRadius:10,background:"rgba(255,255,255,0.03)",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(255,255,255,0.06)" }}><div style={{ width:8,height:8,borderRadius:4,border:"2px solid rgba(255,255,255,0.15)" }} /></div>}
       </div>);
@@ -1466,8 +1466,9 @@ function ChestPopup({ reward, onClose, lang = "tr" }) {
   const [opened, setOpened] = useState(false);
   const [shake, setShake] = useState(true);
   useEffect(() => { const t1 = setTimeout(() => setShake(false), 1500); return () => clearTimeout(t1); }, []);
-  return (<div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999 }} onClick={opened ? onClose : undefined}>
-    <div onClick={e=>e.stopPropagation()} style={{ background:`linear-gradient(135deg,${t.surface},rgba(17,24,39,0.98))`,border:`2px solid ${reward?reward.color:t.gold}`,borderRadius:16,padding:"30px 36px",textAlign:"center",maxWidth:320,width:"90%",boxShadow:`0 0 60px ${t.goldGlow}`,animation:"scaleUp 0.5s ease-out" }}>
+  return (<div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999 }} onClick={onClose}>
+    <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:`linear-gradient(135deg,${t.surface},rgba(17,24,39,0.98))`,border:`2px solid ${reward?reward.color:t.gold}`,borderRadius:16,padding:"30px 36px",textAlign:"center",maxWidth:320,width:"90%",boxShadow:`0 0 60px ${t.goldGlow}`,animation:"scaleUp 0.5s ease-out" }}>
+      <button onClick={onClose} title={L(lang,"backBtn")} style={{ position:"absolute",top:-14,right:-14,width:34,height:34,borderRadius:"50%",background:"#0c1529",border:`2px solid ${t.gold}`,color:t.gold,fontSize:16,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,boxShadow:`0 0 12px ${t.goldGlow}`,zIndex:2 }}>✕</button>
       {!opened ? (<>
         <img src="/img/chest.png" alt="" draggable={false} style={{ width:80,height:80,objectFit:"contain",marginBottom:12,animation:shake?"defeatShake 0.5s ease-in-out infinite":"popIn 0.3s ease-out",cursor:"pointer",userSelect:"none" }} onClick={()=>{setOpened(true);sfx.init();sfx.play('chest');}} />
         <div style={{ fontSize:18,fontWeight:700,color:t.gold,fontFamily:warrior,letterSpacing:3,marginBottom:8 }}>{L(lang,"mysteryChest")}</div>
@@ -1485,12 +1486,12 @@ function ChestPopup({ reward, onClose, lang = "tr" }) {
 
 // === GÜNLÜK SANDIK — cihaz başına 1 tane, sabit 500 altın ===
 function DailyChestFab({ onOpen, lang = "tr" }) {
-  return (<button onClick={onOpen} style={{ position:"fixed",top:14,right:14,zIndex:150,width:60,height:60,borderRadius:16,background:"linear-gradient(160deg,#fff9c4 0%,#ffe066 30%,#ffd700 60%,#ffb300 100%)",border:"2px solid #fff7d6",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 18px #ffe066, 0 0 40px rgba(255,214,0,0.85), 0 0 70px rgba(255,214,0,0.5), 0 4px 14px rgba(0,0,0,0.5)",animation:"chestWiggle 2s ease-in-out infinite, rewardPulse 1.4s ease-in-out infinite" }} title={L(lang,"dailyChestTooltip")}>
+  return (<button onClick={onOpen} style={{ position:"fixed",top:"calc(64px + env(safe-area-inset-top, 0px))",right:14,zIndex:150,width:72,height:72,borderRadius:18,background:"linear-gradient(160deg,#fff9c4 0%,#ffe066 30%,#ffd700 60%,#ffb300 100%)",border:"2px solid #fff7d6",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 18px #ffe066, 0 0 40px rgba(255,214,0,0.85), 0 0 70px rgba(255,214,0,0.5), 0 4px 14px rgba(0,0,0,0.5)",animation:"chestWiggle 2s ease-in-out infinite, rewardPulse 1.4s ease-in-out infinite" }} title={L(lang,"dailyChestTooltip")}>
     <img src="/img/chest.png" alt="" draggable={false} style={{ width:"72%",height:"72%",objectFit:"contain",userSelect:"none",pointerEvents:"none" }} />
-    <span style={{ position:"absolute",top:-6,right:-6,width:18,height:18,borderRadius:"50%",background:"#ff4757",color:"#fff",fontSize:11,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 8px rgba(255,71,87,0.8)",fontFamily:warrior }}>1</span>
+    <span style={{ position:"absolute",top:-6,right:-6,width:20,height:20,borderRadius:"50%",background:"#ff4757",color:"#fff",fontSize:12,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 8px rgba(255,71,87,0.8)",fontFamily:warrior }}>1</span>
   </button>);
 }
-function DailyChestPopup({ onClaim, lang = "tr" }) {
+function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
   const [opened, setOpened] = useState(false);
   const [shake, setShake] = useState(true);
   const [showCoins, setShowCoins] = useState(false);
@@ -1502,18 +1503,19 @@ function DailyChestPopup({ onClaim, lang = "tr" }) {
     setTimeout(() => sfx.play('gold'), 250);
   };
   const coins = Array.from({ length: 12 }, (_, i) => ({ id: i, delay: i * 90, dx: (Math.random() - 0.5) * 120 }));
-  return (<div style={{ position:"fixed",inset:0,background:"radial-gradient(ellipse at 50% 40%, rgba(255,214,0,0.12) 0%, rgba(0,0,0,0.88) 75%)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(6px)" }} onClick={opened ? undefined : openChest}>
+  return (<div style={{ position:"fixed",inset:0,background:"radial-gradient(ellipse at 50% 40%, rgba(255,214,0,0.12) 0%, rgba(0,0,0,0.88) 75%)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(6px)" }} onClick={opened ? (() => onClaim(DAILY_CHEST_GOLD)) : onClose}>
     <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, rgba(20,26,52,0.99) 0%, rgba(10,16,32,0.99) 60%, rgba(30,20,8,0.99) 100%)",border:"2px solid #ffd700",outline:"1px solid rgba(255,240,150,0.4)",outlineOffset:5,borderRadius:22,padding:"38px 42px",textAlign:"center",maxWidth:340,width:"90%",boxShadow:"0 0 30px #ffe066, 0 0 100px rgba(255,214,0,0.5), 0 24px 70px rgba(0,0,0,0.6)",overflow:"visible" }}>
+      <button onClick={opened ? (() => onClaim(DAILY_CHEST_GOLD)) : onClose} title={L(lang,"backBtn")} style={{ position:"absolute",top:-14,right:-14,width:34,height:34,borderRadius:"50%",background:"#0c1529",border:"2px solid #ffd700",color:"#ffd700",fontSize:16,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,boxShadow:"0 0 12px rgba(255,214,0,0.5)",zIndex:2 }}>✕</button>
       {!opened ? (<>
-        <img src="/img/chest.png" alt="" draggable={false} onClick={openChest} style={{ width:110,height:110,objectFit:"contain",marginBottom:12,cursor:"pointer",animation:shake?"chestWiggle 0.5s ease-in-out infinite":"chestWiggle 2s ease-in-out infinite",filter:"drop-shadow(0 0 30px #ffe066) drop-shadow(0 0 60px rgba(255,214,0,0.7))",userSelect:"none" }} />
-        <div style={{ fontSize:12,fontWeight:700,color:"#ffe066",fontFamily:mono,letterSpacing:5,marginBottom:10 }}>{L(lang,"dailyChestTooltip").toUpperCase()}</div>
-        <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16 }}>{L(lang,"oneChestPerDevice")}</div>
-        <button onClick={openChest} style={{ padding:"16px 48px",background:"linear-gradient(135deg,#fff9c4,#ffd700 45%,#ff9f43)",color:"#1a1206",border:"none",borderRadius:12,fontSize:16,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 30px #ffe066, 0 0 60px rgba(255,214,0,0.5)",animation:"borderGlow 1.5s infinite",textTransform:"uppercase" }}>{L(lang,"openChestBtn")}</button>
+        <img src="/img/chest.png" alt="" draggable={false} onClick={openChest} style={{ width:140,height:140,objectFit:"contain",marginBottom:12,cursor:"pointer",animation:shake?"chestWiggle 0.5s ease-in-out infinite":"chestWiggle 2s ease-in-out infinite",filter:"drop-shadow(0 0 30px #ffe066) drop-shadow(0 0 60px rgba(255,214,0,0.7))",userSelect:"none" }} />
+        <div style={{ fontSize:14,fontWeight:800,color:"#ffe066",fontFamily:mono,letterSpacing:4,marginBottom:10 }}>{L(lang,"dailyChestTooltip").toUpperCase()}</div>
+        <div style={{ fontSize:14,fontWeight:600,color:t.textDim,fontFamily:mono,marginBottom:18 }}>{L(lang,"oneChestPerDevice")}</div>
+        <button onClick={openChest} style={{ padding:"22px 40px",background:"linear-gradient(135deg,#fff9c4,#ffd700 45%,#ff9f43)",color:"#1a1206",border:"none",borderRadius:14,fontSize:28,fontWeight:900,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 30px #ffe066, 0 0 60px rgba(255,214,0,0.5)",animation:"borderGlow 1.5s infinite",textTransform:"uppercase",width:"100%" }}>{L(lang,"openChestBtn")}</button>
       </>) : (<>
         <div style={{ fontSize:60,marginBottom:8,animation:"popIn 0.5s ease-out",filter:"drop-shadow(0 0 30px #ffe066)" }}>🎉</div>
-        <div style={{ fontSize:11,fontWeight:700,color:"rgba(255,214,0,0.7)",fontFamily:mono,letterSpacing:5,marginBottom:8 }}>{L(lang,"dailyRewardLabel")}</div>
+        <div style={{ fontSize:13,fontWeight:800,color:"rgba(255,214,0,0.85)",fontFamily:mono,letterSpacing:4,marginBottom:8 }}>{L(lang,"dailyRewardLabel")}</div>
         <div style={{ fontSize:52,fontWeight:900,fontFamily:warrior,marginBottom:14,letterSpacing:2,background:"linear-gradient(180deg, #fff7d6 0%, #ffd700 45%, #d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 25px rgba(255,214,0,0.8))",animation:"rewardPulse 1.4s ease-in-out infinite" }}>+{DAILY_CHEST_GOLD} <img src="/img/coin.png" alt="" style={{ width:22,height:22,verticalAlign:"middle",filter:"drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px #ffd700) drop-shadow(0 0 18px rgba(255,215,0,0.85))" }} /></div>
-        <button onClick={() => onClaim(DAILY_CHEST_GOLD)} style={{ padding:"16px 52px",background:"linear-gradient(135deg, #ffd700 0%, #ff9f43 55%, #d97706 100%)",color:"#1a1206",border:"none",borderRadius:12,fontSize:17,fontWeight:900,letterSpacing:5,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 40px rgba(255,214,0,0.6), 0 6px 24px rgba(0,0,0,0.5)",animation:"btnBreath 1.8s ease-in-out infinite",textTransform:"uppercase" }}>{L(lang,"collectBtn")}</button>
+        <button onClick={() => onClaim(DAILY_CHEST_GOLD)} style={{ padding:"20px 52px",background:"linear-gradient(135deg, #ffd700 0%, #ff9f43 55%, #d97706 100%)",color:"#1a1206",border:"none",borderRadius:14,fontSize:22,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 40px rgba(255,214,0,0.6), 0 6px 24px rgba(0,0,0,0.5)",animation:"btnBreath 1.8s ease-in-out infinite",textTransform:"uppercase",width:"100%" }}>{L(lang,"collectBtn")}</button>
         {showCoins && <div style={{ position:"absolute",left:"50%",bottom:"38%",pointerEvents:"none" }}>
           {coins.map(c => (<div key={c.id} style={{ position:"absolute",left:c.dx,bottom:0,fontSize:26,opacity:0,animation:`coinFly 1s cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards` }}>🪙</div>))}
         </div>}
@@ -3593,7 +3595,7 @@ export default function Game() {
       {/* Sparkle particles in background */}
       {[...Array(6)].map((_,i)=><div key={`sp${i}`} style={{ position:"absolute",width:3,height:3,borderRadius:"50%",background:i%2===0?t.accent:t.gold,top:`${10+Math.random()*30}%`,left:`${10+Math.random()*80}%`,animation:`pulse ${2+i*0.5}s ease-in-out infinite`,opacity:0.4,pointerEvents:"none" }} />)}
       {/* Logo */}
-      <div style={{ fontSize:42,fontWeight:900,letterSpacing:12,color:t.accent,textShadow:`0 0 60px ${t.accentGlow}, 0 0 120px rgba(0,229,255,0.15), 0 3px 12px rgba(0,0,0,0.6)`,marginBottom:2,fontFamily:warrior,animation:"logoFloat 4s ease-in-out infinite",zIndex:1,WebkitTextStroke:"0.5px rgba(255,255,255,0.08)" }}>AMİRAL BATTI</div>
+      <div style={{ fontSize:42,fontWeight:900,letterSpacing:12,color:t.accent,textShadow:`0 0 60px ${t.accentGlow}, 0 0 120px rgba(0,229,255,0.15), 0 3px 12px rgba(0,0,0,0.6)`,marginBottom:2,fontFamily:warrior,animation:"logoFloat 4s ease-in-out infinite",zIndex:1,WebkitTextStroke:"0.5px rgba(255,255,255,0.08)",width:"100%",textAlign:"center" }}>AMİRAL BATTI</div>
       <div style={{ display:"flex",alignItems:"center",gap:12,marginBottom:10,zIndex:1 }}>
         <div style={{ width:52,height:1,background:"linear-gradient(90deg, transparent, rgba(255,215,0,0.55))" }} />
         <div style={{ fontSize:11,color:t.gold,letterSpacing:6,fontFamily:warrior,fontStyle:"italic",fontWeight:700,textShadow:`0 0 14px ${t.goldGlow}`,whiteSpace:"nowrap" }}>{L(appLang,"tagline")}</div>
@@ -3601,8 +3603,8 @@ export default function Game() {
       </div>
       {myProfile && (<div style={{ width:"100%",maxWidth:360,marginTop:8,marginBottom:14,zIndex:1,animation:"fadeUp 0.25s ease-out" }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:5,padding:"0 2px" }}>
-          <span style={{ fontSize:12,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 10px ${t.goldGlow}` }}>{L(appLang,"level")} {myLevel}</span>
-          <span style={{ fontSize:10,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:1 }}>{Math.floor(myLevelPct*100)}%</span>
+          <span style={{ fontSize:17,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 10px ${t.goldGlow}` }}>{L(appLang,"level")} {myLevel}</span>
+          <span style={{ fontSize:14,fontWeight:800,color:t.textDim,fontFamily:mono,letterSpacing:1 }}>{Math.floor(myLevelPct*100)}%</span>
         </div>
         <div style={{ width:"100%",height:16,borderRadius:9,background:"rgba(0,0,0,0.45)",border:"1px solid rgba(255,215,0,0.3)",overflow:"hidden",position:"relative",boxShadow:"inset 0 2px 6px rgba(0,0,0,0.6)" }}>
           <div style={{ width:`${myLevelPct*100}%`,height:"100%",background:"linear-gradient(180deg, #fff9c4 0%, #ffe066 30%, #ffd700 60%, #d97706 100%)",boxShadow:`0 0 14px ${t.goldGlow}, inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -2px 4px rgba(120,70,0,0.4)`,transition:"width 0.7s cubic-bezier(0.34,1.56,0.64,1)",borderRadius:9,position:"relative",overflow:"hidden" }}>
@@ -3641,9 +3643,9 @@ export default function Game() {
           </div>
         </div>
         <div style={{ display:"flex",gap:0,background:t.bg,borderRadius:10,overflow:"hidden" }}>
-          <div style={{ flex:1,textAlign:"center",padding:"12px 0",borderRight:`1px solid ${t.border}` }}><div style={{ fontSize:26,fontWeight:900,color:"#34d399",fontFamily:warrior,textShadow:"0 0 15px rgba(52,211,153,0.4)" }}>{myProfile.wins||0}</div><div style={{ fontSize:11,color:"#34d399",letterSpacing:3,fontFamily:warrior,fontWeight:900,marginTop:3,opacity:0.85,textShadow:"0 1px 3px rgba(0,0,0,0.6)" }}>{L(appLang,"wins")}</div></div>
-          <div style={{ flex:1,textAlign:"center",padding:"12px 0",borderRight:`1px solid ${t.border}` }}><div style={{ fontSize:26,fontWeight:900,color:t.hit,fontFamily:warrior,textShadow:"0 0 15px rgba(255,71,87,0.4)" }}>{myProfile.losses||0}</div><div style={{ fontSize:11,color:t.hit,letterSpacing:3,fontFamily:warrior,fontWeight:900,marginTop:3,opacity:0.85,textShadow:"0 1px 3px rgba(0,0,0,0.6)" }}>{L(appLang,"losses")}</div></div>
-          <div style={{ flex:1,textAlign:"center",padding:"12px 0" }}><div style={{ fontSize:26,fontWeight:900,color:t.accent,fontFamily:warrior,textShadow:`0 0 15px ${t.accentGlow}` }}>%{winRate}</div><div style={{ fontSize:11,color:t.accent,letterSpacing:3,fontFamily:warrior,fontWeight:900,marginTop:3,opacity:0.85,textShadow:"0 1px 3px rgba(0,0,0,0.6)" }}>{L(appLang,"winRate")}</div></div>
+          <div style={{ flex:1,textAlign:"center",padding:"12px 0",borderRight:`1px solid ${t.border}` }}><div style={{ fontSize:30,fontWeight:900,color:"#34d399",fontFamily:warrior,textShadow:"0 0 15px rgba(52,211,153,0.4)" }}>{myProfile.wins||0}</div><div style={{ fontSize:15,color:"#34d399",letterSpacing:2,fontFamily:warrior,fontWeight:900,marginTop:3,opacity:0.95,textShadow:"0 1px 3px rgba(0,0,0,0.6)" }}>{L(appLang,"wins")}</div></div>
+          <div style={{ flex:1,textAlign:"center",padding:"12px 0",borderRight:`1px solid ${t.border}` }}><div style={{ fontSize:30,fontWeight:900,color:t.hit,fontFamily:warrior,textShadow:"0 0 15px rgba(255,71,87,0.4)" }}>{myProfile.losses||0}</div><div style={{ fontSize:15,color:t.hit,letterSpacing:2,fontFamily:warrior,fontWeight:900,marginTop:3,opacity:0.95,textShadow:"0 1px 3px rgba(0,0,0,0.6)" }}>{L(appLang,"losses")}</div></div>
+          <div style={{ flex:1,textAlign:"center",padding:"12px 0" }}><div style={{ fontSize:30,fontWeight:900,color:t.accent,fontFamily:warrior,textShadow:`0 0 15px ${t.accentGlow}` }}>%{winRate}</div><div style={{ fontSize:15,color:t.accent,letterSpacing:2,fontFamily:warrior,fontWeight:900,marginTop:3,opacity:0.95,textShadow:"0 1px 3px rgba(0,0,0,0.6)" }}>{L(appLang,"winRate")}</div></div>
         </div>
       </div>)}
       {/* Main action buttons */}
@@ -3660,25 +3662,25 @@ export default function Game() {
       </div>
       <QuickMatchModal myProfile={myProfile} lang={appLang} phase={quickMatchPhase} candidate={quickMatchCandidate} opponent={quickMatchOpponent} secondsLeft={quickMatchSecondsLeft} onCancel={cancelQuickMatch} onRetry={retryQuickMatch} />
       <div style={{ display:"flex",gap:8,marginTop:10,width:"100%",maxWidth:360,animation:"fadeUp 0.6s ease-out",zIndex:1 }}>
-        <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowOnlineLobby(true);}} disabled={authLoading} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(0,212,255,0.1),rgba(0,212,255,0.03))`,color:t.accent,border:`1px solid rgba(0,212,255,0.3)`,borderRadius:10,fontSize:14,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}>🌐 {L(appLang,"salon")}</RippleButton>
-        <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowArenaSelect(true);}} disabled={authLoading} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(167,139,250,0.1),rgba(167,139,250,0.03))`,color:"#a78bfa",border:"1px solid rgba(167,139,250,0.3)",borderRadius:10,fontSize:14,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={14} color="#a78bfa"/> {L(appLang,"arena")}</RippleButton>
+        <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowOnlineLobby(true);}} disabled={authLoading} style={{ flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(0,212,255,0.16),rgba(0,212,255,0.05))`,color:t.accent,border:`2px solid rgba(0,212,255,0.45)`,borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}>🌐 {L(appLang,"salon")}</RippleButton>
+        <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowArenaSelect(true);}} disabled={authLoading} style={{ flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(167,139,250,0.16),rgba(167,139,250,0.05))`,color:"#a78bfa",border:"2px solid rgba(167,139,250,0.45)",borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={20} color="#a78bfa"/> {L(appLang,"arena")}</RippleButton>
       </div>
       <div style={{ display:"flex",gap:8,marginTop:8,width:"100%",maxWidth:360,animation:"fadeUp 0.7s ease-out",zIndex:1 }}>
-        <RippleButton onClick={startBotGame} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(52,211,153,0.1),rgba(52,211,153,0.03))`,color:"#34d399",border:"1px solid rgba(52,211,153,0.3)",borderRadius:10,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🤖 {L(appLang,"bot")}</RippleButton>
-        <RippleButton onClick={()=>setShowLeaderboard(true)} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(255,215,0,0.08),rgba(255,215,0,0.02))`,color:t.gold,border:`1px solid rgba(255,215,0,0.3)`,borderRadius:10,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🏆 {L(appLang,"leaderboard")}</RippleButton>
+        <RippleButton onClick={startBotGame} style={{ flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(52,211,153,0.16),rgba(52,211,153,0.05))`,color:"#34d399",border:"2px solid rgba(52,211,153,0.45)",borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🤖 {L(appLang,"bot")}</RippleButton>
+        <RippleButton onClick={()=>setShowLeaderboard(true)} style={{ flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(255,215,0,0.14),rgba(255,215,0,0.04))`,color:t.gold,border:`2px solid rgba(255,215,0,0.45)`,borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🏆 {L(appLang,"leaderboard")}</RippleButton>
       </div>
       {/* Room code - collapsible */}
       <div style={{ marginTop:10,width:"100%",maxWidth:360,zIndex:1 }}>
         <details style={{ background:t.surface,border:`1px solid ${t.border}`,borderRadius:10,overflow:"hidden" }}>
-          <summary style={{ padding:"12px 16px",cursor:"pointer",fontSize:13,color:t.textDim,fontFamily:warrior,letterSpacing:2,listStyle:"none",display:"flex",alignItems:"center",gap:8 }}>
-            <span style={{ fontSize:14 }}>🔗</span> {L(appLang,"roomCodeToggle")}
+          <summary style={{ padding:"12px 16px",cursor:"pointer",fontSize:16,color:t.text,fontFamily:warrior,fontWeight:800,letterSpacing:2,listStyle:"none",display:"flex",alignItems:"center",gap:8 }}>
+            <span style={{ fontSize:17 }}>🔗</span> {L(appLang,"roomCodeToggle")}
           </summary>
           <div style={{ padding:"12px 16px",borderTop:`1px solid ${t.border}`,display:"flex",gap:8,alignItems:"center" }}>
-            <input style={{ ...inputStyle,flex:1,maxWidth:"none",padding:"10px 12px",fontSize:13,borderRadius:8 }} placeholder={L(appLang,"roomCodePlaceholder")} value={inputRoomId} onChange={e=>setInputRoomId(e.target.value.toUpperCase())} />
-            <button onClick={joinRoom} disabled={authLoading} style={{ padding:"10px 16px",background:`linear-gradient(135deg, ${t.accent}, #0088cc)`,color:t.bg,border:"none",borderRadius:8,fontSize:12,fontWeight:700,letterSpacing:1,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,whiteSpace:"nowrap" }}>{L(appLang,"join")}</button>
+            <input style={{ ...inputStyle,flex:1,maxWidth:"none",padding:"12px 14px",fontSize:16,fontWeight:700,borderRadius:8 }} placeholder={L(appLang,"roomCodePlaceholder")} value={inputRoomId} onChange={e=>setInputRoomId(e.target.value.toUpperCase())} />
+            <button onClick={joinRoom} disabled={authLoading} style={{ padding:"12px 18px",background:`linear-gradient(135deg, ${t.accent}, #0088cc)`,color:t.bg,border:"none",borderRadius:8,fontSize:15,fontWeight:900,letterSpacing:1,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,whiteSpace:"nowrap" }}>{L(appLang,"join")}</button>
           </div>
           <div style={{ padding:"0 16px 12px",display:"flex",justifyContent:"center" }}>
-            <button onClick={createRoom} disabled={authLoading} style={{ padding:"8px 20px",background:"transparent",color:t.accent,border:`1px solid ${t.accent}`,borderRadius:8,fontSize:11,fontWeight:700,letterSpacing:1,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior }}>{L(appLang,"createRoom")}</button>
+            <button onClick={createRoom} disabled={authLoading} style={{ padding:"10px 22px",background:"transparent",color:t.accent,border:`2px solid ${t.accent}`,borderRadius:8,fontSize:14,fontWeight:800,letterSpacing:1,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior }}>{L(appLang,"createRoom")}</button>
           </div>
         </details>
       </div>
@@ -3700,9 +3702,9 @@ export default function Game() {
       }} />}
       {dailyReward && <DailyRewardPopup reward={dailyReward.reward} streak={dailyReward.streak} onClose={() => { setMyProfile(prev => prev ? { ...prev, gold: dailyReward.newGold, loginStreak: dailyReward.streak } : prev); setDailyReward(null); }} lang={appLang} />}
       {showDailyChest && !dailyChestModalOpen && <DailyChestFab onOpen={() => setDailyChestModalOpen(true)} lang={appLang} />}
-      {dailyChestModalOpen && <DailyChestPopup onClaim={claimDailyChest} lang={appLang} />}
+      {dailyChestModalOpen && <DailyChestPopup onClaim={claimDailyChest} onClose={() => setDailyChestModalOpen(false)} lang={appLang} />}
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
-      <button onClick={handleLogout} style={{ marginTop:16,padding:"8px 20px",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:8,fontSize:10,fontWeight:600,letterSpacing:1,cursor:"pointer",fontFamily:warrior,zIndex:1,opacity:0.6 }}>{L(appLang,"logoutBtn")}</button>
+      <button onClick={handleLogout} style={{ marginTop:16,padding:"10px 24px",background:"rgba(255,71,87,0.06)",color:t.hit,border:`2px solid ${t.hit}`,borderRadius:8,fontSize:14,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior,zIndex:1,opacity:0.9 }}>{L(appLang,"logoutBtn")}</button>
     </div>);
   }
 
