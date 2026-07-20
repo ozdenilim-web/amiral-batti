@@ -905,7 +905,7 @@ function ArenaSelect({ myGold, onSelect, onBack, lang = "tr" }) {
             <div style={{ flex:1,minWidth:0 }}>
               <div style={{ display:"flex",alignItems:"center",gap:6 }}>
                 <div style={{ fontSize:16,fontWeight:800,color:arena.color,fontFamily:warrior,letterSpacing:4 }}>{lang==="en"?arena.nameEn:arena.name}</div>
-                <button onClick={(e)=>{e.stopPropagation();setOpenInfo(infoOpen?null:arena.id);}} title={L(lang,"infoIconTooltip")} style={{ width:18,height:18,borderRadius:"50%",background:"rgba(255,255,255,0.08)",border:`1px solid ${arena.color}66`,color:arena.color,fontSize:11,fontWeight:900,fontFamily:mono,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,flexShrink:0 }}>i</button>
+                <button onClick={(e)=>{e.stopPropagation();setOpenInfo(infoOpen?null:arena.id);}} title={L(lang,"infoIconTooltip")} style={{ width:24,height:24,borderRadius:"50%",background:infoOpen?t.accent:"rgba(0,229,255,0.18)",border:`2px solid ${t.accent}`,color:infoOpen?t.bg:t.accent,fontSize:14,fontWeight:900,fontFamily:"Georgia, serif",fontStyle:"italic",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,flexShrink:0,boxShadow:`0 0 10px ${t.accentGlow}`,lineHeight:1 }}>i</button>
               </div>
               <div style={{ fontSize:10,fontWeight:700,color:t.textDim,marginTop:3,fontFamily:mono }}>{locked?L(lang,"goldRequired")(arena.minGold):L(lang,"minGoldLabel")(arena.minGold)}</div>
             </div>
