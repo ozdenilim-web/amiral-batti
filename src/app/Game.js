@@ -58,6 +58,18 @@ function isTestMode() {
 }
 function getTestGold() { return isTestMode() ? 5000 : STARTING_GOLD; }
 
+// === GÜNLÜK SANDIK (cihaz bazlı) ===
+const DAILY_CHEST_KEY = "ab_daily_chest_date";
+const DAILY_CHEST_GOLD = 500;
+function hasClaimedDailyChestToday() {
+  if (typeof window === "undefined") return true;
+  try { return localStorage.getItem(DAILY_CHEST_KEY) === new Date().toDateString(); } catch (e) { return true; }
+}
+function markDailyChestClaimed() {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(DAILY_CHEST_KEY, new Date().toDateString()); } catch (e) {}
+}
+
 // === BOT AI ===
 const BOT_NAMES = [
   "Barbaros Hayreddin","Jack Sparrow","Karabasan","Oruç Reis","Turgut Reis","Piri Reis","Salih Reis","Kılıç Ali","Murat Reis","Seydi Ali",
@@ -102,7 +114,7 @@ const ALL_MISSIONS = [
   { id: "win2",     text: "2 oyun kazan",               icon: "⭐", check: s => s.wins >= 2 },
   { id: "fast5",    text: "5 dakikada kazan",           icon: "⚡", check: s => s.fastWin5 },
   { id: "noMiss3",  text: "3 turda arka arkaya isabet", icon: "🎖", check: s => s.streakHits >= 3 },
-  { id: "play5",    text: "5 oyun oyna",                icon: "⚔",  check: s => s.gamesPlayed >= 5 },
+  { id: "play5",    text: "5 oyun oyna",                icon: "⚓",  check: s => s.gamesPlayed >= 5 },
   { id: "hit20",    text: "20 isabet yap",              icon: "🎯", check: s => s.totalHits >= 20 },
   { id: "sink5",    text: "5 gemi batır",               icon: "🔱", check: s => s.shipsSunk >= 5 },
   { id: "win3",     text: "3 oyun kazan",               icon: "👑", check: s => s.wins >= 3 },
@@ -158,13 +170,21 @@ function botPlaceShips() {
       const cells = getShipCells(ship, r, c, rot);
       if (isValidPlacement(cells, board) && !getNeighborCells(cells).some(([nr, nc]) => nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && board[nr][nc] > 0)) {
         cells.forEach(([cr, cc]) => { board[cr][cc] = 1; });
-        placed.push({ id: ship.id, cells });
+        placed.push({ id: ship.id, cells, row: r, col: c, rot });
         break;
       }
       attempts++;
     }
   }
   return { board, ships: placed };
+}
+function shiftIntoBounds(cells) {
+  let dr = 0, dc = 0;
+  const rs = cells.map(c => c[0]), cs = cells.map(c => c[1]);
+  const minR = Math.min(...rs), maxR = Math.max(...rs), minC = Math.min(...cs), maxC = Math.max(...cs);
+  if (minR < 0) dr = -minR; else if (maxR >= ROWS) dr = ROWS - 1 - maxR;
+  if (minC < 0) dc = -minC; else if (maxC >= COLS) dc = COLS - 1 - maxC;
+  return { cells: cells.map(([r, c]) => [r + dr, c + dc]), dr, dc };
 }
 
 function botChooseShots(attackOverlay, lastHits, shotCount) {
@@ -231,6 +251,29 @@ function calculateElo(myElo, oppElo, didWin, k = 32) {
   const expected = 1 / (1 + Math.pow(10, (oppElo - myElo) / 400));
   const score = didWin ? 1 : 0;
   return Math.max(0, Math.round(myElo + k * (score - expected)));
+}
+
+// === SEVİYE / XP SİSTEMİ ===
+const MAX_LEVEL = 83;
+const XP_ONLINE_WIN = 1;
+const XP_BOT_WIN = 0.5;
+const XP_ONLINE_LOSS = XP_ONLINE_WIN / 8;
+const XP_BOT_LOSS = XP_BOT_WIN / 8;
+function gamesNeededForLevel(fromLevel) {
+  if (fromLevel >= MAX_LEVEL) return Infinity;
+  return Math.max(1, Math.round(3 * Math.pow(5 / 3, fromLevel - 1)));
+}
+function applyLevelCredit(profile, credit) {
+  let level = profile?.level || 0;
+  let progress = (profile?.levelProgress || 0) + credit;
+  let guard = 0;
+  while (level < MAX_LEVEL && guard < 1000) {
+    const need = gamesNeededForLevel(level);
+    if (progress >= need) { progress -= need; level++; } else break;
+    guard++;
+  }
+  if (level >= MAX_LEVEL) { level = MAX_LEVEL; progress = 0; }
+  return { level, levelProgress: progress };
 }
 
 function getRankInfo(elo) {
@@ -479,33 +522,7 @@ function OnboardingVictoryScreen({ sfx, t, winner, warrior, mono, onDone }) {
       <div style={{ textAlign:"center",maxWidth:380,width:"90vw",paddingBottom:40 }}>
         <div style={{ background:`linear-gradient(160deg, rgba(16,24,44,0.99) 0%, rgba(10,16,32,0.99) 55%, rgba(24,14,14,0.98) 100%)`,border:"2px solid rgba(255,215,0,0.45)",outline:`1px solid rgba(0,229,255,0.25)`,outlineOffset:4,borderRadius:18,padding:"40px 28px",boxShadow:`0 24px 90px rgba(0,0,0,0.8), 0 0 70px ${accentGlow}, inset 0 1px 0 rgba(255,215,0,0.15), inset 0 -3px 12px rgba(120,20,20,0.25)` }}>
           <div style={{ width:120,height:105,margin:"0 auto 14px",animation:"float 3s ease-in-out infinite",filter:"drop-shadow(0 8px 16px rgba(0,0,0,0.7)) drop-shadow(0 0 40px rgba(255,255,255,0.4)) drop-shadow(0 0 80px rgba(0,229,255,0.35))" }}>
-            <svg viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg" style={{ width:"100%",height:"100%" }}>
-              <defs>
-                <linearGradient id="vBlade" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#ffffff"/><stop offset="40%" stopColor="#e8f0fa"/><stop offset="100%" stopColor="#9db8d8"/>
-                </linearGradient>
-                <linearGradient id="vHandle" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#c9a34a"/><stop offset="50%" stopColor="#ffd700"/><stop offset="100%" stopColor="#c9a34a"/>
-                </linearGradient>
-                <filter id="vGlow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-              </defs>
-              <g transform="rotate(-40, 100, 90)">
-                <polygon points="100,10 104,128 100,136 96,128" fill="url(#vBlade)" filter="url(#vGlow)"/>
-                <line x1="100" y1="12" x2="102" y2="126" stroke="rgba(255,255,255,0.95)" strokeWidth="1.5"/>
-                <rect x="85" y="124" width="30" height="6" rx="2" fill="url(#vHandle)" filter="url(#vGlow)"/>
-                <rect x="97" y="130" width="6" height="26" rx="3" fill="#8a6d2f"/>
-                <ellipse cx="100" cy="158" rx="6" ry="4" fill="url(#vHandle)"/>
-              </g>
-              <g transform="rotate(40, 100, 90)">
-                <polygon points="100,10 104,128 100,136 96,128" fill="url(#vBlade)" filter="url(#vGlow)"/>
-                <line x1="100" y1="12" x2="98" y2="126" stroke="rgba(255,255,255,0.95)" strokeWidth="1.5"/>
-                <rect x="85" y="124" width="30" height="6" rx="2" fill="url(#vHandle)" filter="url(#vGlow)"/>
-                <rect x="97" y="130" width="6" height="26" rx="3" fill="#8a6d2f"/>
-                <ellipse cx="100" cy="158" rx="6" ry="4" fill="url(#vHandle)"/>
-              </g>
-              <circle cx="100" cy="86" r="18" fill="rgba(255,255,255,0.15)" filter="url(#vGlow)"/>
-              <circle cx="100" cy="86" r="8" fill="rgba(255,240,200,0.5)"/>
-            </svg>
+            <AnchorHeroLogo />
           </div>
           <div style={{ fontSize:13,fontWeight:700,color:t.textDim,fontFamily:warrior,letterSpacing:6,marginBottom:6 }}>TEBRİKLER, DENİZCİ!</div>
           <div style={{ fontSize:52,fontWeight:900,color:"#ffd700",fontFamily:warrior,letterSpacing:10,textShadow:`0 0 50px rgba(255,215,0,0.6), 0 0 100px ${accentGlow}, 0 4px 8px rgba(0,0,0,0.8)`,marginBottom:12,textTransform:"uppercase" }}>ZAFER</div>
@@ -679,6 +696,8 @@ async function checkDailyReward(uid) {
     losses: (typeof profile.losses === "number" && !isNaN(profile.losses) && isFinite(profile.losses)) ? profile.losses : 0,
     totalGames: (typeof profile.totalGames === "number" && !isNaN(profile.totalGames) && isFinite(profile.totalGames)) ? profile.totalGames : 0,
     gold: newGold,
+    level: (typeof profile.level === "number" && isFinite(profile.level)) ? profile.level : 0,
+    levelProgress: (typeof profile.levelProgress === "number" && isFinite(profile.levelProgress)) ? profile.levelProgress : 0,
     loginStreak: streak,
     lastDailyReward: now,
     createdAt: profile.createdAt || Date.now(),
@@ -741,7 +760,7 @@ async function ensureProfile(uid, displayName) {
   const snap = await get(profileRef);
   if (!snap.exists()) {
     const startGold = isTestMode() ? 5000 : STARTING_GOLD;
-    const profile = { displayName: displayName||"Denizci", elo:1200, wins:0, losses:0, totalGames:0, gold:startGold, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false };
+    const profile = { displayName: displayName||"Denizci", elo:1200, wins:0, losses:0, totalGames:0, gold:startGold, level:0, levelProgress:0, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false };
     await set(profileRef, profile);
     return profile;
   }
@@ -754,6 +773,8 @@ async function ensureProfile(uid, displayName) {
     losses: (typeof existing.losses === "number" && !isNaN(existing.losses) && isFinite(existing.losses)) ? existing.losses : 0,
     totalGames: (typeof existing.totalGames === "number" && !isNaN(existing.totalGames) && isFinite(existing.totalGames)) ? existing.totalGames : 0,
     gold: safeGold(existing.gold),
+    level: (typeof existing.level === "number" && !isNaN(existing.level) && isFinite(existing.level)) ? existing.level : 0,
+    levelProgress: (typeof existing.levelProgress === "number" && !isNaN(existing.levelProgress) && isFinite(existing.levelProgress)) ? existing.levelProgress : 0,
     loginStreak: (typeof existing.loginStreak === "number" && !isNaN(existing.loginStreak) && isFinite(existing.loginStreak)) ? existing.loginStreak : 0,
     lastDailyReward: existing.lastDailyReward || null,
     createdAt: existing.createdAt || Date.now(),
@@ -780,12 +801,15 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
   const wNew = calculateElo(wOldElo, lOldElo, true), lNew = calculateElo(lOldElo, wOldElo, false);
   const now = Date.now(), winGold = arena?arena.winGold:100, loseGold = arena?arena.loseGold:20;
   // Full clean profiles with set() — no NaN can survive
+  const wLevel = applyLevelCredit(wd, XP_ONLINE_WIN);
+  const lLevel = applyLevelCredit(ld, XP_ONLINE_LOSS);
   const winnerProfile = {
     displayName: wd.displayName || "Denizci", elo: wNew,
     wins: ((typeof wd.wins === "number" && !isNaN(wd.wins)) ? wd.wins : 0) + 1,
     losses: (typeof wd.losses === "number" && !isNaN(wd.losses)) ? wd.losses : 0,
     totalGames: ((typeof wd.totalGames === "number" && !isNaN(wd.totalGames)) ? wd.totalGames : 0) + 1,
     gold: safeGold(wd.gold) + winGold,
+    level: wLevel.level, levelProgress: wLevel.levelProgress,
     loginStreak: (typeof wd.loginStreak === "number" && !isNaN(wd.loginStreak)) ? wd.loginStreak : 0,
     lastDailyReward: wd.lastDailyReward || null, createdAt: wd.createdAt || now, lastGameAt: now,
     onboardingDone: wd.onboardingDone === true, nameSetAt: wd.nameSetAt || null, avatar: wd.avatar || "⚓", dailyRewardCount: wd.dailyRewardCount || 0,
@@ -796,13 +820,14 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
     losses: ((typeof ld.losses === "number" && !isNaN(ld.losses)) ? ld.losses : 0) + 1,
     totalGames: ((typeof ld.totalGames === "number" && !isNaN(ld.totalGames)) ? ld.totalGames : 0) + 1,
     gold: safeGold(ld.gold) + loseGold,
+    level: lLevel.level, levelProgress: lLevel.levelProgress,
     loginStreak: (typeof ld.loginStreak === "number" && !isNaN(ld.loginStreak)) ? ld.loginStreak : 0,
     lastDailyReward: ld.lastDailyReward || null, createdAt: ld.createdAt || now, lastGameAt: now,
     onboardingDone: ld.onboardingDone === true, nameSetAt: ld.nameSetAt || null, avatar: ld.avatar || "⚓", dailyRewardCount: ld.dailyRewardCount || 0,
   };
   await set(ref(db, `profiles/${winnerUid}`), winnerProfile);
   await set(ref(db, `profiles/${loserUid}`), loserProfile);
-  return { winnerNewElo:wNew, loserNewElo:lNew, winnerOldElo:wOldElo, loserOldElo:lOldElo, winGold, loseGold };
+  return { winnerNewElo:wNew, loserNewElo:lNew, winnerOldElo:wOldElo, loserOldElo:lOldElo, winGold, loseGold, winnerLevel: wLevel.level, winnerLevelProgress: wLevel.levelProgress, loserLevel: lLevel.level, loserLevelProgress: lLevel.levelProgress };
 }
 
 async function fetchLeaderboard(sortBy='elo', count=15) {
@@ -857,11 +882,11 @@ function Leaderboard({ onBack, myUid }) {
     if (myIdx === 0) return "👑 Denizlerin hakimisin!";
     if (myIdx > 0 && myIdx < 3) return "🔥 Zirveye çok yakınsın!";
     if (myIdx >= 3 && myIdx < 10) return "⚡ TOP 10'dasın, devam et!";
-    return "⚔ Sıralamaya girmek için savaş!";
+    return "⚓ Sıralamaya girmek için savaş!";
   };
   const tabs = [
     { key:'elo', label:'ELO', icon:'🏆' },
-    { key:'wins', label:'GALİBİYET', icon:'⚔' },
+    { key:'wins', label:'GALİBİYET', icon:'⚓' },
     { key:'gold', label:'ALTIN', icon:'🪙' },
   ];
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:`linear-gradient(180deg, ${t.bg} 0%, #071428 50%, rgba(255,215,0,0.02) 100%)`,padding:"20px 12px",fontFamily:mono,color:t.text }}>
@@ -893,7 +918,7 @@ function Leaderboard({ onBack, myUid }) {
                 <span style={{ fontSize:9,fontWeight:800,color:rank.color,fontFamily:warrior }}>{rank.icon} {rank.title}</span>
               </div>
               <div style={{ fontSize:9,color:t.textDim,marginTop:2,fontFamily:mono,display:"flex",gap:8 }}>
-                <span style={{ color:"#4ade80" }}>⚔ {p.wins||0}G</span>
+                <span style={{ color:"#4ade80" }}>⚓ {p.wins||0}G</span>
                 <span style={{ color:t.hit }}>✕ {p.losses||0}M</span>
                 <span>%{winRate}</span>
                 <span style={{ color:t.gold }}>🪙 {p.gold||0}</span>
@@ -915,6 +940,9 @@ function Leaderboard({ onBack, myUid }) {
 
 const ANIMS = `
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;0,900;1,700;1,800&family=Space+Mono:wght@400;700&display=swap');
+.ab-cell{transition:transform 0.15s cubic-bezier(0.34,1.56,0.64,1), filter 0.15s ease, box-shadow 0.15s ease;}
+@media (hover:hover){ .ab-cell:hover{transform:scale(1.12);filter:brightness(1.25);z-index:5;box-shadow:0 0 10px rgba(0,229,255,0.5);} }
+.ab-cell:active{transform:scale(0.92);filter:brightness(1.15);}
 @keyframes blink3s{0%,100%{opacity:1}50%{opacity:.15}}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
 @keyframes borderGlow{0%,100%{border-color:#00d4ff;box-shadow:0 0 8px rgba(0,212,255,.4)}50%{border-color:#38f0ff;box-shadow:0 0 24px rgba(0,212,255,.7)}}
@@ -965,7 +993,59 @@ const ANIMS = `
 const warrior = "'Barlow Condensed', sans-serif";
 const mono = "'Space Mono', monospace";
 
-function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, overlay, hoverCells, isDefense, shipColors, disabled, blinkCells, manualMarks, showShipStatus, onboardingHint }) {
+// === ÇAPRAZ ÇAPA LOGO/İKON ===
+const ANCHOR_PATH = "M12 2a3 3 0 0 0-3 3c0 1.31.84 2.42 2 2.83V9H8a1 1 0 0 0 0 2h1v7.94A6 6 0 0 1 4 13a1 1 0 1 0-2 0 8 8 0 0 0 16 0 1 1 0 1 0-2 0 6 6 0 0 1-5 5.94V11h1a1 1 0 1 0 0-2h-1V7.83A3 3 0 0 0 15 5a3 3 0 0 0-3-3zm0 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2z";
+function XAnchors({ size = 18, color = "currentColor", style }) {
+  return (<svg width={size} height={size} viewBox="0 0 24 24" style={{ display:"inline-block", verticalAlign:"-3px", flexShrink:0, ...style }}>
+    <g transform="rotate(-35 12 12)"><path d={ANCHOR_PATH} fill={color} /></g>
+    <g transform="rotate(35 12 12)"><path d={ANCHOR_PATH} fill={color} /></g>
+  </svg>);
+}
+function AnchorHeroLogo() {
+  // Splash logosu — çapraz çapa (eski çapraz kılıç yerine)
+  return (<svg viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg" style={{ width:"100%",height:"100%" }}>
+    <defs>
+      <linearGradient id="anchor1" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fff4d6"/><stop offset="35%" stopColor="#f0c96b"/><stop offset="65%" stopColor="#c9962e"/><stop offset="100%" stopColor="#8a611a"/>
+      </linearGradient>
+      <linearGradient id="anchor2" x1="100%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#fff4d6"/><stop offset="35%" stopColor="#f0c96b"/><stop offset="65%" stopColor="#c9962e"/><stop offset="100%" stopColor="#8a611a"/>
+      </linearGradient>
+      <linearGradient id="anchorRope" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="#a0703a"/><stop offset="50%" stopColor="#d8ac5f"/><stop offset="100%" stopColor="#a0703a"/>
+      </linearGradient>
+      <radialGradient id="anchorGem" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="#fff8e0"/><stop offset="50%" stopColor="#ffd85e"/><stop offset="100%" stopColor="#b8811a"/>
+      </radialGradient>
+      <filter id="aglow"><feGaussianBlur stdDeviation="4" result="cb"/><feMerge><feMergeNode in="cb"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    {/* Çapa 1 */}
+    <g transform="rotate(-38, 100, 90)" filter="url(#aglow)">
+      <circle cx="100" cy="22" r="11" fill="none" stroke="url(#anchor1)" strokeWidth="6"/>
+      <rect x="96" y="30" width="8" height="92" rx="3" fill="url(#anchor1)"/>
+      <rect x="72" y="46" width="56" height="8" rx="4" fill="url(#anchorRope)"/>
+      <path d="M100,120 C100,146 92,156 60,163" stroke="url(#anchor1)" strokeWidth="10" fill="none" strokeLinecap="round"/>
+      <polygon points="52,166 72,155 68,175" fill="url(#anchor1)"/>
+      <path d="M100,120 C100,146 108,156 140,163" stroke="url(#anchor1)" strokeWidth="10" fill="none" strokeLinecap="round"/>
+      <polygon points="148,166 128,155 132,175" fill="url(#anchor1)"/>
+    </g>
+    {/* Çapa 2 */}
+    <g transform="rotate(38, 100, 90)" filter="url(#aglow)">
+      <circle cx="100" cy="22" r="11" fill="none" stroke="url(#anchor2)" strokeWidth="6"/>
+      <rect x="96" y="30" width="8" height="92" rx="3" fill="url(#anchor2)"/>
+      <rect x="72" y="46" width="56" height="8" rx="4" fill="url(#anchorRope)"/>
+      <path d="M100,120 C100,146 92,156 60,163" stroke="url(#anchor2)" strokeWidth="10" fill="none" strokeLinecap="round"/>
+      <polygon points="52,166 72,155 68,175" fill="url(#anchor2)"/>
+      <path d="M100,120 C100,146 108,156 140,163" stroke="url(#anchor2)" strokeWidth="10" fill="none" strokeLinecap="round"/>
+      <polygon points="148,166 128,155 132,175" fill="url(#anchor2)"/>
+    </g>
+    {/* Kavşak ışık efekti */}
+    <circle cx="100" cy="88" r="18" fill="url(#anchorGem)" filter="url(#aglow)"/>
+    <circle cx="100" cy="88" r="8" fill="rgba(255,255,255,0.75)"/>
+  </svg>);
+}
+
+function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, onCellPointerDown, overlay, hoverCells, isDefense, shipColors, disabled, blinkCells, manualMarks, showShipStatus, onboardingHint }) {
   const longPressRef = useRef(null);
   const [rippleCell, setRippleCell] = useState(null);
   const handleClick = (r,c) => { if(disabled)return; sfx.init(); setRippleCell(`${r},${c}`); setTimeout(()=>setRippleCell(null),400); onClick?.(r,c); };
@@ -998,7 +1078,7 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, ov
         if(isHov){bg="rgba(6,182,212,0.35)";shadow=`inset 0 0 10px ${t.accentGlow}`;}
         const isHint = onboardingHint?.some(([hr,hc])=>hr===r&&hc===c) && !ovr;
         if(isHint){bg="rgba(255,215,0,0.25)";shadow=`inset 0 0 12px ${t.goldGlow}, 0 0 8px ${t.goldGlow}`;content="◆";clr=t.gold;}
-        return <div key={c} onClick={()=>handleClick(r,c)} onMouseEnter={()=>onHover?.(r,c)} onContextMenu={e=>{e.preventDefault();onRightClick?.(r,c);}} onTouchStart={()=>handleTouchStart(r,c)} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={{ position:"relative",overflow:"hidden",width:cellSize,height:cellSize,border:"1px solid rgba(55,65,81,0.5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:ovr==="sunk"?10:8,fontWeight:700,cursor:disabled?"default":"pointer",background:bg,boxShadow:shadow,color:clr,transition:"all 0.15s ease",boxSizing:"border-box",animation:isBlink?"blink3s 0.5s ease-in-out 6":isRipple?"popIn 0.3s ease-out":"none",borderRadius:1 }}>{content}</div>;
+        return <div key={c} data-cell="1" data-r={r} data-c={c} className={disabled?"":"ab-cell"} onClick={()=>handleClick(r,c)} onMouseEnter={()=>onHover?.(r,c)} onContextMenu={e=>{e.preventDefault();onRightClick?.(r,c);}} onMouseDown={disabled?undefined:(e)=>onCellPointerDown?.(r,c,e)} onTouchStart={disabled?undefined:(e)=>{ if(onCellPointerDown){ onCellPointerDown(r,c,e); } else { handleTouchStart(r,c); } }} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={{ position:"relative",overflow:"hidden",width:cellSize,height:cellSize,border:"1px solid rgba(55,65,81,0.5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:ovr==="sunk"?10:8,fontWeight:700,cursor:disabled?"default":"pointer",background:bg,boxShadow:shadow,color:clr,boxSizing:"border-box",transition:"background 0.15s ease, box-shadow 0.15s ease",animation:isBlink?"blink3s 0.5s ease-in-out 6":isRipple?"popIn 0.3s ease-out":"none",borderRadius:1,touchAction:onCellPointerDown?"none":"auto" }}>{content}</div>;
       })}</div>))}
   </div>);
 }
@@ -1060,7 +1140,6 @@ function MissionPanel({ missions, missionProgress, onClose }) {
     {missions.map((m, i) => {
       const done = missionProgress[m.id];
       return (<div key={m.id} style={{ display:"flex",alignItems:"center",gap:14,padding:"12px 14px",background:done?"linear-gradient(135deg, rgba(74,222,128,0.1), rgba(74,222,128,0.03))":"linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))",borderRadius:12,marginBottom:8,border:`2px solid ${done?"rgba(74,222,128,0.3)":"rgba(30,58,95,0.4)"}`,transition:"all 0.3s ease",boxShadow:done?"0 0 15px rgba(74,222,128,0.08)":"none" }}>
-        <div style={{ width:44,height:44,borderRadius:12,background:done?"rgba(74,222,128,0.12)":"rgba(0,229,255,0.06)",display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${done?"rgba(74,222,128,0.2)":"rgba(0,229,255,0.1)"}`,flexShrink:0 }}><MissionIcon icon={m.icon} done={done} missionId={m.id} /></div>
         <div style={{ flex:1,minWidth:0 }}>
           <div style={{ fontSize:14,fontWeight:800,color:done?"#4ade80":t.text,fontFamily:warrior,letterSpacing:2 }}>{m.text.toLocaleUpperCase('tr-TR')}</div>
           <div style={{ fontSize:9,fontWeight:600,color:done?"rgba(74,222,128,0.7)":t.textDim,fontFamily:mono,letterSpacing:1,marginTop:2 }}>{done?"TAMAMLANDI":"DEVAM EDİYOR"}</div>
@@ -1088,6 +1167,45 @@ function ChestPopup({ reward, onClose }) {
         <div style={{ fontSize:14,fontWeight:700,color:reward.color,fontFamily:warrior,letterSpacing:3,marginBottom:4,animation:"fadeUp 0.3s ease-out" }}>{reward.label}</div>
         <div style={{ fontSize:42,fontWeight:800,color:t.gold,fontFamily:warrior,marginBottom:8,textShadow:`0 0 30px ${t.goldGlow}`,animation:"scaleUp 0.6s ease-out" }}>+{reward.gold} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 1px 2px rgba(0,0,0,0.5))" }} /></div>
         <button onClick={onClose} style={{ marginTop:8,padding:"12px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:8,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>TOPLA</button>
+      </>)}
+    </div>
+  </div>);
+}
+
+// === GÜNLÜK SANDIK — cihaz başına 1 tane, sabit 500 altın ===
+function DailyChestFab({ onOpen }) {
+  return (<button onClick={onOpen} style={{ position:"fixed",top:14,right:14,zIndex:150,width:60,height:60,borderRadius:16,background:"linear-gradient(160deg,#fff9c4 0%,#ffe066 30%,#ffd700 60%,#ffb300 100%)",border:"2px solid #fff7d6",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,boxShadow:"0 0 18px #ffe066, 0 0 40px rgba(255,214,0,0.85), 0 0 70px rgba(255,214,0,0.5), 0 4px 14px rgba(0,0,0,0.5)",animation:"chestWiggle 2s ease-in-out infinite, rewardPulse 1.4s ease-in-out infinite" }} title="Günlük Sandık">
+    🎁
+    <span style={{ position:"absolute",top:-6,right:-6,width:18,height:18,borderRadius:"50%",background:"#ff4757",color:"#fff",fontSize:11,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 8px rgba(255,71,87,0.8)",fontFamily:warrior }}>1</span>
+  </button>);
+}
+function DailyChestPopup({ onClaim }) {
+  const [opened, setOpened] = useState(false);
+  const [shake, setShake] = useState(true);
+  const [showCoins, setShowCoins] = useState(false);
+  useEffect(() => { const tm = setTimeout(() => setShake(false), 1200); return () => clearTimeout(tm); }, []);
+  const openChest = () => {
+    if (opened) return;
+    setOpened(true); setShowCoins(true);
+    sfx.init(); sfx.play('chest');
+    setTimeout(() => sfx.play('gold'), 250);
+  };
+  const coins = Array.from({ length: 12 }, (_, i) => ({ id: i, delay: i * 90, dx: (Math.random() - 0.5) * 120 }));
+  return (<div style={{ position:"fixed",inset:0,background:"radial-gradient(ellipse at 50% 40%, rgba(255,214,0,0.12) 0%, rgba(0,0,0,0.88) 75%)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(6px)" }} onClick={opened ? undefined : openChest}>
+    <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, rgba(20,26,52,0.99) 0%, rgba(10,16,32,0.99) 60%, rgba(30,20,8,0.99) 100%)",border:"2px solid #ffd700",outline:"1px solid rgba(255,240,150,0.4)",outlineOffset:5,borderRadius:22,padding:"38px 42px",textAlign:"center",maxWidth:340,width:"90%",boxShadow:"0 0 30px #ffe066, 0 0 100px rgba(255,214,0,0.5), 0 24px 70px rgba(0,0,0,0.6)",overflow:"visible" }}>
+      {!opened ? (<>
+        <div style={{ fontSize:80,marginBottom:12,cursor:"pointer",animation:shake?"chestWiggle 0.5s ease-in-out infinite":"chestWiggle 2s ease-in-out infinite",filter:"drop-shadow(0 0 30px #ffe066) drop-shadow(0 0 60px rgba(255,214,0,0.7))" }} onClick={openChest}>🎁</div>
+        <div style={{ fontSize:12,fontWeight:700,color:"#ffe066",fontFamily:mono,letterSpacing:5,marginBottom:10 }}>GÜNLÜK SANDIK</div>
+        <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16 }}>Her cihaza günde 1 sandık!</div>
+        <button onClick={openChest} style={{ padding:"16px 48px",background:"linear-gradient(135deg,#fff9c4,#ffd700 45%,#ff9f43)",color:"#1a1206",border:"none",borderRadius:12,fontSize:16,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 30px #ffe066, 0 0 60px rgba(255,214,0,0.5)",animation:"borderGlow 1.5s infinite",textTransform:"uppercase" }}>SANDIĞI AÇ</button>
+      </>) : (<>
+        <div style={{ fontSize:60,marginBottom:8,animation:"popIn 0.5s ease-out",filter:"drop-shadow(0 0 30px #ffe066)" }}>🎉</div>
+        <div style={{ fontSize:11,fontWeight:700,color:"rgba(255,214,0,0.7)",fontFamily:mono,letterSpacing:5,marginBottom:8 }}>GÜNLÜK ÖDÜL</div>
+        <div style={{ fontSize:52,fontWeight:900,fontFamily:warrior,marginBottom:14,letterSpacing:2,background:"linear-gradient(180deg, #fff7d6 0%, #ffd700 45%, #d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 25px rgba(255,214,0,0.8))",animation:"rewardPulse 1.4s ease-in-out infinite" }}>+{DAILY_CHEST_GOLD} <img src="/img/coin.png" alt="" style={{ width:22,height:22,verticalAlign:"middle" }} /></div>
+        <button onClick={() => onClaim(DAILY_CHEST_GOLD)} style={{ padding:"16px 52px",background:"linear-gradient(135deg, #ffd700 0%, #ff9f43 55%, #d97706 100%)",color:"#1a1206",border:"none",borderRadius:12,fontSize:17,fontWeight:900,letterSpacing:5,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 40px rgba(255,214,0,0.6), 0 6px 24px rgba(0,0,0,0.5)",animation:"btnBreath 1.8s ease-in-out infinite",textTransform:"uppercase" }}>TOPLA</button>
+        {showCoins && <div style={{ position:"absolute",left:"50%",bottom:"38%",pointerEvents:"none" }}>
+          {coins.map(c => (<div key={c.id} style={{ position:"absolute",left:c.dx,bottom:0,fontSize:26,opacity:0,animation:`coinFly 1s cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards` }}>🪙</div>))}
+        </div>}
       </>)}
     </div>
   </div>);
@@ -1125,7 +1243,7 @@ function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoar
     <div style={{ animation:"arSlideIn 0.8s ease-out forwards",transformStyle:"preserve-3d" }}>
       <div style={{ background:`linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))`,border:`3px solid ${isWin?t.accent:t.hit}`,borderRadius:24,padding:"40px 32px 32px",textAlign:"center",maxWidth:360,width:"90vw",animation:`arGlow 3s ease-in-out infinite`,boxShadow:`0 20px 80px rgba(0,0,0,0.7), 0 0 ${isWin?60:30}px ${isWin?t.accentGlow:t.hitGlow}`,'--ar-color':isWin?t.accentGlow:t.hitGlow }}>
         {/* Victory/Defeat icon */}
-        <div style={{ fontSize:64,marginBottom:8,animation:isWin?"float 2s ease-in-out infinite":"defeatShake 0.6s ease-out" }}>{isWin?"⚔":"💀"}</div>
+        <div style={{ fontSize:64,marginBottom:8,animation:isWin?"float 2s ease-in-out infinite":"defeatShake 0.6s ease-out" }}>{isWin?<XAnchors size={56} color={t.accent}/>:"💀"}</div>
         <div style={{ fontSize:68,fontWeight:900,letterSpacing:10,color:isWin?t.accent:t.hit,fontFamily:warrior,textTransform:"uppercase",textShadow:isWin?`0 0 80px ${t.accentGlow},0 0 160px rgba(0,229,255,0.3), 0 0 40px ${t.accentGlow}, 0 4px 0 rgba(0,0,0,0.8)`:`0 0 50px ${t.hitGlow}, 0 4px 0 rgba(0,0,0,0.8)`,marginBottom:4,animation:isWin?"victoryGlow 1.5s ease-in-out infinite":"none",lineHeight:1,letterSpacing:isWin?12:8 }}>{isWin?"⚡ ZAFER ⚡":"BOZGUN"}</div>
         <div style={{ fontSize:13,fontWeight:700,color:isWin?"rgba(0,229,255,0.8)":"rgba(255,71,87,0.8)",fontFamily:warrior,letterSpacing:3,marginBottom:24 }}>{winner}</div>
         {/* Stats with staggered animation */}
@@ -1181,7 +1299,7 @@ function OnlineLobby({ myUid, myName, myElo, onChallenge, onBack }) {
     <div style={{ fontSize:22,fontWeight:700,letterSpacing:5,color:t.accent,marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",textShadow:`0 0 20px ${t.accentGlow}` }}>ONLİNE SALON</div>
     <div style={{ fontSize:10,color:t.textDim,letterSpacing:4,marginBottom:16,fontFamily:"'Barlow Condensed',sans-serif" }}>AKTİF DENİZCİLER</div>
     {invites.filter(inv=>inv.status==="pending").map(invite=>(<div key={invite.id} style={{ width:"100%",maxWidth:420,marginBottom:8,padding:"12px 16px",background:"rgba(6,182,212,0.1)",border:`1px solid ${t.accent}`,borderRadius:10,animation:"borderGlow 2s infinite" }}>
-      <div style={{ fontSize:12,color:t.accent,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,marginBottom:6 }}>⚔ DÜELLO DAVETİ</div>
+      <div style={{ fontSize:12,color:t.accent,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,marginBottom:6,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={14} color={t.accent}/> DÜELLO DAVETİ</div>
       <div style={{ fontSize:13,color:t.text,marginBottom:8 }}><span style={{ fontWeight:700 }}>{invite.fromName}</span><span style={{ color:t.textDim,fontSize:10,marginLeft:8 }}>ELO: {invite.fromElo}</span></div>
       <div style={{ display:"flex",gap:8 }}>
         <button onClick={()=>acceptInvite(invite)} style={{ flex:1,padding:"8px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:6,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif" }}>KABUL</button>
@@ -1199,7 +1317,7 @@ function OnlineLobby({ myUid, myName, myElo, onChallenge, onBack }) {
         {players.map(p=>{const rank=getRankInfo(p.elo||1200);const alreadySent=sentInvite?.targetUid===p.uid;return(<div key={p.uid} style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:t.surface,border:`1px solid ${t.border}`,borderRadius:8 }}>
           <div style={{ width:8,height:8,borderRadius:"50%",background:"#34d399",boxShadow:"0 0 6px rgba(52,211,153,0.5)" }} />
           <div style={{ flex:1,minWidth:0 }}><div style={{ display:"flex",alignItems:"center",gap:6 }}><span style={{ fontSize:13,fontWeight:700,color:t.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.displayName}</span><span style={{ fontSize:9,color:rank.color,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1 }}>{rank.icon} {rank.title}</span></div><div style={{ fontSize:9,color:t.textDim,marginTop:1 }}>ELO: {p.elo||1200} • {p.wins||0}G/{p.losses||0}M</div></div>
-          <button onClick={()=>sendInvite(p.uid,p.displayName)} disabled={!!sentInvite} style={{ padding:"6px 14px",background:alreadySent?t.surfaceLight:`linear-gradient(135deg,${t.hit},#dc2626)`,color:alreadySent?t.textDim:"#fff",border:"none",borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:sentInvite?"default":"pointer",fontFamily:"'Barlow Condensed',sans-serif",opacity:sentInvite&&!alreadySent?0.4:1 }}>{alreadySent?"BEKLENİYOR":"⚔ DÜELLO"}</button>
+          <button onClick={()=>sendInvite(p.uid,p.displayName)} disabled={!!sentInvite} style={{ padding:"6px 14px",background:alreadySent?t.surfaceLight:`linear-gradient(135deg,${t.hit},#dc2626)`,color:alreadySent?t.textDim:"#fff",border:"none",borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:sentInvite?"default":"pointer",fontFamily:"'Barlow Condensed',sans-serif",opacity:sentInvite&&!alreadySent?0.4:1 }}>{alreadySent?"BEKLENİYOR":"⚓ DÜELLO"}</button>
         </div>);})}
       </div>
     )}
@@ -1319,19 +1437,15 @@ export default function Game() {
   const [goldChange, setGoldChange] = useState(null);
   const [entryFeeDeducted, setEntryFeeDeducted] = useState(null);
   const [dailyReward, setDailyReward] = useState(null);
+  const [showDailyChest, setShowDailyChest] = useState(false);
+  const [dailyChestModalOpen, setDailyChestModalOpen] = useState(false);
   const [showAvatarPick, setShowAvatarPick] = useState(false);
   const [oppAvatar, setOppAvatar] = useState(null);
   const oppAvatarRef = useRef(false);
   const killCountRef = useRef(0);
   const lastBotEmojiRef = useRef(0);
   const consecHitTurnsRef = useRef(0);
-  const botSay = (emoji, label) => {
-    const now = Date.now();
-    if (now - lastBotEmojiRef.current < 6000) return; // spam engeli
-    lastBotEmojiRef.current = now;
-    setEmojiToast({ emoji, label });
-    setTimeout(() => setEmojiToast(null), 3000);
-  };
+  const botSay = () => { /* bot emoji tepkileri kaldırıldı — istenmiyor */ };
   const firstHitVoiceRef = useRef(false);
   const isBotGameRef = useRef(false);
   const avatarFileRef = useRef(null);
@@ -1431,6 +1545,21 @@ export default function Game() {
 
   const cellSize = typeof window !== "undefined" ? Math.min(30, Math.floor((Math.min(window.innerWidth - 24, 400)) / 12)) : 28;
   useEffect(() => { myTurnRef.current = myTurn; }, [myTurn]);
+  useEffect(() => {
+    if (phase === "lobby" && authUid && myProfile && !hasClaimedDailyChestToday()) setShowDailyChest(true);
+  }, [phase, authUid, myProfile]);
+  const claimDailyChest = async (amount) => {
+    markDailyChestClaimed();
+    setGoldAnim({ amount });
+    setMyProfile(prev => prev ? { ...prev, gold: safeGold(prev.gold) + amount } : prev);
+    if (authUid) {
+      try {
+        const snap = await get(ref(db, `profiles/${authUid}`));
+        if (snap.exists()) { const p = snap.val(); await set(ref(db, `profiles/${authUid}`), { ...p, gold: safeGold(p.gold) + amount }); }
+      } catch (e) { console.error(e); }
+    }
+    setDailyChestModalOpen(false); setShowDailyChest(false);
+  };
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   // Mission progress checker
@@ -1595,11 +1724,11 @@ export default function Game() {
               try {
                 const result = await updateEloAfterGame(winnerUid, loserUid, gameArena);
                 if (result) {
-                  await update(ref(db, `rooms/${roomIdRef.current}`), { eloResult: { winnerOldElo: result.winnerOldElo, winnerNewElo: result.winnerNewElo, loserOldElo: result.loserOldElo, loserNewElo: result.loserNewElo, winGold: result.winGold || 0, loseGold: result.loseGold || 0 } });
+                  await update(ref(db, `rooms/${roomIdRef.current}`), { eloResult: { winnerOldElo: result.winnerOldElo, winnerNewElo: result.winnerNewElo, loserOldElo: result.loserOldElo, loserNewElo: result.loserNewElo, winGold: result.winGold || 0, loseGold: result.loseGold || 0, winnerLevel: result.winnerLevel, winnerLevelProgress: result.winnerLevelProgress, loserLevel: result.loserLevel, loserLevelProgress: result.loserLevelProgress } });
                   setEloChange({ myOld: result.winnerOldElo, myNew: result.winnerNewElo, oppOld: result.loserOldElo, oppNew: result.loserNewElo });
                   setGoldChange({ amount: result.winGold || 0 });
                   if (result.winGold > 0) { sfx.play('gold'); setGoldAnim({ amount: result.winGold }); }
-                  setMyProfile(prev => prev ? { ...prev, elo: result.winnerNewElo, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: safeGold(prev.gold) + (result.winGold || 0) } : prev);
+                  setMyProfile(prev => prev ? { ...prev, elo: result.winnerNewElo, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: safeGold(prev.gold) + (result.winGold || 0), level: result.winnerLevel, levelProgress: result.winnerLevelProgress } : prev);
                 }
               } catch (e) { console.error("ELO update error:", e); }
             }).catch(e => console.error("ELO transaction error:", e));
@@ -1614,7 +1743,7 @@ export default function Game() {
               unsubElo(); // Bir kez oku, kapat
               setEloChange({ myOld: er.loserOldElo, myNew: er.loserNewElo, oppOld: er.winnerOldElo, oppNew: er.winnerNewElo });
               setGoldChange({ amount: er.loseGold || 0 });
-              setMyProfile(prev => prev ? { ...prev, elo: er.loserNewElo, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: safeGold(prev.gold) + (er.loseGold || 0) } : prev);
+              setMyProfile(prev => prev ? { ...prev, elo: er.loserNewElo, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1, gold: safeGold(prev.gold) + (er.loseGold || 0), level: er.loserLevel, levelProgress: er.loserLevelProgress } : prev);
             });
             // 10 saniye timeout — kazanan çökerse sonsuza kadar beklemesin
             setTimeout(() => {
@@ -1785,7 +1914,7 @@ export default function Game() {
     const placed = ships.map(s => {
       const def = SHIPS.find(sd => sd.id === s.id);
       s.cells.forEach(([cr, cc]) => { nc[cr][cc] = def?.color || t.accent; });
-      return { id: s.id, cells: s.cells, color: def?.color };
+      return { id: s.id, cells: s.cells, color: def?.color, row: s.row, col: s.col, rot: s.rot };
     });
     setDefenseBoard(board);
     setShipColorMap(nc);
@@ -1795,21 +1924,93 @@ export default function Game() {
   };
   const handleDefenseClick = (r, c) => {
     if (phase !== "placing" || placementConfirmed) return;
-    // Gemi seçili değilken dolu hücreye tıklandı → o gemiyi eline al (taşı)
-    if (!selectedShip && defenseBoard[r]?.[c] > 0) {
-      const target = placedShips.find(p => p.cells.some(([pr, pc]) => pr === r && pc === c));
-      if (target) {
-        const nb = defenseBoard.map(row => [...row]);
-        const ncm = shipColorMap.map(row => [...row]);
-        target.cells.forEach(([tr, tc]) => { nb[tr][tc] = 0; ncm[tr][tc] = null; });
-        setDefenseBoard(nb); setShipColorMap(ncm);
-        setPlacedShips(placedShips.filter(p => p.id !== target.id));
-        setSelectedShip(target.id); setRotation(0);
-        sfx.init(); sfx.play('click');
+    if (!selectedShip) return; const ship = SHIPS.find(s => s.id === selectedShip); if (!ship) return; const cells = getShipCells(ship, r, c, rotation); const bc = defenseBoard.map(row => [...row]); if (!isValidPlacement(cells, bc) || getNeighborCells(cells).some(([nr, nc]) => nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && bc[nr][nc] > 0)) { /* Invalid placement — try next rotation */ const nextRot = (rotation + 1) % 4; const cells2 = getShipCells(ship, r, c, nextRot); if (isValidPlacement(cells2, bc) && !getNeighborCells(cells2).some(([nr, nc]) => nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && bc[nr][nc] > 0)) { setRotation(nextRot); return; } return; } const nb = bc.map(row => [...row]); const nc = shipColorMap.map(row => [...row]); cells.forEach(([cr, cc]) => { nb[cr][cc] = 1; nc[cr][cc] = ship.color; }); setDefenseBoard(nb); setShipColorMap(nc); setPlacedShips([...placedShips, { id: ship.id, cells, color: ship.color, row: r, col: c, rot: rotation }]); setSelectedShip(null); setHoverCells([]); setRotation(0); sfx.init(); sfx.play('click'); };
+  const dragRef = useRef(null);
+  const getCellFromPoint = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    const cellEl = el?.closest?.('[data-cell]');
+    if (!cellEl) return null;
+    const rr = Number(cellEl.dataset.r), cc = Number(cellEl.dataset.c);
+    if (Number.isNaN(rr) || Number.isNaN(cc)) return null;
+    return [rr, cc];
+  };
+  const commitShipPosition = (target, cells, row, col, rot) => {
+    setDefenseBoard(prevBoard => {
+      const nb = prevBoard.map(row2 => [...row2]);
+      target.cells.forEach(([tr, tc]) => { nb[tr][tc] = 0; });
+      cells.forEach(([cr, cc]) => { nb[cr][cc] = 1; });
+      return nb;
+    });
+    setShipColorMap(prevColors => {
+      const nc = prevColors.map(row2 => [...row2]);
+      target.cells.forEach(([tr, tc]) => { nc[tr][tc] = null; });
+      cells.forEach(([cr, cc]) => { nc[cr][cc] = target.color; });
+      return nc;
+    });
+    setPlacedShips(prev => prev.map(p => p.id === target.id ? { ...p, cells, row, col, rot } : p));
+    sfx.init(); sfx.play('click');
+  };
+  const handlePointerMove = (e) => {
+    const d = dragRef.current; if (!d) return;
+    const point = e.touches ? e.touches[0] : e;
+    if (!point) return;
+    const dx = point.clientX - d.startX, dy = point.clientY - d.startY;
+    if (!d.moved && Math.hypot(dx, dy) > 6) d.moved = true;
+    if (!d.moved) return;
+    if (e.cancelable) e.preventDefault();
+    const cell = getCellFromPoint(point.clientX, point.clientY);
+    if (!cell) return;
+    const [rr, cc] = cell;
+    d.lastR = rr; d.lastC = cc;
+    const newRow = rr - d.offR, newCol = cc - d.offC;
+    setHoverCells(getShipCells(d.shipDef, newRow, newCol, d.origRot));
+  };
+  const finishDragListeners = () => {
+    window.removeEventListener("mousemove", handlePointerMove);
+    window.removeEventListener("mouseup", handlePointerUp);
+    window.removeEventListener("touchmove", handlePointerMove);
+    window.removeEventListener("touchend", handlePointerUp);
+  };
+  const handlePointerUp = () => {
+    const d = dragRef.current;
+    finishDragListeners();
+    dragRef.current = null;
+    setHoverCells([]);
+    if (!d) return;
+    const target = placedShips.find(p => p.id === d.shipId);
+    if (!target) return;
+    const boardNoShip = defenseBoard.map(row => [...row]);
+    target.cells.forEach(([tr, tc]) => { boardNoShip[tr][tc] = 0; });
+    const conflicts = (cells) => !isValidPlacement(cells, boardNoShip) || getNeighborCells(cells).some(([nr, nc]) => nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && boardNoShip[nr][nc] > 0);
+    if (d.moved) {
+      const newRow = d.lastR - d.offR, newCol = d.lastC - d.offC;
+      const cells = getShipCells(d.shipDef, newRow, newCol, d.origRot);
+      if (conflicts(cells)) return; // geçersiz bırakma — gemi yerinde kalır
+      commitShipPosition(target, cells, newRow, newCol, d.origRot);
+    } else {
+      // basit tıklama = saat yönünde döndür
+      for (let i = 1; i <= 3; i++) {
+        const tryRot = (d.origRot + i) % 4;
+        const raw = getShipCells(d.shipDef, d.origRow, d.origCol, tryRot);
+        const { cells, dr, dc } = shiftIntoBounds(raw);
+        if (!conflicts(cells)) { commitShipPosition(target, cells, d.origRow + dr, d.origCol + dc, tryRot); break; }
       }
-      return;
     }
-    if (!selectedShip) return; const ship = SHIPS.find(s => s.id === selectedShip); if (!ship) return; const cells = getShipCells(ship, r, c, rotation); const bc = defenseBoard.map(row => [...row]); if (!isValidPlacement(cells, bc) || getNeighborCells(cells).some(([nr, nc]) => nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && bc[nr][nc] > 0)) { /* Invalid placement — try next rotation */ const nextRot = (rotation + 1) % 4; const cells2 = getShipCells(ship, r, c, nextRot); if (isValidPlacement(cells2, bc) && !getNeighborCells(cells2).some(([nr, nc]) => nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && bc[nr][nc] > 0)) { setRotation(nextRot); return; } return; } const nb = bc.map(row => [...row]); const nc = shipColorMap.map(row => [...row]); cells.forEach(([cr, cc]) => { nb[cr][cc] = 1; nc[cr][cc] = ship.color; }); setDefenseBoard(nb); setShipColorMap(nc); setPlacedShips([...placedShips, { id: ship.id, cells, color: ship.color }]); setSelectedShip(null); setHoverCells([]); setRotation(0); sfx.init(); sfx.play('click'); };
+  };
+  const handleShipPointerDown = (r, c, e) => {
+    if (phase !== "placing" || placementConfirmed || selectedShip) return;
+    if (!(defenseBoard[r]?.[c] > 0)) return;
+    const target = placedShips.find(p => p.cells.some(([pr, pc]) => pr === r && pc === c));
+    if (!target) return;
+    const shipDef = SHIPS.find(s => s.id === target.id);
+    if (!shipDef) return;
+    const point = e.touches ? e.touches[0] : e;
+    dragRef.current = { shipId: target.id, shipDef, moved: false, startX: point.clientX, startY: point.clientY, origRow: target.row, origCol: target.col, origRot: target.rot, offR: r - target.row, offC: c - target.col, lastR: r, lastC: c };
+    window.addEventListener("mousemove", handlePointerMove);
+    window.addEventListener("mouseup", handlePointerUp);
+    window.addEventListener("touchmove", handlePointerMove, { passive: false });
+    window.addEventListener("touchend", handlePointerUp);
+  };
   const handleDefenseHover = (r, c) => { if (phase !== "placing" || !selectedShip || placementConfirmed) { setHoverCells([]); return; } const ship = SHIPS.find(s => s.id === selectedShip); if (!ship) return; setHoverCells(getShipCells(ship, r, c, rotation)); };
   const undoLastShip = () => { if (placedShips.length === 0) return; const last = placedShips[placedShips.length - 1]; const nb = defenseBoard.map(row => [...row]); const nc = shipColorMap.map(row => [...row]); last.cells.forEach(([r, c]) => { nb[r][c] = 0; nc[r][c] = null; }); setDefenseBoard(nb); setShipColorMap(nc); setPlacedShips(placedShips.slice(0, -1)); };
   const buyExtraTime = async () => {
@@ -1853,9 +2054,9 @@ export default function Game() {
   const handleAttackMark = (r, c) => { if (phase !== "playing") return; if (attackOverlay[r][c]) return; const nm = manualMarks.map(row => [...row]); nm[r][c] = !nm[r][c]; setManualMarks(nm); };
   const handleAttackLongPress = (r, c) => { handleAttackMark(r, c); };
   const fireShots = async () => {
-    sfx.playVoice('explosion');
     if (currentShots.length === 0) return;
     if (isBotGame) { botHandlePlayerShots(); return; }
+    sfx.playVoice('explosion');
     const pNum = playerNumRef.current, myKey = pNum === 1 ? "p1" : "p2"; const snapshot = await get(ref(db, `rooms/${roomIdRef.current}`)); const game = snapshot.val(); if (!game || game.turn !== pNum) return; const targetKey = pNum === 1 ? "p2" : "p1"; const shotResults = currentShots.map(([r, c]) => ({ r, c, result: game[`${targetKey}_board`][r][c] > 0 ? "hit" : "miss" })); const existingAttacks = game.attacks ? Object.values(game.attacks) : []; const prevHits = existingAttacks.filter(a => a.target === targetKey).reduce((sum, a) => sum + (a.shots ? a.shots.filter(s => s.result === "hit").length : 0), 0); const totalHits = prevHits + shotResults.filter(s => s.result === "hit").length; const updates = {}; updates[`attacks/${existingAttacks.length}`] = { by: pNum, target: targetKey, shots: shotResults, time: Date.now() }; updates[`clocks/${myKey}`] = myClockRef.current; if (totalHits >= 20) { updates.winner = pNum; updates.winReason = "hits"; } else { updates.turn = pNum === 1 ? 2 : 1; } await update(ref(db, `rooms/${roomIdRef.current}`), updates); setCurrentShots([]);
   };
   const getAttackDisplayOverlay = () => { const ovr = attackOverlay.map(row => [...row]); currentShots.forEach(([r, c]) => { if (!ovr[r][c]) ovr[r][c] = "selected"; }); return ovr; };
@@ -1876,6 +2077,7 @@ export default function Game() {
   const resetGame = () => {
     /* müzik devam eder */
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
+    finishDragListeners(); dragRef.current = null;
     setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShowSurrenderConfirm(false); setAfkTimer(null); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; killCountRef.current = 0; firstHitVoiceRef.current = false; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); isBotGameRef.current = false; setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false });
     if (authUid) { get(ref(db, `profiles/${authUid}`)).then(snap => { if (snap.exists()) setMyProfile(snap.val()); }).catch(() => {}); }
     setTimeout(() => { sfx.init(); sfx.playBattleMusic(false); }, 300);
@@ -2001,8 +2203,9 @@ export default function Game() {
         const botElo2 = (myProfile.elo || 1200) + Math.floor(Math.random() * 160) - 40;
         const myOld2 = myProfile.elo || 1200;
         const myNew2 = calculateElo(myOld2, botElo2, false);
-        update(ref(db, `profiles/${authUid}`), { elo: myNew2, losses: (myProfile.losses||0)+1, totalGames: (myProfile.totalGames||0)+1, lastGameAt: Date.now() }).catch(()=>{});
-        setMyProfile(prev => prev ? { ...prev, elo: myNew2, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1 } : prev);
+        const lvl2 = applyLevelCredit(myProfile, XP_BOT_LOSS);
+        update(ref(db, `profiles/${authUid}`), { elo: myNew2, losses: (myProfile.losses||0)+1, totalGames: (myProfile.totalGames||0)+1, lastGameAt: Date.now(), level: lvl2.level, levelProgress: lvl2.levelProgress }).catch(()=>{});
+        setMyProfile(prev => prev ? { ...prev, elo: myNew2, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1, level: lvl2.level, levelProgress: lvl2.levelProgress } : prev);
         setEloChange({ myOld: myOld2, myNew: myNew2, oppOld: botElo2, oppNew: calculateElo(botElo2, myOld2, true) });
       }
     } else {
@@ -2123,8 +2326,9 @@ export default function Game() {
       const eloGain = myNewElo - myOldElo;
       const botWinGold = Math.max(2, Math.round(eloGain * 1.5)) * streakMult;
       if (authUid && myProfile && !isOnboarding) {
-        update(ref(db, `profiles/${authUid}`), { elo: myNewElo, wins: (myProfile.wins||0)+1, totalGames: (myProfile.totalGames||0)+1, lastGameAt: Date.now() }).catch(()=>{});
-        setMyProfile(prev => prev ? { ...prev, elo: myNewElo, wins:(prev.wins||0)+1, totalGames:(prev.totalGames||0)+1 } : prev);
+        const lvl1 = applyLevelCredit(myProfile, XP_BOT_WIN);
+        update(ref(db, `profiles/${authUid}`), { elo: myNewElo, wins: (myProfile.wins||0)+1, totalGames: (myProfile.totalGames||0)+1, lastGameAt: Date.now(), level: lvl1.level, levelProgress: lvl1.levelProgress }).catch(()=>{});
+        setMyProfile(prev => prev ? { ...prev, elo: myNewElo, wins:(prev.wins||0)+1, totalGames:(prev.totalGames||0)+1, level: lvl1.level, levelProgress: lvl1.levelProgress } : prev);
         setEloChange({ myOld: myOldElo, myNew: myNewElo, oppOld: botElo, oppNew: calculateElo(botElo, myOldElo, false) });
       }
       if (authUid && myProfile && !isOnboarding) {
@@ -2174,7 +2378,7 @@ export default function Game() {
     });
   };
 
-  const appStyle = { minHeight: "100vh", minHeight: "100dvh", background: t.bg, color: t.text, fontFamily: mono, display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 8px", boxSizing: "border-box" };
+  const appStyle = { minHeight: "100vh", minHeight: "100dvh", width: "100%", background: t.bg, color: t.text, fontFamily: mono, display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 8px", boxSizing: "border-box", overflowX: "hidden" };
   const btnStyle = { padding: "12px 28px", background: `linear-gradient(135deg, ${t.accent}, #0891b2)`, color: t.bg, border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", cursor: "pointer", fontFamily: warrior, boxShadow: `0 0 15px ${t.accentGlow}` };
   const btnSecStyle = { padding: "8px 16px", background: "transparent", color: t.accent, border: `1px solid ${t.accent}`, borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: 1, cursor: "pointer", fontFamily: warrior };
   const inputStyle = { padding: "12px 16px", background: t.surface, color: t.text, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 15, fontFamily: mono, outline: "none", textAlign: "center", width: "100%", maxWidth: 260, boxSizing: "border-box" };
@@ -2202,78 +2406,9 @@ export default function Game() {
           <div style={{ position:"absolute",bottom:0,left:"-50%",width:"200%",height:60,borderRadius:"50%",background:"linear-gradient(90deg,#00e5ff,#0088cc,#00e5ff)",animation:"wave 5s linear infinite" }} />
         </div>
         <div style={{ textAlign:"center",zIndex:1,perspective:"600px",display:"flex",flexDirection:"column",alignItems:"center" }}>
-          {/* Çapraz kılıç SVG */}
+          {/* Çapraz çapa logo */}
           <div style={{ width:280,height:250,marginBottom:8,animation:"sword3d 1.2s cubic-bezier(0.34,1.56,0.64,1) forwards, sword3dFloat 4s ease-in-out 1.3s infinite",filter:"drop-shadow(0 0 60px rgba(0,229,255,0.8)) drop-shadow(0 0 120px rgba(0,229,255,0.4)) drop-shadow(0 0 20px rgba(255,255,255,0.6))" }}>
-            <svg viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg" style={{ width:"100%",height:"100%" }}>
-              <defs>
-                <linearGradient id="blade1" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#e8f4ff"/>
-                  <stop offset="30%" stopColor="#c8dff5"/>
-                  <stop offset="60%" stopColor="#a0bfe0"/>
-                  <stop offset="100%" stopColor="#7090b0"/>
-                </linearGradient>
-                <linearGradient id="blade2" x1="100%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#e8f4ff"/>
-                  <stop offset="30%" stopColor="#c8dff5"/>
-                  <stop offset="60%" stopColor="#a0bfe0"/>
-                  <stop offset="100%" stopColor="#7090b0"/>
-                </linearGradient>
-                <linearGradient id="handle" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#888"/>
-                  <stop offset="50%" stopColor="#ccc"/>
-                  <stop offset="100%" stopColor="#888"/>
-                </linearGradient>
-                <linearGradient id="gem" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#8ab4f8"/>
-                  <stop offset="50%" stopColor="#4a80e0"/>
-                  <stop offset="100%" stopColor="#2040a0"/>
-                </linearGradient>
-                <filter id="glow">
-                  <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
-                  <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
-                </filter>
-                {/* Engraving pattern */}
-                <pattern id="engrave" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
-                  <path d="M0 4 Q2 2 4 4 Q6 6 8 4" stroke="rgba(255,255,255,0.15)" strokeWidth="0.5" fill="none"/>
-                </pattern>
-              </defs>
-              {/* Kılıç 1 — Sol üstten sağ alta */}
-              <g transform="rotate(-40, 100, 90)">
-                {/* Blade */}
-                <polygon points="100,8 104,130 100,138 96,130" fill="url(#blade1)" filter="url(#glow)"/>
-                <polygon points="100,8 104,130 100,138 96,130" fill="url(#engrave)" opacity="0.6"/>
-                {/* Blade edge highlight */}
-                <line x1="100" y1="10" x2="102" y2="128" stroke="rgba(255,255,255,0.95)" strokeWidth="1.5"/>
-                {/* Guard/crossguard */}
-                <rect x="84" y="126" width="32" height="7" rx="2" fill="url(#handle)" filter="url(#glow)"/>
-                <rect x="84" y="126" width="32" height="7" rx="2" fill="rgba(255,255,255,0.08)"/>
-                {/* Gem */}
-                <polygon points="100,127 104,131 100,135 96,131" fill="url(#gem)" filter="url(#glow)"/>
-                <polygon points="100,127 104,131 100,135 96,131" fill="rgba(255,255,255,0.3)" opacity="0.5"/>
-                {/* Handle */}
-                <rect x="97" y="133" width="6" height="28" rx="3" fill="url(#handle)"/>
-                <rect x="97" y="133" width="6" height="28" rx="3" fill="rgba(255,255,255,0.1)"/>
-                {/* Pommel */}
-                <ellipse cx="100" cy="163" rx="7" ry="5" fill="url(#handle)" filter="url(#glow)"/>
-              </g>
-              {/* Kılıç 2 — Sağ üstten sol alta */}
-              <g transform="rotate(40, 100, 90)">
-                <polygon points="100,8 104,130 100,138 96,130" fill="url(#blade2)" filter="url(#glow)"/>
-                <polygon points="100,8 104,130 100,138 96,130" fill="url(#engrave)" opacity="0.6"/>
-                <line x1="100" y1="10" x2="98" y2="128" stroke="rgba(255,255,255,0.95)" strokeWidth="1.5"/>
-                <rect x="84" y="126" width="32" height="7" rx="2" fill="url(#handle)" filter="url(#glow)"/>
-                <rect x="84" y="126" width="32" height="7" rx="2" fill="rgba(255,255,255,0.08)"/>
-                <polygon points="100,127 104,131 100,135 96,131" fill="url(#gem)" filter="url(#glow)"/>
-                <polygon points="100,127 104,131 100,135 96,131" fill="rgba(255,255,255,0.3)" opacity="0.5"/>
-                <rect x="97" y="133" width="6" height="28" rx="3" fill="url(#handle)"/>
-                <rect x="97" y="133" width="6" height="28" rx="3" fill="rgba(255,255,255,0.1)"/>
-                <ellipse cx="100" cy="163" rx="7" ry="5" fill="url(#handle)" filter="url(#glow)"/>
-              </g>
-              {/* Kavşak ışık efekti */}
-              <circle cx="100" cy="88" r="22" fill="rgba(255,255,255,0.18)" filter="url(#glow)"/>
-              <circle cx="100" cy="88" r="10" fill="rgba(200,220,255,0.6)"/>
-              <circle cx="100" cy="88" r="4" fill="rgba(255,255,255,0.9)"/>
-            </svg>
+            <AnchorHeroLogo />
           </div>
           {/* Title */}
           <div style={{ animation:"titleSlam 1s cubic-bezier(0.34,1.56,0.64,1) 0.3s both" }}>
@@ -2321,7 +2456,6 @@ export default function Game() {
           return <><style>{ANIMS}</style><div style={{ display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#050b18" }}><div style={{ width:40,height:40,borderRadius:"50%",border:"3px solid #00e5ff",borderTopColor:"transparent",animation:"spin 0.8s linear infinite" }} /><style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style></div></>;
         }
       }
-      checkDailyReward(authUid).then(reward => { if (reward) setDailyReward(reward); }).catch(() => {});
       if (phase === "splash") {
         Promise.resolve().then(() => { setPhase("lobby"); sfx.init(); if (!sfx._audioEl) sfx.playIntroFanfare(); });
         return <><style>{ANIMS}</style><div style={{ display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#050b18" }}><div style={{ width:40,height:40,borderRadius:"50%",border:"3px solid #00e5ff",borderTopColor:"transparent",animation:"spin 0.8s linear infinite" }} /><style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style></div></>;
@@ -2453,7 +2587,7 @@ export default function Game() {
         `}</style>
         {/* Savaş konsepti — arka plan dekorasyon */}
         <div style={{ position:"absolute",top:0,left:0,right:0,bottom:0,pointerEvents:"none",overflow:"hidden" }}>
-          <div style={{ position:"absolute",top:"8%",left:"5%",fontSize:60,opacity:0.04,fontFamily:warrior,fontWeight:900,color:"#fff",animation:"battleFlicker 3s ease-in-out infinite" }}>⚔</div>
+          <div style={{ position:"absolute",top:"8%",left:"5%",opacity:0.04,animation:"battleFlicker 3s ease-in-out infinite" }}><XAnchors size={60} color="#fff"/></div>
           <div style={{ position:"absolute",bottom:"12%",right:"5%",fontSize:48,opacity:0.04,fontFamily:warrior,fontWeight:900,color:"#fff",animation:"battleFlicker 4s ease-in-out 1s infinite" }}>🛡</div>
           <div style={{ position:"absolute",bottom:0,left:0,right:0,height:60,opacity:0.04,overflow:"hidden" }}>
             <div style={{ position:"absolute",bottom:0,left:"-50%",width:"200%",height:40,borderRadius:"50%",background:t.accent,animation:"wave 6s linear infinite" }} />
@@ -2484,42 +2618,7 @@ export default function Game() {
           <SplashAutoAdvance onDone={() => { sfx.init(); sfx.playIntroFanfare(); setOnboardingStep(1); }} />
           <div style={{ textAlign:"center",zIndex:1,display:"flex",flexDirection:"column",alignItems:"center",animation:"tutCardEnter 1.2s cubic-bezier(0.16,1,0.3,1) 0.2s both" }}>
             <div style={{ width:280,height:250,marginBottom:8,animation:"sword3d 1.2s cubic-bezier(0.34,1.56,0.64,1) forwards, sword3dFloat 4s ease-in-out 1.3s infinite",filter:"drop-shadow(0 0 60px rgba(0,229,255,0.8)) drop-shadow(0 0 120px rgba(0,229,255,0.4)) drop-shadow(0 0 20px rgba(255,255,255,0.6))" }}>
-              <svg viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg" style={{ width:"100%",height:"100%" }}>
-                <defs>
-                  <linearGradient id="blade1b" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#e8f4ff"/><stop offset="30%" stopColor="#c8dff5"/><stop offset="60%" stopColor="#a0bfe0"/><stop offset="100%" stopColor="#7090b0"/>
-                  </linearGradient>
-                  <linearGradient id="blade2b" x1="100%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#e8f4ff"/><stop offset="30%" stopColor="#c8dff5"/><stop offset="60%" stopColor="#a0bfe0"/><stop offset="100%" stopColor="#7090b0"/>
-                  </linearGradient>
-                  <linearGradient id="handleb" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#888"/><stop offset="50%" stopColor="#ccc"/><stop offset="100%" stopColor="#888"/>
-                  </linearGradient>
-                  <linearGradient id="gemb" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#8ab4f8"/><stop offset="50%" stopColor="#4a80e0"/><stop offset="100%" stopColor="#2040a0"/>
-                  </linearGradient>
-                  <filter id="glowb"><feGaussianBlur stdDeviation="4" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                </defs>
-                <g transform="rotate(-40, 100, 90)">
-                  <polygon points="100,8 104,130 100,138 96,130" fill="url(#blade1b)" filter="url(#glowb)"/>
-                  <line x1="100" y1="10" x2="102" y2="128" stroke="rgba(255,255,255,0.95)" strokeWidth="1.5"/>
-                  <rect x="84" y="126" width="32" height="7" rx="2" fill="url(#handleb)" filter="url(#glowb)"/>
-                  <polygon points="100,127 104,131 100,135 96,131" fill="url(#gemb)" filter="url(#glowb)"/>
-                  <rect x="97" y="133" width="6" height="28" rx="3" fill="url(#handleb)"/>
-                  <ellipse cx="100" cy="163" rx="7" ry="5" fill="url(#handleb)" filter="url(#glowb)"/>
-                </g>
-                <g transform="rotate(40, 100, 90)">
-                  <polygon points="100,8 104,130 100,138 96,130" fill="url(#blade2b)" filter="url(#glowb)"/>
-                  <line x1="100" y1="10" x2="98" y2="128" stroke="rgba(255,255,255,0.95)" strokeWidth="1.5"/>
-                  <rect x="84" y="126" width="32" height="7" rx="2" fill="url(#handleb)" filter="url(#glowb)"/>
-                  <polygon points="100,127 104,131 100,135 96,131" fill="url(#gemb)" filter="url(#glowb)"/>
-                  <rect x="97" y="133" width="6" height="28" rx="3" fill="url(#handleb)"/>
-                  <ellipse cx="100" cy="163" rx="7" ry="5" fill="url(#handleb)" filter="url(#glowb)"/>
-                </g>
-                <circle cx="100" cy="88" r="22" fill="rgba(255,255,255,0.18)" filter="url(#glowb)"/>
-                <circle cx="100" cy="88" r="10" fill="rgba(200,220,255,0.6)"/>
-                <circle cx="100" cy="88" r="4" fill="rgba(255,255,255,0.9)"/>
-              </svg>
+              <AnchorHeroLogo />
             </div>
             <div style={{ animation:"titleSlam 0.9s cubic-bezier(0.34,1.56,0.64,1) 0.4s both" }}>
               <div style={{ fontSize:56,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:12,textShadow:`0 0 80px ${t.accentGlow}, 0 0 40px rgba(0,229,255,0.4), 0 6px 30px rgba(0,0,0,0.9)`,lineHeight:1 }}>AMİRAL<br/>BATTI</div>
@@ -2633,12 +2732,12 @@ export default function Game() {
             <div style={{ width:"100%",background:"linear-gradient(180deg, rgba(80,10,5,0.6) 0%, rgba(40,5,2,0.85) 100%)",border:"1px solid rgba(180,40,20,0.35)",borderRadius:12,padding:"20px 16px 14px",position:"relative",overflow:"hidden" }}>
               <div style={{ position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 100%, rgba(255,80,20,0.12) 0%, transparent 70%)",pointerEvents:"none" }} />
               <div style={{ position:"absolute",bottom:0,left:0,right:0,height:2,background:"linear-gradient(90deg,transparent,rgba(255,100,40,0.7),rgba(255,160,60,0.9),rgba(255,100,40,0.7),transparent)" }} />
-              <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); sfx.transitionToBattle(); }} style={{ width:"100%",padding:"20px 0",background:"linear-gradient(180deg, #a01f0c 0%, #6b1108 50%, #3a0804 100%)",color:"#fff",border:"none",borderRadius:3,fontSize:22,fontWeight:900,letterSpacing:14,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 60px rgba(200,50,20,0.6), 0 0 120px rgba(180,30,10,0.3), 0 8px 40px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,180,120,0.2)",position:"relative",overflow:"hidden",textTransform:"uppercase",textShadow:"0 0 30px rgba(255,140,60,0.9), 0 0 60px rgba(255,80,20,0.5), 0 2px 8px rgba(0,0,0,0.9)" }}>
+              <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); sfx.transitionToBattle(); }} style={{ width:"100%",padding:"18px 0",background:"linear-gradient(180deg, #a01f0c 0%, #6b1108 50%, #3a0804 100%)",color:"#fff",border:"1px solid rgba(255,200,120,0.35)",borderRadius:6,fontSize:20,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 60px rgba(200,50,20,0.6), 0 0 120px rgba(180,30,10,0.3), 0 8px 40px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,180,120,0.2)",position:"relative",overflow:"hidden",textTransform:"uppercase",textShadow:"0 0 30px rgba(255,140,60,0.9), 0 0 60px rgba(255,80,20,0.5), 0 2px 8px rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>
                 <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,150,80,0.1),transparent)",animation:"shimmerPass 3s ease-in-out infinite" }} />
-                ⚔ SAVAŞ
+                <XAnchors size={22} color="#ffd8a8" /> SAVAŞA BAŞLA
               </button>
-              <div style={{ marginTop:10,fontSize:11,fontStyle:"italic",color:"rgba(255,180,100,0.65)",fontFamily:warrior,letterSpacing:6,textShadow:"0 0 10px rgba(255,120,40,0.4)" }}>
-                savaşların atası...
+              <div style={{ marginTop:10,fontSize:11,fontStyle:"italic",color:"rgba(255,180,100,0.65)",fontFamily:warrior,letterSpacing:4,textShadow:"0 0 10px rgba(255,120,40,0.4)" }}>
+                sular ısınsın...
               </div>
             </div>
           </div>
@@ -2688,6 +2787,9 @@ export default function Game() {
 
   if (phase === "lobby") {
     const rank = myProfile ? getRankInfo(myProfile.elo) : null;
+    const myLevel = myProfile?.level || 0;
+    const myGamesNeeded = gamesNeededForLevel(myLevel);
+    const myLevelPct = Math.max(0, Math.min(1, (myProfile?.levelProgress || 0) / myGamesNeeded));
     const authLoading = !authReady || !authUid;
     const winRate = myProfile && myProfile.totalGames > 0 ? Math.round((myProfile.wins / myProfile.totalGames) * 100) : 0;
     return (<div style={{ ...appStyle, background:`linear-gradient(180deg, ${t.bg} 0%, #071428 50%, #0a1a35 100%)`,position:"relative",overflow:"hidden" }}><style>{ANIMS}{`
@@ -2714,13 +2816,29 @@ export default function Game() {
         {onlineCount > 0 && <div style={{ display:'flex',alignItems:'center',gap:6,animation:'fadeUp 0.5s ease-out' }}><div style={{ width:8,height:8,borderRadius:'50%',background:'#34d399',boxShadow:'0 0 8px rgba(52,211,153,0.6)',animation:'pulse 2s infinite' }} /><span style={{ fontSize:11,color:'#34d399',fontFamily:warrior,letterSpacing:2 }}>{onlineCount} KİŞİ OYNUYOR</span></div>}
         <button onClick={()=>{sfx.init(); if(sfx._audioEl && !sfx._audioEl.paused){sfx.stopMusic();}else{sfx.playBattleMusic(false);}}} style={{ padding:"4px 10px",background:"rgba(255,255,255,0.04)",border:`1px solid ${t.border}`,borderRadius:8,fontSize:14,cursor:"pointer",color:t.textDim,lineHeight:1 }}>{sfx._audioEl && !sfx._audioEl.paused?'🔊':'🔇'}</button>
       </div>
+      {myProfile && (<div style={{ width:"100%",maxWidth:360,marginBottom:14,zIndex:1,animation:"fadeUp 0.25s ease-out" }}>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:5,padding:"0 2px" }}>
+          <span style={{ fontSize:12,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 10px ${t.goldGlow}` }}>SEVİYE {myLevel}</span>
+          <span style={{ fontSize:10,fontWeight:700,color:t.textDim,fontFamily:mono,letterSpacing:1 }}>{Math.floor(myLevelPct*100)}%</span>
+        </div>
+        <div style={{ width:"100%",height:16,borderRadius:9,background:"rgba(0,0,0,0.45)",border:"1px solid rgba(255,215,0,0.3)",overflow:"hidden",position:"relative",boxShadow:"inset 0 2px 6px rgba(0,0,0,0.6)" }}>
+          <div style={{ width:`${myLevelPct*100}%`,height:"100%",background:"linear-gradient(180deg, #fff9c4 0%, #ffe066 30%, #ffd700 60%, #d97706 100%)",boxShadow:`0 0 14px ${t.goldGlow}, inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -2px 4px rgba(120,70,0,0.4)`,transition:"width 0.7s cubic-bezier(0.34,1.56,0.64,1)",borderRadius:9,position:"relative",overflow:"hidden" }}>
+            <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent)",animation:"shimmerPass 2.4s ease-in-out infinite" }} />
+          </div>
+        </div>
+      </div>)}
       {authLoading && <div style={{ background:"rgba(239,68,68,0.12)",border:`1px solid ${t.hit}`,borderRadius:8,padding:"10px 16px",marginBottom:12,fontSize:11,color:t.hit,fontFamily:mono,textAlign:"center",width:"100%",maxWidth:340,animation:"pulse 1.5s infinite" }}>Sunucuya bağlanılıyor...</div>}
       {isTestMode() && <div style={{ background:"rgba(251,191,36,0.15)",border:`1px solid ${t.gold}`,borderRadius:8,padding:"8px 16px",marginBottom:12,fontSize:11,color:t.gold,fontFamily:warrior,letterSpacing:2,textAlign:"center",width:"100%",maxWidth:340 }}>🧪 TEST MODU — 2 tab aç, oda koduyla oyna</div>}
-      {myProfile && (<div style={{ background:`linear-gradient(145deg, ${t.surface}, ${t.surfaceLight})`,border:`2px solid ${rank?.color||t.border}`,borderRadius:16,padding:"18px 22px",marginBottom:16,width:"100%",maxWidth:360,animation:"fadeUp 0.3s ease-out, rankGlow 3s ease-in-out infinite",boxShadow:`0 4px 20px rgba(0,0,0,0.4), 0 0 20px ${rank?.color?rank.color+"22":"transparent"}`,zIndex:1,'--rank-color':(rank?.color||t.accent)+"55" }}>
+      {myProfile && (<div style={{ background:`linear-gradient(145deg, ${t.surface}, ${t.surfaceLight})`,border:`2px solid ${myLevelPct>=0.999?"#ffd700":t.border}`,borderRadius:16,padding:"18px 22px",marginBottom:16,width:"100%",maxWidth:360,animation:"fadeUp 0.3s ease-out",boxShadow:`0 4px 20px rgba(0,0,0,0.4)`,zIndex:1 }}>
         <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12 }}>
           <div>
             <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-              <button onClick={()=>setShowAvatarPick(v=>!v)} title="Profil simgeni seç" style={{ width:44,height:44,borderRadius:"50%",background:"rgba(0,229,255,0.10)",border:`2px solid ${rank?.color||t.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",boxShadow:`0 0 14px ${(rank?.color||t.accent)}44`,padding:0,overflow:"hidden" }}>{(myProfile.avatar||"").startsWith("data:")?<img src={myProfile.avatar} alt="" style={{ width:"100%",height:"100%",objectFit:"cover" }} />:(myProfile.avatar||"⚓")}</button>
+              <div style={{ position:"relative",width:48,height:48 }}>
+                <div style={{ width:"100%",height:"100%",borderRadius:"50%",background:`conic-gradient(#ffd700 ${myLevelPct*360}deg, rgba(255,255,255,0.10) ${myLevelPct*360}deg)`,padding:3,boxShadow:myLevelPct>=0.999?`0 0 16px ${t.goldGlow}, 0 0 30px ${t.goldGlow}`:"none",transition:"box-shadow 0.4s ease" }}>
+                  <button onClick={()=>setShowAvatarPick(v=>!v)} title="Profil simgeni seç" style={{ width:"100%",height:"100%",borderRadius:"50%",background:"rgba(0,229,255,0.10)",border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,cursor:"pointer",padding:0,overflow:"hidden" }}>{(myProfile.avatar||"").startsWith("data:")?<img src={myProfile.avatar} alt="" style={{ width:"100%",height:"100%",objectFit:"cover" }} />:(myProfile.avatar||"⚓")}</button>
+                </div>
+                <div style={{ position:"absolute",bottom:-4,right:-4,minWidth:18,height:18,borderRadius:9,background:"linear-gradient(160deg,#fff9c4,#ffd700 60%,#d97706)",border:"2px solid "+t.surface,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:900,color:"#1a1206",fontFamily:warrior,padding:"0 3px" }}>{myLevel}</div>
+              </div>
               <div style={{ fontSize:20,fontWeight:800,color:t.text,fontFamily:warrior,letterSpacing:2 }}>{myProfile.displayName}</div>
             </div>
             {showAvatarPick && <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginTop:8,padding:"8px 10px",background:"rgba(0,0,0,0.35)",borderRadius:12,border:`1px solid ${t.border}` }}>
@@ -2729,10 +2847,7 @@ export default function Game() {
               {["⚓","🦈","🐙","⚔","🏴‍☠️","🌊","🦅","🐉","💀","🔱"].map(av=>(<button key={av} onClick={()=>{ setShowAvatarPick(false); if(authUid){ update(ref(db,`profiles/${authUid}`),{avatar:av}).catch(()=>{}); } setMyProfile(prev=>prev?{...prev,avatar:av}:prev); }} style={{ width:36,height:36,borderRadius:"50%",background:myProfile.avatar===av?"rgba(0,229,255,0.25)":"rgba(255,255,255,0.05)",border:`2px solid ${myProfile.avatar===av?t.accent:"transparent"}`,fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>{av}</button>))}
             </div>}
             <div style={{ display:"flex",alignItems:"center",gap:6,marginTop:4 }}>
-              <span style={{ fontSize:14,fontWeight:800,color:rank?.color||t.textDim,fontFamily:warrior,letterSpacing:2,textShadow:`0 0 10px ${rank?.color||t.textDim}44` }}>{rank?.icon} {rank?.title}</span>
-              <span style={{ fontSize:14,fontWeight:900,color:t.gold,fontFamily:warrior,background:"linear-gradient(135deg,rgba(255,215,0,0.2),rgba(255,215,0,0.06))",padding:"4px 12px",borderRadius:20,border:`1px solid rgba(255,215,0,0.4)`,boxShadow:`0 0 14px ${t.goldGlow}`,letterSpacing:1,display:"inline-flex",alignItems:"center",gap:6 }}>
-                <img src="/img/coin.png" alt="altın" style={{ width:20,height:20,filter:"drop-shadow(0 1px 3px rgba(0,0,0,0.5))",animation:"coinSpinY 3s ease-in-out infinite" }} />
-                {safeGold(myProfile.gold)}</span>
+              <span style={{ fontSize:13,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:1 }}>{safeGold(myProfile.gold)} ALTIN</span>
               {canChangeName() && <button onClick={()=>{setPhase("splash");}} style={{ fontSize:8,color:t.textDim,background:"transparent",border:`1px solid ${t.border}`,borderRadius:4,padding:"2px 6px",cursor:"pointer",fontFamily:mono }}>✏</button>}
             </div>
           </div>
@@ -2762,7 +2877,7 @@ export default function Game() {
       {matchmaking && <button onClick={async()=>{if(matchCancelFn)await matchCancelFn();setMatchmaking(false);setMatchCancelFn(null);}} style={{ marginTop:6,padding:"8px 20px",background:"transparent",color:t.hit,border:`1px solid ${t.hit}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior,zIndex:1 }}>İPTAL</button>}
       <div style={{ display:"flex",gap:8,marginTop:10,width:"100%",maxWidth:360,animation:"fadeUp 0.6s ease-out",zIndex:1 }}>
         <RippleButton onClick={()=>{if(!authUid){setMessage("Bağlantı bekleniyor...");return;}setShowOnlineLobby(true);}} disabled={authLoading} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(0,212,255,0.1),rgba(0,212,255,0.03))`,color:t.accent,border:`1px solid rgba(0,212,255,0.3)`,borderRadius:10,fontSize:14,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}>🌐 SALON</RippleButton>
-        <RippleButton onClick={()=>{if(!authUid){setMessage("Bağlantı bekleniyor...");return;}setShowArenaSelect(true);}} disabled={authLoading} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(167,139,250,0.1),rgba(167,139,250,0.03))`,color:"#a78bfa",border:"1px solid rgba(167,139,250,0.3)",borderRadius:10,fontSize:14,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}>⚔ ARENA</RippleButton>
+        <RippleButton onClick={()=>{if(!authUid){setMessage("Bağlantı bekleniyor...");return;}setShowArenaSelect(true);}} disabled={authLoading} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(167,139,250,0.1),rgba(167,139,250,0.03))`,color:"#a78bfa",border:"1px solid rgba(167,139,250,0.3)",borderRadius:10,fontSize:14,fontWeight:700,letterSpacing:2,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={14} color="#a78bfa"/> ARENA</RippleButton>
       </div>
       <div style={{ display:"flex",gap:8,marginTop:8,width:"100%",maxWidth:360,animation:"fadeUp 0.7s ease-out",zIndex:1 }}>
         <RippleButton onClick={startBotGame} style={{ flex:1,padding:"13px 0",background:`linear-gradient(135deg,rgba(52,211,153,0.1),rgba(52,211,153,0.03))`,color:"#34d399",border:"1px solid rgba(52,211,153,0.3)",borderRadius:10,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🤖 BOT</RippleButton>
@@ -2800,6 +2915,9 @@ export default function Game() {
         setChestClaimed(true); setChestReward(null);
       }} />}
       {dailyReward && <DailyRewardPopup reward={dailyReward.reward} streak={dailyReward.streak} onClose={() => { setMyProfile(prev => prev ? { ...prev, gold: dailyReward.newGold, loginStreak: dailyReward.streak } : prev); setDailyReward(null); }} />}
+      {showDailyChest && !dailyChestModalOpen && <DailyChestFab onOpen={() => setDailyChestModalOpen(true)} />}
+      {dailyChestModalOpen && <DailyChestPopup onClaim={claimDailyChest} />}
+      {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
       <button onClick={handleLogout} style={{ marginTop:16,padding:"8px 20px",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:8,fontSize:10,fontWeight:600,letterSpacing:1,cursor:"pointer",fontFamily:warrior,zIndex:1,opacity:0.6 }}>ÇIKIŞ YAP</button>
     </div>);
   }
@@ -2865,10 +2983,10 @@ export default function Game() {
       </>)}
       {allPlaced && !placementConfirmed && <div style={{ textAlign:"center",marginBottom:12 }}>
         <button style={{ ...btnStyle,animation:"borderGlow 1.5s infinite",padding:"14px 36px",fontSize:16,fontWeight:800,letterSpacing:4,borderRadius:12 }} onClick={confirmPlacement}>✓ GEMİLERİ ONAYLA</button>
-        <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginTop:8,letterSpacing:1 }}>✏️ Düzenlemek için haritada bir gemiye dokun — eline alır, yeni yerine bırakırsın</div>
+        <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginTop:8,letterSpacing:1 }}>✏️ Gemiye dokun = döndürür • Basılı tutup sürükle = taşırsın</div>
       </div>}
       {placementConfirmed && <div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.9), rgba(8,14,30,0.95))",border:`2px solid rgba(0,229,255,0.2)`,borderRadius:12,padding:"16px 24px",marginBottom:8,fontSize:14,fontWeight:700,color:t.accent,textAlign:"center",fontFamily:warrior,letterSpacing:2 }}>Gemilerin hazır! Rakip bekleniyor...<div style={{ marginTop:10 }}><div style={{ width:14,height:14,borderRadius:"50%",background:t.accent,margin:"0 auto",animation:"pulse 1.5s infinite" }} /></div></div>}
-      <div onMouseLeave={() => setHoverCells([])}><Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} hoverCells={hoverCells} onClick={handleDefenseClick} onHover={handleDefenseHover} disabled={placementConfirmed} /></div>
+      <div onMouseLeave={() => { if(!dragRef.current) setHoverCells([]); }}><Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} hoverCells={hoverCells} onClick={handleDefenseClick} onHover={handleDefenseHover} onCellPointerDown={handleShipPointerDown} disabled={placementConfirmed} /></div>
     </div>);
   }
 
@@ -2922,7 +3040,7 @@ export default function Game() {
           <EmojiDisplay emoji={emojiToast?.emoji} label={emojiToast?.label} />
         </div>
       </div>}
-      {isOnboarding && <div style={{ fontSize:18,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:8,marginBottom:8,textAlign:"center",textShadow:`0 0 30px ${t.accentGlow}, 0 0 60px rgba(0,229,255,0.2)`,animation:"victoryGlow 3s ease-in-out infinite",textTransform:"uppercase" }}>⚔  EĞİTİM SAVAŞI  ⚔</div>}
+      {isOnboarding && <div style={{ fontSize:18,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:8,marginBottom:8,textAlign:"center",textShadow:`0 0 30px ${t.accentGlow}, 0 0 60px rgba(0,229,255,0.2)`,animation:"victoryGlow 3s ease-in-out infinite",textTransform:"uppercase",display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}><XAnchors size={18} color={t.accent}/> EĞİTİM SAVAŞI <XAnchors size={18} color={t.accent}/></div>}
       
       {!myTurn && !isBotGame && afkTimer !== null && afkTimer <= 15 && (
         <div style={{ background:afkTimer<=5?"rgba(255,71,87,0.2)":"rgba(255,215,0,0.1)",border:`1px solid ${afkTimer<=5?t.hit:t.gold}`,borderRadius:8,padding:"4px 14px",marginBottom:6,fontSize:12,fontWeight:800,color:afkTimer<=5?t.hit:t.gold,fontFamily:warrior,letterSpacing:2,animation:afkTimer<=5?"blink3s 0.4s infinite":"none",textAlign:"center" }}>
@@ -2936,7 +3054,7 @@ export default function Game() {
       {damageReport && <div style={{ background:"rgba(239,68,68,0.1)",border:`1px solid ${t.hit}`,borderRadius:8,padding:"6px 14px",marginBottom:6,fontSize:11,color:t.hit,fontWeight:700,textAlign:"center",width:"100%",maxWidth:400,animation:"slideIn 0.3s ease-out",fontFamily:warrior,letterSpacing:1 }}>⚠ {damageReport}</div>}
       {!isOnboarding && <>
       <div style={{ display:"flex",gap:0,marginBottom:6,width:"100%",maxWidth:400 }}>
-        <button onClick={()=>{setActiveBoard("attack");setMarkMode(false);}} style={{ flex:1,padding:"12px 0",fontSize:15,fontWeight:800,fontFamily:warrior,cursor:"pointer",background:isAttack?`linear-gradient(135deg,${t.accent},#0891b2)`:t.surfaceLight,color:isAttack?t.bg:t.textDim,border:`2px solid ${isAttack?t.accent:t.border}`,borderRadius:"10px 0 0 10px",letterSpacing:4,animation:myTurn&&isAttack?"borderGlow 2s infinite":"none" }}>⚔ SALDIRI</button>
+        <button onClick={()=>{setActiveBoard("attack");setMarkMode(false);}} style={{ flex:1,padding:"12px 0",fontSize:15,fontWeight:800,fontFamily:warrior,cursor:"pointer",background:isAttack?`linear-gradient(135deg,${t.accent},#0891b2)`:t.surfaceLight,color:isAttack?t.bg:t.textDim,border:`2px solid ${isAttack?t.accent:t.border}`,borderRadius:"10px 0 0 10px",letterSpacing:4,animation:myTurn&&isAttack?"borderGlow 2s infinite":"none",display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={16} color={isAttack?t.bg:t.textDim}/> SALDIRI</button>
         <button onClick={()=>{setActiveBoard("defense");setMarkMode(false);}} style={{ flex:1,padding:"12px 0",fontSize:15,fontWeight:800,fontFamily:warrior,cursor:"pointer",background:!isAttack?`linear-gradient(135deg,${t.accent},#0891b2)`:t.surfaceLight,color:!isAttack?t.bg:t.textDim,border:`2px solid ${!isAttack?t.accent:t.border}`,borderRadius:"0 10px 10px 0",letterSpacing:4 }}>🛡 SAVUNMA</button>
       </div>
       {isAttack && <button onClick={()=>setMarkMode(!markMode)} style={{ marginBottom:6,padding:"6px 16px",fontSize:10,fontWeight:700,fontFamily:warrior,background:markMode?t.gold:"transparent",color:markMode?t.bg:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,cursor:"pointer",letterSpacing:2 }}>{markMode?"⚑ İŞARETLEME MODU: AÇIK":"⚑ İŞARETLE"}</button>}

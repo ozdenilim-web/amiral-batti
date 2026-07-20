@@ -29,7 +29,7 @@ export default function RootLayout({ children }) {
           }
         `}} />
       </head>
-      <body style={{ margin: 0, padding: 0, background: "#0a0e17" }}>
+      <body style={{ margin: 0, padding: 0, background: "#0a0e17", overflowX: "hidden", width: "100%", maxWidth: "100vw" }}>
         {children}
       </body>
     </html>
