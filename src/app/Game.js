@@ -963,6 +963,8 @@ const ANIMS = `
 @keyframes emojiFly3d{0%{opacity:0;transform:translate(-50%,-50%) scale(0.2) rotateY(120deg) rotateZ(-20deg)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.5) rotateY(-12deg) rotateZ(6deg)}30%{transform:translate(-50%,-50%) scale(1.15) rotateY(0deg) rotateZ(0deg)}75%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}100%{opacity:0;transform:translate(-50%,-58%) scale(0.85)}}
 @keyframes raysSpin{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}
 @keyframes coinRise{0%{transform:translateY(0) rotate(0deg);opacity:0}12%{opacity:0.55}85%{opacity:0.35}100%{transform:translateY(-64vh) rotate(340deg);opacity:0}}
+@keyframes coinFall{0%{transform:translateY(0) rotate(0deg);opacity:0}10%{opacity:1}90%{opacity:0.9}100%{transform:translateY(88vh) rotate(360deg);opacity:0}}
+@keyframes smokeRise{0%{transform:translateY(0) scale(0.6);opacity:0}25%{opacity:0.7}100%{transform:translateY(-46px) scale(1.3);opacity:0}}
 @keyframes chestBounceIn{0%{opacity:0;transform:scale(0.4) translateY(60px)}60%{opacity:1;transform:scale(1.06) translateY(-8px)}100%{opacity:1;transform:scale(1) translateY(0)}}
 @keyframes chestWiggle{0%,100%{transform:rotate(0deg) scale(1)}8%{transform:rotate(-7deg) scale(1.05)}16%{transform:rotate(6deg) scale(1.05)}24%{transform:rotate(-4deg)}32%{transform:rotate(0deg) scale(1)}}
 @keyframes shineSweep{0%{left:-60%}55%{left:120%}100%{left:120%}}
@@ -1180,23 +1182,61 @@ function ReadyScreen({ onStart, opponentName, myName, myAvatar, oppAvatar }) {
   </div>);
 }
 
-function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoard, isWin }) {
+function useCountUp(target, active, duration = 1300) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (!active) { setValue(0); return; }
+    let raf, startTime;
+    const tgt = Math.round(target || 0);
+    const step = (ts) => {
+      if (!startTime) startTime = ts;
+      const progress = Math.min(1, (ts - startTime) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.round(tgt * eased));
+      if (progress < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => raf && cancelAnimationFrame(raf);
+  }, [target, active, duration]);
+  return value;
+}
+
+function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoard, isWin, goldEarned = 0, myLevel = 0, chestProgressPct = 0 }) {
   const [showStats, setShowStats] = useState(false);
   const [showButtons, setShowButtons] = useState(false);
+  const [showRain, setShowRain] = useState(false);
   useEffect(() => {
     const t1 = setTimeout(() => setShowStats(true), 800);
     const t2 = setTimeout(() => setShowButtons(true), 1600);
+    if (isWin) { setShowRain(true); const t3 = setTimeout(() => setShowRain(false), 2000); return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); }; }
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, []);
-  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",minHeight:"100dvh",background:isWin?`radial-gradient(ellipse at 50% 30%,rgba(0,229,255,0.15) 0%,rgba(255,215,0,0.05) 30%,${t.bg} 70%)`:`radial-gradient(ellipse at center,rgba(255,71,87,0.1) 0%,${t.bg} 70%)`,padding:20,perspective:"800px" }}>
-    <div style={{ animation:"arSlideIn 0.8s ease-out forwards",transformStyle:"preserve-3d" }}>
-      <div style={{ background:`linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))`,border:`3px solid ${isWin?t.accent:t.hit}`,borderRadius:24,padding:"40px 32px 32px",textAlign:"center",maxWidth:360,width:"90vw",animation:`arGlow 3s ease-in-out infinite`,boxShadow:`0 20px 80px rgba(0,0,0,0.7), 0 0 ${isWin?60:30}px ${isWin?t.accentGlow:t.hitGlow}`,'--ar-color':isWin?t.accentGlow:t.hitGlow }}>
-        {/* Victory/Defeat icon */}
-        <div style={{ fontSize:64,marginBottom:8,animation:isWin?"float 2s ease-in-out infinite":"defeatShake 0.6s ease-out" }}>{isWin?<XAnchors size={56} color={t.accent}/>:"💀"}</div>
-        <div style={{ fontSize:68,fontWeight:900,letterSpacing:10,color:isWin?t.accent:t.hit,fontFamily:warrior,textTransform:"uppercase",textShadow:isWin?`0 0 80px ${t.accentGlow},0 0 160px rgba(0,229,255,0.3), 0 0 40px ${t.accentGlow}, 0 4px 0 rgba(0,0,0,0.8)`:`0 0 50px ${t.hitGlow}, 0 4px 0 rgba(0,0,0,0.8)`,marginBottom:4,animation:isWin?"victoryGlow 1.5s ease-in-out infinite":"none",lineHeight:1,letterSpacing:isWin?12:8 }}>{isWin?"⚡ ZAFER ⚡":"BOZGUN"}</div>
-        <div style={{ fontSize:13,fontWeight:700,color:isWin?"rgba(0,229,255,0.8)":"rgba(255,71,87,0.8)",fontFamily:warrior,letterSpacing:3,marginBottom:24 }}>{winner}</div>
+  }, [isWin]);
+  const goldCount = useCountUp(goldEarned, showStats && isWin, 1300);
+  const lvlCount = useCountUp(myLevel, showStats && isWin, 900);
+  const coinDrops = isWin ? Array.from({ length: 16 }, (_, i) => ({ id: i, left: 4 + (i * 93) / 16, delay: i * 90, dur: 2.2 + (i % 5) * 0.3, big: i % 3 === 0 })) : [];
+  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",minHeight:"100dvh",background:isWin?`radial-gradient(ellipse at 50% 20%,rgba(0,229,255,0.18) 0%,rgba(255,215,0,0.08) 35%,${t.bg} 75%)`:`radial-gradient(ellipse at center,rgba(255,71,87,0.1) 0%,${t.bg} 70%)`,padding:20,perspective:"800px",position:"relative",overflow:"hidden" }}>
+    {/* Üstten yağan altın paralar ve konfeti — ilk 2 saniye */}
+    {showRain && coinDrops.map(c => (
+      <div key={c.id} style={{ position:"absolute",top:-40,left:`${c.left}%`,fontSize:c.big?26:16,zIndex:5,animation:`coinFall ${c.dur}s linear ${c.delay}ms forwards`,pointerEvents:"none" }}>{c.big?"🪙":"✨"}</div>
+    ))}
+    <div style={{ animation:"arSlideIn 0.8s ease-out forwards",transformStyle:"preserve-3d",zIndex:1 }}>
+      <div style={{ background:`linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))`,border:`3px solid ${isWin?t.accent:t.hit}`,borderRadius:24,padding:"28px 32px 32px",textAlign:"center",maxWidth:360,width:"90vw",animation:`arGlow 3s ease-in-out infinite`,boxShadow:`0 20px 80px rgba(0,0,0,0.7), 0 0 ${isWin?60:30}px ${isWin?t.accentGlow:t.hitGlow}`,'--ar-color':isWin?t.accentGlow:t.hitGlow,position:"relative",overflow:"hidden" }}>
+        {/* Merkezde 3D madalya (zafer) veya kafatası (bozgun) */}
+        {isWin ? (
+          <div style={{ position:"relative",width:150,height:150,margin:"0 auto 4px" }}>
+            <img src="/img/victory-medal.png" alt="" style={{ width:"100%",height:"100%",objectFit:"contain",animation:"float 3s ease-in-out infinite",filter:`drop-shadow(0 0 22px ${t.goldGlow}) drop-shadow(0 0 46px rgba(0,229,255,0.5)) drop-shadow(0 10px 18px rgba(0,0,0,0.6))` }} />
+            {/* Yükselen duman — batan gemi hissi */}
+            {[0,1,2].map(i => (<span key={i} style={{ position:"absolute",bottom:"38%",left:`${44+i*6}%`,fontSize:14,opacity:0,animation:`smokeRise ${2.6+i*0.5}s ease-in ${i*0.7}s infinite`,filter:"blur(1px) grayscale(1) brightness(1.6)",pointerEvents:"none" }}>💨</span>))}
+          </div>
+        ) : (
+          <div style={{ fontSize:64,marginBottom:8,animation:"defeatShake 0.6s ease-out" }}>💀</div>
+        )}
+        <div style={{ fontSize:60,fontWeight:900,letterSpacing:isWin?10:8,fontFamily:warrior,textTransform:"uppercase",marginBottom:4,lineHeight:1,transform:isWin?"rotate(-2deg)":"none",
+          ...(isWin ? { background:"linear-gradient(180deg,#fff9c4 0%,#ffe066 30%,#ffd700 55%,#d97706 80%,#ffe066 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:`drop-shadow(0 0 40px ${t.accentGlow}) drop-shadow(0 0 80px rgba(0,229,255,0.5)) drop-shadow(0 4px 0 rgba(0,0,0,0.8))`,animation:"victoryGlow 1.5s ease-in-out infinite" } : { color:t.hit,textShadow:`0 0 50px ${t.hitGlow}, 0 4px 0 rgba(0,0,0,0.8)` })
+        }}>{isWin?"ZAFER":"BOZGUN"}</div>
+        <div style={{ fontSize:13,fontWeight:700,color:isWin?"rgba(0,229,255,0.8)":"rgba(255,71,87,0.8)",fontFamily:warrior,letterSpacing:3,marginBottom:20 }}>{winner}</div>
         {/* Stats with staggered animation */}
-        {showStats && <div style={{ display:"flex",gap:16,justifyContent:"center",marginBottom:24 }}>
+        {showStats && <div style={{ display:"flex",gap:16,justifyContent:"center",marginBottom:16 }}>
           <div style={{ padding:"14px 26px 16px",background:isWin?"rgba(0,229,255,0.1)":"rgba(255,255,255,0.03)",borderRadius:16,border:`2px solid ${isWin?"rgba(0,229,255,0.25)":"rgba(255,255,255,0.08)"}`,animation:"arSlideIn 0.6s ease-out forwards",display:"flex",flexDirection:"column",alignItems:"center" }}>
             <img src="/img/isabet.png" alt="" style={{ width:104,height:"auto",objectFit:"contain",filter:`drop-shadow(0 0 10px ${t.accentGlow}) drop-shadow(0 0 26px ${t.accentGlow}) drop-shadow(0 4px 10px rgba(0,0,0,0.7))`,marginBottom:2 }} />
             <div style={{ fontSize:40,fontWeight:800,color:t.accent,fontFamily:mono,textShadow:`0 0 15px ${t.accentGlow}` }}>{myHits}</div>
@@ -1208,10 +1248,31 @@ function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoar
             <div style={{ fontSize:11,color:t.textDim,letterSpacing:4,fontFamily:warrior,fontWeight:800,marginTop:4 }}>KARAVANA</div>
           </div>
         </div>}
+        {/* Altın + seviye sayaçları — ortalanmış tek dikdörtgen */}
+        {showStats && isWin && <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:0,margin:"0 auto 18px",padding:"12px 20px",background:"linear-gradient(135deg, rgba(255,215,0,0.10), rgba(0,229,255,0.06))",border:"2px solid rgba(255,215,0,0.3)",borderRadius:14,maxWidth:280,boxShadow:`0 0 20px ${t.goldGlow}`,animation:"fadeUp 0.5s ease-out 0.3s both" }}>
+          <div style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center" }}>
+            <div style={{ fontSize:24,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 14px ${t.goldGlow}`,display:"flex",alignItems:"center",gap:4 }}>+{goldCount} <img src="/img/coin.png" alt="" style={{ width:18,height:18,filter:"drop-shadow(0 0 6px #ffd700)" }} /></div>
+            <div style={{ fontSize:9,color:t.textDim,letterSpacing:2,fontWeight:700,marginTop:2 }}>ALTIN</div>
+          </div>
+          <div style={{ width:1,height:32,background:"rgba(255,255,255,0.12)" }} />
+          <div style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center" }}>
+            <div style={{ fontSize:24,fontWeight:900,color:t.accent,fontFamily:warrior,textShadow:`0 0 14px ${t.accentGlow}` }}>{lvlCount}</div>
+            <div style={{ fontSize:9,color:t.textDim,letterSpacing:2,fontWeight:700,marginTop:2 }}>SEVİYE</div>
+          </div>
+        </div>}
+        {/* Sandık ilerlemesi */}
+        {showStats && <div style={{ marginBottom:18,animation:"fadeUp 0.5s ease-out 0.4s both" }}>
+          <div style={{ display:"flex",justifyContent:"space-between",fontSize:10,color:t.textDim,fontFamily:warrior,fontWeight:800,letterSpacing:1,marginBottom:4,padding:"0 2px" }}>
+            <span>🎁 SANDIK İLERLEMESİ</span><span>%{chestProgressPct}</span>
+          </div>
+          <div style={{ width:"100%",height:10,borderRadius:6,background:"rgba(0,0,0,0.45)",border:"1px solid rgba(255,215,0,0.25)",overflow:"hidden" }}>
+            <div style={{ width:`${chestProgressPct}%`,height:"100%",background:"linear-gradient(90deg,#ffe066,#ffd700,#d97706)",boxShadow:`0 0 10px ${t.goldGlow}`,transition:"width 1s cubic-bezier(0.34,1.56,0.64,1)",borderRadius:6 }} />
+          </div>
+        </div>}
         {/* Buttons */}
         {showButtons && <div style={{ display:"flex",flexDirection:"column",gap:10,animation:"fadeUp 0.5s ease-out" }}>
           <button onClick={onViewBoard} style={{ padding:"12px 20px",background:"transparent",color:t.accent,border:`2px solid rgba(0,229,255,0.25)`,borderRadius:12,fontSize:12,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior }}>SAVAŞ HARİTASI</button>
-          <button onClick={onNewGame} style={{ padding:"16px 24px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:16,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 30px ${t.accentGlow}` }}>YENİ SAVAŞ</button>
+          <button onClick={onNewGame} style={{ padding:"16px 24px",background:isWin?"linear-gradient(135deg,#ffd700 0%,#22d8ff 55%,#0891b2 100%)":`linear-gradient(135deg,${t.accent},#0891b2)`,color:isWin?"#04202e":t.bg,border:isWin?"1px solid rgba(255,255,255,0.35)":"none",borderRadius:12,fontSize:16,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:isWin?`0 0 30px ${t.goldGlow}, 0 4px 24px ${t.accentGlow}`:`0 4px 30px ${t.accentGlow}`,animation:isWin?"btnBreath 2s ease-in-out infinite":"none" }}>YENİ SAVAŞ</button>
           <button onClick={onHome} style={{ padding:"12px 20px",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:10,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>ANA SAYFA</button>
         </div>}
       </div>
@@ -2749,8 +2810,9 @@ export default function Game() {
     }
     const myEloDiff = eloChange ? eloChange.myNew - eloChange.myOld : null;
     const myRank = eloChange ? getRankInfo(eloChange.myNew) : (myProfile ? getRankInfo(myProfile.gold) : null);
+    const chestProgressPct = Math.round((Object.keys(missionProgress).length / (dailyMissions.length || 3)) * 100);
     return (<><style>{ANIMS}</style>
-      <GameOverScreen winner={winner} myHits={myHits} oppHits={oppHits} isWin={isWin} onNewGame={resetGame} onHome={resetGame} onViewBoard={() => setShowReview(true)} />
+      <GameOverScreen winner={winner} myHits={myHits} oppHits={oppHits} isWin={isWin} onNewGame={resetGame} onHome={resetGame} onViewBoard={() => setShowReview(true)} goldEarned={myEloDiff ?? (goldAnim?.amount || 0)} myLevel={myProfile?.level || 0} chestProgressPct={chestProgressPct} />
       <canvas id="confetti-canvas" style={{ position:'fixed',inset:0,pointerEvents:'none',zIndex:10002 }} />
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
       {eloChange && (<div style={{ position:"fixed",bottom:80,left:0,right:0,display:"flex",justifyContent:"center",zIndex:200,perspective:"600px" }}>
