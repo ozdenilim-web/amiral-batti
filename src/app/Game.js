@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { db, auth, googleProvider, ref, set, get, onValue, update, remove, onDisconnect, runTransaction, query, orderByChild, limitToLast, signInAnonymously, onAuthStateChanged, signInWithPopup, signOut } from "../lib/firebase";
 
 const ROWS = 11;
@@ -924,7 +924,7 @@ function GoldCoinAnim({ amount, onDone }) {
     {coins.map(c => (
       <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, fontSize:32, animation:`coinFly 1.1s cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards`, opacity:0, transform:`rotate(${c.rotation}deg)` }}>🪙</div>
     ))}
-    <div style={{ position:'absolute',left:'50%',transform:'translateX(-50%)',bottom:70,fontSize:28,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 30px ${t.goldGlow}, 0 0 60px ${t.goldGlow}`,animation:'scaleUp 0.4s cubic-bezier(0.34,1.56,0.64,1) 150ms forwards',opacity:0,whiteSpace:'nowrap',letterSpacing:4 }}>+{amount} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px #ffd700) drop-shadow(0 0 18px rgba(255,215,0,0.85))" }} /></div>
+    <div style={{ position:'absolute',left:'50%',transform:'translateX(-50%)',bottom:70,fontSize:28,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 30px ${t.goldGlow}, 0 0 60px ${t.goldGlow}`,animation:'scaleUp 0.4s cubic-bezier(0.34,1.56,0.64,1) 150ms forwards',opacity:0,whiteSpace:'nowrap',letterSpacing:4 }}>+{amount} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /></div>
   </div>);
 }
 
@@ -1044,7 +1044,7 @@ function DailyRewardPopup({ reward, streak, onClose, lang = "tr" }) {
       <div style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg, transparent, rgba(255,255,255,0.10), transparent)",animation:"shineSweep 3s ease-in-out 0.8s infinite",pointerEvents:"none" }} />
       <img src="/img/chest.png" alt="" draggable={false} style={{ width:80,height:80,objectFit:"contain",marginBottom:10,animation:"chestWiggle 2.2s ease-in-out infinite",filter:"drop-shadow(0 6px 14px rgba(0,0,0,0.6)) drop-shadow(0 0 30px rgba(255,215,0,0.5))",userSelect:"none",pointerEvents:"none" }} />
       <div style={{ fontSize:11,fontWeight:700,color:"rgba(255,215,0,0.6)",fontFamily:mono,letterSpacing:5,marginBottom:8 }}>{L(lang,"dailyLoginReward")}</div>
-      <div style={{ fontSize:50,fontWeight:900,fontFamily:warrior,marginBottom:12,letterSpacing:2,background:"linear-gradient(180deg, #fff7d6 0%, #ffd700 45%, #d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 25px rgba(255,215,0,0.7)) drop-shadow(0 3px 4px rgba(0,0,0,0.8))",animation:"rewardPulse 1.6s ease-in-out infinite" }}>+{reward} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px #ffd700) drop-shadow(0 0 18px rgba(255,215,0,0.85))" }} /></div>
+      <div style={{ fontSize:50,fontWeight:900,fontFamily:warrior,marginBottom:12,letterSpacing:2,background:"linear-gradient(180deg, #fff7d6 0%, #ffd700 45%, #d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 25px rgba(255,215,0,0.7)) drop-shadow(0 3px 4px rgba(0,0,0,0.8))",animation:"rewardPulse 1.6s ease-in-out infinite" }}>+{reward} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /></div>
       {streak > 1 && <div style={{ fontSize:13,fontWeight:800,color:"#ff9f43",fontFamily:warrior,marginBottom:12,padding:"7px 18px",background:"linear-gradient(135deg, rgba(255,105,60,0.14), rgba(255,215,0,0.10))",borderRadius:10,border:"1px solid rgba(255,159,67,0.35)",display:"inline-block",letterSpacing:2,textShadow:"0 0 12px rgba(255,159,67,0.5)" }}>🔥 {streak} {L(lang,"dayStreak")} {streak>=7?"• x2 BONUS":streak>=3?"• x1.5 BONUS":streak>=2?"• x1.25 BONUS":""}</div>}
       <div><button onClick={onClose} style={{ marginTop:12,padding:"16px 52px",background:"linear-gradient(135deg, #ffd700 0%, #ff9f43 55%, #d97706 100%)",color:"#1a1206",border:"none",borderRadius:12,fontSize:17,fontWeight:900,letterSpacing:5,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 40px rgba(255,215,0,0.5), 0 6px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.4)",animation:"btnBreath 1.8s ease-in-out infinite",textTransform:"uppercase" }}>{L(lang,"collectBtn")}</button></div>
     </div>
@@ -1055,7 +1055,7 @@ function ArenaSelect({ myGold, onSelect, onBack, lang = "tr" }) {
   const [openInfo, setOpenInfo] = useState(null);
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:`linear-gradient(180deg, ${t.bg} 0%, #071428 100%)`,padding:"24px 14px",fontFamily:mono,color:t.text }}>
     <div style={{ fontSize:26,fontWeight:800,letterSpacing:6,color:t.accent,marginBottom:6,fontFamily:warrior,textShadow:`0 0 25px ${t.accentGlow}` }}>{L(lang,"arenaSelectTitle")}</div>
-    <div style={{ fontSize:14,fontWeight:800,color:t.gold,fontFamily:warrior,marginBottom:14,padding:"6px 20px",background:"rgba(255,215,0,0.08)",borderRadius:10,border:"1px solid rgba(255,215,0,0.2)",letterSpacing:2 }}><img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px #ffd700) drop-shadow(0 0 18px rgba(255,215,0,0.85))" }} /> {myGold} {L(lang,"goldLabel")}</div>
+    <div style={{ fontSize:14,fontWeight:800,color:t.gold,fontFamily:warrior,marginBottom:14,padding:"6px 20px",background:"rgba(255,215,0,0.08)",borderRadius:10,border:"1px solid rgba(255,215,0,0.2)",letterSpacing:2 }}><img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /> {myGold} {L(lang,"goldLabel")}</div>
     <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,textAlign:"center",marginBottom:16,maxWidth:400,lineHeight:1.6,padding:"0 8px" }}>{L(lang,"arenaGeneralNote")}</div>
     <div style={{ width:"100%",maxWidth:420,display:"flex",flexDirection:"column",gap:10 }}>
       {ARENAS.map(arena => {
@@ -1071,7 +1071,7 @@ function ArenaSelect({ myGold, onSelect, onBack, lang = "tr" }) {
               </div>
               <div style={{ fontSize:10,fontWeight:700,color:t.textDim,marginTop:3,fontFamily:mono }}>{locked?L(lang,"goldRequired")(arena.minGold):L(lang,"minGoldLabel")(arena.minGold)}</div>
             </div>
-            <div style={{ textAlign:"right",flexShrink:0 }}><div style={{ fontSize:16,fontWeight:800,color:cantAfford?t.hit:t.gold,fontFamily:warrior }}>{arena.entryFee} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px #ffd700) drop-shadow(0 0 18px rgba(255,215,0,0.85))" }} /></div><div style={{ fontSize:9,color:t.textDim,fontWeight:700,letterSpacing:1 }}>{L(lang,"entryLabel")}</div><div style={{ fontSize:12,fontWeight:800,color:"#4ade80",fontFamily:warrior,marginTop:3 }}>🏆 {arena.winGold} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px #ffd700) drop-shadow(0 0 18px rgba(255,215,0,0.85))" }} /></div></div>
+            <div style={{ textAlign:"right",flexShrink:0 }}><div style={{ fontSize:16,fontWeight:800,color:cantAfford?t.hit:t.gold,fontFamily:warrior }}>{arena.entryFee} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /></div><div style={{ fontSize:9,color:t.textDim,fontWeight:700,letterSpacing:1 }}>{L(lang,"entryLabel")}</div><div style={{ fontSize:12,fontWeight:800,color:"#4ade80",fontFamily:warrior,marginTop:3 }}>🏆 {arena.winGold} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /></div></div>
           </div>
           {infoOpen && <div style={{ background:"rgba(6,10,22,0.96)",border:`2px solid ${arena.color}`,borderTop:"none",borderRadius:"0 0 14px 14px",padding:"12px 18px",fontSize:12,color:t.text,fontFamily:mono,lineHeight:1.8,animation:"fadeUp 0.2s ease-out" }}>
             <div>💰 {L(lang,"arenaInfoEntry")(arena.entryFee)}</div>
@@ -1548,6 +1548,51 @@ const ANIMS = `
 @keyframes qmVsPulse{0%,100%{transform:scale(1);opacity:0.85}50%{transform:scale(1.25);opacity:1}}
 @keyframes radarSpin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 @keyframes settingsFadeIn{0%{opacity:0}100%{opacity:1}}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MOBİL PERFORMANS KATMANI — en sonda tanımlı, öncekileri EZER.
+   Kural: her karede sadece transform ve opacity değişsin. box-shadow,
+   filter, text-shadow, left/top gibi özellikleri sürekli animasyona
+   sokmak mobil GPU'da yeniden boyama (repaint) yaratır = takılma.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* 1) LAYOUT TETİKLEYEN parlama süpürmeleri → transform'a çevrildi.
+   Eskiden "left" animasyonuydu; her karede sayfa yerleşimi yeniden
+   hesaplanıyordu. Görsel aynı, maliyet neredeyse sıfır. */
+@keyframes shimmerPass{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(600%,0,0)}}
+@keyframes dmShine{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(500%,0,0)}}
+
+/* 2) SÜREKLİ box-shadow/filter nabızları durduruldu. Elemanların kendi
+   sabit gölgeleri (inline stil) yerinde kalır — parlaklık korunur,
+   kare kare yeniden boyama biter. */
+@keyframes borderGlow{0%,100%{opacity:1}}
+@keyframes chestGlow{0%,100%{opacity:1}}
+@keyframes rankGlow{0%,100%{opacity:1}}
+@keyframes arGlow{0%,100%{opacity:1}}
+@keyframes turnPulse{0%,100%{opacity:1}}
+@keyframes achGlow{0%,100%{opacity:1}}
+@keyframes demoWin{0%,100%{opacity:1}}
+@keyframes shotWin{0%,100%{opacity:1}}
+@keyframes markWin{0%,100%{opacity:1}}
+@keyframes markDash{0%,100%{opacity:1}}
+@keyframes dmReady{0%,100%{opacity:1}}
+@keyframes cellHover{0%,100%{opacity:1}}
+@keyframes victoryGlow{0%,100%{opacity:1}}
+
+/* 3) Nabız efektleri sadece transform/opacity ile — bunlar GPU'da
+   bileşimlenir, bedava sayılır. */
+@keyframes achBtnPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+@keyframes btnBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
+@keyframes rewardPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+
+/* 4) Hareketli katmanlara GPU ipucu — tarayıcı önceden katman ayırır,
+   böylece hareket sırasında yeniden boyama yapmaz. */
+.gpu{will-change:transform;transform:translateZ(0);backface-visibility:hidden}
+
+/* 5) Tahta ve kart gibi büyük kutular kendi boyama alanına hapsedilir;
+   içeride bir hücre değişince tüm ekran yeniden boyanmaz. */
+.paint-box{contain:layout paint style}
 `;
 
 // === ÇAPRAZ ÇAPA LOGO/İKON ===
@@ -1569,7 +1614,7 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, on
   const handleClick = (r,c) => { if(disabled)return; sfx.init(); setRippleCell(`${r},${c}`); setTimeout(()=>setRippleCell(null),400); onClick?.(r,c); };
   const handleTouchStart = (r,c) => { longPressRef.current = setTimeout(()=>{ onLongPress?.(r,c); longPressRef.current=null; },500); };
   const handleTouchEnd = () => { if(longPressRef.current){clearTimeout(longPressRef.current);longPressRef.current=null;} };
-  return (<div style={{ background:`linear-gradient(135deg,${t.surfaceLight} 0%,${t.surface} 100%)`,border:"1px solid rgba(0,229,255,0.3)",borderRadius:10,padding:4,overflow:"hidden",boxShadow:"0 4px 20px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.06)" }}>
+  return (<div className="paint-box" style={{ background:`linear-gradient(135deg,${t.surfaceLight} 0%,${t.surface} 100%)`,border:"1px solid rgba(0,229,255,0.3)",borderRadius:10,padding:4,overflow:"hidden",boxShadow:"0 4px 20px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.06)" }}>
     <div style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize }} />{board[0]?.map((_,i) => <div key={i} style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:cellSize>30?13:11,fontWeight:900,color:t.text,fontFamily:warrior,letterSpacing:1,textShadow:"0 1px 2px rgba(0,0,0,0.6)" }}>{COL_LABELS[i]||""}</div>)}</div>
     {board.map((row,r) => (<div key={r} style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:cellSize>30?13:11,fontWeight:900,color:t.text,fontFamily:warrior,textShadow:"0 1px 2px rgba(0,0,0,0.6)" }}>{r+1}</div>
       {row.map((val,c) => {
@@ -1578,19 +1623,16 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, on
         if(isDefense){
           if(val>0&&shipColor)bg=shipColor;else if(val>0)bg=t.shipCell;
           if(ovr==="hit"){bg="#1a0505";content=(<span style={{position:"absolute",inset:0,display:"block",pointerEvents:"none"}}>
-          <span style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 50%, rgba(255,235,120,0.95) 0%, rgba(255,150,30,0.9) 22%, rgba(220,50,10,0.85) 45%, rgba(80,10,5,0.9) 70%, rgba(10,2,2,0.95) 100%)",animation:"explodeCore 1.1s ease-in-out infinite"}} />
-          <span style={{position:"absolute",inset:"-15%",background:"radial-gradient(circle at 50% 50%, transparent 30%, rgba(255,120,20,0.35) 55%, transparent 75%)",animation:"explodeWave 1.6s ease-out infinite"}} />
+          <span style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 50%, rgba(255,235,120,0.95) 0%, rgba(255,150,30,0.9) 22%, rgba(220,50,10,0.85) 45%, rgba(80,10,5,0.9) 70%, rgba(10,2,2,0.95) 100%)",animation:"explodeCore 1.1s ease-in-out 3"}} />
           </span>);shadow="inset 0 0 14px rgba(255,90,20,0.6)";clr="#fff";}
           else if(ovr==="miss"){bg=t.miss;content="•";}
           // showShipStatus: savaş haritasında vurulan gemi hücreleri farklı gösterilir
           else if(showShipStatus&&val>0&&shipColor){bg=shipColor;content="■";clr="rgba(255,255,255,0.6)";}
         }
         else{if(ovr==="hit"){bg="#1a0505";content=(<span style={{position:"absolute",inset:0,display:"block",pointerEvents:"none"}}>
-          <span style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 50%, rgba(255,235,120,0.95) 0%, rgba(255,150,30,0.9) 22%, rgba(220,50,10,0.85) 45%, rgba(80,10,5,0.9) 70%, rgba(10,2,2,0.95) 100%)",animation:"explodeCore 1.1s ease-in-out infinite"}} />
-          <span style={{position:"absolute",inset:"-15%",background:"radial-gradient(circle at 50% 50%, transparent 30%, rgba(255,120,20,0.35) 55%, transparent 75%)",animation:"explodeWave 1.6s ease-out infinite"}} />
+          <span style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 50%, rgba(255,235,120,0.95) 0%, rgba(255,150,30,0.9) 22%, rgba(220,50,10,0.85) 45%, rgba(80,10,5,0.9) 70%, rgba(10,2,2,0.95) 100%)",animation:"explodeCore 1.1s ease-in-out 3"}} />
           </span>);shadow="inset 0 0 14px rgba(255,90,20,0.6)";clr="#fff";}else if(ovr==="miss"){bg=t.miss;content="•";}else if(ovr==="sunk"){bg="#0d0303";content=(<span style={{position:"absolute",inset:0,display:"block",pointerEvents:"none"}}>
-          <span style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 55%, rgba(255,190,80,0.85) 0%, rgba(230,90,15,0.85) 28%, rgba(140,25,8,0.9) 55%, rgba(30,5,3,0.96) 85%)",animation:"explodeCore 1.5s ease-in-out infinite"}} />
-          <span style={{position:"absolute",inset:"-12%",background:"radial-gradient(circle at 50% 50%, transparent 32%, rgba(255,100,20,0.25) 58%, transparent 78%)",animation:"explodeWave 2.2s ease-out infinite"}} />
+          <span style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 55%, rgba(255,190,80,0.85) 0%, rgba(230,90,15,0.85) 28%, rgba(140,25,8,0.9) 55%, rgba(30,5,3,0.96) 85%)",animation:"explodeCore 1.5s ease-in-out 3"}} />
           <span style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",fontSize:"0.95em",fontWeight:900,color:"#fff",textShadow:"0 0 8px rgba(0,0,0,1), 0 0 4px rgba(0,0,0,1)"}}>✕</span>
         </span>);shadow="inset 0 0 16px rgba(180,50,10,0.7)";clr="#fff";}else if(ovr==="selected"){bg="rgba(6,182,212,0.45)";content="◎";shadow=`inset 0 0 12px ${t.accentGlow}`;clr=t.accent;}if(!ovr&&isManual){bg="rgba(251,191,36,0.15)";content="⚑";clr=t.gold;}}
         if(isHov){bg="rgba(6,182,212,0.35)";shadow=`inset 0 0 10px ${t.accentGlow}`;}
@@ -1686,7 +1728,7 @@ function ChestPopup({ reward, onClose, lang = "tr" }) {
       </>) : (<>
         <div style={{ fontSize:56,marginBottom:8,animation:"popIn 0.5s ease-out" }}>{reward.icon}</div>
         <div style={{ fontSize:14,fontWeight:700,color:reward.color,fontFamily:warrior,letterSpacing:3,marginBottom:4,animation:"fadeUp 0.3s ease-out" }}>{reward.label}</div>
-        <div style={{ fontSize:42,fontWeight:800,color:t.gold,fontFamily:warrior,marginBottom:8,textShadow:`0 0 30px ${t.goldGlow}`,animation:"scaleUp 0.6s ease-out" }}>+{reward.gold} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px #ffd700) drop-shadow(0 0 18px rgba(255,215,0,0.85))" }} /></div>
+        <div style={{ fontSize:42,fontWeight:800,color:t.gold,fontFamily:warrior,marginBottom:8,textShadow:`0 0 30px ${t.goldGlow}`,animation:"scaleUp 0.6s ease-out" }}>+{reward.gold} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /></div>
         <button onClick={onClose} style={{ marginTop:8,padding:"12px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:8,fontSize:14,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(lang,"collectBtn")}</button>
       </>)}
     </div>
@@ -1721,10 +1763,14 @@ function LivingHorizon({ profile, lang = "tr" }) {
   const botFleet = 6 + (hr % 7); // 6-12
   const captains = botFleet + onlineN;
   // Silüetler — saat içinde sabit rastgelelik
-  const sils = Array.from({ length: Math.min(captains, 11) }).map((_, i) => {
+  // Mobil performans: aynı anda hareket eden silüet sayısı sınırlı (her biri ayrı GPU katmanı).
+  // useMemo şart — altyazı her 4 sn değiştiğinde liste yeniden üretilirse animasyonlar baştan
+  // başlar, katmanlar yeniden kurulur ve gözle görülür takılma olur.
+  const silCount = Math.min(captains, 5);
+  const sils = useMemo(() => Array.from({ length: silCount }).map((_, i) => {
     let sr = ((hourSeed + i * 7919) * 2654435761) & 0x7fffffff; const rnd = () => { sr = (sr * 1664525 + 1013904223) & 0x7fffffff; return sr / 0x7fffffff; };
     return { w: 14 + Math.round(rnd() * 12), top: 2 + rnd() * 6, dur: 55 + rnd() * 70, delay: -rnd() * 90, flip: rnd() > 0.5 };
-  });
+  }), [silCount, hourSeed]);
   // Rütbe → gemi katmanı (Şeref'e bağlı — sadece savaşarak büyür)
   const hn = migrateHonor(profile);
   const tier = hn >= 5000 ? 5 : hn >= 2000 ? 4 : hn >= 800 ? 3 : hn >= 300 ? 2 : hn >= 100 ? 1 : 0;
@@ -1752,21 +1798,20 @@ function LivingHorizon({ profile, lang = "tr" }) {
       {/* Gökyüzü */}
       <div style={{ position:"absolute",inset:0,background:`linear-gradient(180deg, ${sky.top} 0%, ${sky.mid} 52%, ${sky.low} 68%, #04101f 68.5%, #030b18 100%)` }} />
       {/* Yıldızlar (gece) */}
-      {sky.mode === "night" && Array.from({length:14}).map((_,i) => { let sr=((hourSeed+i*104729)*2654435761)&0x7fffffff; const rnd=()=>{sr=(sr*1664525+1013904223)&0x7fffffff;return sr/0x7fffffff;}; return <div key={`st${i}`} style={{ position:"absolute",width:rnd()>0.7?2:1.5,height:rnd()>0.7?2:1.5,borderRadius:"50%",background:"#e6f0ff",top:`${4+rnd()*48}%`,left:`${2+rnd()*96}%`,animation:`lhTwinkle ${2+rnd()*3}s ease-in-out ${rnd()*3}s infinite` }} />; })}
+      {sky.mode === "night" && Array.from({length:7}).map((_,i) => { let sr=((hourSeed+i*104729)*2654435761)&0x7fffffff; const rnd=()=>{sr=(sr*1664525+1013904223)&0x7fffffff;return sr/0x7fffffff;}; return <div key={`st${i}`} style={{ position:"absolute",width:rnd()>0.7?2:1.5,height:rnd()>0.7?2:1.5,borderRadius:"50%",background:"#e6f0ff",top:`${4+rnd()*48}%`,left:`${2+rnd()*96}%`,animation:`lhTwinkle ${2+rnd()*3}s ease-in-out ${rnd()*3}s infinite` }} />; })}
       {/* Güneş / Ay */}
       {sky.mode === "night"
         ? <div style={{ position:"absolute",top:16,right:"14%",width:26,height:26,borderRadius:"50%",background:"radial-gradient(circle at 35% 35%, #f4f6e8, #cfd6c4)",boxShadow:"0 0 24px rgba(240,245,220,0.35)" }}><div style={{ position:"absolute",top:5,left:9,width:6,height:6,borderRadius:"50%",background:"rgba(0,0,0,0.08)" }} /><div style={{ position:"absolute",top:13,left:5,width:4,height:4,borderRadius:"50%",background:"rgba(0,0,0,0.07)" }} /></div>
         : <div style={{ position:"absolute",top:sky.mode==="day"?12:44,left:sky.mode==="dawn"?"16%":sky.mode==="dusk"?"78%":"48%",width:sky.mode==="day"?24:32,height:sky.mode==="day"?24:32,borderRadius:"50%",background:sky.mode==="day"?"radial-gradient(circle, #fff8d8, #ffd76a)":"radial-gradient(circle, #ffd9a0, #ff8c4a)",boxShadow:sky.mode==="day"?"0 0 30px rgba(255,220,120,0.5)":"0 0 40px rgba(255,140,70,0.55)",animation:"lhGlow 5s ease-in-out infinite" }} />}
       {/* Ufuk silüetleri — denizdeki kaptanlar */}
       {sils.map((s, i) => (
-        <div key={`sil${i}`} style={{ position:"absolute",top:`calc(68% - ${6 + s.top}px)`,left:0,animation:`${s.flip?"lhDriftR":"lhDrift"} ${s.dur}s linear ${s.delay}s infinite`,opacity:0.55 }}>
+        <div key={`sil${i}`} className="gpu" style={{ position:"absolute",top:`calc(68% - ${6 + s.top}px)`,left:0,animation:`${s.flip?"lhDriftR":"lhDrift"} ${s.dur}s linear ${s.delay}s infinite`,opacity:0.55 }}>
           <svg width={s.w} height={s.w*0.55} viewBox="0 0 24 13"><path d="M1 9 L23 9 L20 12 L4 12 Z" fill="#030910"/><path d="M10 9 L10 2 L11 2 L11 9 Z" fill="#030910"/><path d="M11 2 L16 6 L11 6 Z" fill="#04121f"/></svg>
         </div>
       ))}
       {/* Deniz dalgaları */}
       <div style={{ position:"absolute",top:"68%",left:0,right:0,bottom:0,overflow:"hidden" }}>
-        <div style={{ position:"absolute",top:-6,left:0,width:"200%",height:14,background:"radial-gradient(ellipse 18px 7px at 25% 50%, rgba(0,229,255,0.10) 60%, transparent 62%), radial-gradient(ellipse 22px 8px at 75% 50%, rgba(0,229,255,0.07) 60%, transparent 62%)",backgroundSize:"90px 14px",animation:"lhWave 11s linear infinite" }} />
-        <div style={{ position:"absolute",top:8,left:0,width:"200%",height:12,background:"radial-gradient(ellipse 26px 7px at 50% 50%, rgba(90,160,220,0.08) 60%, transparent 62%)",backgroundSize:"120px 12px",animation:"lhWave 17s linear infinite reverse" }} />
+        <div className="gpu" style={{ position:"absolute",top:-6,left:0,width:"200%",height:14,background:"radial-gradient(ellipse 18px 7px at 25% 50%, rgba(0,229,255,0.10) 60%, transparent 62%), radial-gradient(ellipse 22px 8px at 75% 50%, rgba(0,229,255,0.07) 60%, transparent 62%)",backgroundSize:"90px 14px",animation:"lhWave 11s linear infinite" }} />
       </div>
       {/* SENİN GEMİN — rütbeyle büyür, bayrağında avatarın */}
       <div style={{ position:"absolute",bottom:14,right:"6%",transform:`scale(${shipScale})`,transformOrigin:"bottom right" }}>
@@ -1923,7 +1968,7 @@ function DailyChestFab({ onOpen, lang = "tr" }) {
 @keyframes chestStar{0%,100%{opacity:0.15;transform:scale(0.7)}50%{opacity:0.9;transform:scale(1.1)}}
     `}</style>
     {/* Dönen konik ışın halkası — yumuşak kenarlı */}
-    <span style={{ position:"absolute",inset:0,borderRadius:"50%",background:"conic-gradient(from 0deg, rgba(255,215,0,0) 0deg, rgba(255,225,80,0.55) 18deg, rgba(255,215,0,0) 40deg, rgba(255,215,0,0) 90deg, rgba(255,225,80,0.45) 108deg, rgba(255,215,0,0) 130deg, rgba(255,215,0,0) 180deg, rgba(255,225,80,0.55) 198deg, rgba(255,215,0,0) 220deg, rgba(255,215,0,0) 270deg, rgba(255,225,80,0.45) 288deg, rgba(255,215,0,0) 310deg, rgba(255,215,0,0) 360deg)",WebkitMaskImage:"radial-gradient(circle, rgba(0,0,0,1) 26%, rgba(0,0,0,0.5) 55%, transparent 72%)",maskImage:"radial-gradient(circle, rgba(0,0,0,1) 26%, rgba(0,0,0,0.5) 55%, transparent 72%)",animation:"chestRayRotate 9s linear infinite",pointerEvents:"none" }} />
+    <span className="gpu" style={{ position:"absolute",inset:0,borderRadius:"50%",background:"conic-gradient(from 0deg, rgba(255,215,0,0) 0deg, rgba(255,225,80,0.55) 18deg, rgba(255,215,0,0) 40deg, rgba(255,215,0,0) 90deg, rgba(255,225,80,0.45) 108deg, rgba(255,215,0,0) 130deg, rgba(255,215,0,0) 180deg, rgba(255,225,80,0.55) 198deg, rgba(255,215,0,0) 220deg, rgba(255,215,0,0) 270deg, rgba(255,225,80,0.45) 288deg, rgba(255,215,0,0) 310deg, rgba(255,215,0,0) 360deg)",WebkitMaskImage:"radial-gradient(circle, rgba(0,0,0,1) 26%, rgba(0,0,0,0.5) 55%, transparent 72%)",maskImage:"radial-gradient(circle, rgba(0,0,0,1) 26%, rgba(0,0,0,0.5) 55%, transparent 72%)",animation:"chestRayRotate 9s linear infinite",pointerEvents:"none" }} />
     {/* Sıcak merkez ışıması — sabit, hafif */}
     <span style={{ position:"absolute",inset:14,borderRadius:"50%",background:"radial-gradient(circle, rgba(255,215,0,0.28) 0%, rgba(255,215,0,0.08) 55%, transparent 75%)",pointerEvents:"none" }} />
     {/* Minik yıldızlar — sıralı yanıp söner */}
@@ -1959,7 +2004,7 @@ function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
       </>) : (<>
         <div style={{ fontSize:60,marginBottom:8,animation:"popIn 0.5s ease-out",filter:"drop-shadow(0 0 30px #ffe066)" }}>🎉</div>
         <div style={{ fontSize:13,fontWeight:800,color:"rgba(255,214,0,0.85)",fontFamily:mono,letterSpacing:4,marginBottom:8 }}>{L(lang,"dailyRewardLabel")}</div>
-        <div style={{ fontSize:52,fontWeight:900,fontFamily:warrior,marginBottom:14,letterSpacing:2,background:"linear-gradient(180deg, #fff7d6 0%, #ffd700 45%, #d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 25px rgba(255,214,0,0.8))",animation:"rewardPulse 1.4s ease-in-out infinite" }}>+{DAILY_CHEST_GOLD} <img src="/img/coin.png" alt="" style={{ width:22,height:22,verticalAlign:"middle",filter:"drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px #ffd700) drop-shadow(0 0 18px rgba(255,215,0,0.85))" }} /></div>
+        <div style={{ fontSize:52,fontWeight:900,fontFamily:warrior,marginBottom:14,letterSpacing:2,background:"linear-gradient(180deg, #fff7d6 0%, #ffd700 45%, #d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 25px rgba(255,214,0,0.8))",animation:"rewardPulse 1.4s ease-in-out infinite" }}>+{DAILY_CHEST_GOLD} <img src="/img/coin.png" alt="" style={{ width:22,height:22,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /></div>
         <button onClick={() => onClaim(DAILY_CHEST_GOLD)} style={{ padding:"20px 52px",background:"linear-gradient(135deg, #ffd700 0%, #ff9f43 55%, #d97706 100%)",color:"#1a1206",border:"none",borderRadius:14,fontSize:22,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 40px rgba(255,214,0,0.6), 0 6px 24px rgba(0,0,0,0.5)",animation:"btnBreath 1.8s ease-in-out infinite",textTransform:"uppercase",width:"100%" }}>{L(lang,"collectBtn")}</button>
         {showCoins && <div style={{ position:"absolute",left:"50%",bottom:"38%",pointerEvents:"none" }}>
           {coins.map(c => (<div key={c.id} style={{ position:"absolute",left:c.dx,bottom:0,fontSize:26,opacity:0,animation:`coinFly 1s cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards` }}>🪙</div>))}
@@ -2033,7 +2078,7 @@ function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoar
 @keyframes goFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 @keyframes goLine{0%{transform:scaleX(0);opacity:0}100%{transform:scaleX(1);opacity:1}}
 @keyframes goShipIn{0%{opacity:0;transform:translateY(24px) scale(0.7)}60%{opacity:1;transform:translateY(-6px) scale(1.06)}100%{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes shimmerPass{0%{left:-100%}100%{left:200%}}
+@keyframes shimmerPass{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(600%,0,0)}}
         `}</style>
         {/* Gemi görseli — zafer: altın ihtişam / bozgun: yaralı ve dumanlı (aynı gemi, iki kader) */}
         <div style={{ position:"relative",width:150,height:150,margin:"0 auto 4px",animation:"goShipIn 0.9s cubic-bezier(0.34,1.56,0.64,1) both" }}>
@@ -3926,7 +3971,7 @@ export default function Game() {
       return (<div onClick={startMusic} style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 18% 15%, rgba(167,139,250,0.10) 0%, transparent 45%), radial-gradient(ellipse at 85% 80%, rgba(255,215,0,0.07) 0%, transparent 45%), radial-gradient(ellipse at 80% 15%, rgba(255,71,87,0.06) 0%, transparent 40%), radial-gradient(ellipse at 50% 35%, rgba(0,229,255,0.12) 0%, rgba(255,71,87,0.04) 40%, ${t.bg} 80%)`, overflow:"hidden", position:"relative", cursor:"default", animation:"pageEnter 1.2s cubic-bezier(0.16,1,0.3,1) forwards" }}><style>{ANIMS}{`
 @keyframes sword3d{0%{transform:perspective(600px) rotateY(-60deg) rotateX(20deg) scale(0.3);opacity:0;filter:brightness(3)}40%{opacity:1}60%{transform:perspective(600px) rotateY(12deg) rotateX(-6deg) scale(1.18);filter:brightness(1.5)}80%{transform:perspective(600px) rotateY(-4deg) rotateX(3deg) scale(1.02);filter:brightness(1)}100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) scale(1.05);filter:brightness(1)}}
 @keyframes sword3dFloat{0%,100%{transform:perspective(600px) rotateY(5deg) rotateX(-2deg) translateY(0) scale(1.05)}50%{transform:perspective(600px) rotateY(-8deg) rotateX(5deg) translateY(-16px) scale(1.08)}}
-@keyframes shimmerPass{0%{left:-100%}100%{left:200%}}
+@keyframes shimmerPass{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(600%,0,0)}}
 @keyframes titleSlam{0%{transform:scale(2.5) rotate(-3deg);opacity:0;filter:blur(15px)}50%{transform:scale(0.95) rotate(0.5deg);opacity:1;filter:blur(0)}100%{transform:scale(1) rotate(0)}}
 @keyframes starBurst{0%{transform:scale(0) rotate(0);opacity:1}100%{transform:scale(2.5) rotate(360deg);opacity:0}}
 @keyframes gemPulse{0%,100%{filter:drop-shadow(0 0 8px rgba(100,160,255,0.8))}50%{filter:drop-shadow(0 0 24px rgba(100,160,255,1)) drop-shadow(0 0 40px rgba(100,160,255,0.5))}}
@@ -4223,7 +4268,7 @@ export default function Game() {
 @keyframes touchPulse{0%{transform:scale(1);opacity:0.9}50%{transform:scale(1.3);opacity:1}100%{transform:scale(1);opacity:0.9}}
 @keyframes crosshairSpin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 @keyframes markDrop{0%{transform:translateY(-20px);opacity:0}60%{transform:translateY(4px);opacity:1}100%{transform:translateY(0);opacity:1}}
-@keyframes shimmerPass{0%{left:-100%}100%{left:200%}}
+@keyframes shimmerPass{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(600%,0,0)}}
 @keyframes battleFlicker{0%,100%{opacity:0.03}50%{opacity:0.07}}
         `}</style>
         {/* Savaş konsepti — arka plan dekorasyon */}
@@ -4424,7 +4469,7 @@ export default function Game() {
     const authLoading = !authReady || !authUid;
     const winRate = myProfile && myProfile.totalGames > 0 ? Math.round((myProfile.wins / myProfile.totalGames) * 100) : 0;
     return (<div style={{ ...appStyle, background:`linear-gradient(180deg, ${t.bg} 0%, #071428 50%, #0a1a35 100%)`,position:"relative",overflow:"hidden" }}><style>{ANIMS}{`
-@keyframes shimmerPass{0%{left:-100%}100%{left:200%}}
+@keyframes shimmerPass{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(600%,0,0)}}
 @keyframes logoFloat{0%,100%{transform:translateY(0) scale(1);filter:drop-shadow(0 0 40px rgba(0,229,255,0.4))}50%{transform:translateY(-6px) scale(1.02);filter:drop-shadow(0 8px 50px rgba(0,229,255,0.6))}}
     `}</style>
       {/* Animated ocean background */}
@@ -4586,7 +4631,7 @@ export default function Game() {
         return (
           <div style={{ width:"100%",maxWidth:360,marginTop:10,zIndex:1 }}>
             <style>{`
-@keyframes dmShine{0%{left:-60%}100%{left:160%}}
+@keyframes dmShine{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(500%,0,0)}}
 @keyframes dmDotPop{0%{transform:scale(0.3)}60%{transform:scale(1.4)}100%{transform:scale(1)}}
 @keyframes dmGift{0%,100%{transform:rotate(-6deg) scale(1)}50%{transform:rotate(6deg) scale(1.12)}}
 @keyframes dmReady{0%,100%{box-shadow:0 0 14px rgba(255,215,0,0.5)}50%{box-shadow:0 0 30px rgba(255,215,0,0.9)}}
@@ -4723,7 +4768,7 @@ export default function Game() {
       repeating-linear-gradient(90deg, transparent 0px, transparent 39px, rgba(0,229,255,0.07) 39px, rgba(0,229,255,0.07) 40px),
       ${t.bg}`, position:"relative" }}><style>{ANIMS}</style>
       {/* HUD tarama çizgisi */}
-      <div style={{ position:"fixed",top:0,left:0,right:0,height:2,background:"linear-gradient(90deg, transparent, rgba(0,229,255,0.25), transparent)",animation:"scanline 7s linear infinite",pointerEvents:"none",zIndex:1,willChange:"transform" }} />
+      <div className="gpu" style={{ position:"fixed",top:0,left:0,right:0,height:2,background:"linear-gradient(90deg, transparent, rgba(0,229,255,0.25), transparent)",animation:"scanline 7s linear infinite",pointerEvents:"none",zIndex:1 }} />
       {/* Köşe braketleri */}
       <div style={{ position:"fixed",top:8,left:8,width:26,height:26,borderTop:"2px solid rgba(0,229,255,0.35)",borderLeft:"2px solid rgba(0,229,255,0.35)",pointerEvents:"none",zIndex:1 }} />
       <div style={{ position:"fixed",top:8,right:8,width:26,height:26,borderTop:"2px solid rgba(0,229,255,0.35)",borderRight:"2px solid rgba(0,229,255,0.35)",pointerEvents:"none",zIndex:1 }} />
