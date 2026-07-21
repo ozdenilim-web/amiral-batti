@@ -2556,7 +2556,6 @@ export default function Game() {
   const myProfileRef = useRef(null);
   useEffect(() => { myProfileRef.current = myProfile; }, [myProfile]);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [showCodeModal, setShowCodeModal] = useState(null);   // yeni üretilen kurtarma kodu
   const [recoverOpen, setRecoverOpen] = useState(false);      // "isim alınmış → kod gir" penceresi
   const [recoverName, setRecoverName] = useState("");
   const [recoverCode, setRecoverCode] = useState("");
@@ -3716,12 +3715,6 @@ export default function Game() {
                 </div>
               </div>
 
-              {/* KURTARMA KODUM — kullanıcı kodunu unutmasın diye ayarlardan tekrar görebilir */}
-              <button onClick={()=>{ let c=null; try { c = localStorage.getItem("ab_recovery_code"); } catch(e){} setShowCodeModal(c || "—"); }} style={rowBtnStyle}>
-                <span style={rowIconStyle}>🔑</span>
-                <div style={{ flex:1,textAlign:"left" }}><div style={rowTitleStyle}>{L(appLang,"myCode")}</div></div>
-              </button>
-
               {/* ÇIKIŞ YAP — kodu gösterip çıkışa yönlendirir */}
               <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowLogoutConfirm(true); }} style={rowBtnStyle}>
                 <span style={rowIconStyle}>🚪</span>
@@ -4253,23 +4246,6 @@ export default function Game() {
   const btnStyle = { padding: "12px 28px", background: `linear-gradient(135deg, ${t.accent}, #0891b2)`, color: t.bg, border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", cursor: "pointer", fontFamily: warrior, boxShadow: `0 0 15px ${t.accentGlow}` };
   const btnSecStyle = { padding: "8px 16px", background: "transparent", color: t.accent, border: `1px solid ${t.accent}`, borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: 1, cursor: "pointer", fontFamily: warrior };
   const inputStyle = { padding: "12px 16px", background: t.surface, color: t.text, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 15, fontFamily: mono, outline: "none", textAlign: "center", width: "100%", maxWidth: 260, boxSizing: "border-box" };
-
-  // KURTARMA KODU PENCERESİ — hesap ilk kurulduğunda bir kez, büyük ve net gösterilir
-  const renderCodeModal = () => showCodeModal && (
-    <div style={{ position:"fixed",inset:0,overflow:"hidden",zIndex:9900,background:"rgba(2,6,16,0.92)",display:"flex",alignItems:"center",justifyContent:"center",padding:18 }}>
-      <div style={{ background:"linear-gradient(160deg, #0d1b32, #060e1f)",border:`2px solid ${t.gold}`,borderRadius:18,padding:"24px 22px 20px",width:"100%",maxWidth:340,textAlign:"center",boxShadow:`0 0 44px ${t.goldGlow}, 0 20px 60px rgba(0,0,0,0.75)`,animation:"tutCardEnter 0.6s cubic-bezier(0.16,1,0.3,1)" }}>
-        <div style={{ fontSize:38,marginBottom:6 }}>🔑</div>
-        <div style={{ fontSize:15,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:3,marginBottom:12,textShadow:`0 0 16px ${t.goldGlow}` }}>{L(appLang,"codeTitle")}</div>
-        <div style={{ fontSize:26,fontWeight:900,fontFamily:mono,letterSpacing:4,color:"#fff",background:"rgba(255,215,0,0.10)",border:`1.5px dashed ${t.gold}`,borderRadius:12,padding:"14px 8px",marginBottom:12,userSelect:"all" }}>{showCodeModal}</div>
-        <div style={{ fontSize:11,color:t.text,fontFamily:mono,lineHeight:1.6,marginBottom:16 }}>{L(appLang,"codeBody")}</div>
-        <div style={{ display:"flex",flexDirection:"column",gap:9 }}>
-          <button onClick={()=>{ try { navigator.clipboard?.writeText(showCodeModal); } catch(e){} setCodeCopied(true); setTimeout(()=>setCodeCopied(false), 2000); }}
-            style={{ width:"100%",padding:"12px 0",background:"rgba(255,215,0,0.12)",color:t.gold,border:`1.5px solid ${t.gold}`,borderRadius:12,fontSize:12,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{codeCopied?L(appLang,"codeCopied"):L(appLang,"codeCopy")}</button>
-          <button onClick={()=>setShowCodeModal(null)} style={{ width:"100%",padding:"14px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:13,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 20px ${t.accentGlow}` }}>{L(appLang,"codeOk")}</button>
-        </div>
-      </div>
-    </div>
-  );
 
   // ÇIKIŞ PENCERESİ — kurtarma kodunu gösterir, kopyalatır, sonra çıkışa izin verir
   const renderLogoutModal = () => {
@@ -5284,5 +5260,5 @@ export default function Game() {
   return null;
   })();
 
-  return (<>{content}{renderTopBar()}{renderCodeModal()}{renderLogoutModal()}</>);
+  return (<>{content}{renderTopBar()}{renderLogoutModal()}</>);
 }
