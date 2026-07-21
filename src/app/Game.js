@@ -310,7 +310,7 @@ const TRANSLATIONS = {
     tagline: "savaşların atası...",
     howToPlay: "NASIL OYNANIR?", placeShipsTitle: "GEMİLERİ YERLEŞTIR", placeShipsBody1: "Bir gemi seç → haritaya dokun → yerleştir", placeShipsBody2: "ile yönünü değiştir",
     rotateLabel: "DÖNDÜR", admiralShipLabel: "AMİRAL GEMİSİ", tutBack: "← GERİ", tutNext: "GEÇ →", tutSkip: "GEÇ",
-    tutPickShip: "BİR GEMİ SEÇ", tutTapRotate: "GEMİYE DOKUN — DÖNDÜR", tutGreat: "HARİKA! İŞTE BU KADAR", tutSwapHint: "Başka gemi seçmek için alttakilere dokun",
+    tutPickShip: "BİR GEMİ SEÇ", tutTapRotate: "Geminin üzerine tıklayarak döndürebilirsin", tutGreat: "HARİKA! İŞTE BU KADAR", tutSwapHint: "Başka gemi seçmek için alttakilere dokun",
     noTouchRuleTitle: "DEĞMEZLİK KURALI", noTouchRuleBody1: "Gemiler birbirine dokunamaz —", noTouchRuleBody2: "köşeden bile olsa!",
     threeShotsTitle: "3 EL ATIŞ", threeShotsBody: "Her turda 3 hücreyi seç → ATEŞ!",
     markTrackTitle: "İŞARETLE & TAKİP ET", markTrackBody1: "Atış yapmak istemediğin yerleri", markTrackBody2: "sağ tuş (mobilde uzun bas) ile işaretle.",
@@ -372,7 +372,7 @@ const TRANSLATIONS = {
     tagline: "ancestor of battles...",
     howToPlay: "HOW TO PLAY?", placeShipsTitle: "PLACE YOUR SHIPS", placeShipsBody1: "Pick a ship → tap the map → place it", placeShipsBody2: "to change direction",
     rotateLabel: "ROTATE", admiralShipLabel: "ADMIRAL SHIP", tutBack: "← BACK", tutNext: "NEXT →", tutSkip: "SKIP",
-    tutPickShip: "PICK A SHIP", tutTapRotate: "TAP THE SHIP — ROTATE", tutGreat: "AWESOME! THAT'S IT", tutSwapHint: "Tap below to switch ships",
+    tutPickShip: "PICK A SHIP", tutTapRotate: "Tap the ship to rotate it", tutGreat: "AWESOME! THAT'S IT", tutSwapHint: "Tap below to switch ships",
     noTouchRuleTitle: "NO-TOUCH RULE", noTouchRuleBody1: "Ships can't touch each other —", noTouchRuleBody2: "not even diagonally!",
     threeShotsTitle: "3-SHOT VOLLEY", threeShotsBody: "Pick 3 cells each turn → FIRE!",
     markTrackTitle: "MARK & TRACK", markTrackBody1: "Mark cells you don't want to shoot at", markTrackBody2: "with right-click (or long-press on mobile).",
@@ -3330,7 +3330,7 @@ export default function Game() {
           {/* Yönlendirme balonu — o an ne yapılacağını TEK cümleyle söyler */}
           <div style={{ minHeight:36,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:8 }}>
             {!sel && <div style={{ padding:"7px 18px",borderRadius:20,background:"linear-gradient(135deg, rgba(255,215,0,0.16), rgba(255,159,67,0.10))",border:"1px solid rgba(255,215,0,0.5)",color:t.gold,fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:3,animation:"demoBubble 1.4s ease-in-out infinite",textShadow:`0 0 12px ${t.goldGlow}`,whiteSpace:"nowrap" }}>👇 {L(appLang,"tutPickShip")}</div>}
-            {sel && !didRotate && <div style={{ padding:"7px 18px",borderRadius:20,background:"rgba(0,229,255,0.10)",border:"1px solid rgba(0,229,255,0.5)",color:t.accent,fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:3,animation:"demoBubble 1.4s ease-in-out infinite",textShadow:`0 0 12px ${t.accentGlow}`,whiteSpace:"nowrap" }}>👇 {L(appLang,"tutTapRotate")}</div>}
+            {sel && !didRotate && <div style={{ padding:"7px 16px",borderRadius:20,background:"rgba(0,229,255,0.10)",border:"1px solid rgba(0,229,255,0.5)",color:t.accent,fontFamily:warrior,fontWeight:800,fontSize:13,letterSpacing:1,animation:"demoBubble 1.4s ease-in-out infinite",textShadow:`0 0 12px ${t.accentGlow}`,textAlign:"center",maxWidth:320 }}>👇 {L(appLang,"tutTapRotate")}</div>}
             {sel && didRotate && <div style={{ padding:"7px 18px",borderRadius:20,background:"rgba(74,222,128,0.10)",border:"1px solid rgba(74,222,128,0.55)",color:"#4ade80",fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:3,animation:"demoWin 1.6s ease-out",whiteSpace:"nowrap" }}>✓ {L(appLang,"tutGreat")}</div>}
           </div>
           {/* 4x3 platform — tıklayınca gemi döner */}
@@ -3345,11 +3345,6 @@ export default function Game() {
             {/* Platform üstünde el — gemiye dokunmayı gösterir */}
             {sel && !didRotate && <div style={{ position:"absolute",bottom:-12,right:24,fontSize:30,animation:"demoHand 0.9s ease-in-out infinite",filter:"drop-shadow(0 2px 8px rgba(0,229,255,0.6))",pointerEvents:"none",transform:"rotate(-20deg)" }}>👆</div>}
           </div>
-          {/* Döndür rozeti — kaç kere istersen döndür */}
-          {sel && <div style={{ marginTop:10,display:"flex",alignItems:"center",gap:8,padding:"5px 14px",background:"rgba(0,229,255,0.08)",border:"1px solid rgba(0,229,255,0.25)",borderRadius:20 }}>
-            <span key={pop} style={{ fontSize:17,color:t.accent,display:"inline-block",animation:"coinSpin 0.4s ease-in-out" }}>↻</span>
-            <span style={{ fontSize:10,color:t.accent,fontFamily:warrior,letterSpacing:2,fontWeight:700 }}>{L(appLang,"rotateLabel")}</span>
-          </div>}
           {/* Gemi tepsisi — seç / değiştir */}
           <div style={{ marginTop:14,position:"relative",display:"flex",gap:10,alignItems:"center",justifyContent:"center" }}>
             {!sel && <div style={{ position:"absolute",top:-36,left:"50%",marginLeft:-14,fontSize:28,animation:"demoHand 0.9s ease-in-out infinite",pointerEvents:"none",filter:"drop-shadow(0 2px 8px rgba(255,215,0,0.6))" }}>👇</div>}
@@ -3477,11 +3472,7 @@ export default function Game() {
           </div>
           {/* Animated Amiral ship demo */}
           <AmiraldemoAnim />
-          <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:20,textAlign:"center",lineHeight:1.7,maxWidth:280 }}>
-            {L(appLang,"placeShipsBody1")}<br/>
-            <span style={{ color:t.accent,fontWeight:700 }}>↻ {L(appLang,"rotateLabel")}</span> {L(appLang,"placeShipsBody2")}
-          </div>
-          <div style={{ display:"flex",gap:10 }}>
+          <div style={{ display:"flex",gap:10,marginTop:6 }}>
             <button onClick={() => setOnboardingStep(s => s - 1)} style={{ padding:"14px 32px",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:12,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"tutBack")}</button>
             <button onClick={nextStep} style={{ padding:"14px 32px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:14,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 24px ${t.accentGlow}` }}>{L(appLang,"tutNext")}</button>
           </div>
