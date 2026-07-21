@@ -1578,6 +1578,7 @@ const ANIMS = `
    Eskiden "left" animasyonuydu; her karede sayfa yerleşimi yeniden
    hesaplanıyordu. Görsel aynı, maliyet neredeyse sıfır. */
 @keyframes shimmerPass{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(600%,0,0)}}
+@keyframes playSheen{0%{transform:translate3d(-120%,0,0)}55%{transform:translate3d(320%,0,0)}100%{transform:translate3d(320%,0,0)}}
 @keyframes dmShine{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(500%,0,0)}}
 
 /* 2) SÜREKLİ box-shadow/filter nabızları durduruldu. Elemanların kendi
@@ -4838,7 +4839,7 @@ export default function Game() {
       </div>)}
       {authLoading && <div style={{ background:"rgba(239,68,68,0.12)",border:`1px solid ${t.hit}`,borderRadius:8,padding:"10px 16px",marginBottom:12,fontSize:11,color:t.hit,fontFamily:mono,textAlign:"center",width:"100%",maxWidth:340,animation:"pulse 1.5s infinite" }}>{L(appLang,"connectingToServer")}</div>}
       {isTestMode() && <div style={{ background:"rgba(251,191,36,0.15)",border:`1px solid ${t.gold}`,borderRadius:8,padding:"8px 16px",marginBottom:12,fontSize:11,color:t.gold,fontFamily:warrior,letterSpacing:2,textAlign:"center",width:"100%",maxWidth:340 }}>{L(appLang,"testModeMsg")}</div>}
-      {myProfile && (<div style={{ background:`linear-gradient(145deg, ${t.surface}, ${t.surfaceLight})`,border:`2px solid ${myLevelPct>=0.999?"#ffd700":t.border}`,borderRadius:16,padding:"18px 22px",marginBottom:10,width:"100%",maxWidth:360,animation:"fadeUp 0.3s ease-out",boxShadow:`0 4px 20px rgba(0,0,0,0.4)`,zIndex:1 }}>
+      {myProfile && (<div style={{ position:"relative",overflow:"hidden",background:"linear-gradient(150deg, rgba(14,42,64,0.98) 0%, rgba(10,26,44,0.98) 45%, rgba(7,17,32,0.99) 100%)",border:`2px solid ${myLevelPct>=0.999?"#ffd700":"rgba(34,216,255,0.55)"}`,borderRadius:16,padding:"18px 22px",marginBottom:10,width:"100%",maxWidth:400,animation:"fadeUp 0.3s ease-out",boxShadow:"0 0 22px rgba(34,216,255,0.16), 0 6px 22px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.10)",zIndex:1 }}><span style={{ position:"absolute",top:0,left:0,right:0,height:"42%",background:"linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0))",pointerEvents:"none",borderRadius:"16px 16px 40% 40%" }} /><span style={{ position:"absolute",top:0,left:0,width:"32%",height:"100%",background:"linear-gradient(102deg,transparent,rgba(255,255,255,0.09),transparent)",animation:"playSheen 6s ease-in-out infinite",pointerEvents:"none" }} />
         <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:12 }}>
           <div style={{ flex:1,minWidth:0 }}>
             <div style={{ display:"flex",alignItems:"center",gap:10,minWidth:0 }}>
@@ -4848,7 +4849,7 @@ export default function Game() {
                 </div>
               </div>
               <div style={{ minWidth:0,flex:1 }}>
-                <div title={myProfile.displayName} style={{ fontSize:18,fontWeight:800,color:t.text,fontFamily:warrior,letterSpacing:1.5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"100%" }}>{myProfile.displayName}</div>
+                <div title={myProfile.displayName} style={{ fontSize:19,fontWeight:900,fontFamily:warrior,letterSpacing:1.5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"100%",background:"linear-gradient(180deg, #ffffff 0%, #dff6ff 38%, #7fd9f5 72%, #3aa8cc 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text",filter:"drop-shadow(0 1px 0 rgba(0,0,0,0.55)) drop-shadow(0 0 10px rgba(120,220,255,0.35))" }}>{myProfile.displayName}</div>
                 {(() => { const hn = migrateHonor(myProfile); const rk = getRankInfo(hn, appLang); return (
                   <div style={{ display:"flex",alignItems:"center",gap:5,marginTop:2,minWidth:0,flexWrap:"nowrap",overflow:"hidden" }}>
                     <span style={{ fontSize:11 }}>{rk.icon}</span>
