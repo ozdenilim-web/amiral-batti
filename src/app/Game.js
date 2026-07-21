@@ -2064,8 +2064,11 @@ function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoar
 }
 
 // === ÖDÜL RAPORU PENCERESİ — maç sonunda ÖNE gelir: kazanımlar animasyonla işlenir ===
-function RewardModal({ rewards, dailyMissions, missionProgress, newAch, profile, sfx, onClose, lang = "tr" }) {
+function RewardModal({ rewards: rawRewards, dailyMissions, missionProgress, newAch, profile, sfx, onClose, lang = "tr" }) {
   const en = lang === "en";
+  // Savunma: eksik/NaN alan gelirse bile pencere ASLA çökmesin
+  const num = (v, d = 0) => (typeof v === "number" && isFinite(v) ? v : d);
+  const rewards = { gold: num(rawRewards?.gold), xp: num(rawRewards?.xp), honor: num(rawRewards?.honor), revenge: num(rawRewards?.revenge, 1), isWin: !!rawRewards?.isWin };
   const [goldShown, setGoldShown] = useState(0);
   const [row, setRow] = useState(0); // sahne sahne akış
   useEffect(() => {
@@ -2588,6 +2591,26 @@ export default function Game() {
 
   // Her yeni maç raporu geldiğinde nonce'u tazele — RewardModal remount olsun, animasyon her seferinde çalışsın
   useEffect(() => { if (matchRewards && rewardModalOpen) setRewardNonce(n => n + 1); }, [matchRewards, rewardModalOpen]);
+
+  // GARANTİ: maç bitti ve 1.5 sn içinde rapor gelmediyse (online ELO zinciri gecikmiş/kopmuş olabilir)
+  // eldeki verilerle raporu yine de göster — oyuncu ganimetini ASLA göremeden kalmasın.
+  useEffect(() => {
+    if (phase !== "gameover" || isOnboarding) return;
+    const tm = setTimeout(() => {
+      setMatchRewards(prev => {
+        if (prev) return prev;
+        const diff = eloChange ? Math.max(0, (eloChange.myNew || 0) - (eloChange.myOld || 0)) : (goldChange?.amount || 0);
+        setRewardModalOpen(true);
+        return {
+          gold: isWin ? diff : 0,
+          xp: isWin ? (isBotGameRef.current ? XP_BOT_WIN : XP_ONLINE_WIN) : (isBotGameRef.current ? XP_BOT_LOSS : XP_ONLINE_WIN * 0.25),
+          honor: isWin ? (isBotGameRef.current ? HONOR_WIN_BOT : HONOR_WIN_ONLINE) : (isBotGameRef.current ? HONOR_LOSS_BOT : HONOR_LOSS_ONLINE),
+          revenge: 1, isWin,
+        };
+      });
+    }, 1500);
+    return () => clearTimeout(tm);
+  }, [phase, isOnboarding, isWin, eloChange, goldChange]);
 
   // Yeni açılan kazanımları yakala — profil her değiştiğinde tamamlanan kazanım kümesini karşılaştır
   useEffect(() => {
