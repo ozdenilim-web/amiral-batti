@@ -36,6 +36,10 @@
         }
       }
     },
+    "global_stats": {
+      ".read": true,
+      ".write": "auth != null"
+    },
     "online_players": {
       ".read": true,
       "$uid": {

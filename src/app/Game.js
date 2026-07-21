@@ -515,6 +515,15 @@ const ACH_SETS = [
 // 5. set kapısı (içerik yakında)
 const ACH_SET5_GATE = [ { tr:"201 oyun", en:"201 games" }, { tr:"30.000 altın kazan", en:"Earn 30,000 gold" }, { tr:"%50 kazanma oranı", en:"50% win rate" } ];
 function achSetDone(setDef, p) { const a = safeAch(p?.ach); return setDef.missions.every(m => { try { return m.check(p||{}, a); } catch(e) { return false; } }); }
+
+// === GLOBAL SAYAÇLAR — Yaşayan Ufuk beslemesi (dürüst, sadece büyüyen metrikler) ===
+function todayKey() { const d = new Date(); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`; }
+function bumpGlobalStats(battles, sunk) {
+  try {
+    if (battles > 0) { runTransaction(ref(db, "global_stats/battlesTotal"), v => (v||0) + battles).catch(()=>{}); runTransaction(ref(db, `global_stats/day/${todayKey()}/battles`), v => (v||0) + battles).catch(()=>{}); }
+    if (sunk > 0) runTransaction(ref(db, "global_stats/sunkTotal"), v => (v||0) + sunk).catch(()=>{});
+  } catch(e) {}
+}
 function achSetUnlocked(idx, p) {
   if (!p) return false;
   if (idx === 0) return true;
@@ -1585,6 +1594,125 @@ function ChestPopup({ reward, onClose, lang = "tr" }) {
   </div>);
 }
 
+// === YAŞAYAN UFUK — lobinin altındaki gerçek zamanlı deniz sahnesi ===
+// Gökyüzü saate göre yaşar, limanda rütbene göre GEMİN durur, ufukta denizdeki kaptanlar süzülür.
+function LivingHorizon({ profile, lang = "tr" }) {
+  const [onlineN, setOnlineN] = useState(0);
+  const [gs, setGs] = useState({ battlesTotal: 0, sunkTotal: 0, battlesToday: 0 });
+  const [capIdx, setCapIdx] = useState(0);
+  useEffect(() => {
+    const u1 = onValue(ref(db, "online_players"), s => { let n = 0; s.forEach(() => { n++; }); setOnlineN(n); });
+    const u2 = onValue(ref(db, "global_stats"), s => { const v = s.val() || {}; setGs({ battlesTotal: v.battlesTotal || 0, sunkTotal: v.sunkTotal || 0, battlesToday: (v.day && v.day[todayKey()] && v.day[todayKey()].battles) || 0 }); });
+    const iv = setInterval(() => setCapIdx(i => i + 1), 4200);
+    return () => { u1(); u2(); clearInterval(iv); };
+  }, []);
+  const en = lang === "en";
+  const hour = new Date().getHours();
+  // Gökyüzü paleti — o anın saati
+  const sky = hour >= 20 || hour < 5
+    ? { top:"#01020a", mid:"#060f24", low:"#0a1b36", mode:"night" }
+    : hour < 8
+    ? { top:"#191838", mid:"#54305a", low:"#c06a44", mode:"dawn" }
+    : hour < 17
+    ? { top:"#082038", mid:"#0f3a63", low:"#1f6293", mode:"day" }
+    : { top:"#131130", mid:"#45285c", low:"#b04f38", mode:"dusk" };
+  // Denizdeki kaptanlar: gerçek oyuncular + o saat seyirde olan bot filosu (saat seed'li → herkese aynı, saatte bir değişir)
+  const hourSeed = Math.floor(Date.now() / 3600000);
+  let hr = (hourSeed * 2654435761) & 0x7fffffff; hr = (hr * 1664525 + 1013904223) & 0x7fffffff;
+  const botFleet = 6 + (hr % 7); // 6-12
+  const captains = botFleet + onlineN;
+  // Silüetler — saat içinde sabit rastgelelik
+  const sils = Array.from({ length: Math.min(captains, 11) }).map((_, i) => {
+    let sr = ((hourSeed + i * 7919) * 2654435761) & 0x7fffffff; const rnd = () => { sr = (sr * 1664525 + 1013904223) & 0x7fffffff; return sr / 0x7fffffff; };
+    return { w: 14 + Math.round(rnd() * 12), top: 2 + rnd() * 6, dur: 55 + rnd() * 70, delay: -rnd() * 90, flip: rnd() > 0.5 };
+  });
+  // Rütbe → gemi katmanı
+  const g = safeGold(profile?.gold);
+  const tier = g >= 50000 ? 5 : g >= 20000 ? 4 : g >= 8000 ? 3 : g >= 3000 ? 2 : g >= 1000 ? 1 : 0;
+  const rank = getRankInfo(g, lang);
+  const flag = profile && profile.avatar && !String(profile.avatar).startsWith("data:") ? profile.avatar : "⚓";
+  const shipScale = [0.62, 0.72, 0.85, 0.95, 1.05, 1.18][tier];
+  // Dönen altyazılar — hepsi dürüst metrik
+  const captions = [
+    en ? `⚓ ${captains} captains at sea right now` : `⚓ Denizde ${captains} kaptan seyirde`,
+    en ? `⚔ ${gs.battlesToday} battles fought today` : `⚔ Bugün ${gs.battlesToday} savaş yapıldı`,
+    en ? `💀 ${gs.sunkTotal} ships sunk in total` : `💀 Toplam ${gs.sunkTotal} gemi batırıldı`,
+  ];
+  const caption = captions[capIdx % captions.length];
+  return (
+    <div style={{ width:"100vw",margin:"16px calc(50% - 50vw) 0",position:"relative",height:190,overflow:"hidden",zIndex:1,borderTop:"1px solid rgba(255,255,255,0.05)" }}>
+      <style>{`
+@keyframes lhDrift{0%{transform:translateX(-30px)}100%{transform:translateX(calc(100vw + 30px))}}
+@keyframes lhDriftR{0%{transform:translateX(calc(100vw + 30px)) scaleX(-1)}100%{transform:translateX(-30px) scaleX(-1)}}
+@keyframes lhBob{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-5px) rotate(1.4deg)}}
+@keyframes lhWave{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+@keyframes lhTwinkle{0%,100%{opacity:0.2}50%{opacity:0.9}}
+@keyframes lhCaption{0%{opacity:0;transform:translateY(6px)}12%{opacity:1;transform:translateY(0)}88%{opacity:1}100%{opacity:0}}
+@keyframes lhGlow{0%,100%{opacity:0.5}50%{opacity:0.9}}
+      `}</style>
+      {/* Gökyüzü */}
+      <div style={{ position:"absolute",inset:0,background:`linear-gradient(180deg, ${sky.top} 0%, ${sky.mid} 52%, ${sky.low} 68%, #04101f 68.5%, #030b18 100%)` }} />
+      {/* Yıldızlar (gece) */}
+      {sky.mode === "night" && Array.from({length:14}).map((_,i) => { let sr=((hourSeed+i*104729)*2654435761)&0x7fffffff; const rnd=()=>{sr=(sr*1664525+1013904223)&0x7fffffff;return sr/0x7fffffff;}; return <div key={`st${i}`} style={{ position:"absolute",width:rnd()>0.7?2:1.5,height:rnd()>0.7?2:1.5,borderRadius:"50%",background:"#e6f0ff",top:`${4+rnd()*48}%`,left:`${2+rnd()*96}%`,animation:`lhTwinkle ${2+rnd()*3}s ease-in-out ${rnd()*3}s infinite` }} />; })}
+      {/* Güneş / Ay */}
+      {sky.mode === "night"
+        ? <div style={{ position:"absolute",top:16,right:"14%",width:26,height:26,borderRadius:"50%",background:"radial-gradient(circle at 35% 35%, #f4f6e8, #cfd6c4)",boxShadow:"0 0 24px rgba(240,245,220,0.35)" }}><div style={{ position:"absolute",top:5,left:9,width:6,height:6,borderRadius:"50%",background:"rgba(0,0,0,0.08)" }} /><div style={{ position:"absolute",top:13,left:5,width:4,height:4,borderRadius:"50%",background:"rgba(0,0,0,0.07)" }} /></div>
+        : <div style={{ position:"absolute",top:sky.mode==="day"?12:44,left:sky.mode==="dawn"?"16%":sky.mode==="dusk"?"78%":"48%",width:sky.mode==="day"?24:32,height:sky.mode==="day"?24:32,borderRadius:"50%",background:sky.mode==="day"?"radial-gradient(circle, #fff8d8, #ffd76a)":"radial-gradient(circle, #ffd9a0, #ff8c4a)",boxShadow:sky.mode==="day"?"0 0 30px rgba(255,220,120,0.5)":"0 0 40px rgba(255,140,70,0.55)",animation:"lhGlow 5s ease-in-out infinite" }} />}
+      {/* Ufuk silüetleri — denizdeki kaptanlar */}
+      {sils.map((s, i) => (
+        <div key={`sil${i}`} style={{ position:"absolute",top:`calc(68% - ${6 + s.top}px)`,left:0,animation:`${s.flip?"lhDriftR":"lhDrift"} ${s.dur}s linear ${s.delay}s infinite`,opacity:0.55 }}>
+          <svg width={s.w} height={s.w*0.55} viewBox="0 0 24 13"><path d="M1 9 L23 9 L20 12 L4 12 Z" fill="#030910"/><path d="M10 9 L10 2 L11 2 L11 9 Z" fill="#030910"/><path d="M11 2 L16 6 L11 6 Z" fill="#04121f"/></svg>
+        </div>
+      ))}
+      {/* Deniz dalgaları */}
+      <div style={{ position:"absolute",top:"68%",left:0,right:0,bottom:0,overflow:"hidden" }}>
+        <div style={{ position:"absolute",top:-6,left:0,width:"200%",height:14,background:"radial-gradient(ellipse 18px 7px at 25% 50%, rgba(0,229,255,0.10) 60%, transparent 62%), radial-gradient(ellipse 22px 8px at 75% 50%, rgba(0,229,255,0.07) 60%, transparent 62%)",backgroundSize:"90px 14px",animation:"lhWave 11s linear infinite" }} />
+        <div style={{ position:"absolute",top:8,left:0,width:"200%",height:12,background:"radial-gradient(ellipse 26px 7px at 50% 50%, rgba(90,160,220,0.08) 60%, transparent 62%)",backgroundSize:"120px 12px",animation:"lhWave 17s linear infinite reverse" }} />
+      </div>
+      {/* SENİN GEMİN — rütbeyle büyür, bayrağında avatarın */}
+      <div style={{ position:"absolute",bottom:14,right:"6%",transform:`scale(${shipScale})`,transformOrigin:"bottom right" }}>
+        <div style={{ animation:"lhBob 4.6s ease-in-out infinite",transformOrigin:"50% 90%",filter:"drop-shadow(0 6px 10px rgba(0,0,0,0.6))" }}>
+          <svg width="150" height="110" viewBox="0 0 150 110">
+            {tier <= 1 ? (<>
+              {/* Sandal */}
+              <path d="M40 88 L110 88 L98 100 L52 100 Z" fill="#1d2b3a" stroke="#2e455c" strokeWidth="1.5"/>
+              <path d="M74 88 L74 58 L76 58 L76 88 Z" fill="#243a4f"/>
+              <path d="M76 60 L98 76 L76 76 Z" fill="rgba(200,215,230,0.16)" stroke="rgba(200,215,230,0.3)" strokeWidth="1"/>
+              <text x="66" y="56" fontSize="13">{flag}</text>
+            </>) : tier <= 3 ? (<>
+              {/* Yelkenli */}
+              <path d="M28 84 L122 84 L106 102 L44 102 Z" fill="#1c2f42" stroke="#31526f" strokeWidth="1.5"/>
+              <rect x="30" y="78" width="90" height="6" fill="#253d54"/>
+              <path d="M70 84 L70 28 L73 28 L73 84 Z" fill="#2a4258"/>
+              <path d="M73 32 L112 66 L73 66 Z" fill="rgba(210,225,240,0.2)" stroke="rgba(210,225,240,0.4)" strokeWidth="1"/>
+              <path d="M70 40 L38 70 L70 70 Z" fill="rgba(210,225,240,0.13)" stroke="rgba(210,225,240,0.3)" strokeWidth="1"/>
+              <circle cx="50" cy="81" r="1.6" fill="rgba(255,215,0,0.7)"/><circle cx="75" cy="81" r="1.6" fill="rgba(255,215,0,0.7)"/><circle cx="100" cy="81" r="1.6" fill="rgba(255,215,0,0.7)"/>
+              <text x="62" y="26" fontSize="14">{flag}</text>
+            </>) : (<>
+              {/* Zırhlı */}
+              <path d="M18 82 L132 82 L118 104 L34 104 Z" fill="#182b3d" stroke="#37587a" strokeWidth="1.5"/>
+              <rect x="34" y="72" width="82" height="10" rx="2" fill="#22394e"/>
+              <rect x="52" y="58" width="30" height="14" rx="2" fill="#2b4560"/>
+              <rect x="88" y="62" width="16" height="10" rx="2" fill="#2b4560"/>
+              <rect x="60" y="44" width="8" height="14" fill="#324e6b"/>
+              <rect x="94" y="50" width="6" height="12" fill="#324e6b"/>
+              <path d="M82 64 L104 64 L104 61 L112 61" stroke="#3d5f80" strokeWidth="2.5" fill="none"/>
+              <path d="M46 66 L30 66" stroke="#3d5f80" strokeWidth="2.5"/>
+              <circle cx="42" cy="77" r="1.8" fill="rgba(255,215,0,0.8)"/><circle cx="62" cy="77" r="1.8" fill="rgba(255,215,0,0.8)"/><circle cx="82" cy="77" r="1.8" fill="rgba(255,215,0,0.8)"/><circle cx="102" cy="77" r="1.8" fill="rgba(255,215,0,0.8)"/>
+              <path d="M62 44 L62 30 L64 30 L64 44 Z" fill="#324e6b"/>
+              <text x="54" y="28" fontSize="14">{flag}</text>
+            </>)}
+          </svg>
+        </div>
+        {/* Rütbe etiketi */}
+        <div style={{ textAlign:"center",marginTop:-6,fontSize:9,fontWeight:900,color:rank.color,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 10px ${rank.color}66`,opacity:0.9 }}>{rank.icon} {rank.title}</div>
+      </div>
+      {/* Dönen altyazı — dürüst canlı metrikler */}
+      <div key={capIdx} style={{ position:"absolute",bottom:8,left:14,fontSize:11,fontWeight:800,color:"rgba(160,200,235,0.85)",fontFamily:mono,letterSpacing:1,animation:"lhCaption 4.2s ease-in-out forwards",textShadow:"0 1px 3px rgba(0,0,0,0.8)" }}>{caption}</div>
+    </div>
+  );
+}
+
 // === KAZANIMLAR EKRANI ===
 function AchievementsScreen({ profile, onClose, onClaim, lang = "tr" }) {
   const p = profile || {};
@@ -2279,6 +2407,7 @@ export default function Game() {
     setMissionStats(prev => ({ ...prev, gamesPlayed: prev.gamesPlayed + 1 }));
     // Kazanım sayaçları: mağlubiyette isabet/batırma yine sayılır, seriler sıfırlanır
     bumpAch(a => { a.hits += myHits; a.sunk += killCountRef.current; a.winStreak = 0; a.turnStreak = 0; });
+    bumpGlobalStats(1, killCountRef.current);
   };
 
   const cellSize = typeof window !== "undefined" ? Math.max(16, Math.min(30, Math.floor((Math.min(window.innerWidth - 24, 400)) / 12), Math.floor((window.innerHeight - 300) / 12))) : 28;
@@ -2502,6 +2631,7 @@ export default function Game() {
                     if (gameArena && gameArena.id === "acikdeniz") a.arenaAcik = Math.max(a.arenaAcik, 1);
                     if (gameArena && gameArena.id === "firtina") a.arenaFirtina = Math.max(a.arenaFirtina, 1);
                   });
+                  bumpGlobalStats(1, killCountRef.current);
                 }
               } catch (e) { console.error("ELO update error:", e); }
             }).catch(e => console.error("ELO transaction error:", e));
@@ -2521,6 +2651,7 @@ export default function Game() {
               const lShotList = game.attacks ? Object.values(game.attacks).filter(x => x.by === pNum) : [];
               const lHits = lShotList.reduce((n,x) => n + ((x.shots||[]).filter(s => s.result === "hit").length), 0);
               bumpAch(a => { a.hits += lHits; a.sunk += killCountRef.current; a.winStreak = 0; a.turnStreak = 0; });
+              bumpGlobalStats(0, killCountRef.current);
             });
             // 10 saniye timeout — kazanan çökerse sonsuza kadar beklemesin
             setTimeout(() => {
@@ -3324,6 +3455,7 @@ export default function Game() {
           if (elapsed < 120) a.fast2 = Math.max(a.fast2, 1);
           if (missCount1 === 0) a.perfect = Math.max(a.perfect, 1);
         });
+        bumpGlobalStats(1, sunkCount);
         setEloChange({ myOld: oldGold1, myNew: newGold1 });
         setGoldChange({ amount: botWinGold });
         sfx.play('gold'); setGoldAnim({ amount: botWinGold });
@@ -4108,21 +4240,6 @@ export default function Game() {
           </RippleButton>
         );
       })()}
-      {/* Room code - collapsible */}
-      <div style={{ marginTop:10,width:"100%",maxWidth:360,zIndex:1 }}>
-        <details style={{ background:t.surface,border:`1px solid ${t.border}`,borderRadius:10,overflow:"hidden" }}>
-          <summary style={{ padding:"12px 16px",cursor:"pointer",fontSize:16,color:t.text,fontFamily:warrior,fontWeight:800,letterSpacing:2,listStyle:"none",display:"flex",alignItems:"center",gap:8 }}>
-            <span style={{ fontSize:17 }}>🔗</span> {L(appLang,"roomCodeToggle")}
-          </summary>
-          <div style={{ padding:"12px 16px",borderTop:`1px solid ${t.border}`,display:"flex",gap:8,alignItems:"center" }}>
-            <input style={{ ...inputStyle,flex:1,maxWidth:"none",padding:"12px 14px",fontSize:16,fontWeight:700,borderRadius:8 }} placeholder={L(appLang,"roomCodePlaceholder")} value={inputRoomId} onChange={e=>setInputRoomId(e.target.value.toUpperCase())} />
-            <button onClick={joinRoom} disabled={authLoading} style={{ padding:"12px 18px",background:`linear-gradient(135deg, ${t.accent}, #0088cc)`,color:t.bg,border:"none",borderRadius:8,fontSize:15,fontWeight:900,letterSpacing:1,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,whiteSpace:"nowrap" }}>{L(appLang,"join")}</button>
-          </div>
-          <div style={{ padding:"0 16px 12px",display:"flex",justifyContent:"center" }}>
-            <button onClick={createRoom} disabled={authLoading} style={{ padding:"10px 22px",background:"transparent",color:t.accent,border:`2px solid ${t.accent}`,borderRadius:8,fontSize:14,fontWeight:800,letterSpacing:1,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior }}>{L(appLang,"createRoom")}</button>
-          </div>
-        </details>
-      </div>
       {message && <div style={{ marginTop:8,color:t.hit,fontSize:11,fontFamily:mono,zIndex:1 }}>{message}</div>}
       {/* GÜNLÜK GÖREVLER — kompakt canlı şerit */}
       {(() => {
@@ -4169,6 +4286,7 @@ export default function Game() {
       {showDailyChest && !dailyChestModalOpen && <DailyChestFab onOpen={() => setDailyChestModalOpen(true)} lang={appLang} />}
       {dailyChestModalOpen && <DailyChestPopup onClaim={claimDailyChest} onClose={() => setDailyChestModalOpen(false)} lang={appLang} />}
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
+      <LivingHorizon profile={myProfile} lang={appLang} />
       <button onClick={handleLogout} style={{ marginTop:16,padding:"10px 24px",background:"rgba(255,71,87,0.06)",color:t.hit,border:`2px solid ${t.hit}`,borderRadius:8,fontSize:14,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior,zIndex:1,opacity:0.9 }}>{L(appLang,"logoutBtn")}</button>
     </div>);
   }
