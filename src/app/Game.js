@@ -60,7 +60,7 @@ function getTestGold() { return isTestMode() ? 5000 : STARTING_GOLD; }
 
 // === GÜNLÜK SANDIK (cihaz bazlı) ===
 const DAILY_CHEST_KEY = "ab_daily_chest_date";
-const DAILY_CHEST_GOLD = 500;
+const DAILY_CHEST_GOLD = 300; // pasif kazanç aktif oyunu geçmesin diye 500→300
 function hasClaimedDailyChestToday() {
   if (typeof window === "undefined") return true;
   try { return localStorage.getItem(DAILY_CHEST_KEY) === new Date().toDateString(); } catch (e) { return true; }
@@ -303,6 +303,7 @@ const TRANSLATIONS = {
     dailyChestTooltip: "Günlük Sandık", rewardRare: "NADİR", rewardGood: "İYİ",
     achTitle: "KAZANIMLAR", achClaim: "ÖDÜLÜ AL", achClaimed: "ALINDI", achLocked: "KİLİTLİ", achSoon: "YAKINDA", achSetReward: "SET ÖDÜLÜ", achUnlockReq: "Açılma şartları", achPrevSet: "Önceki set tamamlanmalı", achBtn: "KAZANIMLAR", achAvatarReward: "ÖZEL AVATAR",
     revengeActive: (m) => `İNTİKAM MODU — SONRAKİ ZAFERDE ÖDÜLLER ×${m}`, revengeTaken: (m) => `İNTİKAM ALINDI! ÖDÜLLER ×${m}`, revengeSub: "Denizin öfkesi seninle",
+    voyageTitle: "GEMİN SEFERDEN DÖNDÜ!", voyageBody: (h) => `${h} saatlik seferden ganimetle döndü`, voyageCollect: "GANİMETİ TOPLA", voyageHint: "Bugün ne kadar çok savaşırsan, gemin o kadar uzun sefere çıkar",
     oneChestPerDevice: "Her cihaza günde 1 sandık!", dailyRewardLabel: "GÜNLÜK ÖDÜL",
     battleStarting: "SAVAŞ BAŞLIYOR",
     tagline: "savaşların atası...",
@@ -369,6 +370,7 @@ const TRANSLATIONS = {
     dailyChestTooltip: "Daily Chest", rewardRare: "RARE", rewardGood: "GOOD",
     achTitle: "ACHIEVEMENTS", achClaim: "CLAIM REWARD", achClaimed: "CLAIMED", achLocked: "LOCKED", achSoon: "COMING SOON", achSetReward: "SET REWARD", achUnlockReq: "Unlock requirements", achPrevSet: "Complete the previous set", achBtn: "ACHIEVEMENTS", achAvatarReward: "EXCLUSIVE AVATAR",
     revengeActive: (m) => `REVENGE MODE — NEXT VICTORY REWARDS ×${m}`, revengeTaken: (m) => `REVENGE TAKEN! REWARDS ×${m}`, revengeSub: "The sea's fury is with you",
+    voyageTitle: "YOUR SHIP HAS RETURNED!", voyageBody: (h) => `Returned with loot from a ${h}-hour voyage`, voyageCollect: "COLLECT THE LOOT", voyageHint: "The more you battle today, the longer your ship sails",
     oneChestPerDevice: "1 chest per device, every day!", dailyRewardLabel: "DAILY REWARD",
     battleStarting: "BATTLE STARTING",
     tagline: "ancestor of battles...",
@@ -460,6 +462,22 @@ const ACH_DEFAULT = { hits:0, sunk:0, marks:0, chest:0, botWins:0, onlineWins:0,
 // === İNTİKAM MODU — üst üste kayıplar bir sonraki zaferin ödüllerini katlar ===
 // 2 mağlubiyet ×2, 3 mağlubiyet ×2.5, 4+ mağlubiyet ×3 (altın + XP)
 function revengeMult(lossStreak) { const ls = lossStreak || 0; return ls >= 4 ? 3 : ls === 3 ? 2.5 : ls === 2 ? 2 : 1; }
+
+// === SEFER DÖNÜŞÜ — çevrimdışı kazanç: bugünkü oyun, yarınki pasif gelirin tohumunu eker ===
+// Kapasite (saat) o gün oynanan maç sayısıyla büyür: 0 maç → 1s, 5 maç → 8s, tavan 12s.
+// Saatlik kazanç rütbeyle artar (15-40). Aktif oyun her zaman daha kârlı kalır.
+const VOYAGE_MAX_H = 12;
+function safeVoyage(v) {
+  const o = { lastClaim: 0, dayKey: "", matches: 0 };
+  if (v && typeof v === "object") {
+    if (typeof v.lastClaim === "number" && isFinite(v.lastClaim) && v.lastClaim > 0) o.lastClaim = v.lastClaim;
+    if (typeof v.dayKey === "string") o.dayKey = v.dayKey;
+    if (typeof v.matches === "number" && isFinite(v.matches)) o.matches = Math.max(0, Math.floor(v.matches));
+  }
+  return o;
+}
+function voyageCapH(matches) { return Math.min(VOYAGE_MAX_H, 1 + 1.4 * (matches || 0)); }
+function voyageRate(honor) { const h = honor || 0; const tier = h >= 5000 ? 5 : h >= 2000 ? 4 : h >= 800 ? 3 : h >= 300 ? 2 : h >= 100 ? 1 : 0; return 15 + tier * 5; }
 function safeAch(a) { const o = { ...ACH_DEFAULT }; if (a && typeof a === "object") { for (const k in ACH_DEFAULT) { const v = a[k]; if (typeof v === "number" && isFinite(v) && v >= 0) o[k] = v; } } return o; }
 function safeClaimed(c) { const o = {}; if (c && typeof c === "object") { for (const k of ["s1","s2","s3","s4","s5"]) if (c[k] === true) o[k] = true; } return o; }
 
@@ -990,6 +1008,7 @@ async function checkDailyReward(uid) {
     ach: (() => { const a = safeAch(profile.ach); a.goldEarned += reward; a.chest += 0; return a; })(),
     achievClaimed: safeClaimed(profile.achievClaimed),
     honor: migrateHonor(profile),
+    voyage: safeVoyage(profile.voyage),
   };
   await set(profileRef, cleanProfile);
   return { reward, streak, newGold };
@@ -1218,7 +1237,7 @@ async function ensureProfile(uid, displayName) {
   const snap = await get(profileRef);
   if (!snap.exists()) {
     const startGold = isTestMode() ? 5000 : STARTING_GOLD;
-    const profile = { displayName: displayName||"Denizci", wins:0, losses:0, totalGames:0, botGames:0, onlineGames:0, gold:startGold, honor:0, level:0, levelProgress:0, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false, recentResults:[], ach:{ ...ACH_DEFAULT }, achievClaimed:{} };
+    const profile = { displayName: displayName||"Denizci", wins:0, losses:0, totalGames:0, botGames:0, onlineGames:0, gold:startGold, honor:0, level:0, levelProgress:0, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false, recentResults:[], ach:{ ...ACH_DEFAULT }, achievClaimed:{}, voyage:{ lastClaim:Date.now(), dayKey:"", matches:0 } };
     await set(profileRef, profile);
     return profile;
   }
@@ -1246,6 +1265,7 @@ async function ensureProfile(uid, displayName) {
     ach: safeAch(existing.ach),
     achievClaimed: safeClaimed(existing.achievClaimed),
     honor: migrateHonor(existing),
+    voyage: safeVoyage(existing.voyage),
   };
   // ALWAYS overwrite with set() — kills any hidden NaN in any field
   await set(profileRef, sanitized);
@@ -1284,6 +1304,7 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
     recentResults: pushRecent(wd.recentResults, true),
     ach: (() => { const a = safeAch(wd.ach); a.lossStreak = 0; return a; })(), achievClaimed: safeClaimed(wd.achievClaimed),
     honor: migrateHonor(wd) + HONOR_WIN_ONLINE,
+    voyage: safeVoyage(wd.voyage),
   };
   const loserProfile = {
     displayName: ld.displayName || "Denizci",
@@ -1300,6 +1321,7 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
     recentResults: pushRecent(ld.recentResults, false),
     ach: (() => { const a = safeAch(ld.ach); a.lossStreak = (a.lossStreak||0) + 1; return a; })(), achievClaimed: safeClaimed(ld.achievClaimed),
     honor: migrateHonor(ld) + HONOR_LOSS_ONLINE,
+    voyage: safeVoyage(ld.voyage),
   };
   await set(ref(db, `profiles/${winnerUid}`), winnerProfile);
   await set(ref(db, `profiles/${loserUid}`), loserProfile);
@@ -2250,6 +2272,8 @@ export default function Game() {
   const [showAchievements, setShowAchievements] = useState(false);
   const [dailyOpen, setDailyOpen] = useState(false);
   const [revengeResult, setRevengeResult] = useState(null); // { mult } — intikam alındığında maç sonunda gösterilir
+  const [voyageReward, setVoyageReward] = useState(null); // { gold, hours } — sefer dönüşü karşılaması
+  const voyageCheckedRef = useRef(false);
   const [eloChange, setEloChange] = useState(null);
   const [showOnlineLobby, setShowOnlineLobby] = useState(false);
   const [matchmaking, setMatchmaking] = useState(false);
@@ -2407,6 +2431,51 @@ export default function Game() {
     setGoldAnim({ amount: setDef.reward });
   };
 
+  // Sefer kapasitesi: her biten maç bugünün sefer süresini uzatır
+  const bumpVoyageMatch = () => {
+    setMyProfile(prev => {
+      if (!prev) return prev;
+      const v = safeVoyage(prev.voyage); const tk = todayKey();
+      if (v.dayKey !== tk) { v.dayKey = tk; v.matches = 1; } else { v.matches += 1; }
+      if (!v.lastClaim) v.lastClaim = Date.now();
+      if (authUid) update(ref(db, `profiles/${authUid}`), { voyage: v }).catch(()=>{});
+      return { ...prev, voyage: v };
+    });
+  };
+
+  // Sefer dönüşü kontrolü — lobiye ilk girişte bir kez
+  useEffect(() => {
+    if (phase !== "lobby" || !myProfile || !authUid || voyageCheckedRef.current) return;
+    voyageCheckedRef.current = true;
+    const v = safeVoyage(myProfile.voyage);
+    const now = Date.now();
+    if (!v.lastClaim) {
+      const nv = { ...v, lastClaim: now };
+      update(ref(db, `profiles/${authUid}`), { voyage: nv }).catch(()=>{});
+      setMyProfile(p => p ? { ...p, voyage: nv } : p);
+      return;
+    }
+    const capMs = voyageCapH(v.matches) * 3600000;
+    const effMs = Math.max(0, Math.min(now - v.lastClaim, capMs));
+    const hours = effMs / 3600000;
+    const earned = Math.floor(hours * voyageRate(migrateHonor(myProfile)));
+    if (earned >= 15) setVoyageReward({ gold: earned, hours: Math.round(hours * 10) / 10 });
+  }, [phase, myProfile, authUid]);
+
+  // Sefer ganimetini topla
+  const claimVoyage = () => {
+    if (!voyageReward || !myProfile || !authUid) return;
+    const g = voyageReward.gold;
+    sfx.init(); sfx.play('gold');
+    const nv = { ...safeVoyage(myProfile.voyage), lastClaim: Date.now() };
+    const va = safeAch(myProfile.ach); va.goldEarned += g;
+    const newGold = safeGold(myProfile.gold) + g;
+    update(ref(db, `profiles/${authUid}`), { gold: newGold, voyage: nv, ach: va }).catch(()=>{});
+    setMyProfile(prev => prev ? { ...prev, gold: newGold, voyage: nv, ach: va } : prev);
+    setGoldAnim({ amount: g });
+    setVoyageReward(null);
+  };
+
   // Kazanım sayaçlarını güncelle — fn(a) sayaç kopyasını mutasyona uğratır, DB + local senkronize edilir
   const bumpAch = (fn) => {
     setMyProfile(prev => {
@@ -2431,6 +2500,7 @@ export default function Game() {
     // Kazanım sayaçları: mağlubiyette isabet/batırma yine sayılır, seriler sıfırlanır
     bumpAch(a => { a.hits += myHits; a.sunk += killCountRef.current; a.winStreak = 0; a.turnStreak = 0; a.lossStreak = (a.lossStreak||0) + 1; });
     bumpGlobalStats(1, killCountRef.current);
+    bumpVoyageMatch();
   };
 
   const cellSize = typeof window !== "undefined" ? Math.max(16, Math.min(30, Math.floor((Math.min(window.innerWidth - 24, 400)) / 12), Math.floor((window.innerHeight - 300) / 12))) : 28;
@@ -2656,6 +2726,7 @@ export default function Game() {
                     if (gameArena && gameArena.id === "firtina") a.arenaFirtina = Math.max(a.arenaFirtina, 1);
                   });
                   bumpGlobalStats(1, killCountRef.current);
+                  bumpVoyageMatch();
                 }
               } catch (e) { console.error("ELO update error:", e); }
             }).catch(e => console.error("ELO transaction error:", e));
@@ -2676,6 +2747,7 @@ export default function Game() {
               const lHits = lShotList.reduce((n,x) => n + ((x.shots||[]).filter(s => s.result === "hit").length), 0);
               bumpAch(a => { a.hits += lHits; a.sunk += killCountRef.current; a.winStreak = 0; a.turnStreak = 0; a.lossStreak = (a.lossStreak||0) + 1; });
               bumpGlobalStats(0, killCountRef.current);
+              bumpVoyageMatch();
             });
             // 10 saniye timeout — kazanan çökerse sonsuza kadar beklemesin
             setTimeout(() => {
@@ -3464,7 +3536,7 @@ export default function Game() {
       const streakMult = hitStreak >= 9 ? 4 : hitStreak >= 6 ? 3 : hitStreak >= 3 ? 2 : 1;
       // İntikam çarpanı — kayıp serisinden gelen bilenmişlik ödülü
       const rMult1 = revengeMult(safeAch(myProfile?.ach).lossStreak);
-      const botWinGold = Math.round(25 * streakMult * rMult1);
+      const botWinGold = Math.round(50 * streakMult * rMult1); // 25→50: aktif oyun her zaman pasiften iyi öder
       if (rMult1 > 1) setRevengeResult({ mult: rMult1 });
       if (authUid && myProfile && !isOnboarding) {
         const lvl1 = applyLevelCredit(myProfile, XP_BOT_WIN * rMult1);
@@ -3483,6 +3555,7 @@ export default function Game() {
           if (missCount1 === 0) a.perfect = Math.max(a.perfect, 1);
         });
         bumpGlobalStats(1, sunkCount);
+        bumpVoyageMatch();
         setEloChange({ myOld: oldGold1, myNew: newGold1 });
         setGoldChange({ amount: botWinGold });
         sfx.play('gold'); setGoldAnim({ amount: botWinGold });
@@ -4344,6 +4417,19 @@ export default function Game() {
         setChestClaimed(true); setChestReward(null);
       }} />}
       {dailyReward && <DailyRewardPopup reward={dailyReward.reward} streak={dailyReward.streak} onClose={() => { setMyProfile(prev => prev ? { ...prev, gold: dailyReward.newGold, loginStreak: dailyReward.streak } : prev); setDailyReward(null); }} lang={appLang} />}
+      {/* SEFER DÖNÜŞÜ — karşılama */}
+      {voyageReward && (
+        <div style={{ position:"fixed",inset:0,zIndex:9400,background:"radial-gradient(ellipse at 50% 40%, rgba(0,229,255,0.08) 0%, rgba(2,6,16,0.9) 70%)",backdropFilter:"blur(3px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}>
+          <div style={{ background:`linear-gradient(160deg, #0c1a30, #071022)`,border:"2px solid rgba(0,229,255,0.4)",borderRadius:18,padding:"26px 28px",maxWidth:330,width:"100%",textAlign:"center",boxShadow:"0 0 50px rgba(0,229,255,0.2), 0 20px 60px rgba(0,0,0,0.7)",animation:"tutCardEnter 0.7s cubic-bezier(0.16,1,0.3,1)" }}>
+            <div style={{ fontSize:52,marginBottom:8,animation:"logoFloat 3s ease-in-out infinite",display:"inline-block",filter:"drop-shadow(0 6px 14px rgba(0,0,0,0.6)) drop-shadow(0 0 20px rgba(0,229,255,0.4))" }}>⛵</div>
+            <div style={{ fontSize:19,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 20px ${t.accentGlow}`,marginBottom:6 }}>{L(appLang,"voyageTitle")}</div>
+            <div style={{ fontSize:12,color:t.textDim,fontFamily:mono,marginBottom:14 }}>{L(appLang,"voyageBody")(voyageReward.hours)}</div>
+            <div style={{ fontSize:36,fontWeight:900,fontFamily:warrior,marginBottom:16,background:"linear-gradient(180deg,#fff9c4 0%,#ffe066 35%,#ffd700 65%,#d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 16px rgba(255,215,0,0.8))" }}>+{voyageReward.gold} 💰</div>
+            <button onClick={claimVoyage} style={{ width:"100%",padding:"15px 0",background:"linear-gradient(135deg,#ffd700,#ff9f43)",color:"#1a1206",border:"none",borderRadius:12,fontSize:16,fontWeight:900,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 30px ${t.goldGlow}`,animation:"btnBreath 2s ease-in-out infinite",textTransform:"uppercase" }}>{L(appLang,"voyageCollect")}</button>
+            <div style={{ fontSize:10,color:t.textDim,fontFamily:mono,marginTop:12,lineHeight:1.5,fontStyle:"italic" }}>⚓ {L(appLang,"voyageHint")}</div>
+          </div>
+        </div>
+      )}
       {showDailyChest && !dailyChestModalOpen && <DailyChestFab onOpen={() => setDailyChestModalOpen(true)} lang={appLang} />}
       {dailyChestModalOpen && <DailyChestPopup onClaim={claimDailyChest} onClose={() => setDailyChestModalOpen(false)} lang={appLang} />}
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
