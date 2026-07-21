@@ -2263,17 +2263,14 @@ function findMatch(myUid, myName, myGold, arenaId, timeoutMs = 60000) {
 
       creating = true;
       try {
-        // Atomik kapmaca — rakibin kilit düğümünü ilk yazan kazanır
-        const claimRef = ref(db, `matchmaking_claims/${opponent.uid}`);
-        const tx = await runTransaction(claimRef, cur => {
-          if (cur && cur.by && cur.by !== myUid && (nowT - (cur.t || 0)) < 15000) return; // taze kilit başkasının — vazgeç
-          return { by: myUid, t: nowT };
-        });
-        if (!tx.committed || !tx.snapshot.exists() || tx.snapshot.val().by !== myUid) { creating = false; return; }
+        // ÇİFT KİLİT — sıralı alım: iki taraf da denese bile tek kazanan, tek oda
+        const locked = await acquirePairLock(myUid, opponent.uid, myUid);
+        if (!locked) { creating = false; return; }
+        if (cancelled || resolved) { releasePairLock(myUid, opponent.uid); return; }
 
         // Rakip hâlâ kuyrukta mı? (çökmüş/ayrılmış olabilir)
         const oppCheck = await get(ref(db, `${queuePath}/${opponent.uid}`));
-        if (!oppCheck.exists()) { remove(claimRef).catch(() => {}); creating = false; return; }
+        if (!oppCheck.exists()) { releasePairLock(myUid, opponent.uid); creating = false; return; }
 
         const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
         await set(ref(db, `rooms/${roomId}`), { p1_name: myName, p1_uid: myUid, p2_name: opponent.displayName, p2_uid: opponent.uid, phase: "placing", p1_board: null, p2_board: null, p1_ships: null, p2_ships: null, attacks: null, turn: 1, clocks: { p1: CLOCK_SECONDS, p2: CLOCK_SECONDS }, winner: null, winReason: null, eloProcessed: false, arena: arenaId || null, created: Date.now() });
@@ -2284,7 +2281,7 @@ function findMatch(myUid, myName, myGold, arenaId, timeoutMs = 60000) {
           set(ref(db, `match_found/${opponent.uid}`), { roomId, playerNum: 2, oppName: myName }),
         ]);
         remove(ref(db, `${queuePath}/${myUid}`)).catch(() => {});
-        remove(claimRef).catch(() => {});
+        releasePairLock(myUid, opponent.uid);
       } catch (e) {
         console.error("Match creation error:", e);
         creating = false;
@@ -2315,24 +2312,41 @@ async function findReadyCandidate(myUid, myGold) {
   } catch (e) { return null; }
 }
 
+// === ÇİFT KİLİT (lock ordering) — iki taraf aynı anda eşleşmeye kalksa bile TEK oda kurulmasını garantiler.
+// Kilitler her zaman küçük uid'nin düğümünden başlayarak alınır; ilk düğümde çarpışan taraflardan
+// yalnızca biri transaction'ı kazanır. Kazanan iki kilidi de alır ve odayı kurar.
+async function acquirePairLock(uidA, uidB, myUid) {
+  const [first, second] = [uidA, uidB].sort();
+  const nowT = Date.now();
+  const tryLock = async (uid) => {
+    try {
+      const tx = await runTransaction(ref(db, `matchmaking_claims/${uid}`), cur => {
+        if (cur && cur.by && cur.by !== myUid && (nowT - (cur.t || 0)) < 15000) return; // taze kilit başkasının
+        return { by: myUid, t: nowT };
+      });
+      return tx.committed && tx.snapshot.exists() && tx.snapshot.val().by === myUid;
+    } catch (e) { return false; }
+  };
+  if (!(await tryLock(first))) return false;
+  if (!(await tryLock(second))) { remove(ref(db, `matchmaking_claims/${first}`)).catch(() => {}); return false; }
+  return true;
+}
+function releasePairLock(uidA, uidB) { [uidA, uidB].forEach(u => remove(ref(db, `matchmaking_claims/${u}`)).catch(() => {})); }
+
 // HAZIRIM diyen oyuncuyla ANINDA eşleş — davet/kabul yok: HAZIRIM demek "sormadan eşleştir" demektir.
 // Atomik kilit ile iki OYNA'cının aynı hazır oyuncuyu kapması engellenir.
 async function instantMatchWithReady(myUid, myName, candidate) {
   try {
-    const nowT = Date.now();
-    const claimRef = ref(db, `matchmaking_claims/${candidate.uid}`);
-    const tx = await runTransaction(claimRef, cur => {
-      if (cur && cur.by && cur.by !== myUid && (nowT - (cur.t || 0)) < 15000) return;
-      return { by: myUid, t: nowT };
-    });
-    if (!tx.committed || !tx.snapshot.exists() || tx.snapshot.val().by !== myUid) return null;
+    // ÇİFT KİLİT — karşılıklı anında eşleşme denemelerinde bile tek oda garantisi
+    const locked = await acquirePairLock(myUid, candidate.uid, myUid);
+    if (!locked) return null;
     // Hâlâ hazır ve boşta mı?
     const pSnap = await get(ref(db, `online_players/${candidate.uid}`));
-    if (!pSnap.exists() || pSnap.val().ready !== true || pSnap.val().status !== "idle") { remove(claimRef).catch(() => {}); return null; }
+    if (!pSnap.exists() || pSnap.val().ready !== true || pSnap.val().status !== "idle") { releasePairLock(myUid, candidate.uid); return null; }
     const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
     await set(ref(db, `rooms/${roomId}`), { p1_name: myName, p1_uid: myUid, p2_name: candidate.displayName || "Denizci", p2_uid: candidate.uid, phase: "placing", p1_board: null, p2_board: null, p1_ships: null, p2_ships: null, attacks: null, turn: 1, clocks: { p1: CLOCK_SECONDS, p2: CLOCK_SECONDS }, winner: null, winReason: null, eloProcessed: false, arena: null, created: Date.now() });
     await set(ref(db, `match_found/${candidate.uid}`), { roomId, playerNum: 2, oppName: myName });
-    remove(claimRef).catch(() => {});
+    releasePairLock(myUid, candidate.uid);
     return { roomId, playerNum: 1 };
   } catch (e) { return null; }
 }
