@@ -1634,9 +1634,9 @@ function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
   const list = Object.values(ships);
   const sunkCount = list.filter(s => { const c = s.cells || []; return c.length > 0 && c.every(([r, cc]) => hitCells?.[r]?.[cc]); }).length;
   return (
-    <div style={{ width:"100%",maxWidth:400,marginTop:5,padding:"5px 9px",borderRadius:10,background:"linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))",border:`1px solid ${color===t.hit?"rgba(255,71,87,0.28)":"rgba(0,229,255,0.22)"}`,display:"flex",alignItems:"center",gap:8 }}>
+    <div style={{ width:"100%",maxWidth:400,marginTop:5,padding:"6px 9px",borderRadius:10,background:"linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))",border:`1px solid ${color===t.hit?"rgba(255,71,87,0.28)":"rgba(0,229,255,0.22)"}`,display:"flex",alignItems:"center",gap:8 }}>
       <span style={{ fontSize:9,fontWeight:900,color:t.textDim,fontFamily:warrior,letterSpacing:1.5,flexShrink:0 }}>{title}</span>
-      <div style={{ flex:1,display:"flex",alignItems:"center",gap:9,flexWrap:"wrap" }}>
+      <div style={{ flex:1,display:"flex",alignItems:"flex-start",gap:7,flexWrap:"wrap",rowGap:4 }}>
         {list.map((ship, i) => {
           const cells = ship.cells || [];
           const hits = cells.filter(([r, c]) => hitCells?.[r]?.[c]).length;
@@ -1644,32 +1644,40 @@ function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
           const sd = SHIPS.find(x => x.id === ship.id);
           const base = sd?.color || t.accent;
           const isAdmiral = ship.id === "amiral";
-          const bw = isAdmiral ? 15 : 12, bh = isAdmiral ? 17 : 14; // Amiral daha iri
+          const S = 11, G = 2; // TÜM kutucuklar aynı boyut (11px), aralarında 2px
+          // Amiral gerçek şekliyle çizilir: üstte 3, altta ortada 1 (T formu).
+          // Diğer gemiler tek sıra. Hasar sırayla dolar (rakibin konumunu sızdırmaz).
+          const layout = isAdmiral
+            ? [{ r:0, c:0 }, { r:0, c:1 }, { r:0, c:2 }, { r:1, c:1 }]
+            : cells.map((_, j) => ({ r:0, c:j }));
+          const gw = (isAdmiral ? 3 : cells.length) * S + ((isAdmiral ? 3 : cells.length) - 1) * G;
+          const gh = (isAdmiral ? 2 : 1) * S + (isAdmiral ? G : 0);
+          const Block = ({ hit }) => (
+            <span style={{ width:S,height:S,borderRadius:3,position:"relative",display:"inline-block",
+              background:hit?"rgba(18,18,22,0.94)":base,
+              border:"1px solid rgba(0,0,0,0.4)",
+              boxShadow:hit?"none":"inset 0 1px 0 rgba(255,255,255,0.3)",transition:"background 0.2s" }}>
+              {hit && (
+                <svg viewBox="0 0 10 10" style={{ position:"absolute",inset:0,width:"100%",height:"100%" }}>
+                  <path d="M2 2 L8 8 M8 2 L2 8" stroke="#000" strokeWidth="2.8" strokeLinecap="round" />
+                </svg>
+              )}
+            </span>
+          );
           return (
-            <div key={i} title={(lang==="en"?sd?.nameEn:sd?.name)||""} style={{ display:"flex",gap:2.5,position:"relative",alignItems:"center",
-              padding:isAdmiral?"0 3px":0, borderRadius:isAdmiral?4:0,
-              background:isAdmiral?"rgba(231,76,60,0.10)":"transparent",
-              boxShadow:isAdmiral?"inset 0 0 0 1px rgba(231,76,60,0.45)":"none" }}>
-              {cells.map((_, j) => {
-                const hit = j < hits;
-                return (
-                  <span key={j} style={{ width:bw,height:bh,borderRadius:3,position:"relative",display:"inline-block",
-                    background:hit?"rgba(20,20,24,0.92)":base,
-                    border:isAdmiral?"1.5px solid rgba(255,220,215,0.5)":"1px solid rgba(0,0,0,0.35)",
-                    boxShadow:hit?"none":`inset 0 1px 0 rgba(255,255,255,0.28)`,transition:"background 0.2s" }}>
-                    {hit && (
-                      <svg viewBox="0 0 10 10" style={{ position:"absolute",inset:0,width:"100%",height:"100%" }}>
-                        <path d="M2 2 L8 8 M8 2 L2 8" stroke="#000" strokeWidth="2.6" strokeLinecap="round" />
-                      </svg>
-                    )}
-                  </span>
-                );
-              })}
+            <div key={i} title={(lang==="en"?sd?.nameEn:sd?.name)||""}
+              style={{ position:"relative",width:gw,height:gh,flexShrink:0,
+                alignSelf:isAdmiral?"center":"flex-start",marginTop:isAdmiral?0:S+G }}>
+              {layout.map((pos, j) => (
+                <span key={j} style={{ position:"absolute",left:pos.c*(S+G),top:pos.r*(S+G),lineHeight:0 }}>
+                  <Block hit={j < hits} />
+                </span>
+              ))}
               {/* Gemi tamamen battı → çetele usulü KALIN çapraz çizgi */}
               {sunk && (
-                <svg style={{ position:"absolute",left:-4,right:-4,top:-3,bottom:-3,width:"calc(100% + 8px)",height:"calc(100% + 6px)",pointerEvents:"none" }} preserveAspectRatio="none" viewBox="0 0 100 100">
-                  <line x1="2" y1="88" x2="98" y2="12" stroke="#000" strokeWidth="9" strokeLinecap="round" />
-                  <line x1="2" y1="88" x2="98" y2="12" stroke="#ff4757" strokeWidth="5" strokeLinecap="round" />
+                <svg style={{ position:"absolute",left:-4,top:-3,width:gw+8,height:gh+6,pointerEvents:"none",overflow:"visible" }}>
+                  <line x1="2" y1={gh+3} x2={gw+6} y2="2" stroke="#000" strokeWidth="8" strokeLinecap="round" />
+                  <line x1="2" y1={gh+3} x2={gw+6} y2="2" stroke="#ff4757" strokeWidth="4.5" strokeLinecap="round" />
                 </svg>
               )}
             </div>
@@ -5000,13 +5008,12 @@ export default function Game() {
       </div>}
       {/* OYUNDAN AYRIL — sol üstte sabit, üstteki ayar/ses butonlarıyla aynı tasarım dilinde.
           Sağ üstteki butonlarla çakışmaz, akışta yer kaplamaz. */}
-      {/* AYRIL — alttaki isim/saat kutularıyla aynı çerçeve dili: aynı köşe yarıçapı,
-          aynı ince kenarlık, sadece daha küçük. Sağdaki ayar butonlarına değmez. */}
+      {/* AYRIL — sağ üstteki ayar/ses butonlarıyla BİREBİR aynı ölçü: 34×34, radius 8,
+          aynı kenarlık kalınlığı, aynı üst hiza. Sol kenardan 14px (sağdakiler sağdan 14px)
+          → ekranın iki ucunda simetrik üçlü. Aralarında ekran genişliği kadar boşluk var. */}
       <button onClick={() => { sfx.init(); sfx.play('click'); setShowSurrenderConfirm(true); }} title={L(appLang,"leaveGame")}
-        style={{ position:"fixed",top:"calc(13px + env(safe-area-inset-top, 0px))",left:"clamp(10px, 4vw, 16px)",zIndex:9500,height:30,padding:"0 11px",borderRadius:6,background:"rgba(239,68,68,0.15)",border:`1px solid ${t.hit}`,color:"#ff8a95",fontSize:11,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",gap:4,lineHeight:1 }}>
-        <span style={{ fontSize:12 }}>⚑</span>{L(appLang,"leaveGame")}
-      </button>
-      <div style={{ height:38 }} />
+        style={{ position:"fixed",top:"calc(12px + env(safe-area-inset-top, 0px))",left:14,zIndex:9500,width:34,height:34,borderRadius:8,background:"rgba(255,71,87,0.10)",border:`1px solid rgba(255,71,87,0.45)`,color:"#ff8a95",fontSize:16,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,transition:"all 0.15s ease" }}>⚑</button>
+      <div style={{ height:40 }} />
       {/* Surrender confirm modal */}
       {showSurrenderConfirm && <div style={{ position:"fixed",inset:0,overflow:"hidden",background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(4px)" }}>
         <div style={{ background:`linear-gradient(145deg,rgba(12,21,41,0.99),rgba(8,14,30,0.99))`,border:`2px solid ${t.hit}`,borderRadius:16,padding:"28px 32px",textAlign:"center",maxWidth:300,width:"90%",boxShadow:`0 0 60px ${t.hitGlow}`,animation:"scaleUp 0.3s ease-out" }}>
