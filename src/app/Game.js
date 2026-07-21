@@ -315,6 +315,7 @@ const TRANSLATIONS = {
     threeShotsTitle: "3 EL ATIŞ", threeShotsBody: "Rakibin gizlediği gemileri vurmak için 3 el ateş et.",
     tutPeek: "GEMİLERE İYİ BAK!", tutFire3: "3 EL ATEŞ ET", tutHitsResult: (n) => n>0?`${n} İSABET! MÜTHİŞSİN`:"ISKA! BİR DAHA DENE", tutTryAgain: "↻ TEKRAR DENE", tutSimple: "İşte bu kadar basit.",
     markTrackTitle: "İŞARETLE & TAKİP ET", markTrackBody1: "Atış yapmak istemediğin yerleri", markTrackBody2: "sağ tuş (mobilde uzun bas) ile işaretle.",
+    tutMarkYou: "BURAYI DA SEN İŞARETLE", tutMarkDone: "HARİKA! ARTIK HAZIRSIN", tutMarkWhy: "Buralara ateş etmene gerek yok, çünkü rakibin buralara gemi saklayamaz.",
     startBattleBtn: "SAVAŞA BAŞLA", watersHeating: "sular ısınsın...",
     goldChangeTitle: "ALTIN DEĞİŞİMİ", entryFeeLabel: (n) => `Giriş: -${n} 💰`, connectingToServer: "Sunucuya bağlanılıyor...", testModeMsg: "🧪 TEST MODU — 2 tab aç, oda koduyla oyna",
     pickAvatarTooltip: "Profil simgeni seç", uploadPhotoTooltip: "Kendi fotoğrafını yükle",
@@ -378,6 +379,7 @@ const TRANSLATIONS = {
     threeShotsTitle: "3-SHOT VOLLEY", threeShotsBody: "Fire 3 shots to hit the ships your opponent has hidden.",
     tutPeek: "MEMORIZE THE SHIPS!", tutFire3: "FIRE 3 SHOTS", tutHitsResult: (n) => n>0?`${n} HIT${n!==1?"S":""}! AMAZING`:"ALL MISSED! TRY AGAIN", tutTryAgain: "↻ TRY AGAIN", tutSimple: "That's how simple it is.",
     markTrackTitle: "MARK & TRACK", markTrackBody1: "Mark cells you don't want to shoot at", markTrackBody2: "with right-click (or long-press on mobile).",
+    tutMarkYou: "NOW YOU MARK THIS ONE", tutMarkDone: "AWESOME! YOU'RE READY", tutMarkWhy: "No need to shoot here — your opponent can't hide ships in these cells.",
     startBattleBtn: "START BATTLE", watersHeating: "let the waters heat up...",
     goldChangeTitle: "GOLD CHANGE", entryFeeLabel: (n) => `Entry: -${n} 💰`, connectingToServer: "Connecting to server...", testModeMsg: "🧪 TEST MODE — open 2 tabs, play with room code",
     pickAvatarTooltip: "Pick your profile icon", uploadPhotoTooltip: "Upload your own photo",
@@ -3429,6 +3431,63 @@ export default function Game() {
       );
     }
 
+    // Adım 4 — ETKİLEŞİMLİ işaretleme: vurulan teklinin çevresi bayraklanır, son hücreyi kullanıcı işaretler
+    function MarkDemo() {
+      const HIT = [1,1];                                                    // vurulmuş tekli gemi
+      const AUTO_FLAGS = [[0,0],[0,1],[0,2],[1,0],[2,0],[2,1],[2,2]];      // otomatik sarı bayraklar
+      const USER_CELL = [1,2];                                              // kullanıcının işaretleyeceği boşluk
+      const [userFlag, setUserFlag] = useState(false);
+      const cs = 46;
+      const place = (r,c) => {
+        if (userFlag || r!==USER_CELL[0] || c!==USER_CELL[1]) return;
+        try { sfx.init(); sfx.play('click'); } catch(e) {}
+        setUserFlag(true);
+      };
+      return (
+        <div style={{ position:"relative",marginBottom:14,display:"flex",flexDirection:"column",alignItems:"center" }}>
+          <style>{`
+@keyframes markBubble{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes markHand{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+@keyframes markWin{0%{box-shadow:0 0 0 rgba(74,222,128,0)}50%{box-shadow:0 0 28px rgba(74,222,128,0.6)}100%{box-shadow:0 0 10px rgba(74,222,128,0.25)}}
+@keyframes markDash{0%,100%{border-color:rgba(255,215,0,0.9);box-shadow:inset 0 0 12px rgba(255,215,0,0.3)}50%{border-color:rgba(255,215,0,0.4);box-shadow:inset 0 0 4px rgba(255,215,0,0.1)}}
+@keyframes flameFlicker{0%,100%{transform:scale(1) rotate(-3deg)}50%{transform:scale(1.15) rotate(3deg)}}
+          `}</style>
+          {/* Yönlendirme balonu */}
+          <div style={{ minHeight:36,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:8 }}>
+            {!userFlag && <div style={{ padding:"7px 18px",borderRadius:20,background:"linear-gradient(135deg, rgba(255,215,0,0.16), rgba(255,159,67,0.10))",border:"1px solid rgba(255,215,0,0.5)",color:t.gold,fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:2,animation:"markBubble 1.4s ease-in-out infinite",textShadow:`0 0 12px ${t.goldGlow}`,whiteSpace:"nowrap" }}>☝ {L(appLang,"tutMarkYou")}</div>}
+            {userFlag && <div style={{ padding:"7px 18px",borderRadius:20,background:"rgba(74,222,128,0.10)",border:"1px solid rgba(74,222,128,0.55)",color:"#4ade80",fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:2,animation:"markWin 1.6s ease-out",whiteSpace:"nowrap" }}>✓ {L(appLang,"tutMarkDone")}</div>}
+          </div>
+          {/* 4x3 platform */}
+          <div style={{ display:"grid",gridTemplateColumns:`repeat(4,${cs}px)`,gridTemplateRows:`repeat(3,${cs}px)`,gap:2,background:t.surface,borderRadius:12,padding:8,border:`2px solid ${userFlag?"rgba(74,222,128,0.4)":t.border}`,position:"relative",transition:"border-color 0.3s" }}>
+            {Array.from({length:12}).map((_,i) => {
+              const r=Math.floor(i/4), c=i%4;
+              const isHit = r===HIT[0] && c===HIT[1];
+              const fi = AUTO_FLAGS.findIndex(([fr,fc])=>fr===r&&fc===c);
+              const isAutoFlag = fi >= 0;
+              const isUserCell = r===USER_CELL[0] && c===USER_CELL[1];
+              return <div key={i} onClick={()=>place(r,c)} onContextMenu={(e)=>{ e.preventDefault(); place(r,c); }} style={{ borderRadius:5,
+                background: isHit ? t.hit : (isAutoFlag || (isUserCell&&userFlag)) ? "rgba(255,215,0,0.18)" : t.water,
+                border: isUserCell&&!userFlag ? "2px dashed rgba(255,215,0,0.9)" : `1px solid ${isHit?t.hit:(isAutoFlag||(isUserCell&&userFlag))?"rgba(255,215,0,0.5)":"rgba(55,65,81,0.4)"}`,
+                display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:900,color:"#fff",
+                cursor: isUserCell&&!userFlag ? "pointer" : "default", transition:"all 0.25s ease",
+                animation: isUserCell&&!userFlag ? "markDash 1.2s ease-in-out infinite" : "none",
+                boxShadow: isHit ? `inset 0 0 16px ${t.hitGlow}, 0 0 14px rgba(255,140,40,0.5)` : (isAutoFlag||(isUserCell&&userFlag)) ? `inset 0 0 10px ${t.goldGlow}` : "none" }}>
+                {isHit && <span style={{ fontSize:19,display:"inline-block",animation:"flameFlicker 0.7s ease-in-out infinite",filter:"drop-shadow(0 0 8px rgba(255,140,40,0.9))" }}>🔥</span>}
+                {isAutoFlag && <span style={{ fontSize:19,color:t.gold,animation:`markDrop 0.5s ease-out ${fi*0.18}s both` }}>⚑</span>}
+                {isUserCell && userFlag && <span style={{ fontSize:19,color:t.gold,animation:"markDrop 0.4s ease-out both" }}>⚑</span>}
+              </div>;
+            })}
+            {/* Boş hücreyi gösteren el */}
+            {!userFlag && <div style={{ position:"absolute",top:cs*1.5+8,right:-4,fontSize:28,animation:"markHand 0.9s ease-in-out infinite",filter:"drop-shadow(0 2px 8px rgba(255,215,0,0.6))",pointerEvents:"none" }}>👆</div>}
+          </div>
+          {/* Neden? açıklaması */}
+          <div style={{ fontSize:12,color:t.textDim,fontFamily:mono,marginTop:10,textAlign:"center",lineHeight:1.6,maxWidth:300 }}>
+            <span style={{ color:t.gold,fontWeight:700 }}>⚑</span> {L(appLang,"tutMarkWhy")}
+          </div>
+        </div>
+      );
+    }
+
     // Shared tutorial card wrapper
     const TutCard = ({ children, step, total }) => (
       <div style={{ ...appStyle, justifyContent:"center", background:`radial-gradient(ellipse at 12% 85%, rgba(167,139,250,0.09) 0%, transparent 45%), radial-gradient(ellipse at 88% 12%, rgba(255,215,0,0.06) 0%, transparent 40%), radial-gradient(ellipse at 50% 20%, rgba(192,57,43,0.08) 0%, rgba(0,229,255,0.07) 40%, ${t.bg} 80%)`, overflow:"hidden", position:"relative", animation:"pageFadeIn 0.5s ease-out forwards" }}>
@@ -3573,17 +3632,7 @@ export default function Game() {
             <span style={{ fontSize:20 }}>⚑</span>
           </div>
           <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16,textAlign:"center",lineHeight:1.6 }}>{L(appLang,"markTrackBody1")}<br/>{L(appLang,"markTrackBody2")}</div>
-          {/* İşaretleme demo */}
-          <div style={{ position:"relative",marginBottom:20 }}>
-            <div style={{ display:"grid",gridTemplateColumns:"repeat(5,46px)",gridTemplateRows:"repeat(3,46px)",gap:2,background:t.surface,borderRadius:10,padding:6,border:`1px solid ${t.border}` }}>
-              {Array.from({length:15}).map((_,i) => {
-                const marked=[3,8,9]; const isM=marked.includes(i);
-                return <div key={i} style={{ borderRadius:4,background:isM?"rgba(255,215,0,0.18)":t.water,border:`1px solid ${isM?"rgba(255,215,0,0.5)":"rgba(55,65,81,0.4)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,color:isM?t.gold:"transparent",animation:isM?`markDrop 0.5s ease-out ${marked.indexOf(i)*0.2}s both`:"none",boxShadow:isM?`inset 0 0 10px ${t.goldGlow}`:"none" }}>
-                  {isM && "⚑"}
-                </div>;
-              })}
-            </div>
-          </div>
+          <MarkDemo />
           {/* SAVAŞ CTA */}
           <div style={{ textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center",gap:0,width:"100%",maxWidth:340 }}>
             <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); sfx.transitionToBattle(); }} style={{ width:"100%",padding:"18px 0",background:"linear-gradient(180deg, #a01f0c 0%, #6b1108 50%, #3a0804 100%)",color:"#fff",border:"1px solid rgba(255,200,120,0.35)",borderRadius:6,fontSize:20,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 60px rgba(200,50,20,0.6), 0 0 120px rgba(180,30,10,0.3), 0 8px 40px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,180,120,0.2)",position:"relative",overflow:"hidden",textTransform:"uppercase",textShadow:"0 0 30px rgba(255,140,60,0.9), 0 0 60px rgba(255,80,20,0.5), 0 2px 8px rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>
