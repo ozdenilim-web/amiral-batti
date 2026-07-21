@@ -304,7 +304,7 @@ const TRANSLATIONS = {
     achTitle: "KAZANIMLAR", achClaim: "ÖDÜLÜ AL", achClaimed: "ALINDI", achLocked: "KİLİTLİ", achSoon: "YAKINDA", achSetReward: "SET ÖDÜLÜ", achUnlockReq: "Açılma şartları", achPrevSet: "Önceki set tamamlanmalı", achBtn: "KAZANIMLAR", achAvatarReward: "ÖZEL AVATAR",
     revengeActive: (m) => `İNTİKAM MODU — SONRAKİ ZAFERDE ÖDÜLLER ×${m}`, revengeTaken: (m) => `İNTİKAM ALINDI! ÖDÜLLER ×${m}`, revengeSub: "Denizin öfkesi seninle",
     voyageTitle: "GEMİN SEFERDEN DÖNDÜ!", voyageBody: (h) => `${h} saatlik seferden ganimetle döndü`, voyageCollect: "GANİMETİ TOPLA", voyageHint: "Bugün ne kadar çok savaşırsan, gemin o kadar uzun sefere çıkar",
-    sailTitle: "SEFERE ÇIKIYORUZ!", sailBody: "Sen oyunda olmasan bile gemin senin için ganimet toplayacak.", sailBody2: "Bugün ne kadar çok savaşırsan, gemin o kadar uzun sefere çıkar.", sailOk: "İYİ YOLCULUKLAR ⚓",
+    sailTitle: "DEMİR ALDIK!", sailBody: "Sen uyurken bile gemin denizde: ganimeti senin için topluyor.", sailBody2: "Bugün ne kadar çok savaşırsan, o kadar uzun sefere çıkar!", sailOk: "RÜZGÂR ARKANDAN ⚓",
     rewardTitleWin: "GANİMET RAPORU", rewardTitleLoss: "SAVAŞ RAPORU", rewardGold: "ALTIN", rewardHonor: "ŞEREF", rewardXp: "TECRÜBE", rewardMissionsRow: "GÜNLÜK GÖREVLER", rewardAchRow: "YENİ KAZANIM AÇILDI!", rewardContinue: "DEVAM ▶", rewardRevengeRow: (m) => `İNTİKAM BONUSU ×${m} UYGULANDI`,
     hookWin: "SERİN SÜRÜYOR — DALGALAR SENDEN KORKUYOR!", hookLossRevenge: (m) => `⚔ İNTİKAM HAZIR: SONRAKİ ZAFERDE ×${m} ÖDÜL`, hookLoss: "RÖVANŞ SENİ BEKLİYOR, KAPTAN!",
     goodsBadge: "GANİMET TABLOSU", revengeGauge: "İNTİKAM YÜKLENİYOR", revengeReady: "İNTİKAM HAZIR",
@@ -375,7 +375,7 @@ const TRANSLATIONS = {
     achTitle: "ACHIEVEMENTS", achClaim: "CLAIM REWARD", achClaimed: "CLAIMED", achLocked: "LOCKED", achSoon: "COMING SOON", achSetReward: "SET REWARD", achUnlockReq: "Unlock requirements", achPrevSet: "Complete the previous set", achBtn: "ACHIEVEMENTS", achAvatarReward: "EXCLUSIVE AVATAR",
     revengeActive: (m) => `REVENGE MODE — NEXT VICTORY REWARDS ×${m}`, revengeTaken: (m) => `REVENGE TAKEN! REWARDS ×${m}`, revengeSub: "The sea's fury is with you",
     voyageTitle: "YOUR SHIP HAS RETURNED!", voyageBody: (h) => `Returned with loot from a ${h}-hour voyage`, voyageCollect: "COLLECT THE LOOT", voyageHint: "The more you battle today, the longer your ship sails",
-    sailTitle: "SETTING SAIL!", sailBody: "Even while you're away, your ship gathers loot for you.", sailBody2: "The more you battle today, the longer your ship sails.", sailOk: "FAIR WINDS ⚓",
+    sailTitle: "ANCHORS AWEIGH!", sailBody: "Even while you sleep, your ship is out there hauling loot for you.", sailBody2: "The more you battle today, the longer she sails!", sailOk: "FAIR WINDS ⚓",
     rewardTitleWin: "LOOT REPORT", rewardTitleLoss: "BATTLE REPORT", rewardGold: "GOLD", rewardHonor: "HONOR", rewardXp: "EXPERIENCE", rewardMissionsRow: "DAILY MISSIONS", rewardAchRow: "ACHIEVEMENT UNLOCKED!", rewardContinue: "CONTINUE ▶", rewardRevengeRow: (m) => `REVENGE BONUS ×${m} APPLIED`,
     hookWin: "YOUR STREAK LIVES — THE WAVES FEAR YOU!", hookLossRevenge: (m) => `⚔ REVENGE READY: ×${m} REWARDS ON NEXT WIN`, hookLoss: "THE REMATCH AWAITS, CAPTAIN!",
     goodsBadge: "LOOT REPORT", revengeGauge: "REVENGE CHARGING", revengeReady: "REVENGE READY",
@@ -1643,6 +1643,38 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, on
         return <div key={c} data-cell="1" data-r={r} data-c={c} className={disabled?"":"ab-cell"} onClick={()=>handleClick(r,c)} onMouseEnter={()=>onHover?.(r,c)} onContextMenu={e=>{e.preventDefault();onRightClick?.(r,c);}} onMouseDown={disabled?undefined:(e)=>onCellPointerDown?.(r,c,e)} onTouchStart={disabled?undefined:(e)=>{ if(onCellPointerDown){ onCellPointerDown(r,c,e); } else { handleTouchStart(r,c); } }} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={{ position:"relative",overflow:"hidden",width:cellSize,height:cellSize,border:"1px solid rgba(0,229,255,0.22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:ovr==="sunk"?13:11,fontWeight:900,cursor:disabled?"default":"pointer",background:bg,boxShadow:shadow,color:clr,boxSizing:"border-box",transition:"background 0.15s ease, box-shadow 0.15s ease",animation:isBlink?"blink3s 0.5s ease-in-out 6":isRipple?"popIn 0.3s ease-out":"none",borderRadius:1,touchAction:onCellPointerDown?"none":"auto" }}>{content}</div>;
       })}</div>))}
   </div>);
+}
+
+// FİLO ŞERİDİ — tek satırda tüm donanma. Her gemi kendi renginde bloklardan oluşur;
+// vurulan blok söner, gemi tamamen batınca üzeri çizilir. Ekranda sadece ~36px yer kaplar,
+// böylece tahta hiç küçülmeden hangi geminin ne kadar kaldığı her an görünür.
+function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
+  if (!ships) return null;
+  const list = Object.values(ships);
+  const sunkCount = list.filter(s => { const c = s.cells || []; return c.length > 0 && c.every(([r, cc]) => hitCells?.[r]?.[cc]); }).length;
+  return (
+    <div style={{ width:"100%",maxWidth:400,marginTop:5,padding:"5px 9px",borderRadius:10,background:"linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))",border:`1px solid ${color===t.hit?"rgba(255,71,87,0.28)":"rgba(0,229,255,0.22)"}`,display:"flex",alignItems:"center",gap:8 }}>
+      <span style={{ fontSize:9,fontWeight:900,color:t.textDim,fontFamily:warrior,letterSpacing:1.5,flexShrink:0 }}>{title}</span>
+      <div style={{ flex:1,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap" }}>
+        {list.map((ship, i) => {
+          const cells = ship.cells || [];
+          const hits = cells.filter(([r, c]) => hitCells?.[r]?.[c]).length;
+          const sunk = cells.length > 0 && hits === cells.length;
+          const sd = SHIPS.find(x => x.id === ship.id);
+          const base = sd?.color || t.accent;
+          return (
+            <div key={i} style={{ display:"flex",gap:1.5,opacity:sunk?0.4:1,position:"relative" }}>
+              {cells.map((_, j) => (
+                <span key={j} style={{ width:7,height:9,borderRadius:2,background:j<hits?(sunk?"#5b6470":t.hit):base,boxShadow:j<hits&&!sunk?`0 0 5px ${t.hitGlow}`:"none",transition:"background 0.25s" }} />
+              ))}
+              {sunk && <span style={{ position:"absolute",top:"50%",left:-1,right:-1,height:1.5,background:"#ff4757",borderRadius:1 }} />}
+            </div>
+          );
+        })}
+      </div>
+      <span style={{ fontSize:11,fontWeight:900,color:sunkCount>0?t.sunk:t.textDim,fontFamily:mono,flexShrink:0 }}>{sunkCount}/{list.length}</span>
+    </div>
+  );
 }
 
 function ShipStatusPanel({ title, ships, hitCells, color, lang = "tr", compact = false }) {
@@ -4695,14 +4727,32 @@ export default function Game() {
       {dailyReward && <DailyRewardPopup reward={dailyReward.reward} streak={dailyReward.streak} onClose={() => { setMyProfile(prev => prev ? { ...prev, gold: dailyReward.newGold, loginStreak: dailyReward.streak } : prev); setDailyReward(null); }} lang={appLang} />}
       {/* SEFERE ÇIKIYORUZ — açılış karşılaması, çarpı veya arkaya dokunarak kapanır */}
       {sailNotice && (
-        <div onClick={() => setSailNotice(false)} style={{ position:"fixed",inset:0,overflow:"hidden",zIndex:9350,background:"rgba(2,6,16,0.78)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,animation:"settingsFadeIn 0.3s ease-out" }}>
-          <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, #0c1a30, #071022)",border:"2px solid rgba(0,229,255,0.4)",borderRadius:18,padding:"24px 22px 20px",width:"100%",maxWidth:330,textAlign:"center",boxShadow:"0 0 44px rgba(0,229,255,0.18), 0 20px 60px rgba(0,0,0,0.7)",animation:"tutCardEnter 0.6s cubic-bezier(0.16,1,0.3,1)" }}>
-            <button onClick={() => setSailNotice(false)} style={{ position:"absolute",top:8,right:8,width:28,height:28,borderRadius:"50%",background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,color:t.textDim,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>✕</button>
-            <div style={{ fontSize:46,marginBottom:6,animation:"logoFloat 3s ease-in-out infinite",display:"inline-block" }}>⛵</div>
-            <div style={{ fontSize:17,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 18px ${t.accentGlow}`,marginBottom:10 }}>{L(appLang,"sailTitle")}</div>
-            <div style={{ fontSize:12,color:t.text,fontFamily:mono,lineHeight:1.6,marginBottom:8 }}>{L(appLang,"sailBody")}</div>
-            <div style={{ fontSize:11,color:t.gold,fontFamily:mono,lineHeight:1.5,fontStyle:"italic",marginBottom:16 }}>⚓ {L(appLang,"sailBody2")}</div>
-            <button onClick={() => setSailNotice(false)} style={{ width:"100%",padding:"13px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:13,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 24px ${t.accentGlow}` }}>{L(appLang,"sailOk")}</button>
+        <div onClick={() => setSailNotice(false)} style={{ position:"fixed",inset:0,overflow:"hidden",zIndex:9350,background:"radial-gradient(ellipse at 50% 45%, rgba(0,80,120,0.55) 0%, rgba(2,6,16,0.88) 65%)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,animation:"settingsFadeIn 0.3s ease-out" }}>
+          <style>{`
+@keyframes sailPop{0%{transform:scale(0.3) translateY(50px);opacity:0}55%{transform:scale(1.08) translateY(-8px);opacity:1}75%{transform:scale(0.97) translateY(2px)}100%{transform:scale(1) translateY(0);opacity:1}}
+@keyframes sailBob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-9px) rotate(3deg)}}
+@keyframes sailRise{0%{transform:translateY(0) scale(0.6);opacity:0}25%{opacity:0.85}100%{transform:translateY(-115px) scale(1.15);opacity:0}}
+@keyframes sailRing{0%{transform:scale(0.85);opacity:0.55}100%{transform:scale(1.5);opacity:0}}
+          `}</style>
+          {/* Yükselen su kabarcıkları — baloncuk temasını dışarı taşır */}
+          {[0,1,2,3,4,5,6].map(i => (
+            <span key={i} style={{ position:"absolute",bottom:"22%",left:`${12 + i*12}%`,width:5+(i%3)*4,height:5+(i%3)*4,borderRadius:"50%",background:"rgba(160,225,255,0.35)",border:"1px solid rgba(200,240,255,0.5)",animation:`sailRise ${3.2+(i%4)*0.7}s ease-in ${i*0.45}s infinite`,pointerEvents:"none" }} />
+          ))}
+          <div onClick={e=>e.stopPropagation()} style={{ position:"relative",width:"min(84vw, 320px)",aspectRatio:"1 / 1",borderRadius:"50%",
+            background:"radial-gradient(circle at 32% 26%, rgba(255,255,255,0.22) 0%, rgba(120,210,255,0.16) 22%, rgba(10,40,70,0.96) 55%, rgba(4,14,30,0.99) 100%)",
+            border:"2px solid rgba(150,230,255,0.55)",
+            boxShadow:"0 0 0 6px rgba(0,229,255,0.07), 0 0 50px rgba(0,200,255,0.35), 0 26px 60px rgba(0,0,0,0.75), inset 0 6px 24px rgba(255,255,255,0.18), inset 0 -14px 34px rgba(0,60,110,0.7)",
+            display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"12% 13%",
+            animation:"sailPop 0.85s cubic-bezier(0.34,1.56,0.64,1)" }}>
+            {/* Baloncuk parlaması */}
+            <span style={{ position:"absolute",top:"13%",left:"20%",width:"26%",height:"16%",borderRadius:"50%",background:"radial-gradient(ellipse, rgba(255,255,255,0.5) 0%, transparent 70%)",pointerEvents:"none",transform:"rotate(-25deg)" }} />
+            <span style={{ position:"absolute",inset:-2,borderRadius:"50%",border:"2px solid rgba(0,229,255,0.4)",animation:"sailRing 2.6s ease-out infinite",pointerEvents:"none" }} />
+            <button onClick={() => setSailNotice(false)} style={{ position:"absolute",top:"7%",right:"7%",width:30,height:30,borderRadius:"50%",background:"rgba(0,20,40,0.75)",border:"1.5px solid rgba(150,230,255,0.5)",color:"#bfe9ff",fontSize:14,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1 }}>✕</button>
+            <div style={{ fontSize:"clamp(40px, 15vw, 54px)",lineHeight:1,marginBottom:6,animation:"sailBob 3.4s ease-in-out infinite",filter:"drop-shadow(0 6px 12px rgba(0,0,0,0.55))" }}>⛵</div>
+            <div style={{ fontSize:"clamp(15px, 5vw, 19px)",fontWeight:900,color:"#7fe9ff",fontFamily:warrior,letterSpacing:2,textShadow:"0 0 18px rgba(0,229,255,0.8), 0 2px 4px rgba(0,0,0,0.7)",marginBottom:8 }}>{L(appLang,"sailTitle")}</div>
+            <div style={{ fontSize:"clamp(10px, 3.2vw, 12px)",color:"#dff3ff",fontFamily:mono,lineHeight:1.55,marginBottom:6 }}>{L(appLang,"sailBody")}</div>
+            <div style={{ fontSize:"clamp(9px, 2.9vw, 11px)",color:t.gold,fontFamily:mono,lineHeight:1.45,fontStyle:"italic",marginBottom:12,textShadow:"0 0 10px rgba(255,215,0,0.4)" }}>⚓ {L(appLang,"sailBody2")}</div>
+            <button onClick={() => setSailNotice(false)} style={{ padding:"11px 22px",background:"linear-gradient(135deg,#22d8ff,#0891b2)",color:"#04202e",border:"1.5px solid rgba(255,255,255,0.4)",borderRadius:22,fontSize:"clamp(11px, 3.4vw, 13px)",fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 22px rgba(0,229,255,0.6), 0 5px 14px rgba(0,0,0,0.5)",whiteSpace:"nowrap" }}>{L(appLang,"sailOk")}</button>
           </div>
         </div>
       )}
@@ -4806,11 +4856,13 @@ export default function Game() {
     const miniGrid = isOnboarding; // 7x7 grid for onboarding
     // SABİT TAHTA: ekran YÜKSEKLİĞİNE göre hücre boyutu — hiçbir cihazda dikey kaydırma olmaz.
     // Üst şerit (ayrıl + saatler + isabet + sekmeler) ve alt sabit çubuklar düşülür.
-    // Kısa ekranlarda (küçük telefonlar) gemi durum paneli ve ikincil satırlar gizlenir —
-    // tahtanın tamamı her koşulda ekrana sığar, kaydırma gerekmez.
+    // SABİT TAHTA + GÖRÜNÜR FİLO: filo şeridi (~40px) her ekranda kalır, sadece
+    // ikincil bilgi satırı kısa ekranlarda gizlenir. Kaydırma hiçbir cihazda gerekmez.
     const shortScreen = viewport.h < 700;
-    const topChrome = isOnboarding ? 120 : (shortScreen ? 165 : 196);
-    const bottomChrome = isOnboarding ? 140 : (shortScreen ? 150 : 236);
+    // üst: ayrıl barı 40 + saatler 32 + (isabet 20) + sekmeler 34 + işaretle 24 + boşluklar
+    const topChrome = isOnboarding ? 120 : (shortScreen ? 148 : 170);
+    // alt: filo şeridi 40 + sabit alt çubuklar 126
+    const bottomChrome = isOnboarding ? 140 : 168;
     const hCell = Math.floor((viewport.h - topChrome - bottomChrome - 10) / 11);
     const wCell = Math.floor((Math.min(viewport.w - gutter - 16, 400)) / 11);
     const playCell = Math.max(13, Math.min(30, wCell, hCell));
@@ -4834,10 +4886,13 @@ export default function Game() {
         <div style={{ fontSize:84,filter:"drop-shadow(0 12px 24px rgba(0,0,0,0.7)) drop-shadow(0 0 40px rgba(0,229,255,0.35)) saturate(1.4)" }}>{flyEmoji.emoji}</div>
         <div style={{ fontSize:15,fontWeight:900,color:"#fff",fontFamily:warrior,letterSpacing:3,textTransform:"uppercase",textShadow:"0 2px 0 rgba(0,0,0,0.8), 0 0 24px rgba(0,229,255,0.6)",marginTop:4 }}>{flyEmoji.label}</div>
       </div>}
-      {/* PES ET / OYUNDAN AYRIL butonu — küçük ama net görünür ve rahat tıklanır */}
-      <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-end",marginTop:34,marginBottom:5 }}>
-        <button onClick={() => setShowSurrenderConfirm(true)} style={{ padding:"7px 14px",minHeight:32,background:"linear-gradient(135deg, rgba(255,71,87,0.18), rgba(255,71,87,0.06))",color:"#ff8a95",border:`1.5px solid rgba(255,71,87,0.55)`,borderRadius:9,fontSize:11,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",gap:5,boxShadow:"0 2px 8px rgba(0,0,0,0.4)" }}>✕ {L(appLang,"leaveGame")}</button>
-      </div>
+      {/* OYUNDAN AYRIL — sol üstte sabit, üstteki ayar/ses butonlarıyla aynı tasarım dilinde.
+          Sağ üstteki butonlarla çakışmaz, akışta yer kaplamaz. */}
+      <button onClick={() => { sfx.init(); sfx.play('click'); setShowSurrenderConfirm(true); }} title={L(appLang,"leaveGame")}
+        style={{ position:"fixed",top:"calc(12px + env(safe-area-inset-top, 0px))",left:14,zIndex:9500,height:34,padding:"0 12px",borderRadius:8,background:"rgba(255,71,87,0.14)",border:`1px solid rgba(255,71,87,0.55)`,color:"#ff8a95",fontSize:12,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",gap:5,lineHeight:1,boxShadow:"0 2px 10px rgba(0,0,0,0.45)" }}>
+        <span style={{ fontSize:13 }}>⚑</span>{L(appLang,"leaveGame")}
+      </button>
+      <div style={{ height:40 }} />
       {/* Surrender confirm modal */}
       {showSurrenderConfirm && <div style={{ position:"fixed",inset:0,overflow:"hidden",background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(4px)" }}>
         <div style={{ background:`linear-gradient(145deg,rgba(12,21,41,0.99),rgba(8,14,30,0.99))`,border:`2px solid ${t.hit}`,borderRadius:16,padding:"28px 32px",textAlign:"center",maxWidth:300,width:"90%",boxShadow:`0 0 60px ${t.hitGlow}`,animation:"scaleUp 0.3s ease-out" }}>
@@ -4853,11 +4908,11 @@ export default function Game() {
       {/* Onboarding mini guide — kaldırıldı */}
       {!isOnboarding && <div style={{ display:"flex",gap:8,alignItems:"stretch",marginBottom:6,width:"100%",maxWidth:400,justifyContent:"center" }}>
         <div style={{ flex:1,padding:"4px 10px",borderRadius:6,background:myTurn?(myLow?"rgba(239,68,68,0.15)":"rgba(6,182,212,0.12)"):t.surfaceLight,border:`1px solid ${myTurn?(myLow?t.hit:t.accent):t.border}`,textAlign:"center" }}>
-          <div style={{ fontSize:15,fontWeight:900,fontFamily:warrior,color:myTurn?(myLow?t.hit:t.accent):t.textDim,letterSpacing:1 }}>{playerName}: {formatTime(myClock)}</div>
+          <div style={{ fontSize:14,fontWeight:900,fontFamily:warrior,color:myTurn?(myLow?t.hit:t.accent):t.textDim,letterSpacing:1 }}>{playerName}: {formatTime(myClock)}</div>
           <EmojiDisplay emoji={myEmojiToast?.emoji} label={myEmojiToast?.label} />
         </div>
         <div style={{ flex:1,padding:"4px 10px",borderRadius:6,background:!myTurn?(oppLow?"rgba(239,68,68,0.15)":"rgba(6,182,212,0.12)"):t.surfaceLight,border:`1px solid ${!myTurn?(oppLow?t.hit:t.accent):t.border}`,textAlign:"center" }}>
-          <div style={{ fontSize:15,fontWeight:900,fontFamily:warrior,color:!myTurn?(oppLow?t.hit:t.accent):t.textDim,letterSpacing:1 }}>{opponentName}: {formatTime(oppClock)}</div>
+          <div style={{ fontSize:14,fontWeight:900,fontFamily:warrior,color:!myTurn?(oppLow?t.hit:t.accent):t.textDim,letterSpacing:1 }}>{opponentName}: {formatTime(oppClock)}</div>
           <EmojiDisplay emoji={emojiToast?.emoji} label={emojiToast?.label} />
         </div>
       </div>}
@@ -4875,13 +4930,13 @@ export default function Game() {
       {damageReport && <div style={{ background:"rgba(239,68,68,0.1)",border:`1px solid ${t.hit}`,borderRadius:8,padding:"6px 14px",marginBottom:6,fontSize:11,color:t.hit,fontWeight:700,textAlign:"center",width:"100%",maxWidth:400,animation:"slideIn 0.3s ease-out",fontFamily:warrior,letterSpacing:1 }}>⚠ {damageReport}</div>}
       {!isOnboarding && <>
       <div style={{ display:"flex",gap:0,marginBottom:6,width:"100%",maxWidth:400 }}>
-        <button onClick={()=>{setActiveBoard("attack");setMarkMode(false);}} style={{ flex:1,padding:"12px 0",fontSize:15,fontWeight:800,fontFamily:warrior,cursor:"pointer",background:isAttack?`linear-gradient(135deg,${t.accent},#0891b2)`:t.surfaceLight,color:isAttack?t.bg:t.textDim,border:`2px solid ${isAttack?t.accent:t.border}`,borderRadius:"10px 0 0 10px",letterSpacing:4,animation:myTurn&&isAttack?"borderGlow 2s infinite":"none",display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={16} color={isAttack?t.bg:t.textDim}/> {L(appLang,"attack")}</button>
-        <button onClick={()=>{setActiveBoard("defense");setMarkMode(false);}} style={{ flex:1,padding:"12px 0",fontSize:15,fontWeight:800,fontFamily:warrior,cursor:"pointer",background:!isAttack?`linear-gradient(135deg,${t.accent},#0891b2)`:t.surfaceLight,color:!isAttack?t.bg:t.textDim,border:`2px solid ${!isAttack?t.accent:t.border}`,borderRadius:"0 10px 10px 0",letterSpacing:4 }}>🛡 {L(appLang,"defense")}</button>
+        <button onClick={()=>{setActiveBoard("attack");setMarkMode(false);}} style={{ flex:1,padding:"8px 0",fontSize:13,fontWeight:800,fontFamily:warrior,cursor:"pointer",background:isAttack?`linear-gradient(135deg,${t.accent},#0891b2)`:t.surfaceLight,color:isAttack?t.bg:t.textDim,border:`2px solid ${isAttack?t.accent:t.border}`,borderRadius:"10px 0 0 10px",letterSpacing:4,animation:myTurn&&isAttack?"borderGlow 2s infinite":"none",display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={16} color={isAttack?t.bg:t.textDim}/> {L(appLang,"attack")}</button>
+        <button onClick={()=>{setActiveBoard("defense");setMarkMode(false);}} style={{ flex:1,padding:"8px 0",fontSize:13,fontWeight:800,fontFamily:warrior,cursor:"pointer",background:!isAttack?`linear-gradient(135deg,${t.accent},#0891b2)`:t.surfaceLight,color:!isAttack?t.bg:t.textDim,border:`2px solid ${!isAttack?t.accent:t.border}`,borderRadius:"0 10px 10px 0",letterSpacing:4 }}>🛡 {L(appLang,"defense")}</button>
       </div>
-      {isAttack && <button onClick={()=>setMarkMode(!markMode)} style={{ marginBottom:6,padding:"6px 16px",fontSize:10,fontWeight:700,fontFamily:warrior,background:markMode?t.gold:"transparent",color:markMode?t.bg:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,cursor:"pointer",letterSpacing:2 }}>{markMode?`⚑ ${L(appLang,"markModeOn")}`:`⚑ ${L(appLang,"markMode")}`}</button>}
+      {isAttack && <button onClick={()=>setMarkMode(!markMode)} style={{ marginBottom:5,padding:"4px 14px",fontSize:10,fontWeight:700,fontFamily:warrior,background:markMode?t.gold:"transparent",color:markMode?t.bg:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,cursor:"pointer",letterSpacing:2 }}>{markMode?`⚑ ${L(appLang,"markModeOn")}`:`⚑ ${L(appLang,"markMode")}`}</button>}
       </>}
       <div style={{ width:"100%",maxWidth:400,border:myTurn?`3px solid ${t.accent}`:`2px solid rgba(255,71,87,0.35)`,borderRadius:12,padding:2,animation:myTurn?"turnPulse 1.1s ease-in-out infinite":"none",transition:"border-color 0.4s ease",position:"relative" }}>
-        {isAttack?<><Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:playCell} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} onboardingHint={isOnboarding?[[2,2],[2,3],[2,4]]:null} />{!isOnboarding&&!shortScreen&&<ShipStatusPanel title={L(appLang,"oppShips")} ships={oppShipsData} hitCells={atkHitMap} color={t.hit} lang={appLang} compact />}</>:<><Grid board={defenseBoard} cellSize={isOnboarding?gridSize:playCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />{!isOnboarding&&!shortScreen&&<ShipStatusPanel title={L(appLang,"myShips")} ships={myShipsData} hitCells={defHitMap} color={t.accent} lang={appLang} compact />}</>}
+        {isAttack?<><Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:playCell} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} onboardingHint={isOnboarding?[[2,2],[2,3],[2,4]]:null} />{!isOnboarding&&<FleetBar title={L(appLang,"oppShips")} ships={oppShipsData} hitCells={atkHitMap} color={t.hit} lang={appLang} />}</>:<><Grid board={defenseBoard} cellSize={isOnboarding?gridSize:playCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />{!isOnboarding&&<FleetBar title={L(appLang,"myShips")} ships={myShipsData} hitCells={defHitMap} color={t.accent} lang={appLang} />}</>}
         {microFeedback && <MicroFeedback text={microFeedback.text} color={microFeedback.color} onDone={()=>setMicroFeedback(null)} />}
       </div>
       {isTestMode() && <button onClick={forceEndGame} style={{ marginTop:8,padding:"8px 16px",background:"rgba(251,191,36,0.2)",color:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"endGameTestBtn")}</button>}
