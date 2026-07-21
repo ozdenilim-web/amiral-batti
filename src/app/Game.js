@@ -144,16 +144,12 @@ const ALL_MISSIONS = [
 ];
 
 function pickDailyMissions(seed) {
-  // Günlük seed ile her gün aynı 3 görev
+  // Günlük seed ile her gün aynı 3 görev — GARANTİ: 1 kolay + 1 orta + 1 zor/efsane
   const day = Math.floor(seed / 86400000);
-  const shuffled = [...ALL_MISSIONS];
   let rng = day * 2654435761;
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    rng = (rng * 1664525 + 1013904223) & 0x7fffffff;
-    const j = rng % (i + 1);
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled.slice(0, 3);
+  const next = (n) => { rng = (rng * 1664525 + 1013904223) & 0x7fffffff; return rng % n; };
+  const easy = ALL_MISSIONS.slice(0, 8), mid = ALL_MISSIONS.slice(8, 18), hard = ALL_MISSIONS.slice(18);
+  return [easy[next(easy.length)], mid[next(mid.length)], hard[next(hard.length)]];
 }
 
 function generateChestReward(lang = "tr") {
@@ -1531,12 +1527,14 @@ function MissionIcon({ icon, done, missionId }) {
   return iconMap[icon] || <span style={{ fontSize:22,filter:"drop-shadow(0 3px 5px rgba(0,0,0,0.6)) drop-shadow(0 0 12px rgba(0,229,255,0.35)) saturate(1.4) brightness(1.1)",transform:"perspective(200px) rotateX(6deg)",display:"inline-block" }}>{icon}</span>;
 }
 
-function MissionPanel({ missions, missionProgress, onClose, lang = "tr" }) {
+function MissionPanel({ missions, missionProgress, onClose, lang = "tr", compact = false }) {
   const completed = missions.filter(m => missionProgress[m.id]);
   const allDone = completed.length === 3;
   const progressPct = Math.round((completed.length / 3) * 100);
-  return (<div style={{ background:`linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))`,border:`2px solid ${allDone?"#fbbf24":"rgba(0,229,255,0.25)"}`,borderRadius:16,padding:"20px 20px 16px",width:"100%",maxWidth:380,marginTop:12,boxShadow:allDone?`0 0 40px ${t.goldGlow}, inset 0 1px 0 rgba(255,215,0,0.1)`:`0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)`,animation:"fadeUp 0.4s ease-out" }}>
-    <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14 }}>
+  return (<div style={ compact
+    ? { background:`linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))`,padding:"12px 16px 10px",width:"100%" }
+    : { background:`linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))`,border:`2px solid ${allDone?"#fbbf24":"rgba(0,229,255,0.25)"}`,borderRadius:16,padding:"20px 20px 16px",width:"100%",maxWidth:380,marginTop:12,boxShadow:allDone?`0 0 40px ${t.goldGlow}, inset 0 1px 0 rgba(255,215,0,0.1)`:`0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)`,animation:"fadeUp 0.4s ease-out" } }>
+    {!compact && <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14 }}>
       <div style={{ display:"flex",alignItems:"center",gap:8 }}>
         <div style={{ width:32,height:32,borderRadius:10,background:"rgba(0,229,255,0.1)",border:"1px solid rgba(0,229,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center" }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z" fill="rgba(0,229,255,0.3)" stroke="#00e5ff" strokeWidth="1.5" strokeLinejoin="round"/></svg></div>
         <div>
@@ -1547,7 +1545,7 @@ function MissionPanel({ missions, missionProgress, onClose, lang = "tr" }) {
       <div style={{ textAlign:"center",background:allDone?"rgba(255,215,0,0.15)":"rgba(0,229,255,0.08)",padding:"6px 14px",borderRadius:10,border:`1px solid ${allDone?"rgba(255,215,0,0.3)":"rgba(0,229,255,0.2)"}` }}>
         <div style={{ fontSize:19,fontWeight:900,color:allDone?t.gold:t.accent,fontFamily:mono }}>{completed.length}/3</div>
       </div>
-    </div>
+    </div>}
     <div style={{ width:"100%",height:4,background:"rgba(255,255,255,0.06)",borderRadius:2,marginBottom:14,overflow:"hidden" }}>
       <div style={{ width:`${progressPct}%`,height:"100%",background:allDone?`linear-gradient(90deg,${t.gold},#f59e0b)`:`linear-gradient(90deg,${t.accent},#06b6d4)`,borderRadius:2,transition:"width 0.5s ease",boxShadow:allDone?`0 0 10px ${t.goldGlow}`:`0 0 8px ${t.accentGlow}` }} />
     </div>
@@ -2100,6 +2098,7 @@ export default function Game() {
   const [myProfile, setMyProfile] = useState(null);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
+  const [dailyOpen, setDailyOpen] = useState(false);
   const [eloChange, setEloChange] = useState(null);
   const [showOnlineLobby, setShowOnlineLobby] = useState(false);
   const [matchmaking, setMatchmaking] = useState(false);
@@ -4125,10 +4124,36 @@ export default function Game() {
         </details>
       </div>
       {message && <div style={{ marginTop:8,color:t.hit,fontSize:11,fontFamily:mono,zIndex:1 }}>{message}</div>}
-      <MissionPanel missions={dailyMissions} missionProgress={missionProgress} lang={appLang} />
-      {Object.keys(missionProgress).length >= 3 && !chestClaimed && (
-        <button onClick={() => { const reward = generateChestReward(appLang); setChestReward(reward); }} style={{ marginTop:10,padding:"16px 0",width:"100%",maxWidth:340,background:`linear-gradient(135deg,rgba(251,191,36,0.2),rgba(251,191,36,0.05))`,color:t.gold,border:`2px solid ${t.gold}`,borderRadius:10,fontSize:16,fontWeight:700,letterSpacing:3,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 0 25px ${t.goldGlow}`,animation:"borderGlow 2s infinite" }}>🎁 {L(appLang,"openChestBtn")}</button>
-      )}
+      {/* GÜNLÜK GÖREVLER — kompakt canlı şerit */}
+      {(() => {
+        const dc = Object.keys(missionProgress).length;
+        const ready = dc >= 3 && !chestClaimed;
+        return (
+          <div style={{ width:"100%",maxWidth:360,marginTop:10,zIndex:1 }}>
+            <style>{`
+@keyframes dmShine{0%{left:-60%}100%{left:160%}}
+@keyframes dmDotPop{0%{transform:scale(0.3)}60%{transform:scale(1.4)}100%{transform:scale(1)}}
+@keyframes dmGift{0%,100%{transform:rotate(-6deg) scale(1)}50%{transform:rotate(6deg) scale(1.12)}}
+@keyframes dmReady{0%,100%{box-shadow:0 0 14px rgba(255,215,0,0.5)}50%{box-shadow:0 0 30px rgba(255,215,0,0.9)}}
+            `}</style>
+            <button onClick={() => { if (ready) { const reward = generateChestReward(appLang); setChestReward(reward); } else setDailyOpen(v=>!v); }}
+              style={{ width:"100%",display:"flex",alignItems:"center",gap:10,padding:"13px 15px",borderRadius:ready?12:(dailyOpen?"12px 12px 0 0":12),cursor:"pointer",fontFamily:warrior,position:"relative",overflow:"hidden",transition:"all 0.3s",
+                background: ready ? "linear-gradient(135deg, rgba(255,215,0,0.22), rgba(255,159,67,0.10))" : `linear-gradient(145deg, ${t.surface}, ${t.surfaceLight})`,
+                border: `2px solid ${ready ? "rgba(255,215,0,0.7)" : t.border}`,
+                animation: ready ? "dmReady 1.4s ease-in-out infinite" : "none" }}>
+              <span style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg,transparent,rgba(255,255,255,0.09),transparent)",animation:"dmShine 3.4s ease-in-out infinite",pointerEvents:"none" }} />
+              <span style={{ fontSize:20,display:"inline-block",animation:ready?"dmGift 0.8s ease-in-out infinite":"none",filter:ready?"drop-shadow(0 0 8px rgba(255,215,0,0.8))":"none" }}>🎁</span>
+              <span style={{ fontSize:14,fontWeight:900,color:ready?t.gold:t.text,letterSpacing:2,textShadow:ready?`0 0 12px ${t.goldGlow}`:"none" }}>{ready ? L(appLang,"openChestBtn")+"!" : L(appLang,"missionsTitle")}</span>
+              <span style={{ display:"flex",gap:5,marginLeft:"auto",alignItems:"center" }}>
+                {[0,1,2].map(i => <span key={i} style={{ width:10,height:10,borderRadius:"50%",display:"inline-block",background:i<dc?"linear-gradient(160deg,#fff9c4,#ffd700)":"rgba(255,255,255,0.10)",boxShadow:i<dc?`0 0 8px ${t.goldGlow}`:"none",animation:i===dc-1?"dmDotPop 0.4s cubic-bezier(0.34,1.56,0.64,1)":"none" }} />)}
+              </span>
+              <span style={{ fontSize:12,fontWeight:800,color:ready?t.gold:t.textDim,fontFamily:mono }}>{dc}/3</span>
+              {!ready && <span style={{ fontSize:11,color:t.textDim,transform:dailyOpen?"rotate(180deg)":"none",transition:"transform 0.25s" }}>▼</span>}
+            </button>
+            {dailyOpen && !ready && <div style={{ border:`2px solid ${t.border}`,borderTop:"none",borderRadius:"0 0 12px 12px",overflow:"hidden",animation:"fadeUp 0.25s ease-out" }}><MissionPanel missions={dailyMissions} missionProgress={missionProgress} lang={appLang} compact /></div>}
+          </div>
+        );
+      })()}
       {chestReward && <ChestPopup reward={chestReward} lang={appLang} onClose={() => {
         // Gold'u Firebase'e yaz
         if (authUid) {
