@@ -4925,16 +4925,36 @@ export default function Game() {
           </div>
         );
       })()}
-      {/* Main action buttons */}
-      <div style={{ position:"relative",width:"100%",maxWidth:400,zIndex:1,animation:"fadeUp 0.5s ease-out" }}>
-        {/* Köşe sonar dalgaları */}
-        {!matchmaking && <>
-        <span style={{ position:"absolute",top:-9,left:-9,width:30,height:30,borderTop:"3px solid rgba(0,229,255,0.55)",borderLeft:"3px solid rgba(0,229,255,0.55)",borderTopLeftRadius:18,animation:"sonarArc 2s ease-in-out infinite",pointerEvents:"none" }} />
-        <span style={{ position:"absolute",bottom:-9,right:-9,width:30,height:30,borderBottom:"3px solid rgba(0,229,255,0.55)",borderRight:"3px solid rgba(0,229,255,0.55)",borderBottomRightRadius:18,animation:"sonarArc 2s ease-in-out 1s infinite",pointerEvents:"none" }} />
-        </>}
-        <RippleButton onClick={()=>startQuickMatch(null)} disabled={matchmaking||authLoading} style={{ width:"100%",padding:"15px 0",background:`linear-gradient(180deg, #22d8ff 0%, ${t.accent} 45%, #0077b6 100%)`,color:"#04202e",border:"2px solid rgba(255,255,255,0.35)",borderRadius:14,fontSize:27,fontWeight:900,letterSpacing:6,cursor:(matchmaking||authLoading)?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 0 34px ${t.accentGlow}, 0 5px 0 #045a80, 0 10px 22px rgba(0,0,0,0.5), inset 0 2px 0 rgba(255,255,255,0.45)`,opacity:(authLoading||matchmaking)?0.5:1,textShadow:"0 1px 0 rgba(255,255,255,0.4), 0 2px 3px rgba(0,60,90,0.5)",display:"flex",alignItems:"center",justifyContent:"center",gap:14,animation:matchmaking?"none":"btnBreath 2.2s ease-in-out infinite" }}>
-          <svg width="30" height="32" viewBox="0 0 24 26" style={{ filter:"drop-shadow(0 3px 3px rgba(0,40,60,0.55))" }}><defs><linearGradient id="playTri" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#ffffff"/><stop offset="60%" stopColor="#d8f6ff"/><stop offset="100%" stopColor="#8ad4f0"/></linearGradient></defs><polygon points="3,2 22,13 3,24" fill="url(#playTri)" stroke="rgba(4,60,90,0.5)" strokeWidth="1.2"/></svg>
-          {L(appLang,"play")}
+      {/* ═══ OYNA — yükseltilmiş fiziksel tuş + arkasında nefes alan hale ═══
+           Tuşun altındaki koyu taban kenarı butonu yüzeyden kaldırır; basınca çöker.
+           Arkadaki hale 3 sn'de bir genişleyip sönerek gözü çeker (transform/opacity → bedava). */}
+      <div style={{ position:"relative",width:"100%",maxWidth:400,zIndex:1,animation:"fadeUp 0.5s ease-out",marginTop:2 }}>
+        <style>{`
+@keyframes playHalo{0%,100%{transform:translate(-50%,-50%) scale(0.94);opacity:0.35}50%{transform:translate(-50%,-50%) scale(1.06);opacity:0.7}}
+@keyframes playSheen{0%{transform:translate3d(-120%,0,0)}55%{transform:translate3d(320%,0,0)}100%{transform:translate3d(320%,0,0)}}
+.play-key{transition:transform .08s ease-out, box-shadow .08s ease-out}
+.play-key:active{transform:translateY(6px)!important;box-shadow:0 0 0 #0d5f86, 0 2px 8px rgba(0,0,0,0.5)!important}
+        `}</style>
+        {/* Nefes alan hale — butonun ARKASINDA, ona değmez */}
+        {!matchmaking && <span style={{ position:"absolute",top:"50%",left:"50%",width:"86%",height:"150%",borderRadius:"50%",background:"radial-gradient(ellipse, rgba(0,229,255,0.42) 0%, rgba(0,180,255,0.16) 42%, transparent 70%)",animation:"playHalo 3s ease-in-out infinite",pointerEvents:"none",filter:"blur(10px)",zIndex:0 }} />}
+
+        <RippleButton onClick={()=>startQuickMatch(null)} disabled={matchmaking||authLoading} className="play-key"
+          style={{ position:"relative",zIndex:1,width:"100%",padding:"18px 0",overflow:"hidden",
+            background:"linear-gradient(180deg, #6ff0ff 0%, #22d8ff 18%, #06b6d4 62%, #0284a8 100%)",
+            color:"#04252f",border:"none",borderRadius:16,
+            fontSize:30,fontWeight:900,fontFamily:warrior,textTransform:"uppercase",
+            /* letterSpacing son harften sonra da boşluk bırakır → textIndent ile telafi = GERÇEK merkez */
+            letterSpacing:9,textIndent:9,
+            cursor:(matchmaking||authLoading)?"not-allowed":"pointer",opacity:(authLoading||matchmaking)?0.5:1,
+            /* Fiziksel taban kenarı + zemin gölgesi */
+            boxShadow:"0 7px 0 #0d5f86, 0 9px 20px rgba(0,0,0,0.55), inset 0 2px 0 rgba(255,255,255,0.75), inset 0 -3px 8px rgba(0,60,90,0.35)",
+            textShadow:"0 1px 0 rgba(255,255,255,0.5), 0 2px 4px rgba(0,60,90,0.35)",
+            display:"flex",alignItems:"center",justifyContent:"center" }}>
+          {/* Üst yüzey parlaması — cam hissi */}
+          <span style={{ position:"absolute",top:0,left:0,right:0,height:"46%",background:"linear-gradient(180deg, rgba(255,255,255,0.42), rgba(255,255,255,0))",borderRadius:"16px 16px 50% 50%",pointerEvents:"none" }} />
+          {/* Ara sıra geçen ışık süpürmesi */}
+          {!matchmaking && <span style={{ position:"absolute",top:0,left:0,width:"28%",height:"100%",background:"linear-gradient(100deg,transparent,rgba(255,255,255,0.5),transparent)",animation:"playSheen 4.5s ease-in-out infinite",pointerEvents:"none" }} />}
+          <span style={{ position:"relative",zIndex:1 }}>{L(appLang,"play")}</span>
         </RippleButton>
       </div>
       <QuickMatchModal myProfile={myProfile} lang={appLang} phase={quickMatchPhase} candidate={quickMatchCandidate} opponent={quickMatchOpponent} secondsLeft={quickMatchSecondsLeft} onCancel={cancelQuickMatch} onRetry={retryQuickMatch} />
