@@ -2874,6 +2874,25 @@ export default function Game() {
 
   // Ekran ölçüsünü canlı takip et — telefon döndürülünce veya klavye açılınca tahta yeniden ölçeklenir.
   const [viewport, setViewport] = useState({ w: 390, h: 800 });
+  // Tahta alanını TAHMİN etmek yerine ÖLÇÜYORUZ. Üstteki/alttaki kontroller ne kadar yer
+  // kaplarsa kaplasın, tahta kalan boşluğa tam oturur — hiçbir cihazda taşma/kırpılma olmaz.
+  const boardBoxRef = useRef(null);
+  const [boardBox, setBoardBox] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = boardBoxRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(entries => {
+      const r = entries[0]?.contentRect;
+      if (r) setBoardBox({ w: r.width, h: r.height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [phase, activeBoard]);
+  // 12 = 11 hücre + 1 etiket satırı/sütunu
+  const fitCell = (pad = 12) => {
+    if (!boardBox.w || !boardBox.h) return 0;
+    return Math.max(12, Math.min(30, Math.floor((Math.min(boardBox.w, boardBox.h) - pad) / 12)));
+  };
   useEffect(() => {
     const measure = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
     measure();
@@ -3504,7 +3523,25 @@ export default function Game() {
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
     finishDragListeners(); dragRef.current = null;
     setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShowSurrenderConfirm(false); setAfkTimer(null); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; killCountRef.current = 0; firstHitVoiceRef.current = false; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); isBotGameRef.current = false; setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false }); setRevengeResult(null); setMatchRewards(null); setRewardModalOpen(false); setNewAchUnlocks([]);
-    if (authUid) { get(ref(db, `profiles/${authUid}`)).then(snap => { if (snap.exists()) setMyProfile(snap.val()); }).catch(() => {}); }
+    // Profili sunucudan tazele — AMA günlük görev ve kazanım sayaçlarında YEREL ilerleme
+    // daha ileriyse onu koru. (Maç sonu yazımı sunucuya ulaşmadan bu okuma dönerse
+    // eskiden ilerleme siliniyordu; görevlerin "işlenmemesinin" asıl sebebi buydu.)
+    if (authUid) {
+      get(ref(db, `profiles/${authUid}`)).then(snap => {
+        if (!snap.exists()) return;
+        const srv = snap.val();
+        setMyProfile(prev => {
+          if (!prev) return srv;
+          const ld = safeDaily(prev.daily), sd = safeDaily(srv.daily);
+          const la = safeAch(prev.ach), sa = safeAch(srv.ach);
+          return {
+            ...srv,
+            daily: (ld.gamesPlayed > sd.gamesPlayed || ld.totalHits > sd.totalHits) ? ld : sd,
+            ach: (la.hits > sa.hits || la.sunk > sa.sunk) ? la : sa,
+          };
+        });
+      }).catch(() => {});
+    }
     setTimeout(() => { sfx.init(); sfx.playBattleMusic(false); }, 300);
   };
 
@@ -4859,10 +4896,8 @@ export default function Game() {
     }
     // SABİT YERLEŞTİRME EKRANI — kaydırma yok. Kontroller sığmazsa hücre küçülür.
     // Üst blok: geri 40 + başlık 26 + süre 30 + sayaç 22 + ipucu 34 + gemi butonları ~96 + rastgele 44 + döndür/geri al 50
-    const placeTop = allPlaced ? 240 : 350;
-    const phCell = Math.floor((viewport.h - placeTop - 16) / 12);
-    const pwCell = Math.floor((Math.min(viewport.w - gutter - 14, 400)) / 12);
-    const placeCell = Math.max(13, Math.min(30, pwCell, phCell));
+    const measuredPlace = fitCell(10);
+    const placeCell = measuredPlace || Math.max(13, Math.min(24, Math.floor((viewport.w - gutter - 14) / 12)));
     return (<div style={{ ...appStyle, height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingBottom: 10 }}><style>{ANIMS}</style>
       {/* GERİ DÖN — bot maçından/hazırlıktan vazgeçip ana ekrana dönüş */}
       <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-start",marginBottom:4 }}>
@@ -4901,7 +4936,9 @@ export default function Game() {
         <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginTop:8,letterSpacing:1 }}>{L(appLang,"confirmShipsHint")}</div>
       </div>}
       {placementConfirmed && <div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.9), rgba(8,14,30,0.95))",border:`2px solid rgba(0,229,255,0.2)`,borderRadius:12,padding:"16px 24px",marginBottom:8,fontSize:14,fontWeight:700,color:t.accent,textAlign:"center",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"shipsReadyMsg")}<div style={{ marginTop:10 }}><div style={{ width:14,height:14,borderRadius:"50%",background:t.accent,margin:"0 auto",animation:"pulse 1.5s infinite" }} /></div></div>}
+      <div ref={boardBoxRef} style={{ flex:1,minHeight:0,width:"100%",maxWidth:400,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden" }}>
       <div onMouseLeave={() => { if(!dragRef.current) setHoverCells([]); }}><Grid board={defenseBoard} cellSize={placeCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} hoverCells={hoverCells} onClick={handleDefenseClick} onHover={handleDefenseHover} onCellPointerDown={handleShipPointerDown} disabled={placementConfirmed} /></div>
+      </div>
     </div>);
   }
 
@@ -4913,14 +4950,9 @@ export default function Game() {
     // SABİT TAHTA + GÖRÜNÜR FİLO: filo şeridi (~40px) her ekranda kalır, sadece
     // ikincil bilgi satırı kısa ekranlarda gizlenir. Kaydırma hiçbir cihazda gerekmez.
     const shortScreen = viewport.h < 700;
-    // üst: ayrıl barı 40 + saatler 32 + (isabet 20) + sekmeler 34 + işaretle 24 + boşluklar
-    const topChrome = isOnboarding ? 120 : (shortScreen ? 148 : 170);
-    // alt: filo şeridi 40 + sabit alt çubuklar 126
-    const bottomChrome = isOnboarding ? 140 : 168;
-    // ÖNEMLİ: tahta 11x11 + etiket satır/sütunu = 12x12 hücre yüksekliği/genişliği
-    const hCell = Math.floor((viewport.h - topChrome - bottomChrome - 12) / 12);
-    const wCell = Math.floor((Math.min(viewport.w - gutter - 14, 400)) / 12);
-    const playCell = Math.max(13, Math.min(30, wCell, hCell));
+    // Tahta boyutu ÖLÇÜLEN boş alandan gelir (fitCell). İlk karede ölçüm yoksa güvenli tahmin.
+    const measured = fitCell(10);
+    const playCell = measured || Math.max(13, Math.min(26, Math.floor((viewport.w - gutter - 14) / 12)));
     const gridSize = miniGrid ? Math.min(38, Math.floor((Math.min(viewport.w - 24, 320)) / 8)) : playCell;
     const flyEmoji = emojiToast || myEmojiToast;
     return (<div style={{ ...appStyle, height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingTop:"calc(6px + env(safe-area-inset-top, 0px))", paddingBottom: "calc(126px + env(safe-area-inset-bottom, 0px))", background:`
@@ -4990,10 +5022,17 @@ export default function Game() {
       </div>
       {isAttack && <button onClick={()=>setMarkMode(!markMode)} style={{ marginBottom:5,padding:"4px 14px",fontSize:10,fontWeight:700,fontFamily:warrior,background:markMode?t.gold:"transparent",color:markMode?t.bg:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,cursor:"pointer",letterSpacing:2 }}>{markMode?`⚑ ${L(appLang,"markModeOn")}`:`⚑ ${L(appLang,"markMode")}`}</button>}
       </>}
-      <div style={{ width:"100%",maxWidth:400,border:myTurn?`3px solid ${t.accent}`:`2px solid rgba(255,71,87,0.35)`,borderRadius:12,padding:2,animation:myTurn?"turnPulse 1.1s ease-in-out infinite":"none",transition:"border-color 0.4s ease",position:"relative" }}>
-        {isAttack?<><Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:playCell} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} onboardingHint={isOnboarding?[[2,2],[2,3],[2,4]]:null} />{!isOnboarding&&<FleetBar title={L(appLang,"oppShips")} ships={oppShipsData} hitCells={atkHitMap} color={t.hit} lang={appLang} />}</>:<><Grid board={defenseBoard} cellSize={isOnboarding?gridSize:playCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />{!isOnboarding&&<FleetBar title={L(appLang,"myShips")} ships={myShipsData} hitCells={defHitMap} color={t.accent} lang={appLang} />}</>}
+      <div ref={boardBoxRef} style={{ flex:1,minHeight:0,width:"100%",maxWidth:400,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden" }}>
+      <div style={{ border:myTurn?`3px solid ${t.accent}`:`2px solid rgba(255,71,87,0.35)`,borderRadius:12,padding:2,animation:myTurn?"turnPulse 1.1s ease-in-out infinite":"none",transition:"border-color 0.4s ease",position:"relative" }}>
+        {isAttack
+          ? <Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:playCell} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} onboardingHint={isOnboarding?[[2,2],[2,3],[2,4]]:null} />
+          : <Grid board={defenseBoard} cellSize={isOnboarding?gridSize:playCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />}
         {microFeedback && <MicroFeedback text={microFeedback.text} color={microFeedback.color} onDone={()=>setMicroFeedback(null)} />}
       </div>
+      </div>
+      {!isOnboarding && (isAttack
+        ? <FleetBar title={L(appLang,"oppShips")} ships={oppShipsData} hitCells={atkHitMap} color={t.hit} lang={appLang} />
+        : <FleetBar title={L(appLang,"myShips")} ships={myShipsData} hitCells={defHitMap} color={t.accent} lang={appLang} />)}
       {isTestMode() && <button onClick={forceEndGame} style={{ marginTop:8,padding:"8px 16px",background:"rgba(251,191,36,0.2)",color:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"endGameTestBtn")}</button>}
       {myTurn && isAttack && !markMode && (<div style={{ position:"fixed",bottom:0,left:0,right:0,background:"rgba(10,14,23,0.97)",borderTop:`1px solid ${t.border}`,paddingTop:10,paddingLeft:16,paddingRight:16,paddingBottom:"calc(10px + env(safe-area-inset-bottom, 0px))",display:"flex",alignItems:"center",justifyContent:"center",gap:14,zIndex:100 }}>
         <div style={{ display:"flex",gap:5 }}>{[0,1,2].map(i=><div key={i} style={{ width:14,height:14,borderRadius:"50%",background:i<currentShots.length?t.hit:t.accent,opacity:i<currentShots.length?0.3:1,animation:i<currentShots.length?"popIn 0.3s ease-out":"none" }} />)}</div>
