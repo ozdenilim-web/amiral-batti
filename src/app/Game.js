@@ -305,6 +305,7 @@ const TRANSLATIONS = {
     arenaSelectTitle: "ARENA SEÇ", goldRequired: (n) => `🔒 ${n} ALTIN GEREKLİ`, minGoldLabel: (n) => `Min: ${n} 💰`, entryLabel: "GİRİŞ", sevLabel: "SEV",
     chestReadyMsg: "SANDIK HAZIR!", collectRewardMsg: "Ödülünü topla", mysteryChest: "GİZEMLİ SANDIK", completedMissionsMsg: "3 görevi tamamladın!", openChestBtn: "SANDIĞI AÇ",
     dailyChestTooltip: "Günlük Sandık", rewardRare: "NADİR", rewardGood: "İYİ",
+    achTitle: "KAZANIMLAR", achClaim: "ÖDÜLÜ AL", achClaimed: "ALINDI", achLocked: "KİLİTLİ", achSoon: "YAKINDA", achSetReward: "SET ÖDÜLÜ", achUnlockReq: "Açılma şartları", achPrevSet: "Önceki set tamamlanmalı", achBtn: "KAZANIMLAR", achAvatarReward: "ÖZEL AVATAR",
     oneChestPerDevice: "Her cihaza günde 1 sandık!", dailyRewardLabel: "GÜNLÜK ÖDÜL",
     battleStarting: "SAVAŞ BAŞLIYOR",
     tagline: "savaşların atası...",
@@ -369,6 +370,7 @@ const TRANSLATIONS = {
     arenaSelectTitle: "CHOOSE ARENA", goldRequired: (n) => `🔒 REQUIRES ${n} GOLD`, minGoldLabel: (n) => `Min: ${n} 💰`, entryLabel: "ENTRY", sevLabel: "LVL",
     chestReadyMsg: "CHEST READY!", collectRewardMsg: "Collect your reward", mysteryChest: "MYSTERY CHEST", completedMissionsMsg: "You've completed 3 missions!", openChestBtn: "OPEN CHEST",
     dailyChestTooltip: "Daily Chest", rewardRare: "RARE", rewardGood: "GOOD",
+    achTitle: "ACHIEVEMENTS", achClaim: "CLAIM REWARD", achClaimed: "CLAIMED", achLocked: "LOCKED", achSoon: "COMING SOON", achSetReward: "SET REWARD", achUnlockReq: "Unlock requirements", achPrevSet: "Complete the previous set", achBtn: "ACHIEVEMENTS", achAvatarReward: "EXCLUSIVE AVATAR",
     oneChestPerDevice: "1 chest per device, every day!", dailyRewardLabel: "DAILY REWARD",
     battleStarting: "BATTLE STARTING",
     tagline: "ancestor of battles...",
@@ -444,6 +446,84 @@ function getRankInfo(gold, lang = "tr") {
 // Son 5 maç form çizgisi — "W"/"L" dizisi, en fazla 5 eleman
 function pushRecent(arr, won) { return [...(Array.isArray(arr) ? arr : []), won ? "W" : "L"].slice(-5); }
 function safeRecent(arr) { return Array.isArray(arr) ? arr.filter(x => x === "W" || x === "L").slice(-5) : []; }
+
+// === KAZANIM SİSTEMİ (kalıcı başarımlar) ===
+const ACH_DEFAULT = { hits:0, sunk:0, marks:0, chest:0, botWins:0, onlineWins:0, goldEarned:0, bestHitStreak:0, bestTurnStreak:0, turnStreak:0, bestWinStreak:0, winStreak:0, fast5:0, fast3:0, fast2:0, perfect:0, tripleTurn:0, arenaAcik:0, arenaFirtina:0 };
+function safeAch(a) { const o = { ...ACH_DEFAULT }; if (a && typeof a === "object") { for (const k in ACH_DEFAULT) { const v = a[k]; if (typeof v === "number" && isFinite(v) && v >= 0) o[k] = v; } } return o; }
+function safeClaimed(c) { const o = {}; if (c && typeof c === "object") { for (const k of ["s1","s2","s3","s4","s5"]) if (c[k] === true) o[k] = true; } return o; }
+
+// Set avatarları — kullanıcı özel görselleri verene kadar yer tutucu; /img/avatar_sX.png varsa o kullanılır
+const ACH_AVATARS = { s1:"🏴‍☠️", s2:"🦑", s3:"⚜️", s4:"🐲", s5:"👑" };
+const wr = (p) => p && p.totalGames > 0 ? Math.round(((p.wins||0) / p.totalGames) * 100) : 0;
+const ACH_SETS = [
+  { id:"s1", name:"ÇAYLAK", nameEn:"ROOKIE", reward:1000,
+    gate: () => true, gateReq: [],
+    missions: [
+      { icon:"⚓", text:"İlk oyununu oyna",              textEn:"Play your first game",        check:(p,a)=>(p.totalGames||0)>=1 },
+      { icon:"🏆", text:"İlk galibiyetini al",            textEn:"Get your first win",          check:(p,a)=>(p.wins||0)>=1 },
+      { icon:"🎯", text:"Toplam 25 isabet yap",           textEn:"Land 25 total hits",          check:(p,a)=>a.hits>=25 },
+      { icon:"🚢", text:"Toplam 5 gemi batır",            textEn:"Sink 5 ships",                check:(p,a)=>a.sunk>=5 },
+      { icon:"🤖", text:"Botu 3 kez yen",                 textEn:"Beat the bot 3 times",        check:(p,a)=>a.botWins>=3 },
+      { icon:"💥", text:"Tek turda 3 isabet yap",         textEn:"Land 3 hits in one turn",     check:(p,a)=>a.tripleTurn>=1 },
+      { icon:"⚑", text:"Toplam 20 kare işaretle",        textEn:"Mark 20 cells",               check:(p,a)=>a.marks>=20 },
+      { icon:"🌊", text:"Toplam 5 oyun oyna",             textEn:"Play 5 games",                check:(p,a)=>(p.totalGames||0)>=5 },
+      { icon:"💰", text:"Günlük sandığı 3 kez aç",        textEn:"Open the daily chest 3 times",check:(p,a)=>a.chest>=3 },
+      { icon:"🎖", text:"Seviye 2'ye ulaş",               textEn:"Reach level 2",               check:(p,a)=>(p.level||0)>=2 },
+    ] },
+  { id:"s2", name:"DENİZCİ", nameEn:"SAILOR", reward:1500,
+    gate: (p) => (p.totalGames||0)>=21 && safeAch(p.ach).goldEarned>=5000 && (wr(p)>=30 || (p.wins||0)>=10),
+    gateReq: [ { tr:"21 oyun", en:"21 games", ok:(p)=>(p.totalGames||0)>=21 }, { tr:"5.000 altın kazan", en:"Earn 5,000 gold", ok:(p)=>safeAch(p.ach).goldEarned>=5000 }, { tr:"%30 oran veya 10 galibiyet", en:"30% rate or 10 wins", ok:(p)=>wr(p)>=30||(p.wins||0)>=10 } ],
+    missions: [
+      { icon:"⚓", text:"Toplam 30 oyun oyna",            textEn:"Play 30 games",               check:(p,a)=>(p.totalGames||0)>=30 },
+      { icon:"🏆", text:"Toplam 10 galibiyet al",         textEn:"Win 10 games",                check:(p,a)=>(p.wins||0)>=10 },
+      { icon:"🎯", text:"Toplam 150 isabet yap",          textEn:"Land 150 total hits",         check:(p,a)=>a.hits>=150 },
+      { icon:"🚢", text:"Toplam 25 gemi batır",           textEn:"Sink 25 ships",               check:(p,a)=>a.sunk>=25 },
+      { icon:"🌐", text:"İlk online maçını oyna",         textEn:"Play your first online match",check:(p,a)=>(p.onlineGames||0)>=1 },
+      { icon:"⚡", text:"5 dakikanın altında kazan",      textEn:"Win in under 5 minutes",      check:(p,a)=>a.fast5>=1 },
+      { icon:"🔥", text:"5 isabetlik seri yap",           textEn:"Land a 5-hit streak",         check:(p,a)=>a.bestHitStreak>=5 },
+      { icon:"🛡", text:"3 tur üst üste isabet al",       textEn:"Hit 3 turns in a row",        check:(p,a)=>a.bestTurnStreak>=3 },
+      { icon:"💰", text:"Toplam 10.000 altın kazan",      textEn:"Earn 10,000 total gold",      check:(p,a)=>a.goldEarned>=10000 },
+      { icon:"🎖", text:"Seviye 5'e ulaş",                textEn:"Reach level 5",               check:(p,a)=>(p.level||0)>=5 },
+    ] },
+  { id:"s3", name:"KAPTAN", nameEn:"CAPTAIN", reward:2500,
+    gate: (p) => (p.totalGames||0)>=61 && safeAch(p.ach).goldEarned>=15000 && (wr(p)>=40 || (p.wins||0)>=35),
+    gateReq: [ { tr:"61 oyun", en:"61 games", ok:(p)=>(p.totalGames||0)>=61 }, { tr:"15.000 altın kazan", en:"Earn 15,000 gold", ok:(p)=>safeAch(p.ach).goldEarned>=15000 }, { tr:"%40 oran veya 35 galibiyet", en:"40% rate or 35 wins", ok:(p)=>wr(p)>=40||(p.wins||0)>=35 } ],
+    missions: [
+      { icon:"⚓", text:"Toplam 90 oyun oyna",            textEn:"Play 90 games",               check:(p,a)=>(p.totalGames||0)>=90 },
+      { icon:"🏆", text:"Toplam 35 galibiyet al",         textEn:"Win 35 games",                check:(p,a)=>(p.wins||0)>=35 },
+      { icon:"🎯", text:"Toplam 500 isabet yap",          textEn:"Land 500 total hits",         check:(p,a)=>a.hits>=500 },
+      { icon:"🚢", text:"Toplam 75 gemi batır",           textEn:"Sink 75 ships",               check:(p,a)=>a.sunk>=75 },
+      { icon:"🌐", text:"10 online maç kazan",            textEn:"Win 10 online matches",       check:(p,a)=>a.onlineWins>=10 },
+      { icon:"⚡", text:"3 dakikanın altında kazan",      textEn:"Win in under 3 minutes",      check:(p,a)=>a.fast3>=1 },
+      { icon:"🔥", text:"8 isabetlik seri yap",           textEn:"Land an 8-hit streak",        check:(p,a)=>a.bestHitStreak>=8 },
+      { icon:"👁", text:"Hiç karavana vermeden kazan",    textEn:"Win without a single miss",   check:(p,a)=>a.perfect>=1 },
+      { icon:"🚢", text:"AÇIK DENİZ arenasında kazan",    textEn:"Win in the OPEN SEA arena",   check:(p,a)=>a.arenaAcik>=1 },
+      { icon:"🎖", text:"Seviye 10'a ulaş",               textEn:"Reach level 10",              check:(p,a)=>(p.level||0)>=10 },
+    ] },
+  { id:"s4", name:"AMİRAL", nameEn:"ADMIRAL", reward:5000,
+    gate: (p) => (p.totalGames||0)>=121 && safeAch(p.ach).goldEarned>=24000 && (wr(p)>=45 || (p.wins||0)>=60),
+    gateReq: [ { tr:"121 oyun", en:"121 games", ok:(p)=>(p.totalGames||0)>=121 }, { tr:"24.000 altın kazan", en:"Earn 24,000 gold", ok:(p)=>safeAch(p.ach).goldEarned>=24000 }, { tr:"%45 oran veya 60 galibiyet", en:"45% rate or 60 wins", ok:(p)=>wr(p)>=45||(p.wins||0)>=60 } ],
+    missions: [
+      { icon:"⚓", text:"Toplam 150 oyun oyna",           textEn:"Play 150 games",              check:(p,a)=>(p.totalGames||0)>=150 },
+      { icon:"🏆", text:"Toplam 75 galibiyet al",         textEn:"Win 75 games",                check:(p,a)=>(p.wins||0)>=75 },
+      { icon:"🎯", text:"Toplam 1200 isabet yap",         textEn:"Land 1,200 total hits",       check:(p,a)=>a.hits>=1200 },
+      { icon:"🚢", text:"Toplam 150 gemi batır",          textEn:"Sink 150 ships",              check:(p,a)=>a.sunk>=150 },
+      { icon:"🌐", text:"30 online maç kazan",            textEn:"Win 30 online matches",       check:(p,a)=>a.onlineWins>=30 },
+      { icon:"⚡", text:"2 dakikanın altında kazan",      textEn:"Win in under 2 minutes",      check:(p,a)=>a.fast2>=1 },
+      { icon:"🔥", text:"10 isabetlik seri yap",          textEn:"Land a 10-hit streak",        check:(p,a)=>a.bestHitStreak>=10 },
+      { icon:"🥇", text:"5 maç üst üste kazan",           textEn:"Win 5 matches in a row",      check:(p,a)=>a.bestWinStreak>=5 },
+      { icon:"⛈", text:"FIRTINA arenasında kazan",       textEn:"Win in the STORM arena",      check:(p,a)=>a.arenaFirtina>=1 },
+      { icon:"📅", text:"7 gün üst üste giriş yap",       textEn:"Log in 7 days in a row",      check:(p,a)=>(p.loginStreak||0)>=7 },
+    ] },
+];
+// 5. set kapısı (içerik yakında)
+const ACH_SET5_GATE = [ { tr:"201 oyun", en:"201 games" }, { tr:"30.000 altın kazan", en:"Earn 30,000 gold" }, { tr:"%50 kazanma oranı", en:"50% win rate" } ];
+function achSetDone(setDef, p) { const a = safeAch(p?.ach); return setDef.missions.every(m => { try { return m.check(p||{}, a); } catch(e) { return false; } }); }
+function achSetUnlocked(idx, p) {
+  if (!p) return false;
+  if (idx === 0) return true;
+  return achSetDone(ACH_SETS[idx-1], p) && ACH_SETS[idx].gate(p);
+}
 
 // === SES MOTORU (Web Audio API — dosyasız) ===
 class SoundEngine {
@@ -887,6 +967,8 @@ async function checkDailyReward(uid) {
     avatar: profile.avatar || "⚓",
     dailyRewardCount: todayCount + 1,
     recentResults: safeRecent(profile.recentResults),
+    ach: (() => { const a = safeAch(profile.ach); a.goldEarned += reward; a.chest += 0; return a; })(),
+    achievClaimed: safeClaimed(profile.achievClaimed),
   };
   await set(profileRef, cleanProfile);
   return { reward, streak, newGold };
@@ -1115,7 +1197,7 @@ async function ensureProfile(uid, displayName) {
   const snap = await get(profileRef);
   if (!snap.exists()) {
     const startGold = isTestMode() ? 5000 : STARTING_GOLD;
-    const profile = { displayName: displayName||"Denizci", wins:0, losses:0, totalGames:0, botGames:0, onlineGames:0, gold:startGold, level:0, levelProgress:0, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false, recentResults:[] };
+    const profile = { displayName: displayName||"Denizci", wins:0, losses:0, totalGames:0, botGames:0, onlineGames:0, gold:startGold, level:0, levelProgress:0, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false, recentResults:[], ach:{ ...ACH_DEFAULT }, achievClaimed:{} };
     await set(profileRef, profile);
     return profile;
   }
@@ -1140,6 +1222,8 @@ async function ensureProfile(uid, displayName) {
     avatar: existing.avatar || "⚓",
     dailyRewardCount: (typeof existing.dailyRewardCount === "number" && isFinite(existing.dailyRewardCount)) ? existing.dailyRewardCount : 0,
     recentResults: safeRecent(existing.recentResults),
+    ach: safeAch(existing.ach),
+    achievClaimed: safeClaimed(existing.achievClaimed),
   };
   // ALWAYS overwrite with set() — kills any hidden NaN in any field
   await set(profileRef, sanitized);
@@ -1174,6 +1258,7 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
     lastDailyReward: wd.lastDailyReward || null, createdAt: wd.createdAt || now, lastGameAt: now,
     onboardingDone: wd.onboardingDone === true, nameSetAt: wd.nameSetAt || null, avatar: wd.avatar || "⚓", dailyRewardCount: wd.dailyRewardCount || 0,
     recentResults: pushRecent(wd.recentResults, true),
+    ach: safeAch(wd.ach), achievClaimed: safeClaimed(wd.achievClaimed),
   };
   const loserProfile = {
     displayName: ld.displayName || "Denizci",
@@ -1188,6 +1273,7 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
     lastDailyReward: ld.lastDailyReward || null, createdAt: ld.createdAt || now, lastGameAt: now,
     onboardingDone: ld.onboardingDone === true, nameSetAt: ld.nameSetAt || null, avatar: ld.avatar || "⚓", dailyRewardCount: ld.dailyRewardCount || 0,
     recentResults: pushRecent(ld.recentResults, false),
+    ach: safeAch(ld.ach), achievClaimed: safeClaimed(ld.achievClaimed),
   };
   await set(ref(db, `profiles/${winnerUid}`), winnerProfile);
   await set(ref(db, `profiles/${loserUid}`), loserProfile);
@@ -1499,6 +1585,107 @@ function ChestPopup({ reward, onClose, lang = "tr" }) {
       </>)}
     </div>
   </div>);
+}
+
+// === KAZANIMLAR EKRANI ===
+function AchievementsScreen({ profile, onClose, onClaim, lang = "tr" }) {
+  const p = profile || {};
+  const a = safeAch(p.ach);
+  const claimed = safeClaimed(p.achievClaimed);
+  const en = lang === "en";
+  return (
+    <div style={{ position:"fixed",inset:0,zIndex:9000,background:"linear-gradient(180deg,#050b18 0%,#071428 55%,#0a1a35 100%)",overflowY:"auto",WebkitOverflowScrolling:"touch" }}>
+      <style>{`
+@keyframes achGlow{0%,100%{box-shadow:0 0 8px rgba(52,211,153,0.45)}50%{box-shadow:0 0 18px rgba(52,211,153,0.85)}}
+@keyframes achBtnPulse{0%,100%{transform:scale(1);box-shadow:0 0 16px rgba(255,215,0,0.4)}50%{transform:scale(1.03);box-shadow:0 0 28px rgba(255,215,0,0.7)}}
+@keyframes achFadeUp{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:translateY(0)}}
+      `}</style>
+      <div style={{ maxWidth:410,margin:"0 auto",padding:"calc(14px + env(safe-area-inset-top,0px)) 14px 44px",display:"flex",flexDirection:"column",alignItems:"center" }}>
+        {/* Başlık */}
+        <div style={{ width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16 }}>
+          <button onClick={onClose} style={{ width:38,height:38,borderRadius:10,background:"rgba(255,255,255,0.05)",border:`1px solid ${t.border}`,color:t.text,fontSize:18,cursor:"pointer",fontFamily:warrior }}>←</button>
+          <div style={{ fontSize:24,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:6,textShadow:`0 0 24px ${t.goldGlow}` }}>🏅 {L(lang,"achTitle")}</div>
+          <div style={{ width:38 }} />
+        </div>
+        {ACH_SETS.map((s, idx) => {
+          const unlocked = achSetUnlocked(idx, p);
+          const done = achSetDone(s, p);
+          const isClaimed = claimed[s.id] === true;
+          const doneCount = s.missions.filter(m => { try { return m.check(p, a); } catch(e) { return false; } }).length;
+          const setName = en ? s.nameEn : s.name;
+          // ── Kilitli set: silik kart + şartlar ──
+          if (!unlocked) return (
+            <div key={s.id} style={{ width:"100%",background:"rgba(255,255,255,0.025)",border:`1px solid rgba(255,255,255,0.07)`,borderRadius:14,padding:"14px 16px",marginBottom:12,opacity:0.65 }}>
+              <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:8 }}>
+                <span style={{ fontSize:16,filter:"grayscale(1)",opacity:0.6 }}>🔒</span>
+                <span style={{ fontSize:15,fontWeight:900,color:t.textDim,fontFamily:warrior,letterSpacing:3 }}>{idx+1}. SET — {setName}</span>
+                <span style={{ marginLeft:"auto",fontSize:9,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:2,border:`1px solid rgba(255,255,255,0.12)`,borderRadius:10,padding:"2px 8px" }}>{L(lang,"achLocked")}</span>
+              </div>
+              <div style={{ fontSize:9,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:2,marginBottom:5 }}>{L(lang,"achUnlockReq")}:</div>
+              {idx > 0 && !achSetDone(ACH_SETS[idx-1], p) && <div style={{ fontSize:10,color:"rgba(255,71,87,0.7)",fontFamily:mono,marginBottom:3 }}>✗ {L(lang,"achPrevSet")}</div>}
+              {s.gateReq.map((g,gi) => <div key={gi} style={{ fontSize:10,color:g.ok(p)?"rgba(52,211,153,0.8)":t.textDim,fontFamily:mono,marginBottom:3 }}>{g.ok(p)?"✓":"○"} {en?g.en:g.tr}</div>)}
+            </div>
+          );
+          // ── Açık set: 10 görev dikey liste ──
+          return (
+            <div key={s.id} style={{ width:"100%",background:`linear-gradient(145deg, ${t.surface}, ${t.surfaceLight})`,border:`2px solid ${done?(isClaimed?"rgba(52,211,153,0.35)":"rgba(255,215,0,0.55)"):t.border}`,borderRadius:14,padding:"14px 16px",marginBottom:12,animation:"achFadeUp 0.4s ease-out" }}>
+              <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:4 }}>
+                <span style={{ fontSize:15,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 12px ${t.goldGlow}` }}>{idx+1}. SET — {setName}</span>
+                <span style={{ marginLeft:"auto",fontSize:12,fontWeight:900,color:done?"#34d399":t.accent,fontFamily:mono }}>{doneCount}/10</span>
+              </div>
+              {/* Set ilerleme çubuğu */}
+              <div style={{ width:"100%",height:5,borderRadius:3,background:"rgba(0,0,0,0.45)",overflow:"hidden",marginBottom:12 }}>
+                <div style={{ width:`${doneCount*10}%`,height:"100%",borderRadius:3,background:done?"linear-gradient(90deg,#34d399,#4ade80)":"linear-gradient(90deg,#00e5ff,#ffd700)",transition:"width 0.5s ease",boxShadow:done?"0 0 8px rgba(52,211,153,0.6)":"none" }} />
+              </div>
+              {/* Görevler — dikey ikon listesi */}
+              {s.missions.map((m, mi) => {
+                const ok = (() => { try { return m.check(p, a); } catch(e) { return false; } })();
+                return (
+                  <div key={mi} style={{ display:"flex",alignItems:"center",gap:12,padding:"6px 0" }}>
+                    <div style={{ width:42,height:42,borderRadius:"50%",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,border:`2px solid ${ok?"#34d399":"rgba(255,255,255,0.10)"}`,background:ok?"rgba(52,211,153,0.10)":"rgba(255,255,255,0.03)",animation:ok?"achGlow 2.2s ease-in-out infinite":"none",filter:ok?"none":"grayscale(1)",opacity:ok?1:0.4,transition:"all 0.3s" }}>{m.icon}</div>
+                    <div style={{ flex:1,fontSize:12,fontWeight:700,color:ok?t.text:t.textDim,fontFamily:mono,opacity:ok?1:0.55,letterSpacing:0.3 }}>{en?m.textEn:m.text}</div>
+                    {ok ? <span style={{ fontSize:16,color:"#34d399",fontWeight:900,textShadow:"0 0 8px rgba(52,211,153,0.7)" }}>✓</span> : <span style={{ fontSize:13,color:"rgba(255,255,255,0.15)" }}>○</span>}
+                  </div>
+                );
+              })}
+              {/* Set ödülü */}
+              <div style={{ marginTop:10,padding:"11px 14px",borderRadius:10,background:done&&!isClaimed?"rgba(255,215,0,0.08)":"rgba(0,0,0,0.25)",border:`1px solid ${done&&!isClaimed?"rgba(255,215,0,0.45)":"rgba(255,255,255,0.07)"}`,display:"flex",alignItems:"center",gap:10 }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:9,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:2,marginBottom:3 }}>{L(lang,"achSetReward")}</div>
+                  <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+                    <span style={{ fontSize:15,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}` }}>💰 {s.reward}</span>
+                    <span style={{ fontSize:16 }}>{ACH_AVATARS[s.id]}</span>
+                    <span style={{ fontSize:8,fontWeight:800,color:"#a78bfa",fontFamily:warrior,letterSpacing:1 }}>{L(lang,"achAvatarReward")}</span>
+                  </div>
+                </div>
+                {isClaimed
+                  ? <span style={{ fontSize:11,fontWeight:900,color:"#34d399",fontFamily:warrior,letterSpacing:2 }}>✓ {L(lang,"achClaimed")}</span>
+                  : done
+                    ? <button onClick={()=>onClaim(s)} style={{ padding:"10px 18px",background:"linear-gradient(135deg,#ffd700,#ff9f43)",color:"#1a1206",border:"none",borderRadius:10,fontSize:12,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior,animation:"achBtnPulse 1.6s ease-in-out infinite" }}>{L(lang,"achClaim")}</button>
+                    : <span style={{ fontSize:11,fontWeight:800,color:t.textDim,fontFamily:mono }}>{doneCount}/10</span>}
+              </div>
+            </div>
+          );
+        })}
+        {/* 5. set — yakında */}
+        <div style={{ width:"100%",background:"rgba(255,255,255,0.02)",border:"1px dashed rgba(255,255,255,0.08)",borderRadius:14,padding:"13px 16px",marginBottom:10,opacity:0.5 }}>
+          <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:6 }}>
+            <span style={{ fontSize:14,filter:"grayscale(1)" }}>🔒</span>
+            <span style={{ fontSize:14,fontWeight:900,color:t.textDim,fontFamily:warrior,letterSpacing:3 }}>5. SET — {en?"LEGEND":"EFSANE"}</span>
+            <span style={{ marginLeft:"auto",fontSize:9,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:2,opacity:0.7 }}>💰 7500 + {ACH_AVATARS.s5}</span>
+          </div>
+          {ACH_SET5_GATE.map((g,gi)=><div key={gi} style={{ fontSize:10,color:t.textDim,fontFamily:mono,marginBottom:2 }}>○ {en?g.en:g.tr}</div>)}
+        </div>
+        {[6,7].map(n => (
+          <div key={n} style={{ width:"100%",background:"rgba(255,255,255,0.015)",border:"1px dashed rgba(255,255,255,0.06)",borderRadius:14,padding:"12px 16px",marginBottom:8,opacity:0.35,display:"flex",alignItems:"center",gap:8 }}>
+            <span style={{ fontSize:13,filter:"grayscale(1)" }}>🔒</span>
+            <span style={{ fontSize:13,fontWeight:900,color:t.textDim,fontFamily:warrior,letterSpacing:3 }}>{n}. SET</span>
+            <span style={{ marginLeft:"auto",fontSize:9,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:2 }}>{L(lang,"achSoon")}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 // === GÜNLÜK SANDIK — cihaz başına 1 tane, sabit 500 altın ===
@@ -1912,6 +2099,7 @@ export default function Game() {
   const [authReady, setAuthReady] = useState(false);
   const [myProfile, setMyProfile] = useState(null);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showAchievements, setShowAchievements] = useState(false);
   const [eloChange, setEloChange] = useState(null);
   const [showOnlineLobby, setShowOnlineLobby] = useState(false);
   const [matchmaking, setMatchmaking] = useState(false);
@@ -2055,6 +2243,31 @@ export default function Game() {
   const lastAttackCountRef = useRef(0);
   const eloUpdatedRef = useRef(false);
 
+  // Kazanım seti ödülünü al — altın + özel avatar
+  const claimAchievementSet = (setDef) => {
+    if (!myProfile || !authUid) return;
+    const cl = safeClaimed(myProfile.achievClaimed);
+    if (cl[setDef.id] || !achSetDone(setDef, myProfile)) return;
+    sfx.init(); sfx.play('chest'); setTimeout(() => sfx.play('gold'), 350);
+    const a2 = safeAch(myProfile.ach); a2.goldEarned += setDef.reward;
+    const nc = { ...cl, [setDef.id]: true };
+    const newGold = safeGold(myProfile.gold) + setDef.reward;
+    update(ref(db, `profiles/${authUid}`), { gold: newGold, ach: a2, achievClaimed: nc }).catch(()=>{});
+    setMyProfile(prev => prev ? { ...prev, gold: newGold, ach: a2, achievClaimed: nc } : prev);
+    setGoldAnim({ amount: setDef.reward });
+  };
+
+  // Kazanım sayaçlarını güncelle — fn(a) sayaç kopyasını mutasyona uğratır, DB + local senkronize edilir
+  const bumpAch = (fn) => {
+    setMyProfile(prev => {
+      if (!prev) return prev;
+      const a = safeAch(prev.ach);
+      try { fn(a); } catch(e) {}
+      if (authUid) update(ref(db, `profiles/${authUid}`), { ach: a }).catch(()=>{});
+      return { ...prev, ach: a };
+    });
+  };
+
   // Bot maçı mağlubiyetini kaydet — her yenilgi yolundan (batma, süre, yerleştirememe) çağrılır.
   // Ref üzerinden tutulur ki interval/timeout closure'ları her zaman güncel profile erişsin.
   const recordBotLossRef = useRef(null);
@@ -2065,6 +2278,8 @@ export default function Game() {
     update(ref(db, `profiles/${authUid}`), { losses: (myProfile.losses||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl2.level, levelProgress: lvl2.levelProgress, recentResults: pushRecent(myProfile.recentResults, false) }).catch(()=>{});
     setMyProfile(prev => prev ? { ...prev, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl2.level, levelProgress: lvl2.levelProgress, recentResults: pushRecent(prev.recentResults, false) } : prev);
     setMissionStats(prev => ({ ...prev, gamesPlayed: prev.gamesPlayed + 1 }));
+    // Kazanım sayaçları: mağlubiyette isabet/batırma yine sayılır, seriler sıfırlanır
+    bumpAch(a => { a.hits += myHits; a.sunk += killCountRef.current; a.winStreak = 0; a.turnStreak = 0; });
   };
 
   const cellSize = typeof window !== "undefined" ? Math.max(16, Math.min(30, Math.floor((Math.min(window.innerWidth - 24, 400)) / 12), Math.floor((window.innerHeight - 300) / 12))) : 28;
@@ -2075,11 +2290,11 @@ export default function Game() {
   const claimDailyChest = async (amount) => {
     markDailyChestClaimed();
     setGoldAnim({ amount });
-    setMyProfile(prev => prev ? { ...prev, gold: safeGold(prev.gold) + amount } : prev);
+    setMyProfile(prev => { if (!prev) return prev; const a = safeAch(prev.ach); a.chest += 1; a.goldEarned += amount; return { ...prev, gold: safeGold(prev.gold) + amount, ach: a }; });
     if (authUid) {
       try {
         const snap = await get(ref(db, `profiles/${authUid}`));
-        if (snap.exists()) { const p = snap.val(); await set(ref(db, `profiles/${authUid}`), { ...p, gold: safeGold(p.gold) + amount }); }
+        if (snap.exists()) { const p = snap.val(); const a = safeAch(p.ach); a.chest += 1; a.goldEarned += amount; await set(ref(db, `profiles/${authUid}`), { ...p, gold: safeGold(p.gold) + amount, ach: a }); }
       } catch (e) { console.error(e); }
     }
     setDailyChestModalOpen(false); setShowDailyChest(false);
@@ -2273,6 +2488,21 @@ export default function Game() {
                   setGoldChange({ amount: result.winGold || 0 });
                   if (result.winGold > 0) { sfx.play('gold'); setGoldAnim({ amount: result.winGold }); }
                   setMyProfile(prev => prev ? { ...prev, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1, onlineGames: (prev.onlineGames || 0) + 1, gold: result.winnerNewGold, level: result.winnerLevel, levelProgress: result.winnerLevelProgress, recentResults: pushRecent(prev.recentResults, true) } : prev);
+                  // Kazanım sayaçları — online galibiyet
+                  const myShotList = game.attacks ? Object.values(game.attacks).filter(x => x.by === pNum) : [];
+                  const wHits = myShotList.reduce((n,x) => n + ((x.shots||[]).filter(s => s.result === "hit").length), 0);
+                  const wMiss = myShotList.reduce((n,x) => n + ((x.shots||[]).filter(s => s.result === "miss").length), 0);
+                  const wElapsed = gameStartTime ? (Date.now() - gameStartTime) / 1000 : 999;
+                  bumpAch(a => {
+                    a.hits += wHits; a.sunk += killCountRef.current; a.onlineWins += 1; a.goldEarned += (result.winGold || 0);
+                    a.winStreak += 1; a.bestWinStreak = Math.max(a.bestWinStreak, a.winStreak);
+                    if (wElapsed < 300) a.fast5 = Math.max(a.fast5, 1);
+                    if (wElapsed < 180) a.fast3 = Math.max(a.fast3, 1);
+                    if (wElapsed < 120) a.fast2 = Math.max(a.fast2, 1);
+                    if (wMiss === 0 && wHits >= 20) a.perfect = Math.max(a.perfect, 1);
+                    if (gameArena && gameArena.id === "acikdeniz") a.arenaAcik = Math.max(a.arenaAcik, 1);
+                    if (gameArena && gameArena.id === "firtina") a.arenaFirtina = Math.max(a.arenaFirtina, 1);
+                  });
                 }
               } catch (e) { console.error("ELO update error:", e); }
             }).catch(e => console.error("ELO transaction error:", e));
@@ -2288,6 +2518,10 @@ export default function Game() {
               setEloChange({ myOld: er.loserOldGold, myNew: er.loserNewGold, oppOld: er.winnerOldGold, oppNew: er.winnerNewGold });
               setGoldChange({ amount: er.loseGold || 0 });
               setMyProfile(prev => prev ? { ...prev, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1, onlineGames: (prev.onlineGames || 0) + 1, gold: er.loserNewGold, level: er.loserLevel, levelProgress: er.loserLevelProgress, recentResults: pushRecent(prev.recentResults, false) } : prev);
+              // Kazanım sayaçları — online mağlubiyet: isabet/batırma sayılır, seriler sıfırlanır
+              const lShotList = game.attacks ? Object.values(game.attacks).filter(x => x.by === pNum) : [];
+              const lHits = lShotList.reduce((n,x) => n + ((x.shots||[]).filter(s => s.result === "hit").length), 0);
+              bumpAch(a => { a.hits += lHits; a.sunk += killCountRef.current; a.winStreak = 0; a.turnStreak = 0; });
             });
             // 10 saniye timeout — kazanan çökerse sonsuza kadar beklemesin
             setTimeout(() => {
@@ -2655,7 +2889,7 @@ export default function Game() {
   };
   const handleAttackClick = (r, c) => { if (!myTurn || phase !== "playing") return; if (markMode) { handleAttackMark(r, c); return; } if (attackOverlay[r][c]) return; if (manualMarks[r][c]) return; const existing = currentShots.findIndex(([sr, sc]) => sr === r && sc === c); if (existing !== -1) { setCurrentShots(currentShots.filter((_, i) => i !== existing)); return; } if (currentShots.length >= SHOTS_PER_TURN) return; setCurrentShots([...currentShots, [r, c]]); };
   const handleAttackRightClick = (r, c) => { handleAttackMark(r, c); };
-  const handleAttackMark = (r, c) => { if (phase !== "playing") return; if (attackOverlay[r][c]) return; const nm = manualMarks.map(row => [...row]); nm[r][c] = !nm[r][c]; setManualMarks(nm); };
+  const handleAttackMark = (r, c) => { if (phase !== "playing") return; if (attackOverlay[r][c]) return; const nm = manualMarks.map(row => [...row]); nm[r][c] = !nm[r][c]; setManualMarks(nm); if (nm[r][c] && !isOnboarding) bumpAch(a => { a.marks += 1; }); };
   const handleAttackLongPress = (r, c) => { handleAttackMark(r, c); };
   const fireShots = async () => {
     if (currentShots.length === 0) return;
@@ -3046,9 +3280,15 @@ export default function Game() {
       setHitStreak(newStreak);
       const mult = newStreak >= 9 ? 4 : newStreak >= 6 ? 3 : newStreak >= 3 ? 2 : 1;
       if (mult > 1) { setStreakToast({ streak: newStreak, mult }); setTimeout(() => setStreakToast(null), 2500); }
+      bumpAch(a => { a.bestHitStreak = Math.max(a.bestHitStreak, newStreak); });
     } else {
       setHitStreak(0); setStreakToast(null);
     }
+    // Kazanım: tek turda 3 isabet + tur serisi
+    if (!isOnboarding) bumpAch(a => {
+      if (hitCount >= 3) a.tripleTurn = Math.max(a.tripleTurn, 1);
+      if (hitCount > 0) { a.turnStreak += 1; a.bestTurnStreak = Math.max(a.bestTurnStreak, a.turnStreak); } else { a.turnStreak = 0; }
+    });
     // Check if player won
     const winTarget = isOnboarding ? 3 : 20;
     if (newMyHits >= winTarget) {
@@ -3075,6 +3315,16 @@ export default function Game() {
         const newGold1 = oldGold1 + botWinGold;
         update(ref(db, `profiles/${authUid}`), { gold: newGold1, wins: (myProfile.wins||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl1.level, levelProgress: lvl1.levelProgress, recentResults: pushRecent(myProfile.recentResults, true) }).catch(()=>{});
         setMyProfile(prev => prev ? { ...prev, gold: newGold1, wins:(prev.wins||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl1.level, levelProgress: lvl1.levelProgress, recentResults: pushRecent(prev.recentResults, true) } : prev);
+        // Kazanım sayaçları — bot galibiyeti
+        const missCount1 = newAtkOverlay.flat().filter(v => v === "miss").length;
+        bumpAch(a => {
+          a.hits += newMyHits; a.sunk += sunkCount; a.botWins += 1; a.goldEarned += botWinGold;
+          a.winStreak += 1; a.bestWinStreak = Math.max(a.bestWinStreak, a.winStreak);
+          if (elapsed < 300) a.fast5 = Math.max(a.fast5, 1);
+          if (elapsed < 180) a.fast3 = Math.max(a.fast3, 1);
+          if (elapsed < 120) a.fast2 = Math.max(a.fast2, 1);
+          if (missCount1 === 0) a.perfect = Math.max(a.perfect, 1);
+        });
         setEloChange({ myOld: oldGold1, myNew: newGold1 });
         setGoldChange({ amount: botWinGold });
         sfx.play('gold'); setGoldAnim({ amount: botWinGold });
@@ -3675,6 +3925,7 @@ export default function Game() {
       );
     }
   }
+  if (showAchievements) return <><style>{ANIMS}</style><AchievementsScreen profile={myProfile} onClose={() => setShowAchievements(false)} onClaim={claimAchievementSet} lang={appLang} /></>;
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} lang={appLang} /></>;
   if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => { setSelectedArena(arena); setShowArenaSelect(false); startQuickMatch(arena); }} lang={appLang} /></>;
   if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myGold={myProfile?.gold} onBack={() => setShowOnlineLobby(false)} onChallenge={handleOnlineChallenge} ready={readyToPlay} onToggleReady={()=>setReadyToPlay(v=>!v)} lang={appLang} /></>;
@@ -3772,7 +4023,7 @@ export default function Game() {
             {showAvatarPick && <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginTop:8,padding:"8px 10px",background:"rgba(0,0,0,0.35)",borderRadius:12,border:`1px solid ${t.border}` }}>
               <button onClick={()=>avatarFileRef.current?.click()} title={L(appLang,"uploadPhotoTooltip")} style={{ width:36,height:36,borderRadius:"50%",background:"rgba(255,215,0,0.12)",border:`2px dashed ${t.gold}`,fontSize:20,fontWeight:900,color:t.gold,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>+</button>
               <input ref={avatarFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleAvatarUpload} />
-              {["⚓","🦈","🐙","⚔","🏴‍☠️","🌊","🦅","🐉","💀","🔱"].map(av=>(<button key={av} onClick={()=>{ setShowAvatarPick(false); if(authUid){ update(ref(db,`profiles/${authUid}`),{avatar:av}).catch(()=>{}); } setMyProfile(prev=>prev?{...prev,avatar:av}:prev); }} style={{ width:36,height:36,borderRadius:"50%",background:myProfile.avatar===av?"rgba(0,229,255,0.25)":"rgba(255,255,255,0.05)",border:`2px solid ${myProfile.avatar===av?t.accent:"transparent"}`,fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>{av}</button>))}
+              {[...["⚓","🦈","🐙","⚔","🌊","🦅","💀","🔱"], ...Object.keys(safeClaimed(myProfile.achievClaimed)).map(k=>ACH_AVATARS[k])].map(av=>(<button key={av} onClick={()=>{ setShowAvatarPick(false); if(authUid){ update(ref(db,`profiles/${authUid}`),{avatar:av}).catch(()=>{}); } setMyProfile(prev=>prev?{...prev,avatar:av}:prev); }} style={{ width:36,height:36,borderRadius:"50%",background:myProfile.avatar===av?"rgba(0,229,255,0.25)":"rgba(255,255,255,0.05)",border:`2px solid ${myProfile.avatar===av?t.accent:"transparent"}`,fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>{av}</button>))}
             </div>}
             {canChangeName() && <div style={{ display:"flex",alignItems:"center",gap:6,marginTop:4 }}>
               <button onClick={()=>{setPhase("splash");}} style={{ fontSize:8,color:t.textDim,background:"transparent",border:`1px solid ${t.border}`,borderRadius:4,padding:"2px 6px",cursor:"pointer",fontFamily:mono }}>✏ {L(appLang,"editName")}</button>
@@ -3843,6 +4094,21 @@ export default function Game() {
         <RippleButton onClick={startBotGame} style={{ flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(52,211,153,0.16),rgba(52,211,153,0.05))`,color:"#34d399",border:"2px solid rgba(52,211,153,0.45)",borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🤖 {L(appLang,"bot")}</RippleButton>
         <RippleButton onClick={()=>setShowLeaderboard(true)} style={{ flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(255,215,0,0.14),rgba(255,215,0,0.04))`,color:t.gold,border:`2px solid rgba(255,215,0,0.45)`,borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🏆 {L(appLang,"leaderboard")}</RippleButton>
       </div>
+      {/* Kazanımlar */}
+      {(() => {
+        const activeIdx = ACH_SETS.findIndex((s,i) => achSetUnlocked(i, myProfile) && !achSetDone(s, myProfile));
+        const aSet = activeIdx >= 0 ? ACH_SETS[activeIdx] : null;
+        const aDone = aSet && myProfile ? aSet.missions.filter(m => { try { return m.check(myProfile, safeAch(myProfile.ach)); } catch(e) { return false; } }).length : 0;
+        const claimable = myProfile ? ACH_SETS.some((s,i) => achSetUnlocked(i, myProfile) && achSetDone(s, myProfile) && !safeClaimed(myProfile.achievClaimed)[s.id]) : false;
+        return (
+          <RippleButton onClick={()=>setShowAchievements(true)} style={{ width:"100%",maxWidth:360,marginTop:8,padding:"13px 16px",background:claimable?"linear-gradient(135deg,rgba(255,215,0,0.20),rgba(255,159,67,0.08))":"linear-gradient(135deg,rgba(167,139,250,0.12),rgba(167,139,250,0.03))",color:claimable?t.gold:"#a78bfa",border:`2px solid ${claimable?"rgba(255,215,0,0.6)":"rgba(167,139,250,0.4)"}`,borderRadius:10,fontSize:17,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",display:"flex",alignItems:"center",justifyContent:"center",gap:8,zIndex:1,animation:claimable?"borderGlow 1.6s infinite":"none" }}>
+            🏅 {L(appLang,"achBtn")}
+            {claimable
+              ? <span style={{ fontSize:10,fontWeight:900,background:"#ffd700",color:"#1a1206",borderRadius:10,padding:"2px 8px",letterSpacing:1 }}>{L(appLang,"achClaim")}!</span>
+              : aSet && <span style={{ fontSize:11,fontWeight:800,fontFamily:mono,opacity:0.8 }}>{aDone}/10</span>}
+          </RippleButton>
+        );
+      })()}
       {/* Room code - collapsible */}
       <div style={{ marginTop:10,width:"100%",maxWidth:360,zIndex:1 }}>
         <details style={{ background:t.surface,border:`1px solid ${t.border}`,borderRadius:10,overflow:"hidden" }}>
@@ -3868,9 +4134,9 @@ export default function Game() {
         if (authUid) {
           const newGold = safeGold(myProfile?.gold) + chestReward.gold;
           get(ref(db, `profiles/${authUid}`)).then(snap => {
-            if (snap.exists()) { const p = snap.val(); set(ref(db, `profiles/${authUid}`), { ...p, gold: safeGold(p.gold) + chestReward.gold }); }
+            if (snap.exists()) { const p = snap.val(); const ga = safeAch(p.ach); ga.goldEarned += chestReward.gold; set(ref(db, `profiles/${authUid}`), { ...p, gold: safeGold(p.gold) + chestReward.gold, ach: ga }); }
           }).catch(() => {});
-          setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev);
+          setMyProfile(prev => { if (!prev) return prev; const ga = safeAch(prev.ach); ga.goldEarned += chestReward.gold; return { ...prev, gold: newGold, ach: ga }; });
         }
         setChestClaimed(true); setChestReward(null);
       }} />}
