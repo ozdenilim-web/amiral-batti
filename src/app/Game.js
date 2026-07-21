@@ -1057,7 +1057,7 @@ function ArenaSelect({ myGold, onSelect, onBack, lang = "tr" }) {
     <div style={{ fontSize:26,fontWeight:800,letterSpacing:6,color:t.accent,marginBottom:6,fontFamily:warrior,textShadow:`0 0 25px ${t.accentGlow}` }}>{L(lang,"arenaSelectTitle")}</div>
     <div style={{ fontSize:14,fontWeight:800,color:t.gold,fontFamily:warrior,marginBottom:14,padding:"6px 20px",background:"rgba(255,215,0,0.08)",borderRadius:10,border:"1px solid rgba(255,215,0,0.2)",letterSpacing:2 }}><img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /> {myGold} {L(lang,"goldLabel")}</div>
     <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,textAlign:"center",marginBottom:16,maxWidth:400,lineHeight:1.6,padding:"0 8px" }}>{L(lang,"arenaGeneralNote")}</div>
-    <div style={{ width:"100%",maxWidth:420,display:"flex",flexDirection:"column",gap:10 }}>
+    <div style={{ width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:10 }}>
       {ARENAS.map(arena => {
         const locked = (myGold||0) < arena.minGold, cantAfford = (myGold||0) < arena.entryFee, disabled = locked||cantAfford;
         const infoOpen = openInfo === arena.id;
@@ -1101,7 +1101,7 @@ function QuickMatchModal({ myProfile, lang, phase, candidate, opponent, secondsL
   const isFound = phase === "found", isNotFound = phase === "notfound", isInviting = phase === "inviting", isSearching = phase === "searching";
   const themeColor = isFound ? "#4ade80" : isNotFound ? t.hit : isInviting ? t.gold : t.accent;
   const themeGlow = isFound ? "rgba(74,222,128,0.4)" : isNotFound ? t.hitGlow : isInviting ? t.goldGlow : t.accentGlow;
-  return (<div style={{ position:"fixed",inset:0,zIndex:9700,background:"rgba(2,6,16,0.82)",backdropFilter:"blur(6px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,animation:"settingsFadeIn 0.25s ease-out" }}>
+  return (<div style={{ position:"fixed",inset:0,overflowX:"hidden",zIndex:9700,background:"rgba(2,6,16,0.82)",backdropFilter:"blur(6px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,animation:"settingsFadeIn 0.25s ease-out" }}>
     <div style={{ width:"100%",maxWidth:380,background:"linear-gradient(160deg, rgba(14,22,44,0.98), rgba(6,10,22,0.99))",border:`2px solid ${themeColor}`,borderRadius:22,padding:"26px 20px 22px",textAlign:"center",boxShadow:`0 0 70px ${themeGlow}, 0 20px 60px rgba(0,0,0,0.6)`,position:"relative",overflow:"hidden",animation:"scaleUp 0.35s cubic-bezier(0.34,1.56,0.64,1)" }}>
       {isSearching && <div style={{ position:"absolute",inset:0,background:"repeating-radial-gradient(circle at 50% 50%, transparent 0, transparent 30px, rgba(0,229,255,0.035) 31px)",animation:"radarSpin 3s linear infinite",pointerEvents:"none" }} />}
       <div style={{ fontSize:14,fontWeight:900,letterSpacing:3,fontFamily:warrior,color:themeColor,marginBottom:4,textShadow:`0 0 16px ${themeGlow}`,position:"relative" }}>
@@ -1452,7 +1452,7 @@ function Leaderboard({ onBack, myUid, lang = "tr" }) {
       ))}
     </div>
     {loading ? <div style={{ color:t.textDim,fontSize:14,marginTop:40,fontFamily:warrior,letterSpacing:3,animation:"pulse 1.5s infinite" }}>{L(lang,"loadingText")}</div> : players.length===0 ? <div style={{ color:t.textDim,fontSize:14,marginTop:40,fontFamily:warrior }}>{L(lang,"noPlayersYet")}</div> : (
-      <div style={{ width:"100%",maxWidth:440,display:"flex",flexDirection:"column",gap:6 }}>
+      <div style={{ width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:6 }}>
         {players.slice(0,15).map((p,i) => {
           if (i >= revealed) return null;
           const rank = getRankInfo(p.honor||0, lang), isMe = p.uid===myUid;
@@ -1717,7 +1717,7 @@ function ChestPopup({ reward, onClose, lang = "tr" }) {
   const [opened, setOpened] = useState(false);
   const [shake, setShake] = useState(true);
   useEffect(() => { const t1 = setTimeout(() => setShake(false), 1500); return () => clearTimeout(t1); }, []);
-  return (<div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999 }} onClick={onClose}>
+  return (<div style={{ position:"fixed",inset:0,overflow:"hidden",background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999 }} onClick={onClose}>
     <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:`linear-gradient(135deg,${t.surface},rgba(17,24,39,0.98))`,border:`2px solid ${reward?reward.color:t.gold}`,borderRadius:16,padding:"30px 36px",textAlign:"center",maxWidth:320,width:"90%",boxShadow:`0 0 60px ${t.goldGlow}`,animation:"scaleUp 0.5s ease-out" }}>
       <button onClick={onClose} title={L(lang,"backBtn")} style={{ position:"absolute",top:-14,right:-14,width:34,height:34,borderRadius:"50%",background:"#0c1529",border:`2px solid ${t.gold}`,color:t.gold,fontSize:16,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,boxShadow:`0 0 12px ${t.goldGlow}`,zIndex:2 }}>✕</button>
       {!opened ? (<>
@@ -1785,10 +1785,10 @@ function LivingHorizon({ profile, lang = "tr" }) {
   ];
   const caption = captions[capIdx % captions.length];
   return (
-    <div style={{ width:"100vw",margin:"16px calc(50% - 50vw) 0",position:"relative",height:190,overflow:"hidden",zIndex:1,borderTop:"1px solid rgba(255,255,255,0.05)" }}>
+    <div style={{ width:"100%",maxWidth:400,margin:"16px auto 0",position:"relative",height:170,overflow:"hidden",zIndex:1,borderRadius:14,border:"1px solid rgba(255,255,255,0.06)" }}>
       <style>{`
-@keyframes lhDrift{0%{transform:translateX(-30px)}100%{transform:translateX(calc(100vw + 30px))}}
-@keyframes lhDriftR{0%{transform:translateX(calc(100vw + 30px)) scaleX(-1)}100%{transform:translateX(-30px) scaleX(-1)}}
+@keyframes lhDrift{0%{transform:translate3d(-30px,0,0)}100%{transform:translate3d(440px,0,0)}}
+@keyframes lhDriftR{0%{transform:translate3d(440px,0,0) scaleX(-1)}100%{transform:translate3d(-30px,0,0) scaleX(-1)}}
 @keyframes lhBob{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-5px) rotate(1.4deg)}}
 @keyframes lhWave{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 @keyframes lhTwinkle{0%,100%{opacity:0.2}50%{opacity:0.9}}
@@ -1864,13 +1864,13 @@ function AchievementsScreen({ profile, onClose, onClaim, lang = "tr" }) {
   const claimed = safeClaimed(p.achievClaimed);
   const en = lang === "en";
   return (
-    <div style={{ position:"fixed",inset:0,zIndex:9000,background:"linear-gradient(180deg,#050b18 0%,#071428 55%,#0a1a35 100%)",overflowY:"auto",WebkitOverflowScrolling:"touch" }}>
+    <div style={{ position:"fixed",inset:0,zIndex:9000,background:"linear-gradient(180deg,#050b18 0%,#071428 55%,#0a1a35 100%)",overflowX:"hidden",overflowY:"auto",WebkitOverflowScrolling:"touch" }}>
       <style>{`
 @keyframes achGlow{0%,100%{box-shadow:0 0 8px rgba(52,211,153,0.45)}50%{box-shadow:0 0 18px rgba(52,211,153,0.85)}}
 @keyframes achBtnPulse{0%,100%{transform:scale(1);box-shadow:0 0 16px rgba(255,215,0,0.4)}50%{transform:scale(1.03);box-shadow:0 0 28px rgba(255,215,0,0.7)}}
 @keyframes achFadeUp{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:translateY(0)}}
       `}</style>
-      <div style={{ maxWidth:410,margin:"0 auto",padding:"calc(14px + env(safe-area-inset-top,0px)) 14px 44px",display:"flex",flexDirection:"column",alignItems:"center" }}>
+      <div style={{ maxWidth:400,margin:"0 auto",padding:"calc(14px + env(safe-area-inset-top,0px)) clamp(10px,4vw,16px) 44px",width:"100%",display:"flex",flexDirection:"column",alignItems:"center" }}>
         {/* Başlık */}
         <div style={{ width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16 }}>
           <button onClick={onClose} style={{ width:38,height:38,borderRadius:10,background:"rgba(255,255,255,0.05)",border:`1px solid ${t.border}`,color:t.text,fontSize:18,cursor:"pointer",fontFamily:warrior }}>←</button>
@@ -1993,7 +1993,7 @@ function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
     setTimeout(() => sfx.play('gold'), 250);
   };
   const coins = Array.from({ length: 12 }, (_, i) => ({ id: i, delay: i * 90, dx: (Math.random() - 0.5) * 120 }));
-  return (<div style={{ position:"fixed",inset:0,background:"radial-gradient(ellipse at 50% 40%, rgba(255,214,0,0.12) 0%, rgba(0,0,0,0.88) 75%)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(6px)" }} onClick={opened ? (() => onClaim(DAILY_CHEST_GOLD)) : onClose}>
+  return (<div style={{ position:"fixed",inset:0,overflow:"hidden",background:"radial-gradient(ellipse at 50% 40%, rgba(255,214,0,0.12) 0%, rgba(0,0,0,0.88) 75%)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(6px)" }} onClick={opened ? (() => onClaim(DAILY_CHEST_GOLD)) : onClose}>
     <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, rgba(20,26,52,0.99) 0%, rgba(10,16,32,0.99) 60%, rgba(18,16,30,0.99) 100%)",border:"3px solid #ffe94d",outline:"2px solid rgba(255,233,77,0.65)",outlineOffset:6,borderRadius:22,padding:"38px 42px",textAlign:"center",maxWidth:340,width:"90%",boxShadow:"0 0 40px #ffe94d, 0 0 90px rgba(255,233,77,0.75), 0 0 150px rgba(255,233,77,0.4), 0 24px 70px rgba(0,0,0,0.6)",overflow:"visible",animation:"chestGlow 1.6s ease-in-out infinite" }}>
       <button onClick={opened ? (() => onClaim(DAILY_CHEST_GOLD)) : onClose} title={L(lang,"backBtn")} style={{ position:"absolute",top:-14,right:-14,width:34,height:34,borderRadius:"50%",background:"#0c1529",border:"2px solid #ffe94d",color:"#ffe94d",fontSize:16,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,boxShadow:"0 0 14px rgba(255,233,77,0.8)",zIndex:2 }}>✕</button>
       {!opened ? (<>
@@ -2081,7 +2081,7 @@ function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoar
 @keyframes shimmerPass{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(600%,0,0)}}
         `}</style>
         {/* Gemi görseli — zafer: altın ihtişam / bozgun: yaralı ve dumanlı (aynı gemi, iki kader) */}
-        <div style={{ position:"relative",width:150,height:150,margin:"0 auto 4px",animation:"goShipIn 0.9s cubic-bezier(0.34,1.56,0.64,1) both" }}>
+        <div style={{ position:"relative",width:"clamp(110px, 34vw, 150px)",height:"clamp(110px, 34vw, 150px)",margin:"0 auto 4px",animation:"goShipIn 0.9s cubic-bezier(0.34,1.56,0.64,1) both" }}>
           <img src={isWin ? "/img/ship-victory.png" : "/img/ship-defeat.png"} onError={(e)=>{ e.currentTarget.onerror=null; e.currentTarget.src="/img/victory-medal.png"; }} alt="" style={{ width:"100%",height:"100%",objectFit:"contain",animation:"float 3s ease-in-out 0.9s infinite",filter:isWin
             ? `drop-shadow(0 0 22px ${t.goldGlow}) drop-shadow(0 0 46px rgba(0,229,255,0.5)) drop-shadow(0 10px 18px rgba(0,0,0,0.6))`
             : "drop-shadow(0 0 24px rgba(255,71,87,0.55)) drop-shadow(0 10px 18px rgba(0,0,0,0.7))" }} />
@@ -2090,9 +2090,9 @@ function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoar
         </div>
         {/* Harf harf çöken destansı başlık */}
         <div style={{ position:"relative",marginBottom:6 }}>
-          <div style={{ display:"flex",justifyContent:"center",gap:isWin?6:5,perspective:"500px" }}>
+          <div style={{ display:"flex",justifyContent:"center",gap:"clamp(2px, 1.2vw, 6px)",perspective:"500px",maxWidth:"100%" }}>
             {(isWin?L(lang,"victory"):L(lang,"defeat")).split("").map((ch,i)=>(
-              <span key={i} style={{ fontSize:56,fontWeight:900,fontFamily:warrior,lineHeight:1,display:"inline-block",textTransform:"uppercase",
+              <span key={i} style={{ fontSize:"clamp(34px, 12vw, 56px)",fontWeight:900,fontFamily:warrior,lineHeight:1,display:"inline-block",textTransform:"uppercase",
                 animation:`goLetter 0.55s cubic-bezier(0.34,1.56,0.64,1) ${0.2+i*0.09}s both${isWin?`, goFloat 2.6s ease-in-out ${1.2+i*0.18}s infinite`:""}`,
                 ...(isWin
                   ? { background:"linear-gradient(180deg,#fffbe0 0%,#ffe066 26%,#ffd700 50%,#b45309 72%,#ffe066 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 4px 0 rgba(110,55,0,0.6)) drop-shadow(0 0 28px rgba(255,215,0,0.7)) drop-shadow(0 12px 24px rgba(0,0,0,0.8))" }
@@ -2100,7 +2100,7 @@ function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoar
               }}>{ch}</span>
             ))}
           </div>
-          <div style={{ height:2,margin:"10px auto 0",width:180,background:isWin?"linear-gradient(90deg,transparent,#ffd700,transparent)":"linear-gradient(90deg,transparent,#ff4757,transparent)",boxShadow:isWin?`0 0 16px ${t.goldGlow}`:`0 0 16px ${t.hitGlow}`,animation:"goLine 1s ease-out 0.9s both" }} />
+          <div style={{ height:2,margin:"10px auto 0",width:"min(180px, 60%)",background:isWin?"linear-gradient(90deg,transparent,#ffd700,transparent)":"linear-gradient(90deg,transparent,#ff4757,transparent)",boxShadow:isWin?`0 0 16px ${t.goldGlow}`:`0 0 16px ${t.hitGlow}`,animation:"goLine 1s ease-out 0.9s both" }} />
         </div>
         <div style={{ fontSize:13,fontWeight:700,color:isWin?"rgba(0,229,255,0.8)":"rgba(255,71,87,0.8)",fontFamily:warrior,letterSpacing:3,marginBottom:20,animation:"fadeUp 0.6s ease-out 1.1s both" }}>{winner}</div>
         {/* Stats with staggered animation */}
@@ -2197,7 +2197,7 @@ function RewardModal({ rewards: rawRewards, dailyMissions, missionProgress, newA
     </div>
   );
   return (
-    <div onClick={onClose} style={{ position:"fixed",inset:0,zIndex:10010,background:"rgba(2,6,16,0.82)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:18,animation:"settingsFadeIn 0.25s ease-out" }}>
+    <div onClick={onClose} style={{ position:"fixed",inset:0,overflowY:"auto",overflowX:"hidden",zIndex:10010,background:"rgba(2,6,16,0.82)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:18,animation:"settingsFadeIn 0.25s ease-out" }}>
       <div onClick={e=>e.stopPropagation()} style={{ background:"linear-gradient(160deg, #0d1b32, #060e1f)",border:`2px solid ${rewards.isWin?"rgba(255,215,0,0.55)":"rgba(0,229,255,0.4)"}`,borderRadius:20,padding:"22px 20px 18px",maxWidth:340,width:"100%",boxShadow:`0 0 50px ${rewards.isWin?"rgba(255,215,0,0.25)":"rgba(0,229,255,0.18)"}, 0 24px 70px rgba(0,0,0,0.75)`,animation:"tutCardEnter 0.6s cubic-bezier(0.16,1,0.3,1)",position:"relative" }}>
         <button onClick={onClose} style={{ position:"absolute",top:10,right:10,width:30,height:30,borderRadius:"50%",background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,color:t.textDim,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>✕</button>
         <div style={{ textAlign:"center",fontSize:17,fontWeight:900,color:rewards.isWin?t.gold:t.accent,fontFamily:warrior,letterSpacing:4,marginBottom:14,textShadow:`0 0 18px ${rewards.isWin?t.goldGlow:t.accentGlow}` }}>{rewards.isWin?"⚔ ":"🛡 "}{L(lang, rewards.isWin?"rewardTitleWin":"rewardTitleLoss")}</div>
@@ -2298,9 +2298,9 @@ function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack, ready, onTogg
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:t.bg,padding:"20px 12px",fontFamily:"'Space Mono',monospace",color:t.text }}>
     <div style={{ fontSize:22,fontWeight:700,letterSpacing:5,color:t.accent,marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",textShadow:`0 0 20px ${t.accentGlow}` }}>{L(lang,"onlineSalon")}</div>
     <div style={{ fontSize:10,color:t.textDim,letterSpacing:4,marginBottom:14,fontFamily:"'Barlow Condensed',sans-serif" }}>{L(lang,"activeSailors")}</div>
-    <button onClick={onToggleReady} style={{ width:"100%",maxWidth:420,marginBottom:14,padding:"13px 0",background:ready?"linear-gradient(135deg,#34d399,#0d9488)":"rgba(255,255,255,0.05)",color:ready?"#04231a":t.textDim,border:`2px solid ${ready?"#34d399":t.border}`,borderRadius:12,fontSize:14,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",textTransform:"uppercase",boxShadow:ready?"0 0 24px rgba(52,211,153,0.5)":"none",animation:ready?"borderGlow 2s infinite":"none",transition:"all 0.2s ease" }}>{ready?"✅":"⚡"} {L(lang,"readyToPlay")}</button>
+    <button onClick={onToggleReady} style={{ width:"100%",maxWidth:400,marginBottom:14,padding:"13px 0",background:ready?"linear-gradient(135deg,#34d399,#0d9488)":"rgba(255,255,255,0.05)",color:ready?"#04231a":t.textDim,border:`2px solid ${ready?"#34d399":t.border}`,borderRadius:12,fontSize:14,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",textTransform:"uppercase",boxShadow:ready?"0 0 24px rgba(52,211,153,0.5)":"none",animation:ready?"borderGlow 2s infinite":"none",transition:"all 0.2s ease" }}>{ready?"✅":"⚡"} {L(lang,"readyToPlay")}</button>
     {ready && <div style={{ fontSize:10,color:"#34d399",fontFamily:"'Space Mono',monospace",marginBottom:14,textAlign:"center" }}>{L(lang,"readyHint")}</div>}
-    {invites.filter(inv=>inv.status==="pending").map(invite=>(<div key={invite.id} style={{ width:"100%",maxWidth:420,marginBottom:8,padding:"12px 16px",background:"rgba(6,182,212,0.1)",border:`1px solid ${t.accent}`,borderRadius:10,animation:"borderGlow 2s infinite" }}>
+    {invites.filter(inv=>inv.status==="pending").map(invite=>(<div key={invite.id} style={{ width:"100%",maxWidth:400,marginBottom:8,padding:"12px 16px",background:"rgba(6,182,212,0.1)",border:`1px solid ${t.accent}`,borderRadius:10,animation:"borderGlow 2s infinite" }}>
       <div style={{ fontSize:12,color:t.accent,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,marginBottom:6,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={14} color={t.accent}/> {L(lang,"duelInvite")}</div>
       <div style={{ fontSize:13,color:t.text,marginBottom:8 }}><span style={{ fontWeight:700 }}>{invite.fromName}</span><span style={{ color:t.textDim,fontSize:10,marginLeft:8 }}>💰 {invite.fromGold||0}</span></div>
       <div style={{ display:"flex",gap:8 }}>
@@ -2308,13 +2308,13 @@ function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack, ready, onTogg
         <button onClick={()=>rejectInvite(invite)} style={{ flex:1,padding:"8px 0",background:"transparent",color:t.hit,border:`1px solid ${t.hit}`,borderRadius:6,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif" }}>{L(lang,"reject")}</button>
       </div>
     </div>))}
-    {sentInvite&&(<div style={{ width:"100%",maxWidth:420,marginBottom:8,padding:"12px 16px",background:"rgba(251,191,36,0.08)",border:`1px solid ${t.gold}`,borderRadius:10 }}>
+    {sentInvite&&(<div style={{ width:"100%",maxWidth:400,marginBottom:8,padding:"12px 16px",background:"rgba(251,191,36,0.08)",border:`1px solid ${t.gold}`,borderRadius:10 }}>
       <div style={{ fontSize:11,color:t.gold,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,marginBottom:4 }}>{L(lang,"inviteSent")}</div>
       <div style={{ fontSize:13,color:t.text,marginBottom:8 }}><span style={{ fontWeight:700 }}>{sentInvite.targetName}</span> {L(lang,"inviteWaiting")}<span style={{ display:"inline-block",marginLeft:6,animation:"pulse 1.5s infinite" }}>⏳</span></div>
       <button onClick={cancelInvite} style={{ padding:"6px 16px",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:6,fontSize:10,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1 }}>{L(lang,"cancelBtn")}</button>
     </div>)}
-    {players.length===0?(<div style={{ width:"100%",maxWidth:420,padding:"30px 20px",textAlign:"center",background:t.surface,border:`1px solid ${t.border}`,borderRadius:10,marginTop:8 }}><div style={{ fontSize:24,marginBottom:8 }}>🌊</div><div style={{ fontSize:12,color:t.textDim }}>{L(lang,"noSailors")}</div><div style={{ fontSize:10,color:t.textDim,marginTop:4 }}>{L(lang,"noSailorsHint")}</div></div>):(
-      <div style={{ width:"100%",maxWidth:420,display:"flex",flexDirection:"column",gap:4 }}>
+    {players.length===0?(<div style={{ width:"100%",maxWidth:400,padding:"30px 20px",textAlign:"center",background:t.surface,border:`1px solid ${t.border}`,borderRadius:10,marginTop:8 }}><div style={{ fontSize:24,marginBottom:8 }}>🌊</div><div style={{ fontSize:12,color:t.textDim }}>{L(lang,"noSailors")}</div><div style={{ fontSize:10,color:t.textDim,marginTop:4 }}>{L(lang,"noSailorsHint")}</div></div>):(
+      <div style={{ width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:4 }}>
         <div style={{ fontSize:9,color:t.textDim,letterSpacing:2,marginBottom:4 }}>{players.length} {L(lang,"sailorsActive")}</div>
         {players.map(p=>{const rank=getRankInfo(typeof p.honor==="number"?p.honor:((p.wins||0)*8+(p.losses||0)*3),lang);const alreadySent=sentInvite?.targetUid===p.uid;return(<div key={p.uid} style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:t.surface,border:`1px solid ${t.border}`,borderRadius:8 }}>
           <div style={{ width:8,height:8,borderRadius:"50%",background:"#34d399",boxShadow:"0 0 6px rgba(52,211,153,0.5)" }} />
@@ -2792,7 +2792,21 @@ export default function Game() {
     bumpVoyageMatch();
   };
 
-  const cellSize = typeof window !== "undefined" ? Math.max(16, Math.min(30, Math.floor((Math.min(window.innerWidth - 24, 400)) / 12), Math.floor((window.innerHeight - 300) / 12))) : 28;
+  // Ekran ölçüsünü canlı takip et — telefon döndürülünce veya klavye açılınca tahta yeniden ölçeklenir.
+  const [viewport, setViewport] = useState({ w: 390, h: 800 });
+  useEffect(() => {
+    const measure = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
+    measure();
+    window.addEventListener("resize", measure);
+    window.addEventListener("orientationchange", measure);
+    return () => { window.removeEventListener("resize", measure); window.removeEventListener("orientationchange", measure); };
+  }, []);
+  // Tahta genişliği: 11 sütun (1 etiket + 10 hücre) + kenar payları ekranı ASLA aşmaz.
+  const gutter = Math.min(16, Math.max(10, viewport.w * 0.04)) * 2; // appStyle yatay boşluğu
+  const cellSize = Math.max(16, Math.min(30,
+    Math.floor((Math.min(viewport.w - gutter - 16, 400)) / 11),
+    Math.floor((viewport.h - 300) / 12)
+  ));
   useEffect(() => { myTurnRef.current = myTurn; }, [myTurn]);
   useEffect(() => {
     if (phase === "lobby" && authUid && myProfile && !hasClaimedDailyChestToday()) setShowDailyChest(true);
@@ -3435,8 +3449,8 @@ export default function Game() {
         <button onClick={toggleMusic} title={L(appLang,"musicTooltip")} style={{ width:34,height:34,borderRadius:8,background:musicOn?"rgba(255,255,255,0.06)":"rgba(255,71,87,0.14)",border:`1px solid ${musicOn?t.border:t.hit}`,fontSize:16,cursor:"pointer",color:musicOn?t.textDim:t.hit,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>{musicOn?"🔊":"🔇"}</button>
       </div>
       {showSettings && (
-        <div style={{ position:"fixed",inset:0,zIndex:9600,background:"rgba(0,0,0,0.62)",backdropFilter:"blur(4px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"settingsFadeIn 0.2s ease-out" }} onClick={()=>{ setShowSettings(false); setSettingsView(null); }}>
-          <div onClick={e=>e.stopPropagation()} style={{ width:"100%",maxWidth:460,maxHeight:"86vh",overflowY:"auto",background:"linear-gradient(180deg, rgba(14,20,40,0.99), rgba(7,11,24,0.99))",border:`1px solid ${t.border}`,borderBottom:"none",borderRadius:"20px 20px 0 0",padding:"14px 20px 30px",animation:"sheetSlideUp 0.3s cubic-bezier(0.22,1,0.36,1)",boxShadow:"0 -10px 50px rgba(0,0,0,0.5)" }}>
+        <div style={{ position:"fixed",inset:0,overflowX:"hidden",zIndex:9600,background:"rgba(0,0,0,0.62)",backdropFilter:"blur(4px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"settingsFadeIn 0.2s ease-out" }} onClick={()=>{ setShowSettings(false); setSettingsView(null); }}>
+          <div onClick={e=>e.stopPropagation()} style={{ width:"100%",maxWidth:400,maxHeight:"86vh",overflowY:"auto",background:"linear-gradient(180deg, rgba(14,20,40,0.99), rgba(7,11,24,0.99))",border:`1px solid ${t.border}`,borderBottom:"none",borderRadius:"20px 20px 0 0",padding:"14px 20px 30px",animation:"sheetSlideUp 0.3s cubic-bezier(0.22,1,0.36,1)",boxShadow:"0 -10px 50px rgba(0,0,0,0.5)" }}>
             <div style={{ width:40,height:4,borderRadius:2,background:"rgba(255,255,255,0.2)",margin:"0 auto 16px" }} />
 
             {settingsView === null && (<>
@@ -3540,7 +3554,7 @@ export default function Game() {
       )}
       {incomingInvite && phase === "lobby" && !showOnlineLobby && (
         <div style={{ position:"fixed",top:64,left:0,right:0,display:"flex",justifyContent:"center",zIndex:9650,padding:"0 14px",animation:"fadeUp 0.35s ease-out" }}>
-          <div style={{ width:"100%",maxWidth:360,background:"linear-gradient(145deg, rgba(12,21,41,0.99), rgba(8,14,30,0.99))",border:`2px solid #34d399`,borderRadius:14,padding:"14px 18px",boxShadow:"0 0 40px rgba(52,211,153,0.4), 0 10px 30px rgba(0,0,0,0.5)",animation:"borderGlow 2s infinite" }}>
+          <div style={{ width:"100%",maxWidth:400,background:"linear-gradient(145deg, rgba(12,21,41,0.99), rgba(8,14,30,0.99))",border:`2px solid #34d399`,borderRadius:14,padding:"14px 18px",boxShadow:"0 0 40px rgba(52,211,153,0.4), 0 10px 30px rgba(0,0,0,0.5)",animation:"borderGlow 2s infinite" }}>
             <div style={{ fontSize:11,fontWeight:900,color:"#34d399",letterSpacing:2,fontFamily:warrior,marginBottom:6,display:"flex",alignItems:"center",gap:6 }}>⚡ {L(appLang,"duelInvite")}</div>
             <div style={{ fontSize:14,color:t.text,fontFamily:mono,marginBottom:10 }}><span style={{ fontWeight:800 }}>{incomingInvite.fromName}</span> {L(appLang,"wantsToPlayMsg")} <span style={{ color:t.gold,fontSize:11 }}>(💰{incomingInvite.fromGold || 0})</span></div>
             <div style={{ display:"flex",gap:8 }}>
@@ -3951,7 +3965,8 @@ export default function Game() {
     return () => unsub();
   }, [phase, authUid, readyToPlay]);
 
-  const appStyle = { minHeight: "100vh", minHeight: "100dvh", width: "100%", background: t.bg, color: t.text, fontFamily: mono, display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 8px", boxSizing: "border-box", overflowX: "hidden" };
+  // Tek kaynaklı ölçü sistemi: her ekranda aynı kenar boşluğu ve aynı içerik genişliği.
+  const appStyle = { minHeight: "100vh", minHeight: "100dvh", width: "100%", maxWidth: "100%", background: t.bg, color: t.text, fontFamily: mono, display: "flex", flexDirection: "column", alignItems: "center", padding: "12px clamp(10px, 4vw, 16px) 24px", boxSizing: "border-box", overflowX: "hidden" };
   const btnStyle = { padding: "12px 28px", background: `linear-gradient(135deg, ${t.accent}, #0891b2)`, color: t.bg, border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", cursor: "pointer", fontFamily: warrior, boxShadow: `0 0 15px ${t.accentGlow}` };
   const btnSecStyle = { padding: "8px 16px", background: "transparent", color: t.accent, border: `1px solid ${t.accent}`, borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: 1, cursor: "pointer", fontFamily: warrior };
   const inputStyle = { padding: "12px 16px", background: t.surface, color: t.text, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 15, fontFamily: mono, outline: "none", textAlign: "center", width: "100%", maxWidth: 260, boxSizing: "border-box" };
@@ -3987,7 +4002,7 @@ export default function Game() {
           </div>
           {/* Title */}
           <div style={{ animation:"titleSlam 1s cubic-bezier(0.34,1.56,0.64,1) 0.3s both" }}>
-            <div style={{ fontSize:52,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:12,textShadow:`0 0 80px ${t.accentGlow}, 0 0 160px rgba(0,229,255,0.2), 0 6px 30px rgba(0,0,0,0.9)`,lineHeight:1.05,WebkitTextStroke:"0.5px rgba(255,255,255,0.1)" }}>AMİRAL<br/>BATTI</div>
+            <div style={{ fontSize:"clamp(34px, 12vw, 52px)",fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:"clamp(5px, 3vw, 12px)",textShadow:`0 0 80px ${t.accentGlow}, 0 6px 30px rgba(0,0,0,0.9)`,lineHeight:1.05,WebkitTextStroke:"0.5px rgba(255,255,255,0.1)" }}>AMİRAL<br/>BATTI</div>
           </div>
           <div style={{ fontSize:16,color:"rgba(255,215,0,0.75)",fontFamily:warrior,letterSpacing:8,marginTop:12,fontStyle:"italic",textShadow:`0 0 16px ${t.goldGlow}`,animation:"fadeUp 1s ease-out 1.0s both" }}>{L(appLang,"tagline")}</div>
           <div style={{ display:"flex",alignItems:"center",gap:10,marginTop:12,marginBottom:36,animation:"fadeUp 1s ease-out 1.15s both" }}>
@@ -4104,7 +4119,7 @@ export default function Game() {
           `}</style>
           {/* Yönlendirme balonu — o an ne yapılacağını TEK cümleyle söyler */}
           <div style={{ minHeight:36,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:8 }}>
-            {!sel && <div style={{ padding:"7px 18px",borderRadius:20,background:"linear-gradient(135deg, rgba(255,215,0,0.16), rgba(255,159,67,0.10))",border:"1px solid rgba(255,215,0,0.5)",color:t.gold,fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:3,animation:"demoBubble 1.4s ease-in-out infinite",textShadow:`0 0 12px ${t.goldGlow}`,whiteSpace:"nowrap" }}>👇 {L(appLang,"tutPickShip")}</div>}
+            {!sel && <div style={{ padding:"7px 18px",borderRadius:20,background:"linear-gradient(135deg, rgba(255,215,0,0.16), rgba(255,159,67,0.10))",border:"1px solid rgba(255,215,0,0.5)",color:t.gold,fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:3,animation:"demoBubble 1.4s ease-in-out infinite",textShadow:`0 0 12px ${t.goldGlow}`,textAlign:"center",maxWidth:"92%" }}>👇 {L(appLang,"tutPickShip")}</div>}
             {sel && !didRotate && <div style={{ padding:"7px 16px",borderRadius:20,background:"rgba(0,229,255,0.10)",border:"1px solid rgba(0,229,255,0.5)",color:t.accent,fontFamily:warrior,fontWeight:800,fontSize:13,letterSpacing:1,animation:"demoBubble 1.4s ease-in-out infinite",textShadow:`0 0 12px ${t.accentGlow}`,textAlign:"center",maxWidth:320 }}>👇 {L(appLang,"tutTapRotate")}</div>}
             {sel && didRotate && <div style={{ padding:"7px 18px",borderRadius:20,background:"rgba(74,222,128,0.10)",border:"1px solid rgba(74,222,128,0.55)",color:"#4ade80",fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:3,animation:"demoWin 1.6s ease-out",whiteSpace:"nowrap" }}>✓ {L(appLang,"tutGreat")}</div>}
           </div>
@@ -4166,8 +4181,8 @@ export default function Game() {
           `}</style>
           {/* Yönlendirme balonu */}
           <div style={{ minHeight:36,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:8 }}>
-            {stage==='peek' && <div style={{ padding:"7px 18px",borderRadius:20,background:"linear-gradient(135deg, rgba(255,215,0,0.16), rgba(255,159,67,0.10))",border:"1px solid rgba(255,215,0,0.5)",color:t.gold,fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:3,animation:"shotBubble 1.2s ease-in-out infinite",textShadow:`0 0 12px ${t.goldGlow}`,whiteSpace:"nowrap" }}>👀 {L(appLang,"tutPeek")}</div>}
-            {stage==='shoot' && <div style={{ padding:"7px 18px",borderRadius:20,background:"rgba(255,71,87,0.10)",border:"1px solid rgba(255,71,87,0.5)",color:t.hit,fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:3,animation:"shotBubble 1.2s ease-in-out infinite",textShadow:`0 0 12px ${t.hitGlow}`,whiteSpace:"nowrap" }}>🎯 {L(appLang,"tutFire3")}</div>}
+            {stage==='peek' && <div style={{ padding:"7px 18px",borderRadius:20,background:"linear-gradient(135deg, rgba(255,215,0,0.16), rgba(255,159,67,0.10))",border:"1px solid rgba(255,215,0,0.5)",color:t.gold,fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:3,animation:"shotBubble 1.2s ease-in-out infinite",textShadow:`0 0 12px ${t.goldGlow}`,textAlign:"center",maxWidth:"92%" }}>👀 {L(appLang,"tutPeek")}</div>}
+            {stage==='shoot' && <div style={{ padding:"7px 18px",borderRadius:20,background:"rgba(255,71,87,0.10)",border:"1px solid rgba(255,71,87,0.5)",color:t.hit,fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:3,animation:"shotBubble 1.2s ease-in-out infinite",textShadow:`0 0 12px ${t.hitGlow}`,textAlign:"center",maxWidth:"92%" }}>🎯 {L(appLang,"tutFire3")}</div>}
             {stage==='done' && <div style={{ padding:"7px 18px",borderRadius:20,background:"rgba(74,222,128,0.10)",border:"1px solid rgba(74,222,128,0.55)",color:"#4ade80",fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:2,animation:"shotWin 1.6s ease-out",whiteSpace:"nowrap" }}>{hits>0?"💥":"💦"} {L(appLang,"tutHitsResult")(hits)}</div>}
           </div>
           {/* 4x3 platform */}
@@ -4225,7 +4240,7 @@ export default function Game() {
           `}</style>
           {/* Yönlendirme balonu */}
           <div style={{ minHeight:36,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:8 }}>
-            {!userFlag && <div style={{ padding:"7px 18px",borderRadius:20,background:"linear-gradient(135deg, rgba(255,215,0,0.16), rgba(255,159,67,0.10))",border:"1px solid rgba(255,215,0,0.5)",color:t.gold,fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:2,animation:"markBubble 1.4s ease-in-out infinite",textShadow:`0 0 12px ${t.goldGlow}`,whiteSpace:"nowrap" }}>☝ {L(appLang,"tutMarkYou")}</div>}
+            {!userFlag && <div style={{ padding:"7px 18px",borderRadius:20,background:"linear-gradient(135deg, rgba(255,215,0,0.16), rgba(255,159,67,0.10))",border:"1px solid rgba(255,215,0,0.5)",color:t.gold,fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:2,animation:"markBubble 1.4s ease-in-out infinite",textShadow:`0 0 12px ${t.goldGlow}`,textAlign:"center",maxWidth:"92%" }}>☝ {L(appLang,"tutMarkYou")}</div>}
             {userFlag && <div style={{ padding:"7px 18px",borderRadius:20,background:"rgba(74,222,128,0.10)",border:"1px solid rgba(74,222,128,0.55)",color:"#4ade80",fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:2,animation:"markWin 1.6s ease-out",whiteSpace:"nowrap" }}>✓ {L(appLang,"tutMarkDone")}</div>}
           </div>
           {/* 4x3 platform */}
@@ -4307,7 +4322,7 @@ export default function Game() {
               <AnchorHeroLogo />
             </div>
             <div style={{ animation:"titleSlam 0.9s cubic-bezier(0.34,1.56,0.64,1) 0.4s both" }}>
-              <div style={{ fontSize:56,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:12,textShadow:`0 0 80px ${t.accentGlow}, 0 0 40px rgba(0,229,255,0.4), 0 6px 30px rgba(0,0,0,0.9)`,lineHeight:1 }}>AMİRAL<br/>BATTI</div>
+              <div style={{ fontSize:"clamp(36px, 13vw, 56px)",fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:"clamp(5px, 3vw, 12px)",textShadow:`0 0 80px ${t.accentGlow}, 0 6px 30px rgba(0,0,0,0.9)`,lineHeight:1 }}>AMİRAL<br/>BATTI</div>
             </div>
             <div style={{ fontSize:16,color:"rgba(255,215,0,0.75)",fontFamily:warrior,letterSpacing:8,marginTop:14,fontStyle:"italic",animation:"fadeUp 1s ease-out 1.2s both",textShadow:`0 0 16px ${t.goldGlow}` }}>{L(appLang,"tagline")}</div>
             <div style={{ display:"flex",alignItems:"center",gap:10,marginTop:12,animation:"fadeUp 1s ease-out 1.35s both" }}>
@@ -4405,7 +4420,7 @@ export default function Game() {
           <div style={{ fontSize:13,color:t.textDim,fontFamily:mono,marginBottom:16,textAlign:"center",lineHeight:1.6 }}>{L(appLang,"markTrackBody1")}<br/>{L(appLang,"markTrackBody2")}</div>
           <MarkDemo />
           {/* SAVAŞ CTA */}
-          <div style={{ textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center",gap:0,width:"100%",maxWidth:340 }}>
+          <div style={{ textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center",gap:0,width:"100%",maxWidth:400 }}>
             <button onClick={finishTutorial} style={{ width:"100%",padding:"18px 0",background:"linear-gradient(180deg, #a01f0c 0%, #6b1108 50%, #3a0804 100%)",color:"#fff",border:"1px solid rgba(255,200,120,0.35)",borderRadius:6,fontSize:20,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 60px rgba(200,50,20,0.6), 0 0 120px rgba(180,30,10,0.3), 0 8px 40px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,180,120,0.2)",position:"relative",overflow:"hidden",textTransform:"uppercase",textShadow:"0 0 30px rgba(255,140,60,0.9), 0 0 60px rgba(255,80,20,0.5), 0 2px 8px rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>
               <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,150,80,0.1),transparent)",animation:"shimmerPass 3s ease-in-out infinite" }} />
               <XAnchors size={22} color="#ffd8a8" /> {L(appLang,"startBattleBtn")}
@@ -4479,13 +4494,13 @@ export default function Game() {
         <div style={{ position:"absolute",bottom:60,left:"-50%",width:"200%",height:30,borderRadius:"50%",background:t.accent,opacity:0.3,animation:"wave 14s linear infinite" }} />
       </div>
       {/* Logo */}
-      <div style={{ fontSize:42,fontWeight:900,letterSpacing:12,color:t.accent,textShadow:`0 0 60px ${t.accentGlow}, 0 0 120px rgba(0,229,255,0.15), 0 3px 12px rgba(0,0,0,0.6)`,marginBottom:2,fontFamily:warrior,animation:"logoFloat 4s ease-in-out infinite",zIndex:1,WebkitTextStroke:"0.5px rgba(255,255,255,0.08)",width:"100%",textAlign:"center" }}>AMİRAL BATTI</div>
-      <div style={{ display:"flex",alignItems:"center",gap:12,marginBottom:10,zIndex:1 }}>
-        <div style={{ width:52,height:1,background:"linear-gradient(90deg, transparent, rgba(255,215,0,0.55))" }} />
-        <div style={{ fontSize:11,color:t.gold,letterSpacing:6,fontFamily:warrior,fontStyle:"italic",fontWeight:700,textShadow:`0 0 14px ${t.goldGlow}`,whiteSpace:"nowrap" }}>{L(appLang,"tagline")}</div>
-        <div style={{ width:52,height:1,background:"linear-gradient(90deg, rgba(255,215,0,0.55), transparent)" }} />
+      <div style={{ fontSize:"clamp(26px, 9.5vw, 42px)",fontWeight:900,letterSpacing:"clamp(4px, 2.4vw, 12px)",color:t.accent,textShadow:`0 0 60px ${t.accentGlow}, 0 3px 12px rgba(0,0,0,0.6)`,marginBottom:2,fontFamily:warrior,animation:"logoFloat 4s ease-in-out infinite",zIndex:1,WebkitTextStroke:"0.5px rgba(255,255,255,0.08)",width:"100%",textAlign:"center",whiteSpace:"nowrap",overflow:"hidden" }}>AMİRAL BATTI</div>
+      <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:10,zIndex:1,width:"100%",maxWidth:400,justifyContent:"center" }}>
+        <div style={{ flex:"0 1 52px",height:1,background:"linear-gradient(90deg, transparent, rgba(255,215,0,0.55))" }} />
+        <div style={{ fontSize:"clamp(9px, 2.8vw, 11px)",color:t.gold,letterSpacing:"clamp(2px, 1.4vw, 6px)",fontFamily:warrior,fontStyle:"italic",fontWeight:700,textShadow:`0 0 14px ${t.goldGlow}`,whiteSpace:"nowrap",flexShrink:0 }}>{L(appLang,"tagline")}</div>
+        <div style={{ flex:"0 1 52px",height:1,background:"linear-gradient(90deg, rgba(255,215,0,0.55), transparent)" }} />
       </div>
-      {myProfile && (<div style={{ width:"100%",maxWidth:360,marginTop:8,marginBottom:14,zIndex:1,animation:"fadeUp 0.25s ease-out" }}>
+      {myProfile && (<div style={{ width:"100%",maxWidth:400,marginTop:8,marginBottom:14,zIndex:1,animation:"fadeUp 0.25s ease-out" }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:5,padding:"0 2px" }}>
           <span style={{ fontSize:14,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 10px ${t.goldGlow}` }}>{L(appLang,"level")} {myLevel}</span>
           <span style={{ fontSize:12,fontWeight:800,color:t.textDim,fontFamily:mono,letterSpacing:1 }}>{Math.floor(myLevelPct*100)}%</span>
@@ -4577,7 +4592,7 @@ export default function Game() {
         const rm = revengeMult(ls);
         if (rm <= 1) return null;
         return (
-          <div style={{ width:"100%",maxWidth:360,marginBottom:10,zIndex:1,position:"relative",overflow:"hidden",background:"linear-gradient(135deg, rgba(200,30,30,0.16), rgba(255,140,0,0.10))",border:"2px solid rgba(255,80,60,0.55)",borderRadius:12,padding:"11px 14px",display:"flex",alignItems:"center",gap:10,animation:"pulse 1.8s ease-in-out infinite",boxShadow:"0 0 22px rgba(255,60,40,0.25)" }}>
+          <div style={{ width:"100%",maxWidth:400,marginBottom:10,zIndex:1,position:"relative",overflow:"hidden",background:"linear-gradient(135deg, rgba(200,30,30,0.16), rgba(255,140,0,0.10))",border:"2px solid rgba(255,80,60,0.55)",borderRadius:12,padding:"11px 14px",display:"flex",alignItems:"center",gap:10,animation:"pulse 1.8s ease-in-out infinite",boxShadow:"0 0 22px rgba(255,60,40,0.25)" }}>
             <span style={{ fontSize:22,filter:"drop-shadow(0 0 8px rgba(255,90,50,0.9))" }}>⚔</span>
             <div style={{ flex:1 }}>
               <div style={{ fontSize:12,fontWeight:900,color:"#ff9a76",fontFamily:warrior,letterSpacing:2,textShadow:"0 0 12px rgba(255,90,50,0.6)" }}>{L(appLang,"revengeActive")(rm)}</div>
@@ -4588,7 +4603,7 @@ export default function Game() {
         );
       })()}
       {/* Main action buttons */}
-      <div style={{ position:"relative",width:"100%",maxWidth:360,zIndex:1,animation:"fadeUp 0.5s ease-out" }}>
+      <div style={{ position:"relative",width:"100%",maxWidth:400,zIndex:1,animation:"fadeUp 0.5s ease-out" }}>
         {/* Köşe sonar dalgaları */}
         {!matchmaking && <>
         <span style={{ position:"absolute",top:-9,left:-9,width:30,height:30,borderTop:"3px solid rgba(0,229,255,0.55)",borderLeft:"3px solid rgba(0,229,255,0.55)",borderTopLeftRadius:18,animation:"sonarArc 2s ease-in-out infinite",pointerEvents:"none" }} />
@@ -4600,11 +4615,11 @@ export default function Game() {
         </RippleButton>
       </div>
       <QuickMatchModal myProfile={myProfile} lang={appLang} phase={quickMatchPhase} candidate={quickMatchCandidate} opponent={quickMatchOpponent} secondsLeft={quickMatchSecondsLeft} onCancel={cancelQuickMatch} onRetry={retryQuickMatch} />
-      <div style={{ display:"flex",gap:8,marginTop:10,width:"100%",maxWidth:360,animation:"fadeUp 0.6s ease-out",zIndex:1 }}>
+      <div style={{ display:"flex",gap:8,marginTop:10,width:"100%",maxWidth:400,animation:"fadeUp 0.6s ease-out",zIndex:1 }}>
         <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowOnlineLobby(true);}} disabled={authLoading} style={{ flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(0,212,255,0.16),rgba(0,212,255,0.05))`,color:t.accent,border:`2px solid rgba(0,212,255,0.45)`,borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}>🌐 {L(appLang,"salon")}</RippleButton>
         <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowArenaSelect(true);}} disabled={authLoading} style={{ flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(167,139,250,0.16),rgba(167,139,250,0.05))`,color:"#a78bfa",border:"2px solid rgba(167,139,250,0.45)",borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={20} color="#a78bfa"/> {L(appLang,"arena")}</RippleButton>
       </div>
-      <div style={{ display:"flex",gap:8,marginTop:8,width:"100%",maxWidth:360,animation:"fadeUp 0.7s ease-out",zIndex:1 }}>
+      <div style={{ display:"flex",gap:8,marginTop:8,width:"100%",maxWidth:400,animation:"fadeUp 0.7s ease-out",zIndex:1 }}>
         <RippleButton onClick={startBotGame} style={{ flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(52,211,153,0.16),rgba(52,211,153,0.05))`,color:"#34d399",border:"2px solid rgba(52,211,153,0.45)",borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🤖 {L(appLang,"bot")}</RippleButton>
         <RippleButton onClick={()=>setShowLeaderboard(true)} style={{ flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(255,215,0,0.14),rgba(255,215,0,0.04))`,color:t.gold,border:`2px solid rgba(255,215,0,0.45)`,borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🏆 {L(appLang,"leaderboard")}</RippleButton>
       </div>
@@ -4629,7 +4644,7 @@ export default function Game() {
         const dc = Object.keys(missionProgress).length;
         const ready = dc >= 3 && !chestClaimed;
         return (
-          <div style={{ width:"100%",maxWidth:360,marginTop:10,zIndex:1 }}>
+          <div style={{ width:"100%",maxWidth:400,marginTop:10,zIndex:1 }}>
             <style>{`
 @keyframes dmShine{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(500%,0,0)}}
 @keyframes dmDotPop{0%{transform:scale(0.3)}60%{transform:scale(1.4)}100%{transform:scale(1)}}
@@ -4668,7 +4683,7 @@ export default function Game() {
       {dailyReward && <DailyRewardPopup reward={dailyReward.reward} streak={dailyReward.streak} onClose={() => { setMyProfile(prev => prev ? { ...prev, gold: dailyReward.newGold, loginStreak: dailyReward.streak } : prev); setDailyReward(null); }} lang={appLang} />}
       {/* SEFER DÖNÜŞÜ — karşılama */}
       {voyageReward && (
-        <div style={{ position:"fixed",inset:0,zIndex:9400,background:"radial-gradient(ellipse at 50% 40%, rgba(0,229,255,0.08) 0%, rgba(2,6,16,0.9) 70%)",backdropFilter:"blur(3px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}>
+        <div style={{ position:"fixed",inset:0,overflow:"hidden",zIndex:9400,background:"radial-gradient(ellipse at 50% 40%, rgba(0,229,255,0.08) 0%, rgba(2,6,16,0.9) 70%)",backdropFilter:"blur(3px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}>
           <div style={{ background:`linear-gradient(160deg, #0c1a30, #071022)`,border:"2px solid rgba(0,229,255,0.4)",borderRadius:18,padding:"26px 28px",maxWidth:330,width:"100%",textAlign:"center",boxShadow:"0 0 50px rgba(0,229,255,0.2), 0 20px 60px rgba(0,0,0,0.7)",animation:"tutCardEnter 0.7s cubic-bezier(0.16,1,0.3,1)" }}>
             <div style={{ fontSize:52,marginBottom:8,animation:"logoFloat 3s ease-in-out infinite",display:"inline-block",filter:"drop-shadow(0 6px 14px rgba(0,0,0,0.6)) drop-shadow(0 0 20px rgba(0,229,255,0.4))" }}>⛵</div>
             <div style={{ fontSize:19,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 20px ${t.accentGlow}`,marginBottom:6 }}>{L(appLang,"voyageTitle")}</div>
@@ -4784,7 +4799,7 @@ export default function Game() {
         <button onClick={() => setShowSurrenderConfirm(true)} style={{ padding:"4px 12px",background:"transparent",color:t.textDim,border:`1px solid rgba(255,71,87,0.2)`,borderRadius:6,fontSize:9,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior,opacity:0.7 }}>{L(appLang,"leaveGame")}</button>
       </div>
       {/* Surrender confirm modal */}
-      {showSurrenderConfirm && <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(4px)" }}>
+      {showSurrenderConfirm && <div style={{ position:"fixed",inset:0,overflow:"hidden",background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(4px)" }}>
         <div style={{ background:`linear-gradient(145deg,rgba(12,21,41,0.99),rgba(8,14,30,0.99))`,border:`2px solid ${t.hit}`,borderRadius:16,padding:"28px 32px",textAlign:"center",maxWidth:300,width:"90%",boxShadow:`0 0 60px ${t.hitGlow}`,animation:"scaleUp 0.3s ease-out" }}>
           <div style={{ fontSize:32,marginBottom:10 }}>⚠️</div>
           <div style={{ fontSize:16,fontWeight:800,color:t.hit,fontFamily:warrior,letterSpacing:3,marginBottom:8 }}>{L(appLang,"leaveConfirmTitle")}</div>

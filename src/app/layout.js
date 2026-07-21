@@ -36,8 +36,18 @@ export default function RootLayout({ children }) {
 
         {/* MOBİL AKICILIK — dokunma gecikmesi, kaydırma ve yazı tipi yumuşatma */}
         <style dangerouslySetInnerHTML={{__html: `
-          * { -webkit-tap-highlight-color: transparent; }
-          html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+          /* TAŞMA KİLİDİ — hiçbir öğe yatayda ekranı aşamaz */
+          *, *::before, *::after { box-sizing: border-box; }
+          * { -webkit-tap-highlight-color: transparent; min-width: 0; }
+          html, body {
+            -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
+            overflow-x: hidden;
+            max-width: 100%;
+            width: 100%;
+            position: relative;
+          }
+          /* Görsel ve medya asla kabından taşmaz */
+          img, svg, video, canvas { max-width: 100%; }
           body {
             /* 300ms dokunma gecikmesini kaldırır — butonlar anında tepki verir */
             touch-action: manipulation;
