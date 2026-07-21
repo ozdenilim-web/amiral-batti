@@ -310,6 +310,7 @@ const TRANSLATIONS = {
     tagline: "savaşların atası...",
     howToPlay: "NASIL OYNANIR?", placeShipsTitle: "GEMİLERİ YERLEŞTIR", placeShipsBody1: "Bir gemi seç → haritaya dokun → yerleştir", placeShipsBody2: "ile yönünü değiştir",
     rotateLabel: "DÖNDÜR", admiralShipLabel: "AMİRAL GEMİSİ", tutBack: "← GERİ", tutNext: "GEÇ →", tutSkip: "GEÇ",
+    tutPickShip: "BİR GEMİ SEÇ", tutTapRotate: "GEMİYE DOKUN — DÖNDÜR", tutGreat: "HARİKA! İŞTE BU KADAR", tutSwapHint: "Başka gemi seçmek için alttakilere dokun",
     noTouchRuleTitle: "DEĞMEZLİK KURALI", noTouchRuleBody1: "Gemiler birbirine dokunamaz —", noTouchRuleBody2: "köşeden bile olsa!",
     threeShotsTitle: "3 EL ATIŞ", threeShotsBody: "Her turda 3 hücreyi seç → ATEŞ!",
     markTrackTitle: "İŞARETLE & TAKİP ET", markTrackBody1: "Atış yapmak istemediğin yerleri", markTrackBody2: "sağ tuş (mobilde uzun bas) ile işaretle.",
@@ -371,6 +372,7 @@ const TRANSLATIONS = {
     tagline: "ancestor of battles...",
     howToPlay: "HOW TO PLAY?", placeShipsTitle: "PLACE YOUR SHIPS", placeShipsBody1: "Pick a ship → tap the map → place it", placeShipsBody2: "to change direction",
     rotateLabel: "ROTATE", admiralShipLabel: "ADMIRAL SHIP", tutBack: "← BACK", tutNext: "NEXT →", tutSkip: "SKIP",
+    tutPickShip: "PICK A SHIP", tutTapRotate: "TAP THE SHIP — ROTATE", tutGreat: "AWESOME! THAT'S IT", tutSwapHint: "Tap below to switch ships",
     noTouchRuleTitle: "NO-TOUCH RULE", noTouchRuleBody1: "Ships can't touch each other —", noTouchRuleBody2: "not even diagonally!",
     threeShotsTitle: "3-SHOT VOLLEY", threeShotsBody: "Pick 3 cells each turn → FIRE!",
     markTrackTitle: "MARK & TRACK", markTrackBody1: "Mark cells you don't want to shoot at", markTrackBody2: "with right-click (or long-press on mobile).",
@@ -3292,48 +3294,70 @@ export default function Game() {
     const nextStep = () => { sfx.init(); sfx.play('click'); setOnboardingStep(s => s + 1); };
 
     // Amiral gemi animasyon bileşeni — yatay, döner, tekrar yerleşir (2 kez sonra loop)
+    // Adım 1 — ETKİLEŞİMLİ demo: gemi seç → 4x3 platforma konar → dokununca döner
     function AmiraldemoAnim() {
-      const [rot, setRot] = useState(0); // 0=yatay, 1=dikey
-      const [phase2, setPhase2] = useState('placing'); // placing|rotating|placed
-      const [cycle, setCycle] = useState(0);
-      useEffect(() => {
-        let t1, t2, t3, t4;
-        const run = () => {
-          setPhase2('placing'); setRot(0);
-          t1 = setTimeout(() => setPhase2('placed'), 800);
-          t2 = setTimeout(() => setPhase2('rotating'), 1800);
-          t3 = setTimeout(() => setRot(1), 2200);
-          t4 = setTimeout(() => { setPhase2('placed'); setCycle(c => c + 1); }, 2800);
-        };
-        run();
-        const loop = setInterval(run, 3800);
-        return () => { clearInterval(loop); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
-      }, []);
-      // Amiral shape: [[0,0],[0,1],[0,2],[1,1]] yatay — [[0,0],[1,0],[2,0],[1,1]] dikey
-      const COLS_H = 4, ROWS_H = 3;
-      const amiral_h = [[0,1],[0,2],[0,3],[1,2]]; // row,col (0-indexed), 4x3 grid
-      const amiral_v = [[0,1],[1,1],[2,1],[1,2]]; // rotated
-      const cells = rot === 0 ? amiral_h : amiral_v;
-      const cs = 44;
+      const DEMO_SHIPS = [
+        { id:"s2", color:"#ffd700", glow:"rgba(255,215,0,0.55)", h:[[1,1],[1,2]], v:[[0,1],[1,1]] },
+        { id:"s3", color:"#00e5ff", glow:"rgba(0,229,255,0.55)", h:[[1,0],[1,1],[1,2]], v:[[0,1],[1,1],[2,1]] },
+        { id:"amiral", color:"#e74c3c", glow:"rgba(231,76,60,0.55)", h:[[0,1],[0,2],[0,3],[1,2]], v:[[0,1],[1,1],[2,1],[1,2]] },
+      ];
+      const [selId, setSelId] = useState(null);
+      const [rot, setRot] = useState(0);          // 0=yatay 1=dikey
+      const [didRotate, setDidRotate] = useState(false);
+      const [pop, setPop] = useState(0);          // her aksiyonda pop animasyonu tetikler
+      const sel = DEMO_SHIPS.find(s => s.id === selId);
+      const cells = sel ? (rot === 0 ? sel.h : sel.v) : [];
+      const cs = 46, miniCell = 11;
+      const pickShip = (id) => { try { sfx.init(); sfx.play('click'); } catch(e) {} setSelId(id); setRot(0); setPop(p=>p+1); };
+      const rotateShip = () => { if (!sel) return; try { sfx.play('hit'); } catch(e) {} setRot(r=>1-r); setDidRotate(true); setPop(p=>p+1); };
+      const MiniShip = ({ s }) => {
+        const minR = Math.min(...s.h.map(a=>a[0])), minC = Math.min(...s.h.map(a=>a[1]));
+        const norm = s.h.map(([r,c])=>[r-minR,c-minC]);
+        const nR = Math.max(...norm.map(a=>a[0]))+1, nC = Math.max(...norm.map(a=>a[1]))+1;
+        return (<div style={{ display:"grid",gridTemplateColumns:`repeat(${nC},${miniCell}px)`,gridTemplateRows:`repeat(${nR},${miniCell}px)`,gap:1 }}>
+          {Array.from({length:nR*nC}).map((_,i)=>{ const r=Math.floor(i/nC), c=i%nC; const on=norm.some(([a,b])=>a===r&&b===c);
+            return <div key={i} style={{ borderRadius:2,background:on?s.color:"transparent",boxShadow:on?`0 0 5px ${s.glow}`:"none" }} />; })}
+        </div>);
+      };
       return (
-        <div style={{ position:"relative",marginBottom:20,display:"flex",flexDirection:"column",alignItems:"center" }}>
-          <div style={{ display:"grid",gridTemplateColumns:`repeat(4,${cs}px)`,gridTemplateRows:`repeat(3,${cs}px)`,gap:2,background:t.surface,borderRadius:10,padding:6,border:`1px solid ${t.border}` }}>
+        <div style={{ position:"relative",marginBottom:14,display:"flex",flexDirection:"column",alignItems:"center",width:"100%" }}>
+          <style>{`
+@keyframes demoPop{0%{transform:scale(0.55)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes demoHand{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+@keyframes demoBubble{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes demoWin{0%{box-shadow:0 0 0 rgba(74,222,128,0)}50%{box-shadow:0 0 28px rgba(74,222,128,0.6)}100%{box-shadow:0 0 10px rgba(74,222,128,0.25)}}
+          `}</style>
+          {/* Yönlendirme balonu — o an ne yapılacağını TEK cümleyle söyler */}
+          <div style={{ minHeight:36,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:8 }}>
+            {!sel && <div style={{ padding:"7px 18px",borderRadius:20,background:"linear-gradient(135deg, rgba(255,215,0,0.16), rgba(255,159,67,0.10))",border:"1px solid rgba(255,215,0,0.5)",color:t.gold,fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:3,animation:"demoBubble 1.4s ease-in-out infinite",textShadow:`0 0 12px ${t.goldGlow}`,whiteSpace:"nowrap" }}>👇 {L(appLang,"tutPickShip")}</div>}
+            {sel && !didRotate && <div style={{ padding:"7px 18px",borderRadius:20,background:"rgba(0,229,255,0.10)",border:"1px solid rgba(0,229,255,0.5)",color:t.accent,fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:3,animation:"demoBubble 1.4s ease-in-out infinite",textShadow:`0 0 12px ${t.accentGlow}`,whiteSpace:"nowrap" }}>👇 {L(appLang,"tutTapRotate")}</div>}
+            {sel && didRotate && <div style={{ padding:"7px 18px",borderRadius:20,background:"rgba(74,222,128,0.10)",border:"1px solid rgba(74,222,128,0.55)",color:"#4ade80",fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:3,animation:"demoWin 1.6s ease-out",whiteSpace:"nowrap" }}>✓ {L(appLang,"tutGreat")}</div>}
+          </div>
+          {/* 4x3 platform — tıklayınca gemi döner */}
+          <div onClick={rotateShip} style={{ display:"grid",gridTemplateColumns:`repeat(4,${cs}px)`,gridTemplateRows:`repeat(3,${cs}px)`,gap:2,background:t.surface,borderRadius:12,padding:8,border:`2px solid ${sel?(didRotate?"rgba(74,222,128,0.4)":"rgba(0,229,255,0.35)"):t.border}`,cursor:sel?"pointer":"default",position:"relative",transition:"border-color 0.3s, box-shadow 0.3s",boxShadow:sel?`0 0 24px ${sel.glow}`:"none" }}>
             {Array.from({length:12}).map((_,i) => {
               const r=Math.floor(i/4), c=i%4;
               const isShip = cells.some(([sr,sc])=>sr===r&&sc===c);
-              return <div key={i} style={{ borderRadius:4,background:isShip?"rgba(231,76,60,0.5)":t.water,border:`1px solid ${isShip?"rgba(231,76,60,0.9)":"rgba(55,65,81,0.4)"}`,display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.35s ease",boxShadow:isShip&&phase2==='placed'?`inset 0 0 10px rgba(231,76,60,0.4)`:"none" }}>
-                {isShip && <div style={{ width:8,height:8,borderRadius:"50%",background:"#e74c3c",boxShadow:"0 0 8px rgba(231,76,60,0.8)",opacity:phase2==='placed'?1:0.3,transition:"opacity 0.3s" }} />}
+              return <div key={i} style={{ borderRadius:5,background:isShip?sel.color+"55":t.water,border:`1px solid ${isShip?sel.color:"rgba(55,65,81,0.4)"}`,display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.25s ease",boxShadow:isShip?`inset 0 0 12px ${sel.glow}`:"none" }}>
+                {isShip && <div key={pop} style={{ width:12,height:12,borderRadius:"50%",background:sel.color,boxShadow:`0 0 10px ${sel.glow}`,animation:"demoPop 0.35s cubic-bezier(0.34,1.56,0.64,1)" }} />}
               </div>;
             })}
+            {/* Platform üstünde el — gemiye dokunmayı gösterir */}
+            {sel && !didRotate && <div style={{ position:"absolute",bottom:-12,right:24,fontSize:30,animation:"demoHand 0.9s ease-in-out infinite",filter:"drop-shadow(0 2px 8px rgba(0,229,255,0.6))",pointerEvents:"none",transform:"rotate(-20deg)" }}>👆</div>}
           </div>
-          {/* Finger pointer */}
-          <div style={{ position:"absolute",bottom:-6,right:30,fontSize:26,animation:"arrowBounce 0.9s ease-in-out infinite",filter:"drop-shadow(0 2px 6px rgba(0,229,255,0.5))",transform:"rotate(-20deg)" }}>👆</div>
-          {/* Rotate badge */}
-          <div style={{ marginTop:14,display:"flex",alignItems:"center",gap:8,padding:"6px 16px",background:"rgba(0,229,255,0.08)",border:`1px solid rgba(0,229,255,0.25)`,borderRadius:20 }}>
-            <span style={{ fontSize:18,color:t.accent,animation:phase2==='rotating'?"coinSpin 0.4s ease-in-out":"none" }}>↻</span>
-            <span style={{ fontSize:11,color:t.accent,fontFamily:warrior,letterSpacing:2,fontWeight:700 }}>{L(appLang,"rotateLabel")}</span>
+          {/* Döndür rozeti — kaç kere istersen döndür */}
+          {sel && <div style={{ marginTop:10,display:"flex",alignItems:"center",gap:8,padding:"5px 14px",background:"rgba(0,229,255,0.08)",border:"1px solid rgba(0,229,255,0.25)",borderRadius:20 }}>
+            <span key={pop} style={{ fontSize:17,color:t.accent,display:"inline-block",animation:"coinSpin 0.4s ease-in-out" }}>↻</span>
+            <span style={{ fontSize:10,color:t.accent,fontFamily:warrior,letterSpacing:2,fontWeight:700 }}>{L(appLang,"rotateLabel")}</span>
+          </div>}
+          {/* Gemi tepsisi — seç / değiştir */}
+          <div style={{ marginTop:14,position:"relative",display:"flex",gap:10,alignItems:"center",justifyContent:"center" }}>
+            {!sel && <div style={{ position:"absolute",top:-36,left:"50%",marginLeft:-14,fontSize:28,animation:"demoHand 0.9s ease-in-out infinite",pointerEvents:"none",filter:"drop-shadow(0 2px 8px rgba(255,215,0,0.6))" }}>👇</div>}
+            {DEMO_SHIPS.map(s => (
+              <button key={s.id} onClick={()=>pickShip(s.id)} style={{ padding:"10px 12px",background:selId===s.id?"rgba(0,229,255,0.12)":"rgba(255,255,255,0.04)",border:`2px solid ${selId===s.id?t.accent:"rgba(255,255,255,0.12)"}`,borderRadius:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",minWidth:56,minHeight:46,animation:!selId?"demoBubble 1.4s ease-in-out infinite":"none",boxShadow:selId===s.id?`0 0 16px ${s.glow}`:"none",transition:"all 0.25s" }}><MiniShip s={s} /></button>
+            ))}
           </div>
-          <div style={{ fontSize:10,color:"#e74c3c",fontFamily:warrior,letterSpacing:2,marginTop:8,fontWeight:700 }}>{L(appLang,"admiralShipLabel")}</div>
+          {sel && didRotate && <div style={{ fontSize:10,color:t.textDim,fontFamily:mono,marginTop:8,letterSpacing:1 }}>{L(appLang,"tutSwapHint")}</div>}
         </div>
       );
     }
