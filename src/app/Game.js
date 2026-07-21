@@ -311,8 +311,9 @@ const TRANSLATIONS = {
     howToPlay: "NASIL OYNANIR?", placeShipsTitle: "GEMİLERİ YERLEŞTIR", placeShipsBody1: "Bir gemi seç → haritaya dokun → yerleştir", placeShipsBody2: "ile yönünü değiştir",
     rotateLabel: "DÖNDÜR", admiralShipLabel: "AMİRAL GEMİSİ", tutBack: "← GERİ", tutNext: "GEÇ →", tutSkip: "GEÇ",
     tutPickShip: "BİR GEMİ SEÇ", tutTapRotate: "Geminin üzerine tıklayarak döndürebilirsin", tutGreat: "HARİKA! İŞTE BU KADAR", tutSwapHint: "Başka gemi seçmek için alttakilere dokun",
-    noTouchRuleTitle: "DEĞMEZLİK KURALI", noTouchRuleBody1: "Gemiler birbirine dokunamaz —", noTouchRuleBody2: "köşeden bile olsa!",
-    threeShotsTitle: "3 EL ATIŞ", threeShotsBody: "Her turda 3 hücreyi seç → ATEŞ!",
+    noTouchRuleTitle: "DEĞMEZLİK KURALI", noTouchRuleBody1: "Gemileri yerleştirirken; gemiler birbirine dokunamaz —", noTouchRuleBody2: "köşeden bile olsa!",
+    threeShotsTitle: "3 EL ATIŞ", threeShotsBody: "Rakibin gizlediği gemileri vurmak için 3 el ateş et.",
+    tutPeek: "GEMİLERE İYİ BAK!", tutFire3: "3 EL ATEŞ ET", tutHitsResult: (n) => n>0?`${n} İSABET! MÜTHİŞSİN`:"ISKA! BİR DAHA DENE", tutTryAgain: "↻ TEKRAR DENE",
     markTrackTitle: "İŞARETLE & TAKİP ET", markTrackBody1: "Atış yapmak istemediğin yerleri", markTrackBody2: "sağ tuş (mobilde uzun bas) ile işaretle.",
     startBattleBtn: "SAVAŞA BAŞLA", watersHeating: "sular ısınsın...",
     goldChangeTitle: "ALTIN DEĞİŞİMİ", entryFeeLabel: (n) => `Giriş: -${n} 💰`, connectingToServer: "Sunucuya bağlanılıyor...", testModeMsg: "🧪 TEST MODU — 2 tab aç, oda koduyla oyna",
@@ -373,8 +374,9 @@ const TRANSLATIONS = {
     howToPlay: "HOW TO PLAY?", placeShipsTitle: "PLACE YOUR SHIPS", placeShipsBody1: "Pick a ship → tap the map → place it", placeShipsBody2: "to change direction",
     rotateLabel: "ROTATE", admiralShipLabel: "ADMIRAL SHIP", tutBack: "← BACK", tutNext: "NEXT →", tutSkip: "SKIP",
     tutPickShip: "PICK A SHIP", tutTapRotate: "Tap the ship to rotate it", tutGreat: "AWESOME! THAT'S IT", tutSwapHint: "Tap below to switch ships",
-    noTouchRuleTitle: "NO-TOUCH RULE", noTouchRuleBody1: "Ships can't touch each other —", noTouchRuleBody2: "not even diagonally!",
-    threeShotsTitle: "3-SHOT VOLLEY", threeShotsBody: "Pick 3 cells each turn → FIRE!",
+    noTouchRuleTitle: "NO-TOUCH RULE", noTouchRuleBody1: "When placing ships; they can't touch each other —", noTouchRuleBody2: "not even diagonally!",
+    threeShotsTitle: "3-SHOT VOLLEY", threeShotsBody: "Fire 3 shots to hit the ships your opponent has hidden.",
+    tutPeek: "MEMORIZE THE SHIPS!", tutFire3: "FIRE 3 SHOTS", tutHitsResult: (n) => n>0?`${n} HIT${n!==1?"S":""}! AMAZING`:"ALL MISSED! TRY AGAIN", tutTryAgain: "↻ TRY AGAIN",
     markTrackTitle: "MARK & TRACK", markTrackBody1: "Mark cells you don't want to shoot at", markTrackBody2: "with right-click (or long-press on mobile).",
     startBattleBtn: "START BATTLE", watersHeating: "let the waters heat up...",
     goldChangeTitle: "GOLD CHANGE", entryFeeLabel: (n) => `Entry: -${n} 💰`, connectingToServer: "Connecting to server...", testModeMsg: "🧪 TEST MODE — open 2 tabs, play with room code",
@@ -3357,43 +3359,64 @@ export default function Game() {
       );
     }
 
-    // Animated shot sequence — 3 cells select → become X (hit) or • (miss)
+    // Adım 3 — ETKİLEŞİMLİ atış demosu: gemiler görünür → kaybolur → kullanıcı 3 el ateş eder
     function ShotAnim() {
-      const SHOTS = [[1,0,'hit'],[1,2,'miss'],[2,3,'hit']];
-      const [phase3, setPhase3] = useState('select'); // select|fire
-      const [shown, setShown] = useState(0);
+      const SHIP3 = [[0,0],[0,1],[0,2]];       // 3'lü — mavi
+      const SHIP2 = [[2,2],[2,3]];             // 2'li — yeşil
+      const ALL_SHIPS = [...SHIP3, ...SHIP2];
+      const [stage, setStage] = useState('peek');   // peek|shoot|done
+      const [shots, setShots] = useState([]);       // {r,c,hit}
       useEffect(() => {
-        let timers = [];
-        const run = () => {
-          setPhase3('select'); setShown(0);
-          timers.push(setTimeout(() => setShown(1), 400));
-          timers.push(setTimeout(() => setShown(2), 800));
-          timers.push(setTimeout(() => setShown(3), 1200));
-          timers.push(setTimeout(() => setPhase3('fire'), 1800));
-          timers.push(setTimeout(run, 3600));
-        };
-        run();
-        return () => timers.forEach(clearTimeout);
-      }, []);
-      const cs = 50;
+        if (stage !== 'peek') return;
+        const tm = setTimeout(() => setStage('shoot'), 2400);
+        return () => clearTimeout(tm);
+      }, [stage]);
+      const fire = (r,c) => {
+        if (stage !== 'shoot') return;
+        if (shots.some(s=>s.r===r&&s.c===c)) return;
+        const hit = ALL_SHIPS.some(([sr,sc])=>sr===r&&sc===c);
+        try { sfx.init(); sfx.play(hit?'hit':'miss'); } catch(e) {}
+        const ns = [...shots, {r,c,hit}];
+        setShots(ns);
+        if (ns.length >= 3) setTimeout(() => setStage('done'), 400);
+      };
+      const reset = () => { setShots([]); setStage('peek'); try { sfx.play('click'); } catch(e) {} };
+      const hits = shots.filter(s=>s.hit).length;
+      const cs = 46;
       return (
-        <div style={{ position:"relative",marginBottom:16 }}>
-          <div style={{ display:"grid",gridTemplateColumns:`repeat(5,${cs}px)`,gridTemplateRows:`repeat(3,${cs}px)`,gap:2,background:t.surface,borderRadius:10,padding:6,border:`1px solid ${t.border}` }}>
-            {Array.from({length:15}).map((_,i) => {
-              const r=Math.floor(i/5),c=i%5;
-              const si = SHOTS.findIndex(([sr,sc])=>sr===r&&sc===c);
-              const isSelected = si >= 0 && shown > si && phase3==='select';
-              const isFired = si >= 0 && phase3==='fire';
-              const isHit = isFired && SHOTS[si][2]==='hit';
-              const isMiss = isFired && SHOTS[si][2]==='miss';
-              return <div key={i} style={{ borderRadius:4,background:isHit?t.hit:isMiss?t.miss:isSelected?"rgba(0,229,255,0.4)":t.water,border:`1px solid ${isHit?t.hit:isMiss?t.miss:isSelected?t.accent:"rgba(55,65,81,0.4)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:900,color:"#fff",transition:"all 0.3s ease",boxShadow:isHit?`inset 0 0 14px ${t.hitGlow}`:isSelected?`inset 0 0 10px ${t.accentGlow}`:"none" }}>
-                {isHit?"✕":isMiss?"•":isSelected?"◎":""}
+        <div style={{ position:"relative",marginBottom:14,display:"flex",flexDirection:"column",alignItems:"center" }}>
+          <style>{`
+@keyframes shotBubble{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes shotFade{0%{opacity:1}100%{opacity:0}}
+@keyframes shotWin{0%{box-shadow:0 0 0 rgba(74,222,128,0)}50%{box-shadow:0 0 28px rgba(74,222,128,0.6)}100%{box-shadow:0 0 10px rgba(74,222,128,0.25)}}
+          `}</style>
+          {/* Yönlendirme balonu */}
+          <div style={{ minHeight:36,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:8 }}>
+            {stage==='peek' && <div style={{ padding:"7px 18px",borderRadius:20,background:"linear-gradient(135deg, rgba(255,215,0,0.16), rgba(255,159,67,0.10))",border:"1px solid rgba(255,215,0,0.5)",color:t.gold,fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:3,animation:"shotBubble 1.2s ease-in-out infinite",textShadow:`0 0 12px ${t.goldGlow}`,whiteSpace:"nowrap" }}>👀 {L(appLang,"tutPeek")}</div>}
+            {stage==='shoot' && <div style={{ padding:"7px 18px",borderRadius:20,background:"rgba(255,71,87,0.10)",border:"1px solid rgba(255,71,87,0.5)",color:t.hit,fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:3,animation:"shotBubble 1.2s ease-in-out infinite",textShadow:`0 0 12px ${t.hitGlow}`,whiteSpace:"nowrap" }}>🎯 {L(appLang,"tutFire3")}</div>}
+            {stage==='done' && <div style={{ padding:"7px 18px",borderRadius:20,background:"rgba(74,222,128,0.10)",border:"1px solid rgba(74,222,128,0.55)",color:"#4ade80",fontFamily:warrior,fontWeight:900,fontSize:13,letterSpacing:2,animation:"shotWin 1.6s ease-out",whiteSpace:"nowrap" }}>{hits>0?"💥":"💦"} {L(appLang,"tutHitsResult")(hits)}</div>}
+          </div>
+          {/* 4x3 platform */}
+          <div style={{ display:"grid",gridTemplateColumns:`repeat(4,${cs}px)`,gridTemplateRows:`repeat(3,${cs}px)`,gap:2,background:t.surface,borderRadius:12,padding:8,border:`2px solid ${stage==='shoot'?"rgba(255,71,87,0.35)":stage==='done'?"rgba(74,222,128,0.4)":t.border}`,transition:"border-color 0.3s" }}>
+            {Array.from({length:12}).map((_,i) => {
+              const r=Math.floor(i/4), c=i%4;
+              const is3 = SHIP3.some(([sr,sc])=>sr===r&&sc===c);
+              const is2 = SHIP2.some(([sr,sc])=>sr===r&&sc===c);
+              const isShip = is3 || is2;
+              const shot = shots.find(s=>s.r===r&&s.c===c);
+              const showShip = isShip && (stage==='peek' || (stage==='done' && !shot));
+              const shipColor = is3 ? "rgba(0,229,255," : "rgba(52,211,153,";
+              const ghostly = stage==='done' && showShip; // sonunda kaçanlar soluk görünür
+              return <div key={i} onClick={()=>fire(r,c)} style={{ borderRadius:5,background:shot?(shot.hit?t.hit:t.miss):showShip?shipColor+(ghostly?"0.15)":"0.35)"):t.water,border:`1px solid ${shot?(shot.hit?t.hit:t.miss):showShip?shipColor+(ghostly?"0.35)":"0.8)"):"rgba(55,65,81,0.4)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:shot?18:16,fontWeight:900,color:"#fff",cursor:stage==='shoot'&&!shot?"pointer":"default",transition:"all 0.25s ease",boxShadow:shot&&shot.hit?`inset 0 0 14px ${t.hitGlow}`:"none",opacity:isShip&&stage==='shoot'?1:undefined }}>
+                {shot ? (shot.hit?"✕":"•") : showShip ? <span style={{ fontSize:15,opacity:ghostly?0.45:1,animation:stage==='peek'?"shotBubble 1.2s ease-in-out infinite":"none" }}>🚢</span> : ""}
               </div>;
             })}
           </div>
-          <div style={{ display:"flex",gap:8,marginTop:10,justifyContent:"center",alignItems:"center" }}>
-            {SHOTS.map((_,i)=><div key={i} style={{ width:14,height:14,borderRadius:"50%",background:i<shown&&phase3==='select'?t.hit:t.surfaceLight,boxShadow:i<shown&&phase3==='select'?`0 0 8px ${t.hitGlow}`:"none",transition:"all 0.3s" }} />)}
-            <div style={{ fontSize:12,color:t.textDim,fontFamily:warrior,letterSpacing:2,marginLeft:6 }}>→ 🔥 {L(appLang,"fire")}</div>
+          {/* Atış sayacı / tekrar dene */}
+          <div style={{ display:"flex",gap:8,marginTop:10,justifyContent:"center",alignItems:"center",minHeight:34 }}>
+            {stage!=='done' && [0,1,2].map(i=><div key={i} style={{ width:14,height:14,borderRadius:"50%",background:i<shots.length?t.hit:t.surfaceLight,boxShadow:i<shots.length?`0 0 8px ${t.hitGlow}`:"none",transition:"all 0.3s" }} />)}
+            {stage==='shoot' && <div style={{ fontSize:12,color:t.textDim,fontFamily:warrior,letterSpacing:2,marginLeft:6 }}>🔥 {L(appLang,"fire")}</div>}
+            {stage==='done' && <button onClick={reset} style={{ padding:"8px 22px",background:"rgba(0,229,255,0.10)",color:t.accent,border:`1px solid rgba(0,229,255,0.4)`,borderRadius:20,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"tutTryAgain")}</button>}
           </div>
         </div>
       );
