@@ -292,7 +292,9 @@ const TRANSLATIONS = {
     settingsTitle: "AYARLAR", profile: "Profil", musicLevel: "Müzik Seviyesi", sfx: "Ses Efektleri", sfxSub: "Vuruş, isabet, seri vuruş sesleri",
     notifications: "Bildirimler", notificationsSub: "Günlük ödül ve enerji hatırlatmaları", language: "Dil", privacy: "Gizlilik Politikası & Kullanım Koşulları",
     support: "Destek / İletişim", deleteAccount: "Hesabımı / Verilerimi Sil", close: "KAPAT", back: "Profil",
-    totalGames: "TOPLAM OYUN", winRateLabel: "TUTTURMA ORANI", botGamesLabel: "BOT MAÇI", onlineGamesLabel: "ONLINE MAÇI", joined: "Katılım",
+    totalGames: "TOPLAM OYUN", winRateLabel: "KAZANMA ORANI", botGamesLabel: "BOT MAÇI", onlineGamesLabel: "ONLINE MAÇI", joined: "Katılım",
+    statBreakdown: "MAÇ DAĞILIMI", statBot: "🤖 BOT", statOnline: "🌐 ONLINE", statW: "G", statL: "M",
+    statAccuracy: "ATIŞ TUTTURMA", statShots: "atış", statHits: "isabet", statSunk: "BATIRILAN GEMİ", statHonor: "ŞEREF",
     deleteWarning: "Bu işlem geri alınamaz. Hesabın silindiğinde tüm oyun verilerin (altın, seviye, istatistikler, profil) kalıcı olarak kaldırılır ve kurtarılamaz.",
     deleteConfirmBtn: "EVET, HESABIMI VE VERİLERİMİ SİL", cancel: "Vazgeç", deleting: "Siliniyor...",
     quickSearching: "🔍 RAKİP ARANIYOR", quickFound: "🎉 RAKİP BULUNDU!", quickNotFound: "😕 RAKİP BULUNAMADI", quickInviting: "📨 TEKLİF GÖNDERİLDİ",
@@ -364,6 +366,8 @@ const TRANSLATIONS = {
     notifications: "Notifications", notificationsSub: "Daily reward and energy reminders", language: "Language", privacy: "Privacy Policy & Terms of Use",
     support: "Support / Contact", deleteAccount: "Delete My Account / Data", close: "CLOSE", back: "Profile",
     totalGames: "TOTAL GAMES", winRateLabel: "WIN RATE", botGamesLabel: "BOT MATCHES", onlineGamesLabel: "ONLINE MATCHES", joined: "Joined",
+    statBreakdown: "MATCH BREAKDOWN", statBot: "🤖 BOT", statOnline: "🌐 ONLINE", statW: "W", statL: "L",
+    statAccuracy: "SHOT ACCURACY", statShots: "shots", statHits: "hits", statSunk: "SHIPS SUNK", statHonor: "HONOR",
     deleteWarning: "This action cannot be undone. When your account is deleted, all your game data (gold, level, stats, profile) is permanently removed and cannot be recovered.",
     deleteConfirmBtn: "YES, DELETE MY ACCOUNT AND DATA", cancel: "Cancel", deleting: "Deleting...",
     quickSearching: "🔍 SEARCHING FOR OPPONENT", quickFound: "🎉 OPPONENT FOUND!", quickNotFound: "😕 NO OPPONENT FOUND", quickInviting: "📨 CHALLENGE SENT",
@@ -475,7 +479,7 @@ function pushRecent(arr, won) { return [...(Array.isArray(arr) ? arr : []), won 
 function safeRecent(arr) { return Array.isArray(arr) ? arr.filter(x => x === "W" || x === "L").slice(-5) : []; }
 
 // === KAZANIM SİSTEMİ (kalıcı başarımlar) ===
-const ACH_DEFAULT = { hits:0, sunk:0, marks:0, chest:0, botWins:0, onlineWins:0, goldEarned:0, bestHitStreak:0, bestTurnStreak:0, turnStreak:0, bestWinStreak:0, winStreak:0, lossStreak:0, fast5:0, fast3:0, fast2:0, perfect:0, tripleTurn:0, arenaAcik:0, arenaFirtina:0 };
+const ACH_DEFAULT = { hits:0, shots:0, shotHits:0, sunk:0, marks:0, chest:0, botWins:0, onlineWins:0, goldEarned:0, bestHitStreak:0, bestTurnStreak:0, turnStreak:0, bestWinStreak:0, winStreak:0, lossStreak:0, fast5:0, fast3:0, fast2:0, perfect:0, tripleTurn:0, arenaAcik:0, arenaFirtina:0 };
 
 // === İNTİKAM MODU — üst üste kayıplar bir sonraki zaferin ödüllerini katlar ===
 // 2 mağlubiyet ×2, 3 mağlubiyet ×2.5, 4+ mağlubiyet ×3 (altın + XP)
@@ -3075,7 +3079,7 @@ export default function Game() {
           const sunkNow = killCountRef.current;
 
           applyOnlineResultSelf(myUidNow, iW, gameArena, (a) => {
-            a.hits += mHits; a.sunk += sunkNow;
+            a.hits += mHits; a.shots += mHits + mMiss; a.shotHits += mHits; a.sunk += sunkNow;
             if (iW) {
               if (mElapsed < 300) a.fast5 = Math.max(a.fast5, 1);
               if (mElapsed < 180) a.fast3 = Math.max(a.fast3, 1);
@@ -3632,14 +3636,55 @@ export default function Game() {
                     <div style={{ fontSize:11,color:t.textDim,fontFamily:mono }}>{L(appLang,"joined")}: {joined}</div>
                   </div>
                 </div>
-                <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
-                  <StatBox label={L(appLang,"totalGames")} value={totalG} color={t.text} />
-                  <StatBox label={L(appLang,"winRateLabel")} value={`%${winRt}`} color={t.accent} />
-                  <StatBox label={L(appLang,"wins")} value={wins} color="#4ade80" />
-                  <StatBox label={L(appLang,"losses")} value={losses} color={t.hit} />
-                  <StatBox label={L(appLang,"botGamesLabel")} value={myProfile.botGames || 0} color={t.textDim} />
-                  <StatBox label={L(appLang,"onlineGamesLabel")} value={myProfile.onlineGames || 0} color={t.textDim} />
-                </div>
+                {(() => {
+                  const a = safeAch(myProfile.ach);
+                  const botG = myProfile.botGames || 0, onG = myProfile.onlineGames || 0;
+                  const botW = Math.min(a.botWins, botG), onW = Math.min(a.onlineWins, onG);
+                  const botL = Math.max(0, botG - botW), onL = Math.max(0, onG - onW);
+                  const acc = a.shots > 0 ? Math.max(0, Math.min(100, Math.round((a.shotHits / a.shots) * 100))) : 0;
+                  const hn = migrateHonor(myProfile);
+                  const Row = ({ icon, games, w, l, color }) => (
+                    <div style={{ display:"flex",alignItems:"center",gap:8,padding:"9px 12px",borderRadius:10,background:"rgba(255,255,255,0.035)",border:`1px solid ${t.border}`,marginBottom:8 }}>
+                      <span style={{ fontSize:12,fontWeight:900,color:t.text,fontFamily:warrior,letterSpacing:1,minWidth:74 }}>{icon}</span>
+                      <span style={{ fontSize:15,fontWeight:900,color,fontFamily:warrior,minWidth:26,textAlign:"right" }}>{games}</span>
+                      <span style={{ fontSize:9,color:t.textDim,fontFamily:warrior,letterSpacing:1,flex:1 }}>{L(appLang,"totalGames")}</span>
+                      <span style={{ display:"flex",gap:6 }}>
+                        <span style={{ fontSize:13,fontWeight:900,color:"#4ade80",fontFamily:mono }}>{w}<span style={{ fontSize:8,opacity:0.7 }}>{L(appLang,"statW")}</span></span>
+                        <span style={{ color:"rgba(255,255,255,0.15)" }}>|</span>
+                        <span style={{ fontSize:13,fontWeight:900,color:t.hit,fontFamily:mono }}>{l}<span style={{ fontSize:8,opacity:0.7 }}>{L(appLang,"statL")}</span></span>
+                      </span>
+                    </div>
+                  );
+                  return (<>
+                    <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14 }}>
+                      <StatBox label={L(appLang,"totalGames")} value={totalG} color={t.text} />
+                      <StatBox label={L(appLang,"winRateLabel")} value={`%${winRt}`} color={t.accent} />
+                      <StatBox label={L(appLang,"wins")} value={wins} color="#4ade80" />
+                      <StatBox label={L(appLang,"losses")} value={losses} color={t.hit} />
+                    </div>
+                    {/* MAÇ DAĞILIMI — bot ve online ayrı ayrı, galibiyet/mağlubiyet kırılımıyla */}
+                    <div style={{ fontSize:10,fontWeight:900,color:t.textDim,fontFamily:warrior,letterSpacing:3,marginBottom:7 }}>{L(appLang,"statBreakdown")}</div>
+                    <Row icon={L(appLang,"statBot")} games={botG} w={botW} l={botL} color="#34d399" />
+                    <Row icon={L(appLang,"statOnline")} games={onG} w={onW} l={onL} color={t.accent} />
+                    {/* ATIŞ TUTTURMA */}
+                    <div style={{ marginTop:6,padding:"11px 13px",borderRadius:10,background:"linear-gradient(135deg, rgba(255,215,0,0.08), rgba(255,159,67,0.03))",border:"1px solid rgba(255,215,0,0.3)" }}>
+                      <div style={{ display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:6 }}>
+                        <span style={{ fontSize:10,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:2 }}>🎯 {L(appLang,"statAccuracy")}</span>
+                        <span style={{ fontSize:19,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 12px ${t.goldGlow}` }}>%{acc}</span>
+                      </div>
+                      <div style={{ width:"100%",height:6,borderRadius:4,background:"rgba(0,0,0,0.45)",overflow:"hidden" }}>
+                        <div style={{ width:`${acc}%`,height:"100%",borderRadius:4,background:"linear-gradient(90deg,#ffe066,#ffd700,#d97706)",transition:"width 0.8s ease" }} />
+                      </div>
+                      <div style={{ fontSize:9,color:t.textDim,fontFamily:mono,marginTop:5,letterSpacing:0.5 }}>
+                        {a.shotHits.toLocaleString(appLang==="en"?"en-US":"tr-TR")} {L(appLang,"statHits")} / {a.shots.toLocaleString(appLang==="en"?"en-US":"tr-TR")} {L(appLang,"statShots")}
+                      </div>
+                    </div>
+                    <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:10 }}>
+                      <StatBox label={L(appLang,"statSunk")} value={a.sunk} color={t.sunk} />
+                      <StatBox label={L(appLang,"statHonor")} value={hn} color="#a78bfa" />
+                    </div>
+                  </>);
+                })()}
               </>);
             })()}
 
@@ -3873,7 +3918,7 @@ export default function Game() {
     // Track mission stats
     const allHit = currentShots.every(([r,c]) => botBoard[r][c] > 0);
     const sunkNow = botShips ? Object.values(botShips).filter(ship => ship.cells.every(([r,c]) => newAtkOverlay[r][c] === "hit" || newAtkOverlay[r][c] === "sunk")).length : 0;
-    (() => { const th = currentShots.filter(([r,c]) => botBoard[r][c] > 0).length; bumpDaily(d => { d.totalHits += th; if (allHit && currentShots.length > 0) { d.perfectTurn = true; d.perfectTurns += 1; } if (th >= 3) d.perfectTurn3 = true; d.shipsSunk = Math.max(d.shipsSunk, sunkNow); }); })();
+    (() => { const th = currentShots.filter(([r,c]) => botBoard[r][c] > 0).length; bumpAch(a => { a.shots += currentShots.length; a.shotHits += th; }); bumpDaily(d => { d.totalHits += th; if (allHit && currentShots.length > 0) { d.perfectTurn = true; d.perfectTurns += 1; } if (th >= 3) d.perfectTurn3 = true; d.shipsSunk = Math.max(d.shipsSunk, sunkNow); }); })();
     // Streak tracking
     const hitCount = currentShots.filter(([r,c]) => botBoard[r][c] > 0).length;
     if (hitCount === currentShots.length && hitCount > 0) {
