@@ -75,6 +75,28 @@ export default function RootLayout({ children }) {
               navigator.serviceWorker.register('/sw.js');
             });
           }
+
+          /* TAM EKRAN (immersive) — tarayıcı/PWA tarafı.
+             Android'de durum ve navigasyon çubuklarını gizler. Tarayıcı güvenlik gereği
+             bunu ancak kullanıcı ekrana ilk kez dokunduğunda yapmamıza izin verir,
+             bu yüzden ilk dokunuşa bağlıyoruz. Kullanıcı kenardan kaydırıp çubukları
+             geri getirirse, bir sonraki dokunuşta yeniden gizlenir (sticky davranış). */
+          (function () {
+            var isTouch = matchMedia('(hover: none)').matches;
+            if (!isTouch) return;
+            function goFullscreen() {
+              try {
+                var el = document.documentElement;
+                if (document.fullscreenElement || document.webkitFullscreenElement) return;
+                var req = el.requestFullscreen || el.webkitRequestFullscreen;
+                if (req) { var p = req.call(el, { navigationUI: 'hide' }); if (p && p.catch) p.catch(function(){}); }
+                if (screen.orientation && screen.orientation.lock) {
+                  var lp = screen.orientation.lock('portrait'); if (lp && lp.catch) lp.catch(function(){});
+                }
+              } catch (e) {}
+            }
+            document.addEventListener('pointerdown', goFullscreen, { passive: true });
+          })();
         `}} />
       </head>
       <body style={{ margin: 0, padding: 0, background: "#0a0e17", overflowX: "hidden", width: "100%", maxWidth: "100vw" }}>
