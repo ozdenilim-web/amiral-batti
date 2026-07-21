@@ -1494,10 +1494,26 @@ function ChestPopup({ reward, onClose, lang = "tr" }) {
 }
 
 // === GÜNLÜK SANDIK — cihaz başına 1 tane, sabit 500 altın ===
+// Işın halkası tasarımı: kutu yok — dönen konik altın ışınlar, minik yıldızlar, nefes alan sandık
 function DailyChestFab({ onOpen, lang = "tr" }) {
-  return (<button onClick={onOpen} style={{ position:"fixed",top:"calc(64px + env(safe-area-inset-top, 0px))",right:14,zIndex:150,width:72,height:72,borderRadius:18,background:"linear-gradient(160deg,#fff9c4 0%,#ffe94d 30%,#ffd700 60%,#ffb300 100%)",border:"3px solid #fff176",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 20px #ffe94d, 0 0 45px rgba(255,233,77,0.9), 0 0 80px rgba(255,233,77,0.55), 0 4px 14px rgba(0,0,0,0.5)",animation:"chestWiggle 2s ease-in-out infinite, rewardPulse 1.4s ease-in-out infinite" }} title={L(lang,"dailyChestTooltip")}>
-    <img src="/img/chest.png" alt="" draggable={false} style={{ width:"72%",height:"72%",objectFit:"contain",userSelect:"none",pointerEvents:"none" }} />
-    <span style={{ position:"absolute",top:-6,right:-6,width:20,height:20,borderRadius:"50%",background:"#ff4757",color:"#fff",fontSize:12,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 8px rgba(255,71,87,0.8)",fontFamily:warrior }}>1</span>
+  return (<button onClick={onOpen} style={{ position:"fixed",top:"calc(64px + env(safe-area-inset-top, 0px))",right:12,zIndex:150,width:80,height:80,background:"transparent",border:"none",padding:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center" }} title={L(lang,"dailyChestTooltip")}>
+    <style>{`
+@keyframes chestRayRotate{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+@keyframes chestBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
+@keyframes chestStar{0%,100%{opacity:0.15;transform:scale(0.7)}50%{opacity:0.9;transform:scale(1.1)}}
+    `}</style>
+    {/* Dönen konik ışın halkası — yumuşak kenarlı */}
+    <span style={{ position:"absolute",inset:0,borderRadius:"50%",background:"conic-gradient(from 0deg, rgba(255,215,0,0) 0deg, rgba(255,225,80,0.55) 18deg, rgba(255,215,0,0) 40deg, rgba(255,215,0,0) 90deg, rgba(255,225,80,0.45) 108deg, rgba(255,215,0,0) 130deg, rgba(255,215,0,0) 180deg, rgba(255,225,80,0.55) 198deg, rgba(255,215,0,0) 220deg, rgba(255,215,0,0) 270deg, rgba(255,225,80,0.45) 288deg, rgba(255,215,0,0) 310deg, rgba(255,215,0,0) 360deg)",WebkitMaskImage:"radial-gradient(circle, rgba(0,0,0,1) 26%, rgba(0,0,0,0.5) 55%, transparent 72%)",maskImage:"radial-gradient(circle, rgba(0,0,0,1) 26%, rgba(0,0,0,0.5) 55%, transparent 72%)",animation:"chestRayRotate 9s linear infinite",pointerEvents:"none" }} />
+    {/* Sıcak merkez ışıması — sabit, hafif */}
+    <span style={{ position:"absolute",inset:14,borderRadius:"50%",background:"radial-gradient(circle, rgba(255,215,0,0.28) 0%, rgba(255,215,0,0.08) 55%, transparent 75%)",pointerEvents:"none" }} />
+    {/* Minik yıldızlar — sıralı yanıp söner */}
+    <span style={{ position:"absolute",top:6,right:14,fontSize:9,color:"#ffe94d",animation:"chestStar 2.6s ease-in-out infinite",pointerEvents:"none",textShadow:"0 0 6px rgba(255,233,77,0.9)" }}>✦</span>
+    <span style={{ position:"absolute",bottom:10,left:8,fontSize:7,color:"#fff6c0",animation:"chestStar 3.1s ease-in-out 0.9s infinite",pointerEvents:"none",textShadow:"0 0 5px rgba(255,233,77,0.8)" }}>✦</span>
+    <span style={{ position:"absolute",top:24,left:2,fontSize:6,color:"#ffe94d",animation:"chestStar 2.2s ease-in-out 1.6s infinite",pointerEvents:"none",textShadow:"0 0 5px rgba(255,233,77,0.8)" }}>✦</span>
+    {/* Sandık — nefes alır, altında yumuşak gölge */}
+    <img src="/img/chest.png" alt="" draggable={false} style={{ width:52,height:52,objectFit:"contain",userSelect:"none",pointerEvents:"none",position:"relative",animation:"chestBreath 2.8s ease-in-out infinite",filter:"drop-shadow(0 5px 7px rgba(0,0,0,0.55)) drop-shadow(0 0 12px rgba(255,215,0,0.35))" }} />
+    {/* Bildirim noktası — altın çerçeveli */}
+    <span style={{ position:"absolute",top:6,right:6,width:17,height:17,borderRadius:"50%",background:"#ff4757",color:"#fff",fontSize:10,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",border:"1.5px solid #ffd700",boxShadow:"0 1px 4px rgba(0,0,0,0.5)",fontFamily:warrior }}>1</span>
   </button>);
 }
 function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
