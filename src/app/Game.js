@@ -3451,7 +3451,7 @@ export default function Game() {
         <div style={{ position:"relative",marginBottom:14,display:"flex",flexDirection:"column",alignItems:"center" }}>
           <style>{`
 @keyframes markBubble{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
-@keyframes markHand{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+@keyframes markHand{0%,100%{transform:translateX(0)}50%{transform:translateX(-9px)}}
 @keyframes markWin{0%{box-shadow:0 0 0 rgba(74,222,128,0)}50%{box-shadow:0 0 28px rgba(74,222,128,0.6)}100%{box-shadow:0 0 10px rgba(74,222,128,0.25)}}
 @keyframes markDash{0%,100%{border-color:rgba(255,215,0,0.9);box-shadow:inset 0 0 12px rgba(255,215,0,0.3)}50%{border-color:rgba(255,215,0,0.4);box-shadow:inset 0 0 4px rgba(255,215,0,0.1)}}
 @keyframes flameFlicker{0%,100%{transform:scale(1) rotate(-3deg)}50%{transform:scale(1.15) rotate(3deg)}}
@@ -3481,8 +3481,8 @@ export default function Game() {
                 {isUserCell && userFlag && <span style={{ fontSize:19,color:t.gold,animation:"markDrop 0.4s ease-out both" }}>⚑</span>}
               </div>;
             })}
-            {/* Boş hücreyi gösteren el */}
-            {!userFlag && <div style={{ position:"absolute",top:cs*1.5+8,right:-4,fontSize:28,animation:"markHand 0.9s ease-in-out infinite",filter:"drop-shadow(0 2px 8px rgba(255,215,0,0.6))",pointerEvents:"none" }}>👆</div>}
+            {/* Doğru kareyi gösteren yan el — hücre (1,2)'nin hemen sağında, ona bakıyor */}
+            {!userFlag && <div style={{ position:"absolute",top:8+cs+2+(cs-30)/2,left:8+3*(cs+2)+4,fontSize:28,lineHeight:"30px",animation:"markHand 0.9s ease-in-out infinite",filter:"drop-shadow(0 2px 8px rgba(255,215,0,0.7))",pointerEvents:"none",zIndex:2 }}>👈</div>}
           </div>
           {/* Neden? açıklaması */}
           <div style={{ fontSize:12,color:t.textDim,fontFamily:mono,marginTop:10,textAlign:"center",lineHeight:1.6,maxWidth:300 }}>
