@@ -578,6 +578,48 @@ const ACH_SETS = [
 const ACH_SET5_GATE = [ { tr:"201 oyun", en:"201 games" }, { tr:"30.000 altın kazan", en:"Earn 30,000 gold" }, { tr:"%50 kazanma oranı", en:"50% win rate" } ];
 function achSetDone(setDef, p) { const a = safeAch(p?.ach); return setDef.missions.every(m => { try { return m.check(p||{}, a); } catch(e) { return false; } }); }
 
+// === ODA TEMİZLİĞİ ===
+// Biten/terk edilen odalar silinmezse veritabanı sonsuza kadar büyür (maliyet + yavaşlama).
+// İki katman: (1) maç bitince odayı tek taraf siler, (2) açılışta eski artıkları süpür.
+const ROOM_TTL_MS = 2 * 60 * 60 * 1000; // 2 saatten eski oda = artık
+
+function deleteRoomSoon(roomId, delayMs = 45000) {
+  // Gecikme, iki oyuncunun da sonucu okumasına zaman tanır. Oda silinince
+  // dinleyiciler null alır ve zaten `if (!game) return;` ile güvenle çıkar.
+  if (!roomId) return null;
+  return setTimeout(() => { remove(ref(db, `rooms/${roomId}`)).catch(() => {}); }, delayMs);
+}
+
+// Öksüz oda temizliği — cihaz çökerse/uygulama kapanırsa oda ortada kalır.
+// Katıldığımız odanın kimliğini yerelde tutar, bir sonraki açılışta biten/eskimiş
+// olanı sileriz. Böylece "tüm odaları oku" iznine gerek kalmaz (rakip tahtası sızmaz).
+const MY_ROOM_KEY = "ab_last_room";
+function rememberRoom(roomId) {
+  try { if (roomId) localStorage.setItem(MY_ROOM_KEY, roomId); } catch (e) {}
+}
+function forgetRoom() {
+  try { localStorage.removeItem(MY_ROOM_KEY); } catch (e) {}
+}
+async function cleanupOrphanRoom() {
+  let rid = null;
+  try { rid = localStorage.getItem(MY_ROOM_KEY); } catch (e) {}
+  if (!rid) return false;
+  try {
+    const snap = await get(ref(db, `rooms/${rid}`));
+    if (!snap.exists()) { forgetRoom(); return false; }
+    const v = snap.val() || {};
+    const created = typeof v.created === "number" ? v.created : 0;
+    const finished = v.winner != null;
+    // Bitmiş ya da 2 saatten eski (terk edilmiş) ise sil
+    if (finished || (created && Date.now() - created > ROOM_TTL_MS)) {
+      await remove(ref(db, `rooms/${rid}`)).catch(() => {});
+      forgetRoom();
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
 // === GLOBAL SAYAÇLAR — Yaşayan Ufuk beslemesi (dürüst, sadece büyüyen metrikler) ===
 function todayKey() { const d = new Date(); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`; }
 function bumpGlobalStats(battles, sunk) {
@@ -2580,6 +2622,8 @@ export default function Game() {
   // çağırabilir ve aynı maç iki kez sayılabilirdi.
   const myProfileRef = useRef(null);
   useEffect(() => { myProfileRef.current = myProfile; }, [myProfile]);
+  const roomCleanupRef = useRef(null); // maç sonu oda silme zamanlayıcısı
+  const sweptRef = useRef(false);      // eski oda süpürmesi oturumda bir kez
 
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
@@ -2797,6 +2841,15 @@ export default function Game() {
     setMyProfile(p => p ? { ...p, voyage: v } : p);
     if (authUid) update(ref(db, `profiles/${authUid}`), { voyage: v }).catch(()=>{});
   };
+
+  // ÖKSÜZ ODA TEMİZLİĞİ — oturumda bir kez. Önceki oturumda çökme/kapanma yüzünden
+  // ortada kalan kendi odamızı siler; veritabanının şişmesini engeller.
+  useEffect(() => {
+    if (phase !== "lobby" || !authUid || sweptRef.current) return;
+    sweptRef.current = true;
+    const tm = setTimeout(() => { cleanupOrphanRoom(); }, 4000); // açılış yükünü bloklamasın
+    return () => clearTimeout(tm);
+  }, [phase, authUid]);
 
   // "SEFERE ÇIKIYORUZ" karşılaması — oyun açılınca bir kez, ganimet penceresi yoksa
   useEffect(() => {
@@ -3093,6 +3146,11 @@ export default function Game() {
           ? (iW ? (reason === "timeout" ? "Time's up — Opponent eliminated!" : reason === "placement_timeout" ? "You won — opponent couldn't place ships in time!" : reason === "surrender" ? "Opponent surrendered!" : reason === "afk_timeout" ? "Opponent didn't play — You won!" : "You sank all their ships!") : (reason === "timeout" ? "Time's up!" : reason === "placement_timeout" ? "You lost because you didn't place your ships in time!" : reason === "surrender" ? "You surrendered!" : reason === "afk_timeout" ? "You lost for not playing!" : "Your ships were sunk!"))
           : (iW ? (reason === "timeout" ? "Süre bitti — Rakip elendi!" : reason === "placement_timeout" ? "Rakip gemileri zamanında yerleştiremediği için kazandın!" : reason === "surrender" ? "Rakip teslim oldu!" : reason === "afk_timeout" ? "Rakip oynamadı — Kazandın!" : "Tüm gemileri batırdın!") : (reason === "timeout" ? "Süren doldu!" : reason === "placement_timeout" ? "Gemileri zamanında yerleştiremediğin için kaybettin!" : reason === "surrender" ? "Teslim oldun!" : reason === "afk_timeout" ? "Oynamadığın için kaybettin!" : "Gemilerin battı!"));
         setWinner(winMsg); setIsWin(iW); setPhase("gameover");
+        // ODA TEMİZLİĞİ — yalnızca 1. oyuncu siler (tek sorumlu, çift silme yok).
+        // 45 sn gecikme iki tarafın da sonucu okumasına yeter.
+        if (pNum === 1 && !roomCleanupRef.current) {
+          roomCleanupRef.current = deleteRoomSoon(roomIdRef.current, 45000);
+        }
         sfx.init(); sfx.play(iW ? 'win' : 'lose');
         if (iW) { setTimeout(() => sfx.playEpicMusic(), 500); setTimeout(() => launchConfetti('confetti-canvas'), 300); }
         else { setTimeout(() => sfx.playDefeatMusic(), 500); }
@@ -3156,6 +3214,7 @@ export default function Game() {
   const handleOnlineChallenge = useCallback((rid, pNum) => {
     setShowOnlineLobby(false);
     roomIdRef.current = rid;
+    rememberRoom(rid);
     setRoomId(rid);
     setPlayerNum(pNum);
     playerNumRef.current = pNum;
@@ -3527,6 +3586,12 @@ export default function Game() {
 
   const resetGame = () => {
     /* müzik devam eder */
+    // Yerleştirme aşamasında terk edilen oda (kimse kazanmadı) → hemen sil, artık kalmasın.
+    if (roomIdRef.current && phaseRef.current === "placing") {
+      remove(ref(db, `rooms/${roomIdRef.current}`)).catch(() => {});
+    }
+    forgetRoom();
+    if (roomCleanupRef.current) { clearTimeout(roomCleanupRef.current); roomCleanupRef.current = null; }
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
     finishDragListeners(); dragRef.current = null;
     setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShowSurrenderConfirm(false); setAfkTimer(null); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; killCountRef.current = 0; firstHitVoiceRef.current = false; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); isBotGameRef.current = false; setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false }); setRevengeResult(null); setMatchRewards(null); setRewardModalOpen(false); setNewAchUnlocks([]);
@@ -3981,7 +4046,7 @@ export default function Game() {
     setTimeout(() => {
       if (quickMatchCancelledRef.current) return;
       setMatchmaking(false); setMatchCancelFn(null); setQuickMatchPhase(null); setQuickMatchOpponent(null);
-      roomIdRef.current = roomId; setRoomId(roomId); setPlayerNum(playerNum); playerNumRef.current = playerNum; setOpponentName(oppName); setPhase("placing"); listenToRoom(roomId, playerNum); if (authUid) remove(ref(db, `online_players/${authUid}`));
+      roomIdRef.current = roomId; rememberRoom(roomId); setRoomId(roomId); setPlayerNum(playerNum); playerNumRef.current = playerNum; setOpponentName(oppName); setPhase("placing"); listenToRoom(roomId, playerNum); if (authUid) remove(ref(db, `online_players/${authUid}`));
       sfx.playPlacementMusic();
     }, 1700);
   };
