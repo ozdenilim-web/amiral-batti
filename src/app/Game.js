@@ -404,8 +404,8 @@ function calculateElo(myElo, oppElo, didWin, k = 32) {
 const MAX_LEVEL = 83;
 const XP_ONLINE_WIN = 1;
 const XP_BOT_WIN = 0.5;
-const XP_ONLINE_LOSS = XP_ONLINE_WIN / 8;
-const XP_BOT_LOSS = XP_BOT_WIN / 8;
+const XP_ONLINE_LOSS = XP_ONLINE_WIN / 4; // kaybeden, kazanılan XP'nin %25'ini alır
+const XP_BOT_LOSS = XP_BOT_WIN / 4;       // kaybeden, kazanılan XP'nin %25'ini alır
 function gamesNeededForLevel(fromLevel) {
   if (fromLevel >= MAX_LEVEL) return Infinity;
   return Math.max(1, Math.round(3 * Math.pow(5 / 3, fromLevel - 1)));
@@ -1141,12 +1141,14 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
   const loserSnap = await get(ref(db, `profiles/${loserUid}`));
   if (!winnerSnap.exists() || !loserSnap.exists()) return;
   const wd = winnerSnap.val(), ld = loserSnap.val();
-  const now = Date.now(), winGold = arena?arena.winGold:100, loseGold = arena?arena.loseGold:20;
+  // Kaybeden altın kaybetmez ama kazanmaz da: arena giriş ücreti iade edilir, ekstra altın yok
+  const now = Date.now(), winGold = arena?arena.winGold:100, loseGold = arena?arena.entryFee:0;
   const wOldGold = safeGold(wd.gold), lOldGold = safeGold(ld.gold);
   const wNewGold = wOldGold + winGold, lNewGold = lOldGold + loseGold;
   // Full clean profiles with set() — no NaN can survive
-  const wLevel = applyLevelCredit(wd, arena ? XP_ONLINE_WIN * 1.1 : XP_ONLINE_WIN);
-  const lLevel = applyLevelCredit(ld, XP_ONLINE_LOSS);
+  const winCredit = arena ? XP_ONLINE_WIN * 1.1 : XP_ONLINE_WIN;
+  const wLevel = applyLevelCredit(wd, winCredit);
+  const lLevel = applyLevelCredit(ld, winCredit * 0.25); // kaybeden, kazananın XP'sinin %25'ini alır
   const winnerProfile = {
     displayName: wd.displayName || "Denizci",
     wins: ((typeof wd.wins === "number" && !isNaN(wd.wins)) ? wd.wins : 0) + 1,
@@ -1314,7 +1316,7 @@ const ANIMS = `
 @keyframes coinSpinY{0%,100%{transform:rotateY(0deg)}50%{transform:rotateY(180deg)}}
 @keyframes explodeCore{0%,100%{opacity:0.9;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
 @keyframes explodeWave{0%{opacity:0.7;transform:scale(0.6)}70%{opacity:0.15;transform:scale(1.25)}100%{opacity:0;transform:scale(1.4)}}
-@keyframes scanline{0%{top:-2px}100%{top:100vh}}
+@keyframes scanline{0%{transform:translateY(-2px)}100%{transform:translateY(100vh)}}
 @keyframes flameFlicker{0%,100%{transform:scale(1) rotate(-3deg);opacity:0.85}25%{transform:scale(1.15) rotate(4deg);opacity:1}50%{transform:scale(0.92) rotate(-5deg);opacity:0.8}75%{transform:scale(1.08) rotate(3deg);opacity:0.95}}
 @keyframes turnPulse{0%,100%{box-shadow:0 0 12px rgba(0,229,255,0.4), inset 0 0 8px rgba(0,229,255,0.1)}50%{box-shadow:0 0 30px rgba(0,229,255,0.8), inset 0 0 16px rgba(0,229,255,0.25)}}
 @keyframes emojiFly3d{0%{opacity:0;transform:translate(-50%,-50%) scale(0.2) rotateY(120deg) rotateZ(-20deg)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.5) rotateY(-12deg) rotateZ(6deg)}30%{transform:translate(-50%,-50%) scale(1.15) rotateY(0deg) rotateZ(0deg)}75%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}100%{opacity:0;transform:translate(-50%,-58%) scale(0.85)}}
@@ -2023,6 +2025,18 @@ export default function Game() {
   const lastAttackCountRef = useRef(0);
   const eloUpdatedRef = useRef(false);
 
+  // Bot maçı mağlubiyetini kaydet — her yenilgi yolundan (batma, süre, yerleştirememe) çağrılır.
+  // Ref üzerinden tutulur ki interval/timeout closure'ları her zaman güncel profile erişsin.
+  const recordBotLossRef = useRef(null);
+  recordBotLossRef.current = () => {
+    if (!authUid || !myProfile || isOnboarding) return;
+    // Kaybeden altın kaybetmez ama kazanmaz da — XP: kazanılanın %25'i
+    const lvl2 = applyLevelCredit(myProfile, XP_BOT_LOSS);
+    update(ref(db, `profiles/${authUid}`), { losses: (myProfile.losses||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl2.level, levelProgress: lvl2.levelProgress }).catch(()=>{});
+    setMyProfile(prev => prev ? { ...prev, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl2.level, levelProgress: lvl2.levelProgress } : prev);
+    setMissionStats(prev => ({ ...prev, gamesPlayed: prev.gamesPlayed + 1 }));
+  };
+
   const cellSize = typeof window !== "undefined" ? Math.max(16, Math.min(30, Math.floor((Math.min(window.innerWidth - 24, 400)) / 12), Math.floor((window.innerHeight - 300) / 12))) : 28;
   useEffect(() => { myTurnRef.current = myTurn; }, [myTurn]);
   useEffect(() => {
@@ -2078,6 +2092,7 @@ export default function Game() {
           if (isBotGame) {
             setWinner(appLang==="en"?"You lost because you didn't place your ships in time!":"Gemileri zamanında yerleştiremediğin için kaybettin!"); setIsWin(false); setPhase("gameover");
             sfx.init(); sfx.play('lose'); sfx.playDefeatMusic();
+            recordBotLossRef.current?.();
           } else if (roomIdRef.current) {
             // Online: rakip kazansın
             const oppNum = playerNumRef.current === 1 ? 2 : 1;
@@ -2096,7 +2111,7 @@ export default function Game() {
       if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
       clockIntervalRef.current = setInterval(() => {
         if (phaseRef.current !== "playing") return;
-        if (myTurnRef.current) { myClockRef.current = Math.max(0, myClockRef.current - 1); setMyClock(myClockRef.current); if (myClockRef.current <= 0) { clearInterval(clockIntervalRef.current); if (isBotGameRef.current) { setWinner(appLang==="en"?"Time's up!":"Süren doldu!"); setIsWin(false); setPhase("gameover"); sfx.init(); sfx.play('lose'); sfx.playDefeatMusic(); } else { update(ref(db, `rooms/${roomIdRef.current}`), { winner: playerNumRef.current === 1 ? 2 : 1, winReason: "timeout" }); } } }
+        if (myTurnRef.current) { myClockRef.current = Math.max(0, myClockRef.current - 1); setMyClock(myClockRef.current); if (myClockRef.current <= 0) { clearInterval(clockIntervalRef.current); if (isBotGameRef.current) { setWinner(appLang==="en"?"Time's up!":"Süren doldu!"); setIsWin(false); setPhase("gameover"); sfx.init(); sfx.play('lose'); sfx.playDefeatMusic(); recordBotLossRef.current?.(); } else { update(ref(db, `rooms/${roomIdRef.current}`), { winner: playerNumRef.current === 1 ? 2 : 1, winReason: "timeout" }); } } }
         else { oppClockRef.current = Math.max(0, oppClockRef.current - 1); setOppClock(oppClockRef.current); if (oppClockRef.current <= 0) { clearInterval(clockIntervalRef.current); update(ref(db, `rooms/${roomIdRef.current}`), { winner: playerNumRef.current, winReason: "timeout" }); } }
       }, 1000);
     }
@@ -2910,18 +2925,8 @@ export default function Game() {
     if (newOppHits >= 20) {
       setWinner(appLang==="en"?"Your ships were sunk!":"Gemilerin battı!"); setIsWin(false); setPhase("gameover");
       sfx.init(); sfx.play('lose'); sfx.playDefeatMusic();
-      setMissionStats(prev => ({ ...prev, gamesPlayed: prev.gamesPlayed + 1 }));
-      // Bot'a yenilince küçük bir teselli altını verilir
-      if (authUid && myProfile && !isOnboarding) {
-        const consolationGold = 15;
-        const oldGold2 = safeGold(myProfile.gold);
-        const newGold2 = oldGold2 + consolationGold;
-        const lvl2 = applyLevelCredit(myProfile, XP_BOT_LOSS);
-        update(ref(db, `profiles/${authUid}`), { gold: newGold2, losses: (myProfile.losses||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl2.level, levelProgress: lvl2.levelProgress }).catch(()=>{});
-        setMyProfile(prev => prev ? { ...prev, gold: newGold2, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl2.level, levelProgress: lvl2.levelProgress } : prev);
-        setGoldChange({ amount: consolationGold });
-        setEloChange({ myOld: oldGold2, myNew: newGold2 });
-      }
+      // Kaybeden altın kaybetmez, kazanmaz da — sadece istatistik + %25 XP
+      recordBotLossRef.current?.();
     } else {
       setTimeout(() => { setMyTurn(true); setActiveBoard("attack"); }, botSunkSomething ? 4200 : 3200);
     }
@@ -3211,7 +3216,12 @@ export default function Game() {
           <div style={{ animation:"titleSlam 1s cubic-bezier(0.34,1.56,0.64,1) 0.3s both" }}>
             <div style={{ fontSize:52,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:12,textShadow:`0 0 80px ${t.accentGlow}, 0 0 160px rgba(0,229,255,0.2), 0 6px 30px rgba(0,0,0,0.9)`,lineHeight:1.05,WebkitTextStroke:"0.5px rgba(255,255,255,0.1)" }}>AMİRAL<br/>BATTI</div>
           </div>
-          <div style={{ fontSize:11,color:"rgba(255,215,0,0.6)",fontFamily:warrior,letterSpacing:8,marginTop:10,marginBottom:36,fontStyle:"italic",animation:"fadeUp 1s ease-out 1.0s both" }}>{L(appLang,"tagline")}</div>
+          <div style={{ fontSize:16,color:"rgba(255,215,0,0.75)",fontFamily:warrior,letterSpacing:8,marginTop:12,fontStyle:"italic",textShadow:`0 0 16px ${t.goldGlow}`,animation:"fadeUp 1s ease-out 1.0s both" }}>{L(appLang,"tagline")}</div>
+          <div style={{ display:"flex",alignItems:"center",gap:10,marginTop:12,marginBottom:36,animation:"fadeUp 1s ease-out 1.15s both" }}>
+            <div style={{ width:90,height:1,background:"linear-gradient(90deg, transparent, rgba(255,215,0,0.6))" }} />
+            <div style={{ width:5,height:5,borderRadius:"50%",background:"rgba(255,215,0,0.75)",boxShadow:`0 0 10px ${t.goldGlow}` }} />
+            <div style={{ width:90,height:1,background:"linear-gradient(90deg, rgba(255,215,0,0.6), transparent)" }} />
+          </div>
           <div style={{ animation:"fadeUp 1s ease-out 1.3s both" }}>
             <div style={{ position:"relative",display:"inline-block" }}>
               <span style={{ position:"absolute",top:-9,left:-9,width:30,height:30,borderTop:"3px solid rgba(0,229,255,0.55)",borderLeft:"3px solid rgba(0,229,255,0.55)",borderTopLeftRadius:18,animation:"sonarArc 2s ease-in-out infinite",pointerEvents:"none" }} />
@@ -3420,7 +3430,12 @@ export default function Game() {
             <div style={{ animation:"titleSlam 0.9s cubic-bezier(0.34,1.56,0.64,1) 0.4s both" }}>
               <div style={{ fontSize:56,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:12,textShadow:`0 0 80px ${t.accentGlow}, 0 0 40px rgba(0,229,255,0.4), 0 6px 30px rgba(0,0,0,0.9)`,lineHeight:1 }}>AMİRAL<br/>BATTI</div>
             </div>
-            <div style={{ fontSize:13,color:"rgba(255,215,0,0.65)",fontFamily:warrior,letterSpacing:7,marginTop:14,fontStyle:"italic",animation:"fadeUp 1s ease-out 1.2s both",textShadow:`0 0 15px ${t.goldGlow}` }}>{L(appLang,"tagline")}</div>
+            <div style={{ fontSize:16,color:"rgba(255,215,0,0.75)",fontFamily:warrior,letterSpacing:8,marginTop:14,fontStyle:"italic",animation:"fadeUp 1s ease-out 1.2s both",textShadow:`0 0 16px ${t.goldGlow}` }}>{L(appLang,"tagline")}</div>
+            <div style={{ display:"flex",alignItems:"center",gap:10,marginTop:12,animation:"fadeUp 1s ease-out 1.35s both" }}>
+              <div style={{ width:90,height:1,background:"linear-gradient(90deg, transparent, rgba(255,215,0,0.6))" }} />
+              <div style={{ width:5,height:5,borderRadius:"50%",background:"rgba(255,215,0,0.75)",boxShadow:`0 0 10px ${t.goldGlow}` }} />
+              <div style={{ width:90,height:1,background:"linear-gradient(90deg, rgba(255,215,0,0.6), transparent)" }} />
+            </div>
           </div>
         </div>
       );
@@ -3593,8 +3608,6 @@ export default function Game() {
         <div style={{ position:"absolute",bottom:30,left:"-50%",width:"200%",height:50,borderRadius:"50%",background:t.accent,opacity:0.6,animation:"wave 10s linear infinite reverse" }} />
         <div style={{ position:"absolute",bottom:60,left:"-50%",width:"200%",height:30,borderRadius:"50%",background:t.accent,opacity:0.3,animation:"wave 14s linear infinite" }} />
       </div>
-      {/* Sparkle particles in background */}
-      {[...Array(6)].map((_,i)=><div key={`sp${i}`} style={{ position:"absolute",width:3,height:3,borderRadius:"50%",background:i%2===0?t.accent:t.gold,top:`${10+Math.random()*30}%`,left:`${10+Math.random()*80}%`,animation:`pulse ${2+i*0.5}s ease-in-out infinite`,opacity:0.4,pointerEvents:"none" }} />)}
       {/* Logo */}
       <div style={{ fontSize:42,fontWeight:900,letterSpacing:12,color:t.accent,textShadow:`0 0 60px ${t.accentGlow}, 0 0 120px rgba(0,229,255,0.15), 0 3px 12px rgba(0,0,0,0.6)`,marginBottom:2,fontFamily:warrior,animation:"logoFloat 4s ease-in-out infinite",zIndex:1,WebkitTextStroke:"0.5px rgba(255,255,255,0.08)",width:"100%",textAlign:"center" }}>AMİRAL BATTI</div>
       <div style={{ display:"flex",alignItems:"center",gap:12,marginBottom:10,zIndex:1 }}>
@@ -3604,11 +3617,11 @@ export default function Game() {
       </div>
       {myProfile && (<div style={{ width:"100%",maxWidth:360,marginTop:8,marginBottom:14,zIndex:1,animation:"fadeUp 0.25s ease-out" }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:5,padding:"0 2px" }}>
-          <span style={{ fontSize:17,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 10px ${t.goldGlow}` }}>{L(appLang,"level")} {myLevel}</span>
-          <span style={{ fontSize:14,fontWeight:800,color:t.textDim,fontFamily:mono,letterSpacing:1 }}>{Math.floor(myLevelPct*100)}%</span>
+          <span style={{ fontSize:14,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 10px ${t.goldGlow}` }}>{L(appLang,"level")} {myLevel}</span>
+          <span style={{ fontSize:12,fontWeight:800,color:t.textDim,fontFamily:mono,letterSpacing:1 }}>{Math.floor(myLevelPct*100)}%</span>
         </div>
-        <div style={{ width:"100%",height:16,borderRadius:9,background:"rgba(0,0,0,0.45)",border:"1px solid rgba(255,215,0,0.3)",overflow:"hidden",position:"relative",boxShadow:"inset 0 2px 6px rgba(0,0,0,0.6)" }}>
-          <div style={{ width:`${myLevelPct*100}%`,height:"100%",background:"linear-gradient(180deg, #fff9c4 0%, #ffe066 30%, #ffd700 60%, #d97706 100%)",boxShadow:`0 0 14px ${t.goldGlow}, inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -2px 4px rgba(120,70,0,0.4)`,transition:"width 0.7s cubic-bezier(0.34,1.56,0.64,1)",borderRadius:9,position:"relative",overflow:"hidden" }}>
+        <div style={{ width:"100%",height:7,borderRadius:4,background:"rgba(0,0,0,0.45)",border:"1px solid rgba(255,215,0,0.25)",overflow:"hidden",position:"relative",boxShadow:"inset 0 1px 3px rgba(0,0,0,0.6)" }}>
+          <div style={{ width:`${myLevelPct*100}%`,height:"100%",background:"linear-gradient(180deg, #fff9c4 0%, #ffe066 30%, #ffd700 60%, #d97706 100%)",boxShadow:`0 0 10px ${t.goldGlow}, inset 0 1px 0 rgba(255,255,255,0.5)`,transition:"width 0.7s cubic-bezier(0.34,1.56,0.64,1)",borderRadius:4,position:"relative",overflow:"hidden" }}>
             <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent)",animation:"shimmerPass 2.4s ease-in-out infinite" }} />
           </div>
         </div>
@@ -3790,7 +3803,7 @@ export default function Game() {
       repeating-linear-gradient(90deg, transparent 0px, transparent 39px, rgba(0,229,255,0.07) 39px, rgba(0,229,255,0.07) 40px),
       ${t.bg}`, position:"relative" }}><style>{ANIMS}</style>
       {/* HUD tarama çizgisi */}
-      <div style={{ position:"fixed",left:0,right:0,height:2,background:"linear-gradient(90deg, transparent, rgba(0,229,255,0.25), transparent)",animation:"scanline 7s linear infinite",pointerEvents:"none",zIndex:1 }} />
+      <div style={{ position:"fixed",top:0,left:0,right:0,height:2,background:"linear-gradient(90deg, transparent, rgba(0,229,255,0.25), transparent)",animation:"scanline 7s linear infinite",pointerEvents:"none",zIndex:1,willChange:"transform" }} />
       {/* Köşe braketleri */}
       <div style={{ position:"fixed",top:8,left:8,width:26,height:26,borderTop:"2px solid rgba(0,229,255,0.35)",borderLeft:"2px solid rgba(0,229,255,0.35)",pointerEvents:"none",zIndex:1 }} />
       <div style={{ position:"fixed",top:8,right:8,width:26,height:26,borderTop:"2px solid rgba(0,229,255,0.35)",borderRight:"2px solid rgba(0,229,255,0.35)",pointerEvents:"none",zIndex:1 }} />
@@ -3852,11 +3865,11 @@ export default function Game() {
         {microFeedback && <MicroFeedback text={microFeedback.text} color={microFeedback.color} onDone={()=>setMicroFeedback(null)} />}
       </div>
       {isTestMode() && <button onClick={forceEndGame} style={{ marginTop:8,padding:"8px 16px",background:"rgba(251,191,36,0.2)",color:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"endGameTestBtn")}</button>}
-      {myTurn && isAttack && !markMode && (<div style={{ position:"fixed",bottom:0,left:0,right:0,background:"rgba(10,14,23,0.96)",backdropFilter:"blur(10px)",borderTop:`1px solid ${t.border}`,paddingTop:10,paddingLeft:16,paddingRight:16,paddingBottom:"calc(10px + env(safe-area-inset-bottom, 0px))",display:"flex",alignItems:"center",justifyContent:"center",gap:14,zIndex:100 }}>
+      {myTurn && isAttack && !markMode && (<div style={{ position:"fixed",bottom:0,left:0,right:0,background:"rgba(10,14,23,0.97)",borderTop:`1px solid ${t.border}`,paddingTop:10,paddingLeft:16,paddingRight:16,paddingBottom:"calc(10px + env(safe-area-inset-bottom, 0px))",display:"flex",alignItems:"center",justifyContent:"center",gap:14,zIndex:100 }}>
         <div style={{ display:"flex",gap:5 }}>{[0,1,2].map(i=><div key={i} style={{ width:14,height:14,borderRadius:"50%",background:i<currentShots.length?t.hit:t.accent,opacity:i<currentShots.length?0.3:1,animation:i<currentShots.length?"popIn 0.3s ease-out":"none" }} />)}</div>
         <RippleButton onClick={fireShots} disabled={currentShots.length===0} style={{ padding:"12px 36px",background:currentShots.length>0?`linear-gradient(135deg,${t.hit},#dc2626)`:t.surfaceLight,color:currentShots.length>0?"#fff":t.textDim,border:"none",borderRadius:10,fontSize:16,fontWeight:700,letterSpacing:3,cursor:currentShots.length===0?"default":"pointer",fontFamily:warrior,boxShadow:currentShots.length>0?`0 0 24px ${t.hitGlow}`:"none",opacity:currentShots.length===0?0.5:1 }}>{L(appLang,"fire")} 🔥</RippleButton>
       </div>)}
-      {!isOnboarding && <div style={{ position:"fixed",bottom:myTurn&&activeBoard==="attack"&&!markMode?"calc(64px + env(safe-area-inset-bottom, 0px))":0,left:0,right:0,display:"flex",justifyContent:"center",gap:2,background:"rgba(10,14,23,0.92)",backdropFilter:"blur(8px)",borderTop:`1px solid ${t.border}`,paddingTop:6,paddingLeft:4,paddingRight:4,paddingBottom:"calc(6px + env(safe-area-inset-bottom, 0px))",zIndex:90 }}>
+      {!isOnboarding && <div style={{ position:"fixed",bottom:myTurn&&activeBoard==="attack"&&!markMode?"calc(64px + env(safe-area-inset-bottom, 0px))":0,left:0,right:0,display:"flex",justifyContent:"center",gap:2,background:"rgba(10,14,23,0.96)",borderTop:`1px solid ${t.border}`,paddingTop:6,paddingLeft:4,paddingRight:4,paddingBottom:"calc(6px + env(safe-area-inset-bottom, 0px))",zIndex:90 }}>
         {QUICK_EMOJIS.map(qe=><button key={qe.id} onClick={()=>sendEmoji(qe)} style={{ padding:"5px 7px",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(0,229,255,0.15)",fontSize:19,cursor:"pointer",borderRadius:10,transition:"transform 0.12s",filter:"drop-shadow(0 3px 4px rgba(0,0,0,0.6)) saturate(1.3)",transform:"perspective(150px) rotateX(8deg)" }} onMouseDown={e=>e.currentTarget.style.transform="perspective(150px) rotateX(8deg) scale(0.85)"} onMouseUp={e=>e.currentTarget.style.transform="perspective(150px) rotateX(8deg) scale(1)"} title={appLang==="en"?qe.labelEn:qe.label}>{qe.emoji}</button>)}
       </div>}
       <canvas id="confetti-canvas" style={{ position:'fixed',inset:0,pointerEvents:'none',zIndex:10002 }} />
