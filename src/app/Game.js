@@ -783,12 +783,23 @@ class SoundEngine {
   playPlacementMusic() { this.ensureMusic(0.10); }
   playVoice(name) {
     if (!this.sfxOn) return;
-    // Anons/efekt mp3'leri — üst üste binebilir, kısa dosyalar
+    // Anons/efekt mp3'leri — kısa dosyalar. Önceki anons hâlâ çalıyorsa kesilir ki üst üste binmesin.
     try {
+      if (this._voiceEl) { try { this._voiceEl.pause(); this._voiceEl.currentTime = 0; } catch(e) {} }
       const a = new Audio(`/sfx/${name}.mp3`);
       a.volume = 0.85;
+      this._voiceEl = a;
       a.play().catch(()=>{});
     } catch(e) {}
+  }
+  // TEK ATIŞTA (bir yaylım ateşinde) vurulan kutucuk sayısına göre anons.
+  // 3 kutucuk → triple kill, 2 kutucuk → double kill, 1 kutucuk → (sadece ilk kez) first kill.
+  // Öncelik çoklu vuruşta: double/triple, first_kill'i ezer — anonslar birbirini boğmaz.
+  playVolleyVoice(hitCount, isFirstEver) {
+    if (!this.sfxOn) return;
+    if (hitCount >= 3) this.playVoice('triple_kill');
+    else if (hitCount === 2) this.playVoice('double_kill');
+    else if (hitCount === 1 && isFirstEver) this.playVoice('first_kill');
   }
   play(type) {
     if (!this.enabled || !this.ctx || !this.sfxOn) return;
@@ -2868,7 +2879,7 @@ export default function Game() {
             if (!game.winner) { activeBoardTimerRef.current = setTimeout(() => setActiveBoard("defense"), 2000); }
             // Sound for own shots landing
             const myHitCount = lastAtk.shots.filter(s => s.result === "hit").length;
-            sfx.init(); if (myHitCount > 0) { sfx.play('hit'); sfx.setBattleIntensity(0.55 + myHitCount * 0.1); if (!firstHitVoiceRef.current) { firstHitVoiceRef.current = true; sfx.playVoice('first_kill'); } if (myHitCount === 3) sfx.playVoice('triple_kill'); else if (myHitCount === 2) sfx.playVoice('double_kill'); const hit3b=appLang==="en"?FB_HIT3_EN:FB_HIT3, hit2b=appLang==="en"?FB_HIT2_EN:FB_HIT2, hit1b=appLang==="en"?FB_HIT1_EN:FB_HIT1; setMicroFeedback({ text: fbPick(myHitCount === 3 ? hit3b : myHitCount === 2 ? hit2b : hit1b), color: myHitCount === 3 ? t.gold : t.accent }); } else { sfx.play('miss'); sfx.setBattleIntensity(0.18); setMicroFeedback({ text: fbPick(appLang==="en"?FB_MISS_EN:FB_MISS), color: '#4dd8ff' }); }
+            sfx.init(); if (myHitCount > 0) { sfx.play('hit'); sfx.setBattleIntensity(0.55 + myHitCount * 0.1); const wasFirstO = !firstHitVoiceRef.current; firstHitVoiceRef.current = true; sfx.playVolleyVoice(myHitCount, wasFirstO); const hit3b=appLang==="en"?FB_HIT3_EN:FB_HIT3, hit2b=appLang==="en"?FB_HIT2_EN:FB_HIT2, hit1b=appLang==="en"?FB_HIT1_EN:FB_HIT1; setMicroFeedback({ text: fbPick(myHitCount === 3 ? hit3b : myHitCount === 2 ? hit2b : hit1b), color: myHitCount === 3 ? t.gold : t.accent }); } else { sfx.play('miss'); sfx.setBattleIntensity(0.18); setMicroFeedback({ text: fbPick(appLang==="en"?FB_MISS_EN:FB_MISS), color: '#4dd8ff' }); }
           }
         }
       }
@@ -3646,7 +3657,7 @@ export default function Game() {
     // Sound effects for shots
     sfx.init();
     const hitCount0 = currentShots.filter(([r,c]) => botBoard[r][c] > 0).length;
-    if (hitCount0 > 0) { sfx.play('hit'); if (!isOnboarding) { if (!firstHitVoiceRef.current) { firstHitVoiceRef.current = true; sfx.playVoice('first_kill'); } if (hitCount0 === 3) sfx.playVoice('triple_kill'); else if (hitCount0 === 2) sfx.playVoice('double_kill'); }
+    if (hitCount0 > 0) { sfx.play('hit'); if (!isOnboarding) { const wasFirstB = !firstHitVoiceRef.current; firstHitVoiceRef.current = true; sfx.playVolleyVoice(hitCount0, wasFirstB); }
       { const atkRep = window.__lastAtkReport; const hit3=appLang==="en"?FB_HIT3_EN:FB_HIT3, hit2=appLang==="en"?FB_HIT2_EN:FB_HIT2, hit1=appLang==="en"?FB_HIT1_EN:FB_HIT1; setMicroFeedback({ text: atkRep || fbPick(hitCount0 === 3 ? hit3 : hitCount0 === 2 ? hit2 : hit1), color: hitCount0 === 3 ? t.gold : t.accent }); window.__lastAtkReport = null; }
     }
     else { sfx.play('miss'); setMicroFeedback({ text: fbPick(appLang==="en"?FB_MISS_EN:FB_MISS), color: '#4dd8ff' }); }
