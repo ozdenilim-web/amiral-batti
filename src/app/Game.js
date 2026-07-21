@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { db, auth, googleProvider, ref, set, get, onValue, update, remove, onDisconnect, runTransaction, query, orderByChild, limitToLast, signInAnonymously, onAuthStateChanged, signInWithPopup, signOut } from "../lib/firebase";
+import { db, auth, googleProvider, ref, set, get, onValue, update, remove, onDisconnect, runTransaction, query, orderByChild, limitToLast, signInAnonymously, onAuthStateChanged, signInWithPopup, signOut, track, identify } from "../lib/firebase";
 
 const ROWS = 11;
 const COLS = 11;
@@ -2688,6 +2688,7 @@ export default function Game() {
     if (!myProfile || !authUid) return;
     const cl = safeClaimed(myProfile.achievClaimed);
     if (cl[setDef.id] || !achSetDone(setDef, myProfile)) return;
+    track("reward_claim", { type: "achievement_set", set: setDef.id, gold: setDef.reward });
     sfx.init(); sfx.play('chest'); setTimeout(() => sfx.play('gold'), 350);
     const a2 = safeAch(myProfile.ach); a2.goldEarned += setDef.reward;
     const nc = { ...cl, [setDef.id]: true };
@@ -2800,6 +2801,7 @@ export default function Game() {
   const claimVoyage = () => {
     if (!voyageReward || !myProfile || !authUid) return;
     const g = voyageReward.gold;
+    track("reward_claim", { type: "voyage", gold: g, hours: voyageReward.hours });
     sfx.init(); sfx.play('gold');
     const nv = { ...safeVoyage(myProfile.voyage), lastClaim: Date.now() };
     const va = safeAch(myProfile.ach); va.goldEarned += g;
@@ -2844,6 +2846,7 @@ export default function Game() {
     setMyProfile(prev => prev ? { ...prev, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl2.level, levelProgress: lvl2.levelProgress, recentResults: pushRecent(prev.recentResults, false), honor: migrateHonor(prev) + HONOR_LOSS_BOT } : prev);
     bumpDaily(d => { d.gamesPlayed += 1; });
     setMatchRewards({ gold: 0, xp: XP_BOT_LOSS, honor: HONOR_LOSS_BOT, revenge: 1, isWin: false }); setRewardModalOpen(true);
+    track("game_end", { mode: "bot", result: "loss" });
     // Kazanım sayaçları: mağlubiyette isabet/batırma yine sayılır, seriler sıfırlanır
     bumpAch(a => { a.hits += myHits; a.sunk += killCountRef.current; a.winStreak = 0; a.turnStreak = 0; a.lossStreak = (a.lossStreak||0) + 1; });
     bumpGlobalStats(1, killCountRef.current);
@@ -2889,6 +2892,7 @@ export default function Game() {
     if (phase === "lobby" && authUid && myProfile && !hasClaimedDailyChestToday()) setShowDailyChest(true);
   }, [phase, authUid, myProfile]);
   const claimDailyChest = async (amount) => {
+    track("reward_claim", { type: "daily_chest", gold: amount });
     markDailyChestClaimed();
     setGoldAnim({ amount });
     setMyProfile(prev => { if (!prev) return prev; const a = safeAch(prev.ach); a.chest += 1; a.goldEarned += amount; return { ...prev, gold: safeGold(prev.gold) + amount, ach: a }; });
@@ -2901,6 +2905,23 @@ export default function Game() {
     setDailyChestModalOpen(false); setShowDailyChest(false);
   };
   useEffect(() => { phaseRef.current = phase; }, [phase]);
+
+  // ANALİTİK — ekran geçişleri (hangi ekranda bırakıldığını görmek için)
+  useEffect(() => {
+    if (!phase) return;
+    track("screen_view", { firebase_screen: phase, firebase_screen_class: "Game" });
+  }, [phase]);
+
+  // ANALİTİK — oyuncu kimliği ve seviye/rütbe özellikleri
+  useEffect(() => {
+    if (!authUid || !myProfile) return;
+    identify(authUid, {
+      level: String(myProfile.level || 0),
+      rank: getRankInfo(migrateHonor(myProfile), "tr").title,
+      total_games: String(myProfile.totalGames || 0),
+      lang: appLang,
+    });
+  }, [authUid, myProfile?.level, appLang]);
 
   // Görev ilerlemesi — artık KALICI günlük istatistiklerden hesaplanır (profilden gelir)
   const dailyStats = safeDaily(myProfile?.daily);
@@ -3103,6 +3124,7 @@ export default function Game() {
             setGoldChange({ amount: r.gold });
             if (r.gold > 0) { sfx.play('gold'); setGoldAnim({ amount: r.gold }); }
             if (iW && r.rev > 1) setRevengeResult({ mult: r.rev });
+            track("game_end", { mode: gameArena ? "arena" : "online", result: iW ? "win" : "loss", gold: r.gold, duration_sec: Math.round(mElapsed), reason });
             setMatchRewards({ gold: r.gold, xp: r.xp, honor: iW ? HONOR_WIN_ONLINE : HONOR_LOSS_ONLINE, revenge: r.rev, isWin: iW });
             setRewardModalOpen(true);
             bumpGlobalStats(iW ? 1 : 0, sunkNow);
@@ -3730,6 +3752,7 @@ export default function Game() {
   );
 
   const startBotGame = () => {
+    track("game_start", { mode: "bot" });
     if (!playerName.trim()) { setMessage(L(appLang,"msgTypeName")); return; }
     const bot = botPlaceShips();
     const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
@@ -3988,6 +4011,7 @@ export default function Game() {
         setGoldChange({ amount: botWinGold });
         sfx.play('gold'); setGoldAnim({ amount: botWinGold });
         setMatchRewards({ gold: botWinGold, xp: XP_BOT_WIN * rMult1, honor: HONOR_WIN_BOT, revenge: rMult1, isWin: true }); setRewardModalOpen(true);
+        track("game_end", { mode: "bot", result: "win", gold: botWinGold, duration_sec: Math.round(elapsed) });
       }
     } else {
       setMyTurn(false);
@@ -4075,6 +4099,7 @@ export default function Game() {
   };
 
   const startQuickMatch = async (arenaOverride) => {
+    track("game_start", { mode: arenaOverride ? "arena" : "online", arena: arenaOverride?.id || "none" });
     if (!playerName.trim()) { setMessage(L(appLang,"msgTypeName")); return; }
     if (!authUid) { setMessage(L(appLang,"msgConnecting")); return; }
     const arena = arenaOverride || null;
