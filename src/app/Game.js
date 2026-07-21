@@ -56,7 +56,6 @@ function isTestMode() {
   if (typeof window === "undefined") return false;
   return new URLSearchParams(window.location.search).get("test") === "1";
 }
-function getTestGold() { return isTestMode() ? 5000 : STARTING_GOLD; }
 
 // === GÜNLÜK SANDIK (cihaz bazlı) ===
 const DAILY_CHEST_KEY = "ab_daily_chest_date";
@@ -84,7 +83,6 @@ const BOT_NAMES = [
   "Pala Bıyık","Tek Göz Rıza","Çelik Çapa","Demir Leydi","Kızıl Korsan","Gümüş Kılıç","Altın Diş","Kara Bayrak","Son Amiral","Derin Deniz"
 ];
 
-
 // === SAVAŞ FEEDBACK MESAJLARI ===
 const FB_HIT1 = ["İSABET! 🎯"];
 const FB_HIT2 = ["ÇİFT İSABET! 🎯🎯"];
@@ -92,14 +90,12 @@ const FB_HIT3 = ["ÜÇTE ÜÇ! 🎯🎯🎯"];
 const FB_MISS = ["KARAVANA", "ISKA!"];
 const FB_SUNK = ["GEMİ BATTI! 💀"];
 const FB_GOT_HIT = ["VURULDUN! 🚨"];
-const FB_GOT_SUNK = ["GEMİN BATTI! 😱"];
 const FB_HIT1_EN = ["HIT! 🎯"];
 const FB_HIT2_EN = ["DOUBLE HIT! 🎯🎯"];
 const FB_HIT3_EN = ["TRIPLE HIT! 🎯🎯🎯"];
 const FB_MISS_EN = ["MISS", "NO HIT!"];
 const FB_SUNK_EN = ["SHIP SUNK! 💀"];
 const FB_GOT_HIT_EN = ["YOU'VE BEEN HIT! 🚨"];
-const FB_GOT_SUNK_EN = ["YOUR SHIP SANK! 😱"];
 const fbPick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 // === GÖREV SİSTEMİ ===
@@ -431,17 +427,10 @@ const TRANSLATIONS = {
 };
 function L(lang, key) { return (TRANSLATIONS[lang] && TRANSLATIONS[lang][key]) || TRANSLATIONS.tr[key] || key; }
 
-function calculateElo(myElo, oppElo, didWin, k = 32) {
-  const expected = 1 / (1 + Math.pow(10, (oppElo - myElo) / 400));
-  const score = didWin ? 1 : 0;
-  return Math.max(0, Math.round(myElo + k * (score - expected)));
-}
-
 // === SEVİYE / XP SİSTEMİ ===
 const MAX_LEVEL = 83;
 const XP_ONLINE_WIN = 1;
 const XP_BOT_WIN = 0.5;
-const XP_ONLINE_LOSS = XP_ONLINE_WIN / 4; // kaybeden, kazanılan XP'nin %25'ini alır
 const XP_BOT_LOSS = XP_BOT_WIN / 4;       // kaybeden, kazanılan XP'nin %25'ini alır
 function gamesNeededForLevel(fromLevel) {
   if (fromLevel >= MAX_LEVEL) return Infinity;
@@ -1358,8 +1347,6 @@ async function ensureProfile(uid, displayName) {
   return sanitized;
 }
 
-
-
 // === ONLINE MAÇ SONUCU — HER OYUNCU KENDİ PROFİLİNİ YAZAR ===
 // Firebase kuralları başkasının profiline yazmayı engeller (auth.uid === $uid). Eskiden kazanan
 // her iki profili birden yazmaya çalışıyor, izin hatası zinciri koparıyor ve ödüller hiç işlenmiyordu.
@@ -1394,83 +1381,6 @@ async function applyOnlineResultSelf(uid, isWinner, arena, achMutator) {
     await update(ref(db, `profiles/${uid}`), upd);
     return { ...upd, oldGold, gold, xp, rev };
   } catch (e) { console.error("applyOnlineResultSelf error:", e); return null; }
-}
-
-async function updateEloAfterGame(winnerUid, loserUid, arena) {
-  const winnerSnap = await get(ref(db, `profiles/${winnerUid}`));
-  const loserSnap = await get(ref(db, `profiles/${loserUid}`));
-  if (!winnerSnap.exists() || !loserSnap.exists()) return;
-  const wd = winnerSnap.val(), ld = loserSnap.val();
-  // Kaybeden altın kaybetmez ama kazanmaz da: arena giriş ücreti iade edilir, ekstra altın yok
-  // İntikam çarpanı: kazananın kayıp serisi ödülleri katlar (×2 / ×2.5 / ×3)
-  const wRevenge = revengeMult(safeAch(wd.ach).lossStreak);
-  const now = Date.now(), winGold = Math.round((arena?arena.winGold:100) * wRevenge), loseGold = arena?arena.entryFee:0;
-  const wOldGold = safeGold(wd.gold), lOldGold = safeGold(ld.gold);
-  const wNewGold = wOldGold + winGold, lNewGold = lOldGold + loseGold;
-  // Full clean profiles with set() — no NaN can survive
-  const winCredit = (arena ? XP_ONLINE_WIN * 1.1 : XP_ONLINE_WIN) * wRevenge;
-  const wLevel = applyLevelCredit(wd, winCredit);
-  const lLevel = applyLevelCredit(ld, (arena ? XP_ONLINE_WIN * 1.1 : XP_ONLINE_WIN) * 0.25); // kaybeden, baz XP'nin %25'ini alır
-  const winnerProfile = {
-    displayName: wd.displayName || "Denizci",
-    wins: ((typeof wd.wins === "number" && !isNaN(wd.wins)) ? wd.wins : 0) + 1,
-    losses: (typeof wd.losses === "number" && !isNaN(wd.losses)) ? wd.losses : 0,
-    totalGames: ((typeof wd.totalGames === "number" && !isNaN(wd.totalGames)) ? wd.totalGames : 0) + 1,
-    botGames: (typeof wd.botGames === "number" && isFinite(wd.botGames)) ? wd.botGames : 0,
-    onlineGames: ((typeof wd.onlineGames === "number" && isFinite(wd.onlineGames)) ? wd.onlineGames : 0) + 1,
-    gold: wNewGold,
-    level: wLevel.level, levelProgress: wLevel.levelProgress,
-    loginStreak: (typeof wd.loginStreak === "number" && !isNaN(wd.loginStreak)) ? wd.loginStreak : 0,
-    lastDailyReward: wd.lastDailyReward || null, createdAt: wd.createdAt || now, lastGameAt: now,
-    onboardingDone: wd.onboardingDone === true, nameSetAt: wd.nameSetAt || null, avatar: wd.avatar || "⚓", dailyRewardCount: wd.dailyRewardCount || 0,
-    recentResults: pushRecent(wd.recentResults, true),
-    ach: (() => { const a = safeAch(wd.ach); a.lossStreak = 0; return a; })(), achievClaimed: safeClaimed(wd.achievClaimed),
-    honor: migrateHonor(wd) + HONOR_WIN_ONLINE,
-    voyage: safeVoyage(wd.voyage),
-    daily: safeDaily(wd.daily),
-  };
-  const loserProfile = {
-    displayName: ld.displayName || "Denizci",
-    wins: (typeof ld.wins === "number" && !isNaN(ld.wins)) ? ld.wins : 0,
-    losses: ((typeof ld.losses === "number" && !isNaN(ld.losses)) ? ld.losses : 0) + 1,
-    totalGames: ((typeof ld.totalGames === "number" && !isNaN(ld.totalGames)) ? ld.totalGames : 0) + 1,
-    botGames: (typeof ld.botGames === "number" && isFinite(ld.botGames)) ? ld.botGames : 0,
-    onlineGames: ((typeof ld.onlineGames === "number" && isFinite(ld.onlineGames)) ? ld.onlineGames : 0) + 1,
-    gold: lNewGold,
-    level: lLevel.level, levelProgress: lLevel.levelProgress,
-    loginStreak: (typeof ld.loginStreak === "number" && !isNaN(ld.loginStreak)) ? ld.loginStreak : 0,
-    lastDailyReward: ld.lastDailyReward || null, createdAt: ld.createdAt || now, lastGameAt: now,
-    onboardingDone: ld.onboardingDone === true, nameSetAt: ld.nameSetAt || null, avatar: ld.avatar || "⚓", dailyRewardCount: ld.dailyRewardCount || 0,
-    recentResults: pushRecent(ld.recentResults, false),
-    ach: (() => { const a = safeAch(ld.ach); a.lossStreak = (a.lossStreak||0) + 1; return a; })(), achievClaimed: safeClaimed(ld.achievClaimed),
-    honor: migrateHonor(ld) + HONOR_LOSS_ONLINE,
-    voyage: safeVoyage(ld.voyage),
-    daily: safeDaily(ld.daily),
-  };
-  await set(ref(db, `profiles/${winnerUid}`), winnerProfile);
-  await set(ref(db, `profiles/${loserUid}`), loserProfile);
-  return { winnerOldGold:wOldGold, winnerNewGold:wNewGold, loserOldGold:lOldGold, loserNewGold:lNewGold, winGold, loseGold, winnerLevel: wLevel.level, winnerLevelProgress: wLevel.levelProgress, loserLevel: lLevel.level, loserLevelProgress: lLevel.levelProgress, revenge: wRevenge };
-}
-
-async function fetchLeaderboard(sortBy='gold', count=15) {
-  const snap = await get(ref(db, "profiles"));
-  if (!snap.exists()) return [];
-  const profiles = [];
-  snap.forEach(child => {
-    const v = child.val();
-    profiles.push({
-      uid: child.key,
-      displayName: v.displayName || "Denizci",
-      wins: (typeof v.wins === "number" && !isNaN(v.wins)) ? v.wins : 0,
-      losses: (typeof v.losses === "number" && !isNaN(v.losses)) ? v.losses : 0,
-      totalGames: (typeof v.totalGames === "number" && !isNaN(v.totalGames)) ? v.totalGames : 0,
-      gold: (typeof v.gold === "number" && !isNaN(v.gold) && isFinite(v.gold)) ? Math.max(0, Math.floor(v.gold)) : 0,
-      honor: migrateHonor(v),
-    });
-  });
-  if (sortBy === 'wins') profiles.sort((a,b) => b.wins - a.wins);
-  else profiles.sort((a,b) => b.gold - a.gold);
-  return profiles.slice(0, count);
 }
 
 function Leaderboard({ onBack, myUid, lang = "tr" }) {
@@ -1758,24 +1668,6 @@ function ShipStatusPanel({ title, ships, hitCells, color, lang = "tr", compact =
       {shipList.map((ship,idx)=>{const shipDef=SHIPS.find(s=>s.id===ship.id);const cells=ship.cells||[];const hits=cells.filter(([r,c])=>hitCells?.[r]?.[c]).length;const sunk=hits===cells.length&&cells.length>0;return(<div key={idx} style={{ display:"flex",alignItems:"center",gap:6,padding:"4px 8px",background:sunk?"rgba(255,140,66,0.08)":"transparent",borderRadius:6,border:`1px solid ${sunk?"rgba(255,140,66,0.2)":"transparent"}` }}><span style={{ fontSize:13,fontWeight:900,color:sunk?t.sunk:t.text,textDecoration:sunk?"line-through":"none",fontFamily:warrior,letterSpacing:1 }}>{(lang==="en"?shipDef?.nameEn:shipDef?.name)||"?"}</span><div style={{ display:"flex",gap:2 }}>{cells.map((_,i)=><div key={i} style={{ width:10,height:10,borderRadius:3,background:i<hits?(sunk?t.sunk:t.hit):color||t.accent,opacity:i<hits?1:0.25,boxShadow:i<hits&&sunk?`0 0 4px ${t.sunk}`:i<hits?`0 0 4px ${t.hit}`:"none" }} />)}</div></div>);})}
     </div>
   </div>);
-}
-
-function MissionIcon({ icon, done, missionId }) {
-  const iconMap = {
-    "🚢": <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 17l2 4h14l2-4" stroke={done?"#4ade80":"#00e5ff"} strokeWidth="2" strokeLinecap="round"/><path d="M4 17l2-6h12l2 6" fill={done?"rgba(74,222,128,0.2)":"rgba(0,229,255,0.15)"} stroke={done?"#4ade80":"#00e5ff"} strokeWidth="1.5"/><path d="M12 4v7M9 7h6" stroke={done?"#4ade80":"#00e5ff"} strokeWidth="2" strokeLinecap="round"/><rect x="10" y="3" width="4" height="2" rx="1" fill={done?"#4ade80":"#00e5ff"}/></svg>,
-    "🔥": <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2c0 4-4 6-4 10a4 4 0 008 0c0-4-4-6-4-10z" fill={done?"rgba(74,222,128,0.3)":"rgba(255,140,66,0.3)"} stroke={done?"#4ade80":"#ff8c42"} strokeWidth="1.5"/><path d="M12 8c0 2-2 3-2 5a2 2 0 004 0c0-2-2-3-2-5z" fill={done?"#4ade80":"#ff8c42"}/></svg>,
-    "🏆": <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M8 21h8M12 17v4" stroke={done?"#4ade80":"#ffd700"} strokeWidth="2" strokeLinecap="round"/><path d="M7 3h10v5a5 5 0 01-10 0V3z" fill={done?"rgba(74,222,128,0.2)":"rgba(255,215,0,0.2)"} stroke={done?"#4ade80":"#ffd700"} strokeWidth="1.5"/><path d="M7 5H4v2a3 3 0 003 3M17 5h3v2a3 3 0 01-3 3" stroke={done?"#4ade80":"#ffd700"} strokeWidth="1.5"/></svg>,
-    "⭐": <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z" fill={done?"rgba(74,222,128,0.3)":"rgba(255,215,0,0.3)"} stroke={done?"#4ade80":"#ffd700"} strokeWidth="1.5" strokeLinejoin="round"/></svg>,
-    "🎯": <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke={done?"#4ade80":"#ff4757"} strokeWidth="1.5"/><circle cx="12" cy="12" r="6" stroke={done?"#4ade80":"#ff4757"} strokeWidth="1.5"/><circle cx="12" cy="12" r="3" fill={done?"#4ade80":"#ff4757"}/></svg>,
-    "💥": <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2l2 6 6-2-4 5 5 3-6 1 1 7-4-5-4 5 1-7-6-1 5-3-4-5 6 2z" fill={done?"rgba(74,222,128,0.3)":"rgba(255,71,87,0.3)"} stroke={done?"#4ade80":"#ff4757"} strokeWidth="1.5" strokeLinejoin="round"/></svg>,
-    "🛡": <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3z" fill={done?"rgba(74,222,128,0.2)":"rgba(0,229,255,0.15)"} stroke={done?"#4ade80":"#00e5ff"} strokeWidth="1.5"/><path d="M9 12l2 2 4-4" stroke={done?"#4ade80":"#00e5ff"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-    "⚡": <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" fill={done?"rgba(74,222,128,0.3)":"rgba(255,215,0,0.3)"} stroke={done?"#4ade80":"#ffd700"} strokeWidth="1.5" strokeLinejoin="round"/></svg>,
-    "🤖": <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="5" y="8" width="14" height="12" rx="3" fill={done?"rgba(74,222,128,0.2)":"rgba(167,139,250,0.2)"} stroke={done?"#4ade80":"#a78bfa"} strokeWidth="1.5"/><circle cx="9" cy="14" r="2" fill={done?"#4ade80":"#a78bfa"}/><circle cx="15" cy="14" r="2" fill={done?"#4ade80":"#a78bfa"}/><path d="M12 3v5M8 5h8" stroke={done?"#4ade80":"#a78bfa"} strokeWidth="2" strokeLinecap="round"/></svg>,
-    "⚓": <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="3" stroke={done?"#4ade80":"#06b6d4"} strokeWidth="1.5"/><path d="M12 8v13M5 18c0-4 3-7 7-7s7 3 7 7" stroke={done?"#4ade80":"#06b6d4"} strokeWidth="1.5" strokeLinecap="round"/><path d="M8 13h8" stroke={done?"#4ade80":"#06b6d4"} strokeWidth="2" strokeLinecap="round"/></svg>,
-  };
-  const medalMap = { sink8:"/img/medal_gemi.png", hit10:"/img/medal_isabet10.png", hit30:"/img/medal_isabet30.png" };
-  if (missionId && medalMap[missionId]) return <img src={medalMap[missionId]} alt="" style={{ width:40,height:40,filter:done?"none":"saturate(0.85)",opacity:done?1:0.92 }} />;
-  return iconMap[icon] || <span style={{ fontSize:22,filter:"drop-shadow(0 3px 5px rgba(0,0,0,0.6)) drop-shadow(0 0 12px rgba(0,229,255,0.35)) saturate(1.4) brightness(1.1)",transform:"perspective(200px) rotateX(6deg)",display:"inline-block" }}>{icon}</span>;
 }
 
 function MissionPanel({ missions, missionProgress, onClose, lang = "tr", compact = false }) {
@@ -2578,32 +2470,6 @@ async function instantMatchWithReady(myUid, myName, candidate) {
 }
 
 // Hazır bulunan oyuncuya doğrudan davet gönderir, kabul/red/zaman aşımını bekler.
-function sendReadyInviteAndAwait(myUid, myName, myGold, candidate, timeoutMs = 10000) {
-  return new Promise((resolve) => {
-    let done = false, unsubStatus = null, unsubMatch = null, timeoutId = null;
-    const cleanup = () => { if (unsubStatus) unsubStatus(); if (unsubMatch) unsubMatch(); if (timeoutId) clearTimeout(timeoutId); };
-    const finish = (result) => { if (done) return; done = true; cleanup(); resolve(result); };
-    set(ref(db, `invites/${candidate.uid}/${myUid}`), { fromName: myName, fromGold: myGold || 0, status: "pending", time: Date.now() }).then(() => {
-      if (done) return;
-      unsubStatus = onValue(ref(db, `invites/${candidate.uid}/${myUid}`), (snap) => {
-        if (!snap.exists()) return;
-        const d = snap.val();
-        if (d.status === "rejected") { remove(ref(db, `invites/${candidate.uid}/${myUid}`)).catch(() => {}); finish({ accepted: false, rejected: true }); }
-      });
-      unsubMatch = onValue(ref(db, `match_found/${myUid}`), (snap) => {
-        if (!snap.exists()) return;
-        const d = snap.val(); if (!d.roomId) return;
-        remove(ref(db, `match_found/${myUid}`)).catch(() => {});
-        remove(ref(db, `invites/${candidate.uid}/${myUid}`)).catch(() => {});
-        finish({ accepted: true, roomId: d.roomId, playerNum: d.playerNum || 1 });
-      });
-      timeoutId = setTimeout(() => {
-        remove(ref(db, `invites/${candidate.uid}/${myUid}`)).catch(() => {});
-        finish({ accepted: false, timedOut: true });
-      }, timeoutMs);
-    }).catch(() => finish({ accepted: false }));
-  });
-}
 
 export default function Game() {
   const [phase, setPhase] = useState("splash");
@@ -2841,6 +2707,21 @@ export default function Game() {
     setMyProfile(p => p ? { ...p, voyage: v } : p);
     if (authUid) update(ref(db, `profiles/${authUid}`), { voyage: v }).catch(()=>{});
   };
+
+  // GÜNLÜK GİRİŞ ÖDÜLÜ — bu özellik yazılmış ama HİÇ ÇAĞRILMIYORDU (ölü kod denetiminde çıktı).
+  // Günde en fazla 3 kez, giriş serisine göre artan altın verir.
+  const loginRewardRef = useRef(false);
+  useEffect(() => {
+    if (phase !== "lobby" || !authUid || !myProfile || loginRewardRef.current) return;
+    loginRewardRef.current = true;
+    const tm = setTimeout(async () => {
+      try {
+        const r = await checkDailyReward(authUid);
+        if (r && r.reward > 0) setDailyReward(r);
+      } catch (e) {}
+    }, 1600); // sefer/ganimet pencereleriyle çakışmasın
+    return () => clearTimeout(tm);
+  }, [phase, authUid, myProfile]);
 
   // ÖKSÜZ ODA TEMİZLİĞİ — oturumda bir kez. Önceki oturumda çökme/kapanma yüzünden
   // ortada kalan kendi odamızı siler; veritabanının şişmesini engeller.
