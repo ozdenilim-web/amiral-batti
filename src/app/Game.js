@@ -441,6 +441,10 @@ function getRankInfo(gold, lang = "tr") {
   return { title: en?"RECRUIT":"ER", color: "#9ca3af", icon: "🔰" };
 }
 
+// Son 5 maç form çizgisi — "W"/"L" dizisi, en fazla 5 eleman
+function pushRecent(arr, won) { return [...(Array.isArray(arr) ? arr : []), won ? "W" : "L"].slice(-5); }
+function safeRecent(arr) { return Array.isArray(arr) ? arr.filter(x => x === "W" || x === "L").slice(-5) : []; }
+
 // === SES MOTORU (Web Audio API — dosyasız) ===
 class SoundEngine {
   constructor() {
@@ -882,6 +886,7 @@ async function checkDailyReward(uid) {
     nameSetAt: profile.nameSetAt || null,
     avatar: profile.avatar || "⚓",
     dailyRewardCount: todayCount + 1,
+    recentResults: safeRecent(profile.recentResults),
   };
   await set(profileRef, cleanProfile);
   return { reward, streak, newGold };
@@ -1110,7 +1115,7 @@ async function ensureProfile(uid, displayName) {
   const snap = await get(profileRef);
   if (!snap.exists()) {
     const startGold = isTestMode() ? 5000 : STARTING_GOLD;
-    const profile = { displayName: displayName||"Denizci", wins:0, losses:0, totalGames:0, botGames:0, onlineGames:0, gold:startGold, level:0, levelProgress:0, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false };
+    const profile = { displayName: displayName||"Denizci", wins:0, losses:0, totalGames:0, botGames:0, onlineGames:0, gold:startGold, level:0, levelProgress:0, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false, recentResults:[] };
     await set(profileRef, profile);
     return profile;
   }
@@ -1134,6 +1139,7 @@ async function ensureProfile(uid, displayName) {
     nameSetAt: existing.nameSetAt || null,
     avatar: existing.avatar || "⚓",
     dailyRewardCount: (typeof existing.dailyRewardCount === "number" && isFinite(existing.dailyRewardCount)) ? existing.dailyRewardCount : 0,
+    recentResults: safeRecent(existing.recentResults),
   };
   // ALWAYS overwrite with set() — kills any hidden NaN in any field
   await set(profileRef, sanitized);
@@ -1167,6 +1173,7 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
     loginStreak: (typeof wd.loginStreak === "number" && !isNaN(wd.loginStreak)) ? wd.loginStreak : 0,
     lastDailyReward: wd.lastDailyReward || null, createdAt: wd.createdAt || now, lastGameAt: now,
     onboardingDone: wd.onboardingDone === true, nameSetAt: wd.nameSetAt || null, avatar: wd.avatar || "⚓", dailyRewardCount: wd.dailyRewardCount || 0,
+    recentResults: pushRecent(wd.recentResults, true),
   };
   const loserProfile = {
     displayName: ld.displayName || "Denizci",
@@ -1180,6 +1187,7 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
     loginStreak: (typeof ld.loginStreak === "number" && !isNaN(ld.loginStreak)) ? ld.loginStreak : 0,
     lastDailyReward: ld.lastDailyReward || null, createdAt: ld.createdAt || now, lastGameAt: now,
     onboardingDone: ld.onboardingDone === true, nameSetAt: ld.nameSetAt || null, avatar: ld.avatar || "⚓", dailyRewardCount: ld.dailyRewardCount || 0,
+    recentResults: pushRecent(ld.recentResults, false),
   };
   await set(ref(db, `profiles/${winnerUid}`), winnerProfile);
   await set(ref(db, `profiles/${loserUid}`), loserProfile);
@@ -2054,8 +2062,8 @@ export default function Game() {
     if (!authUid || !myProfile || isOnboarding) return;
     // Kaybeden altın kaybetmez ama kazanmaz da — XP: kazanılanın %25'i
     const lvl2 = applyLevelCredit(myProfile, XP_BOT_LOSS);
-    update(ref(db, `profiles/${authUid}`), { losses: (myProfile.losses||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl2.level, levelProgress: lvl2.levelProgress }).catch(()=>{});
-    setMyProfile(prev => prev ? { ...prev, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl2.level, levelProgress: lvl2.levelProgress } : prev);
+    update(ref(db, `profiles/${authUid}`), { losses: (myProfile.losses||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl2.level, levelProgress: lvl2.levelProgress, recentResults: pushRecent(myProfile.recentResults, false) }).catch(()=>{});
+    setMyProfile(prev => prev ? { ...prev, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl2.level, levelProgress: lvl2.levelProgress, recentResults: pushRecent(prev.recentResults, false) } : prev);
     setMissionStats(prev => ({ ...prev, gamesPlayed: prev.gamesPlayed + 1 }));
   };
 
@@ -2264,7 +2272,7 @@ export default function Game() {
                   setEloChange({ myOld: result.winnerOldGold, myNew: result.winnerNewGold, oppOld: result.loserOldGold, oppNew: result.loserNewGold });
                   setGoldChange({ amount: result.winGold || 0 });
                   if (result.winGold > 0) { sfx.play('gold'); setGoldAnim({ amount: result.winGold }); }
-                  setMyProfile(prev => prev ? { ...prev, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1, onlineGames: (prev.onlineGames || 0) + 1, gold: result.winnerNewGold, level: result.winnerLevel, levelProgress: result.winnerLevelProgress } : prev);
+                  setMyProfile(prev => prev ? { ...prev, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1, onlineGames: (prev.onlineGames || 0) + 1, gold: result.winnerNewGold, level: result.winnerLevel, levelProgress: result.winnerLevelProgress, recentResults: pushRecent(prev.recentResults, true) } : prev);
                 }
               } catch (e) { console.error("ELO update error:", e); }
             }).catch(e => console.error("ELO transaction error:", e));
@@ -2279,7 +2287,7 @@ export default function Game() {
               unsubElo(); // Bir kez oku, kapat
               setEloChange({ myOld: er.loserOldGold, myNew: er.loserNewGold, oppOld: er.winnerOldGold, oppNew: er.winnerNewGold });
               setGoldChange({ amount: er.loseGold || 0 });
-              setMyProfile(prev => prev ? { ...prev, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1, onlineGames: (prev.onlineGames || 0) + 1, gold: er.loserNewGold, level: er.loserLevel, levelProgress: er.loserLevelProgress } : prev);
+              setMyProfile(prev => prev ? { ...prev, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1, onlineGames: (prev.onlineGames || 0) + 1, gold: er.loserNewGold, level: er.loserLevel, levelProgress: er.loserLevelProgress, recentResults: pushRecent(prev.recentResults, false) } : prev);
             });
             // 10 saniye timeout — kazanan çökerse sonsuza kadar beklemesin
             setTimeout(() => {
@@ -3065,8 +3073,8 @@ export default function Game() {
         const lvl1 = applyLevelCredit(myProfile, XP_BOT_WIN);
         const oldGold1 = safeGold(myProfile.gold);
         const newGold1 = oldGold1 + botWinGold;
-        update(ref(db, `profiles/${authUid}`), { gold: newGold1, wins: (myProfile.wins||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl1.level, levelProgress: lvl1.levelProgress }).catch(()=>{});
-        setMyProfile(prev => prev ? { ...prev, gold: newGold1, wins:(prev.wins||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl1.level, levelProgress: lvl1.levelProgress } : prev);
+        update(ref(db, `profiles/${authUid}`), { gold: newGold1, wins: (myProfile.wins||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl1.level, levelProgress: lvl1.levelProgress, recentResults: pushRecent(myProfile.recentResults, true) }).catch(()=>{});
+        setMyProfile(prev => prev ? { ...prev, gold: newGold1, wins:(prev.wins||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl1.level, levelProgress: lvl1.levelProgress, recentResults: pushRecent(prev.recentResults, true) } : prev);
         setEloChange({ myOld: oldGold1, myNew: newGold1 });
         setGoldChange({ amount: botWinGold });
         sfx.play('gold'); setGoldAnim({ amount: botWinGold });
@@ -3752,7 +3760,15 @@ export default function Game() {
                 </div>
                 <div style={{ position:"absolute",bottom:-4,right:-4,minWidth:18,height:18,borderRadius:9,background:"linear-gradient(160deg,#fff9c4,#ffd700 60%,#d97706)",border:"2px solid "+t.surface,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:900,color:"#1a1206",fontFamily:warrior,padding:"0 3px" }}>{myLevel}</div>
               </div>
-              <div style={{ fontSize:20,fontWeight:800,color:t.text,fontFamily:warrior,letterSpacing:2 }}>{myProfile.displayName}</div>
+              <div>
+                <div style={{ fontSize:20,fontWeight:800,color:t.text,fontFamily:warrior,letterSpacing:2 }}>{myProfile.displayName}</div>
+                {(() => { const rk = getRankInfo(safeGold(myProfile.gold), appLang); return (
+                  <div style={{ display:"flex",alignItems:"center",gap:5,marginTop:2 }}>
+                    <span style={{ fontSize:11 }}>{rk.icon}</span>
+                    <span style={{ fontSize:11,fontWeight:900,color:rk.color,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 10px ${rk.color}55` }}>{rk.title}</span>
+                  </div>
+                ); })()}
+              </div>
             </div>
             {showAvatarPick && <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginTop:8,padding:"8px 10px",background:"rgba(0,0,0,0.35)",borderRadius:12,border:`1px solid ${t.border}` }}>
               <button onClick={()=>avatarFileRef.current?.click()} title={L(appLang,"uploadPhotoTooltip")} style={{ width:36,height:36,borderRadius:"50%",background:"rgba(255,215,0,0.12)",border:`2px dashed ${t.gold}`,fontSize:20,fontWeight:900,color:t.gold,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>+</button>
@@ -3770,10 +3786,40 @@ export default function Game() {
             </div>
           </div>
         </div>
-        <div style={{ display:"flex",gap:0,background:t.bg,borderRadius:10,overflow:"hidden" }}>
-          <div style={{ flex:1,textAlign:"center",padding:"12px 0",borderRight:`1px solid ${t.border}` }}><div style={{ fontSize:30,fontWeight:900,color:"#34d399",fontFamily:warrior,textShadow:"0 0 15px rgba(52,211,153,0.4)" }}>{myProfile.wins||0}</div><div style={{ fontSize:15,color:"#34d399",letterSpacing:2,fontFamily:warrior,fontWeight:900,marginTop:3,opacity:0.95,textShadow:"0 1px 3px rgba(0,0,0,0.6)" }}>{L(appLang,"wins")}</div></div>
-          <div style={{ flex:1,textAlign:"center",padding:"12px 0",borderRight:`1px solid ${t.border}` }}><div style={{ fontSize:30,fontWeight:900,color:t.hit,fontFamily:warrior,textShadow:"0 0 15px rgba(255,71,87,0.4)" }}>{myProfile.losses||0}</div><div style={{ fontSize:15,color:t.hit,letterSpacing:2,fontFamily:warrior,fontWeight:900,marginTop:3,opacity:0.95,textShadow:"0 1px 3px rgba(0,0,0,0.6)" }}>{L(appLang,"losses")}</div></div>
-          <div style={{ flex:1,textAlign:"center",padding:"12px 0" }}><div style={{ fontSize:30,fontWeight:900,color:t.accent,fontFamily:warrior,textShadow:`0 0 15px ${t.accentGlow}` }}>%{winRate}</div><div style={{ fontSize:15,color:t.accent,letterSpacing:2,fontFamily:warrior,fontWeight:900,marginTop:3,opacity:0.95,textShadow:"0 1px 3px rgba(0,0,0,0.6)" }}>{L(appLang,"winRate")}</div></div>
+        {/* Künye satırı + form çizgisi + oran halkası */}
+        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginTop:2 }}>
+          <div style={{ flex:1,minWidth:0 }}>
+            {/* Künye: G / M ayraçlı tek satır */}
+            <div style={{ display:"flex",alignItems:"baseline",gap:10,marginBottom:9 }}>
+              <span style={{ display:"flex",alignItems:"baseline",gap:5 }}>
+                <span style={{ fontSize:20,fontWeight:900,color:"#34d399",fontFamily:warrior,textShadow:"0 0 10px rgba(52,211,153,0.35)" }}>{myProfile.wins||0}</span>
+                <span style={{ fontSize:9,fontWeight:800,color:"rgba(52,211,153,0.7)",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"wins")}</span>
+              </span>
+              <span style={{ width:1,height:14,background:"rgba(255,255,255,0.12)",alignSelf:"center" }} />
+              <span style={{ display:"flex",alignItems:"baseline",gap:5 }}>
+                <span style={{ fontSize:20,fontWeight:900,color:t.hit,fontFamily:warrior,textShadow:"0 0 10px rgba(255,71,87,0.3)" }}>{myProfile.losses||0}</span>
+                <span style={{ fontSize:9,fontWeight:800,color:"rgba(255,71,87,0.65)",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"losses")}</span>
+              </span>
+            </div>
+            {/* Form çizgisi — son 5 maç */}
+            {(() => { const rec = safeRecent(myProfile.recentResults); return (
+              <div style={{ display:"flex",alignItems:"center",gap:6 }}>
+                {Array.from({length:5}).map((_,i) => {
+                  const idx = i - (5 - rec.length); const v = idx >= 0 ? rec[idx] : null;
+                  return <span key={i} style={{ width:9,height:9,borderRadius:"50%",background:v==="W"?"#34d399":v==="L"?"#ff4757":"rgba(255,255,255,0.08)",border:v?"none":"1px solid rgba(255,255,255,0.10)",boxShadow:v==="W"?"0 0 7px rgba(52,211,153,0.55)":v==="L"?"0 0 7px rgba(255,71,87,0.45)":"none",display:"inline-block" }} />;
+                })}
+                <span style={{ fontSize:8,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:2,marginLeft:4,opacity:0.7 }}>{appLang==="en"?"LAST 5":"SON 5"}</span>
+              </div>
+            ); })()}
+          </div>
+          {/* Oran halkası */}
+          <div style={{ position:"relative",width:76,height:76,flexShrink:0 }}>
+            <div style={{ position:"absolute",inset:0,borderRadius:"50%",background:`conic-gradient(from -90deg, #00e5ff 0deg, #ffd700 ${Math.max(winRate,0)*3.6}deg, rgba(255,255,255,0.07) ${Math.max(winRate,0)*3.6}deg 360deg)`,boxShadow:winRate>0?`0 0 16px rgba(0,229,255,0.25)`:"none" }} />
+            <div style={{ position:"absolute",inset:6,borderRadius:"50%",background:t.surface,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1 }}>
+              <span style={{ fontSize:18,fontWeight:900,color:t.accent,fontFamily:warrior,lineHeight:1,textShadow:`0 0 12px ${t.accentGlow}` }}>%{winRate}</span>
+              <span style={{ fontSize:7,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"winRate")}</span>
+            </div>
+          </div>
         </div>
       </div>)}
       {/* Main action buttons */}
