@@ -135,7 +135,6 @@ const ALL_MISSIONS = [
   // ── EFSANE (nadir, çok tatmin edici) ──
   { id: "win10",    text: "10 oyun kazan",              textEn: "Win 10 games",                 icon: "🏆", check: s => s.wins >= 10 },
   { id: "hit50",    text: "50 isabet yap",              textEn: "Land 50 hits",                 icon: "💫", check: s => s.totalHits >= 50 },
-  { id: "fast2",    text: "2 dakikada kazan",           textEn: "Win in 2 minutes",              icon: "⚡", check: s => s.ultraFastWin },
   { id: "perfect",  text: "Hiç karavana vermeden kazan",textEn: "Win without a single miss",     icon: "👁",  check: s => s.perfectGame },
 ];
 
@@ -164,9 +163,16 @@ function pickDailyMissions(seed) {
   // Günlük seed ile her gün aynı 3 görev — GARANTİ: 1 kolay + 1 orta + 1 zor/efsane
   const day = Math.floor(seed / 86400000);
   let rng = day * 2654435761;
-  const next = (n) => { rng = (rng * 1664525 + 1013904223) & 0x7fffffff; return rng % n; };
-  const easy = ALL_MISSIONS.slice(0, 8), mid = ALL_MISSIONS.slice(8, 18), hard = ALL_MISSIONS.slice(18);
-  return [easy[next(easy.length)], mid[next(mid.length)], hard[next(hard.length)]];
+  // ÖNEMLİ: doğrusal üretecin DÜŞÜK bitleri çok zayıftır; doğrudan "% n" alınca
+  // kolay görev her gün aynı çıkıyordu. Yüksek bitleri kullanıyoruz.
+  const next = (n) => { rng = (rng * 1664525 + 1013904223) & 0x7fffffff; return Math.floor(rng / 65536) % n; };
+  // GARANTİ: 1 kolay + 2 orta. Zor/efsane görevler günlükten çıkarıldı — günlük görevler
+  // her oyuncunun bir oturumda bitirebileceği kadar ulaşılabilir olmalı.
+  const easy = ALL_MISSIONS.slice(0, 8), mid = ALL_MISSIONS.slice(8, 18);
+  const m1 = next(mid.length);
+  let m2 = next(mid.length);
+  if (m2 === m1) m2 = (m1 + 1) % mid.length; // ikisi aynı görev olmasın
+  return [easy[next(easy.length)], mid[m1], mid[m2]];
 }
 
 function generateChestReward(lang = "tr") {
