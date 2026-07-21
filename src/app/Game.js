@@ -4263,7 +4263,7 @@ export default function Game() {
           <div style={{ fontSize:34,marginBottom:6 }}>🔑</div>
           <div style={{ fontSize:14,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:2,marginBottom:10,textShadow:`0 0 14px ${t.goldGlow}` }}>{L(appLang,"codeTitle")}</div>
           {code ? (
-            <div style={{ fontSize:25,fontWeight:900,fontFamily:mono,letterSpacing:4,color:"#fff",background:"rgba(255,215,0,0.10)",border:`1.5px dashed ${t.gold}`,borderRadius:12,padding:"13px 8px",marginBottom:10,userSelect:"all" }}>{code}</div>
+            <div style={{ fontSize:25,fontWeight:900,fontFamily:mono,letterSpacing:4,color:"#fff",background:"rgba(255,215,0,0.10)",border:`1.5px dashed ${t.gold}`,borderRadius:12,padding:"13px 8px",marginBottom:10,userSelect:"all",WebkitUserSelect:"all",WebkitTouchCallout:"default" }}>{code}</div>
           ) : (
             <div style={{ fontSize:11,color:t.hit,fontFamily:mono,marginBottom:10 }}>{L(appLang,"myCodeNone")}</div>
           )}

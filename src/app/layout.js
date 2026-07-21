@@ -38,7 +38,26 @@ export default function RootLayout({ children }) {
         <style dangerouslySetInnerHTML={{__html: `
           /* TAŞMA KİLİDİ — hiçbir öğe yatayda ekranı aşamaz */
           *, *::before, *::after { box-sizing: border-box; }
-          * { -webkit-tap-highlight-color: transparent; min-width: 0; }
+          * {
+            -webkit-tap-highlight-color: transparent;
+            min-width: 0;
+            /* METİN SEÇİMİ KAPALI — basılı tutunca "kopyala/paylaş" menüsü çıkmasın.
+               Oyun arayüzünde metin seçmek anlamsız ve dokunmatik kullanımı bozuyor. */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            /* iOS'ta basılı tutunca çıkan büyüteç/menüyü de kapatır */
+            -webkit-touch-callout: none;
+          }
+          /* Yalnızca yazı yazılan alanlarda seçim açık kalsın */
+          input, textarea {
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
+            -webkit-touch-callout: default;
+          }
           html, body {
             -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
             overflow-x: hidden;
