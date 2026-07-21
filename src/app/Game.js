@@ -3758,7 +3758,6 @@ export default function Game() {
                 <div style={{ width:"100%",height:"100%",borderRadius:"50%",background:`conic-gradient(#ffd700 ${myLevelPct*360}deg, rgba(255,255,255,0.10) ${myLevelPct*360}deg)`,padding:3,boxShadow:myLevelPct>=0.999?`0 0 16px ${t.goldGlow}, 0 0 30px ${t.goldGlow}`:"none",transition:"box-shadow 0.4s ease" }}>
                   <button onClick={()=>setShowAvatarPick(v=>!v)} title={L(appLang,"pickAvatarTooltip")} style={{ width:"100%",height:"100%",borderRadius:"50%",background:"rgba(0,229,255,0.10)",border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,cursor:"pointer",padding:0,overflow:"hidden" }}>{(myProfile.avatar||"").startsWith("data:")?<img src={myProfile.avatar} alt="" style={{ width:"100%",height:"100%",objectFit:"cover" }} />:(myProfile.avatar||"⚓")}</button>
                 </div>
-                <div style={{ position:"absolute",bottom:-4,right:-4,minWidth:18,height:18,borderRadius:9,background:"linear-gradient(160deg,#fff9c4,#ffd700 60%,#d97706)",border:"2px solid "+t.surface,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:900,color:"#1a1206",fontFamily:warrior,padding:"0 3px" }}>{myLevel}</div>
               </div>
               <div>
                 <div style={{ fontSize:20,fontWeight:800,color:t.text,fontFamily:warrior,letterSpacing:2 }}>{myProfile.displayName}</div>
@@ -3779,10 +3778,11 @@ export default function Game() {
               <button onClick={()=>{setPhase("splash");}} style={{ fontSize:8,color:t.textDim,background:"transparent",border:`1px solid ${t.border}`,borderRadius:4,padding:"2px 6px",cursor:"pointer",fontFamily:mono }}>✏ {L(appLang,"editName")}</button>
             </div>}
           </div>
-          <div style={{ textAlign:"center",background:"rgba(255,215,0,0.10)",borderRadius:12,padding:"8px 16px",border:"1px solid rgba(255,215,0,0.3)",boxShadow:`0 0 24px ${t.goldGlow}, inset 0 0 16px rgba(255,215,0,0.08)` }}>
-            <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:5 }}>
-              <img src="/img/coin.png" alt="" style={{ width:24,height:24,filter:"drop-shadow(0 0 6px #fff) drop-shadow(0 0 14px #ffd700) drop-shadow(0 0 26px rgba(255,215,0,0.9))",animation:"rewardPulse 1.6s ease-in-out infinite" }} />
-              <div style={{ fontSize:28,fontWeight:900,fontFamily:warrior,lineHeight:1,letterSpacing:1,background:"linear-gradient(180deg,#fff9c4 0%,#ffe066 35%,#ffd700 65%,#d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 14px rgba(255,215,0,0.95)) drop-shadow(0 1px 2px rgba(0,0,0,0.6))" }}>{safeGold(myProfile.gold)}</div>
+          <div style={{ textAlign:"center",background:"linear-gradient(160deg, rgba(30,22,4,0.95), rgba(15,11,2,0.98))",borderRadius:14,padding:"10px 18px",border:"1.5px solid rgba(255,215,0,0.55)",boxShadow:`0 0 22px ${t.goldGlow}, inset 0 1px 0 rgba(255,235,140,0.25), inset 0 0 20px rgba(255,215,0,0.10), 0 4px 12px rgba(0,0,0,0.5)`,position:"relative",overflow:"hidden" }}>
+            <span style={{ position:"absolute",top:0,left:"-100%",width:"55%",height:"100%",background:"linear-gradient(105deg,transparent,rgba(255,244,180,0.22),transparent)",animation:"shimmerPass 3.2s ease-in-out infinite",pointerEvents:"none" }} />
+            <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:7 }}>
+              <img src="/img/coin.png" alt="" style={{ width:32,height:32,filter:"drop-shadow(0 0 6px #fff) drop-shadow(0 0 14px #ffd700) drop-shadow(0 2px 3px rgba(0,0,0,0.6))",animation:"rewardPulse 1.8s ease-in-out infinite" }} />
+              <div style={{ fontSize:34,fontWeight:900,fontFamily:warrior,lineHeight:1,letterSpacing:1,background:"linear-gradient(180deg,#fffbe0 0%,#ffe066 30%,#ffd700 60%,#e08a00 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 16px rgba(255,215,0,0.9)) drop-shadow(0 2px 3px rgba(0,0,0,0.7))" }}>{safeGold(myProfile.gold)}</div>
             </div>
           </div>
         </div>
@@ -3793,12 +3793,12 @@ export default function Game() {
             <div style={{ display:"flex",alignItems:"baseline",gap:10,marginBottom:9 }}>
               <span style={{ display:"flex",alignItems:"baseline",gap:5 }}>
                 <span style={{ fontSize:20,fontWeight:900,color:"#34d399",fontFamily:warrior,textShadow:"0 0 10px rgba(52,211,153,0.35)" }}>{myProfile.wins||0}</span>
-                <span style={{ fontSize:9,fontWeight:800,color:"rgba(52,211,153,0.7)",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"wins")}</span>
+                <span style={{ fontSize:12,fontWeight:800,color:"rgba(52,211,153,0.8)",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"wins")}</span>
               </span>
               <span style={{ width:1,height:14,background:"rgba(255,255,255,0.12)",alignSelf:"center" }} />
               <span style={{ display:"flex",alignItems:"baseline",gap:5 }}>
                 <span style={{ fontSize:20,fontWeight:900,color:t.hit,fontFamily:warrior,textShadow:"0 0 10px rgba(255,71,87,0.3)" }}>{myProfile.losses||0}</span>
-                <span style={{ fontSize:9,fontWeight:800,color:"rgba(255,71,87,0.65)",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"losses")}</span>
+                <span style={{ fontSize:12,fontWeight:800,color:"rgba(255,71,87,0.75)",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"losses")}</span>
               </span>
             </div>
             {/* Form çizgisi — son 5 maç */}
