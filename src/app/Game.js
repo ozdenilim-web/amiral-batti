@@ -304,6 +304,7 @@ const TRANSLATIONS = {
     achTitle: "KAZANIMLAR", achClaim: "ÖDÜLÜ AL", achClaimed: "ALINDI", achLocked: "KİLİTLİ", achSoon: "YAKINDA", achSetReward: "SET ÖDÜLÜ", achUnlockReq: "Açılma şartları", achPrevSet: "Önceki set tamamlanmalı", achBtn: "KAZANIMLAR", achAvatarReward: "ÖZEL AVATAR",
     revengeActive: (m) => `İNTİKAM MODU — SONRAKİ ZAFERDE ÖDÜLLER ×${m}`, revengeTaken: (m) => `İNTİKAM ALINDI! ÖDÜLLER ×${m}`, revengeSub: "Denizin öfkesi seninle",
     voyageTitle: "GEMİN SEFERDEN DÖNDÜ!", voyageBody: (h) => `${h} saatlik seferden ganimetle döndü`, voyageCollect: "GANİMETİ TOPLA", voyageHint: "Bugün ne kadar çok savaşırsan, gemin o kadar uzun sefere çıkar",
+    sailTitle: "SEFERE ÇIKIYORUZ!", sailBody: "Sen oyunda olmasan bile gemin senin için ganimet toplayacak.", sailBody2: "Bugün ne kadar çok savaşırsan, gemin o kadar uzun sefere çıkar.", sailOk: "İYİ YOLCULUKLAR ⚓",
     rewardTitleWin: "GANİMET RAPORU", rewardTitleLoss: "SAVAŞ RAPORU", rewardGold: "ALTIN", rewardHonor: "ŞEREF", rewardXp: "TECRÜBE", rewardMissionsRow: "GÜNLÜK GÖREVLER", rewardAchRow: "YENİ KAZANIM AÇILDI!", rewardContinue: "DEVAM ▶", rewardRevengeRow: (m) => `İNTİKAM BONUSU ×${m} UYGULANDI`,
     hookWin: "SERİN SÜRÜYOR — DALGALAR SENDEN KORKUYOR!", hookLossRevenge: (m) => `⚔ İNTİKAM HAZIR: SONRAKİ ZAFERDE ×${m} ÖDÜL`, hookLoss: "RÖVANŞ SENİ BEKLİYOR, KAPTAN!",
     goodsBadge: "GANİMET TABLOSU", revengeGauge: "İNTİKAM YÜKLENİYOR", revengeReady: "İNTİKAM HAZIR",
@@ -374,6 +375,7 @@ const TRANSLATIONS = {
     achTitle: "ACHIEVEMENTS", achClaim: "CLAIM REWARD", achClaimed: "CLAIMED", achLocked: "LOCKED", achSoon: "COMING SOON", achSetReward: "SET REWARD", achUnlockReq: "Unlock requirements", achPrevSet: "Complete the previous set", achBtn: "ACHIEVEMENTS", achAvatarReward: "EXCLUSIVE AVATAR",
     revengeActive: (m) => `REVENGE MODE — NEXT VICTORY REWARDS ×${m}`, revengeTaken: (m) => `REVENGE TAKEN! REWARDS ×${m}`, revengeSub: "The sea's fury is with you",
     voyageTitle: "YOUR SHIP HAS RETURNED!", voyageBody: (h) => `Returned with loot from a ${h}-hour voyage`, voyageCollect: "COLLECT THE LOOT", voyageHint: "The more you battle today, the longer your ship sails",
+    sailTitle: "SETTING SAIL!", sailBody: "Even while you're away, your ship gathers loot for you.", sailBody2: "The more you battle today, the longer your ship sails.", sailOk: "FAIR WINDS ⚓",
     rewardTitleWin: "LOOT REPORT", rewardTitleLoss: "BATTLE REPORT", rewardGold: "GOLD", rewardHonor: "HONOR", rewardXp: "EXPERIENCE", rewardMissionsRow: "DAILY MISSIONS", rewardAchRow: "ACHIEVEMENT UNLOCKED!", rewardContinue: "CONTINUE ▶", rewardRevengeRow: (m) => `REVENGE BONUS ×${m} APPLIED`,
     hookWin: "YOUR STREAK LIVES — THE WAVES FEAR YOU!", hookLossRevenge: (m) => `⚔ REVENGE READY: ×${m} REWARDS ON NEXT WIN`, hookLoss: "THE REMATCH AWAITS, CAPTAIN!",
     goodsBadge: "LOOT REPORT", revengeGauge: "REVENGE CHARGING", revengeReady: "REVENGE READY",
@@ -1643,13 +1645,13 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, on
   </div>);
 }
 
-function ShipStatusPanel({ title, ships, hitCells, color, lang = "tr" }) {
+function ShipStatusPanel({ title, ships, hitCells, color, lang = "tr", compact = false }) {
   if(!ships)return null;
   const shipList = Object.values(ships);
   const totalShips = shipList.length;
   const sunkCount = shipList.filter(ship => { const cells=ship.cells||[]; const hits=cells.filter(([r,c])=>hitCells?.[r]?.[c]).length; return hits===cells.length&&cells.length>0; }).length;
-  return (<div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))",border:`2px solid ${color==="rgba(255,71,87,0.55)"||color===t.hit?"rgba(255,71,87,0.25)":"rgba(0,229,255,0.2)"}`,borderRadius:12,padding:"14px 16px",marginTop:8,boxShadow:"0 4px 20px rgba(0,0,0,0.3)" }}>
-    <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8 }}>
+  return (<div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))",border:`2px solid ${color==="rgba(255,71,87,0.55)"||color===t.hit?"rgba(255,71,87,0.25)":"rgba(0,229,255,0.2)"}`,borderRadius:12,padding:compact?"8px 12px":"14px 16px",marginTop:compact?5:8,boxShadow:"0 4px 20px rgba(0,0,0,0.3)" }}>
+    <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:compact?5:8 }}>
       <div style={{ fontSize:15,letterSpacing:4,color:t.text,fontWeight:900,fontFamily:warrior,textTransform:"uppercase",textShadow:"0 1px 3px rgba(0,0,0,0.5)" }}>{title}</div>
       <div style={{ fontSize:12,fontWeight:800,color:sunkCount>0?t.sunk:t.textDim,fontFamily:mono,background:"rgba(255,255,255,0.04)",padding:"2px 8px",borderRadius:6 }}>{sunkCount}/{totalShips}</div>
     </div>
@@ -2526,6 +2528,8 @@ export default function Game() {
   const [newAchUnlocks, setNewAchUnlocks] = useState([]); // bu maçta açılan kazanımlar
   const achDoneRef = useRef(null); // "setId:idx" kümesi — yeni açılan kazanımı tespit için
   const [rewardNonce, setRewardNonce] = useState(0); // her yeni maç raporunda modalı taze yeniden monte eder
+  const [sailNotice, setSailNotice] = useState(false); // "sefere çıkıyoruz" karşılaması (oturumda bir kez)
+  const sailShownRef = useRef(false);
   const [eloChange, setEloChange] = useState(null);
   const [showOnlineLobby, setShowOnlineLobby] = useState(false);
   const [matchmaking, setMatchmaking] = useState(false);
@@ -2730,6 +2734,14 @@ export default function Game() {
       return { ...prev, voyage: v };
     });
   };
+
+  // "SEFERE ÇIKIYORUZ" karşılaması — oyun açılınca bir kez, ganimet penceresi yoksa
+  useEffect(() => {
+    if (phase !== "lobby" || !myProfile || sailShownRef.current) return;
+    sailShownRef.current = true;
+    const tm = setTimeout(() => { if (!voyageReward) setSailNotice(true); }, 900);
+    return () => clearTimeout(tm);
+  }, [phase, myProfile]);
 
   // Sefer dönüşü kontrolü — lobiye ilk girişte bir kez
   useEffect(() => {
@@ -4681,6 +4693,19 @@ export default function Game() {
         setChestClaimed(true); setChestReward(null);
       }} />}
       {dailyReward && <DailyRewardPopup reward={dailyReward.reward} streak={dailyReward.streak} onClose={() => { setMyProfile(prev => prev ? { ...prev, gold: dailyReward.newGold, loginStreak: dailyReward.streak } : prev); setDailyReward(null); }} lang={appLang} />}
+      {/* SEFERE ÇIKIYORUZ — açılış karşılaması, çarpı veya arkaya dokunarak kapanır */}
+      {sailNotice && (
+        <div onClick={() => setSailNotice(false)} style={{ position:"fixed",inset:0,overflow:"hidden",zIndex:9350,background:"rgba(2,6,16,0.78)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,animation:"settingsFadeIn 0.3s ease-out" }}>
+          <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, #0c1a30, #071022)",border:"2px solid rgba(0,229,255,0.4)",borderRadius:18,padding:"24px 22px 20px",width:"100%",maxWidth:330,textAlign:"center",boxShadow:"0 0 44px rgba(0,229,255,0.18), 0 20px 60px rgba(0,0,0,0.7)",animation:"tutCardEnter 0.6s cubic-bezier(0.16,1,0.3,1)" }}>
+            <button onClick={() => setSailNotice(false)} style={{ position:"absolute",top:8,right:8,width:28,height:28,borderRadius:"50%",background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,color:t.textDim,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>✕</button>
+            <div style={{ fontSize:46,marginBottom:6,animation:"logoFloat 3s ease-in-out infinite",display:"inline-block" }}>⛵</div>
+            <div style={{ fontSize:17,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 18px ${t.accentGlow}`,marginBottom:10 }}>{L(appLang,"sailTitle")}</div>
+            <div style={{ fontSize:12,color:t.text,fontFamily:mono,lineHeight:1.6,marginBottom:8 }}>{L(appLang,"sailBody")}</div>
+            <div style={{ fontSize:11,color:t.gold,fontFamily:mono,lineHeight:1.5,fontStyle:"italic",marginBottom:16 }}>⚓ {L(appLang,"sailBody2")}</div>
+            <button onClick={() => setSailNotice(false)} style={{ width:"100%",padding:"13px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:13,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 24px ${t.accentGlow}` }}>{L(appLang,"sailOk")}</button>
+          </div>
+        </div>
+      )}
       {/* SEFER DÖNÜŞÜ — karşılama */}
       {voyageReward && (
         <div style={{ position:"fixed",inset:0,overflow:"hidden",zIndex:9400,background:"radial-gradient(ellipse at 50% 40%, rgba(0,229,255,0.08) 0%, rgba(2,6,16,0.9) 70%)",backdropFilter:"blur(3px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}>
@@ -4735,6 +4760,11 @@ export default function Game() {
       </div>);
     }
     return (<div style={{ ...appStyle, paddingBottom: 80 }}><style>{ANIMS}</style>
+      {/* GERİ DÖN — bot maçından/hazırlıktan vazgeçip ana ekrana dönüş */}
+      <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-start",marginBottom:6 }}>
+        <button onClick={() => { sfx.init(); sfx.play('click'); if (isBotGame) resetGame(); else setShowSurrenderConfirm(true); }}
+          style={{ padding:"7px 14px",minHeight:32,background:"rgba(255,255,255,0.05)",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:9,fontSize:11,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",gap:5 }}>← {L(appLang,"backBtn")}</button>
+      </div>
       <div style={{ fontSize:22,fontWeight:800,letterSpacing:5,color:t.accent,marginBottom:4,fontFamily:warrior,textShadow:`0 0 15px ${t.accentGlow}` }}>{L(appLang,"placeShipScreenTitle")}</div>
       <div style={{ fontSize:26,fontWeight:800,marginBottom:6,color:timerLow?t.hit:t.accent,animation:timerLow?"blink3s 0.5s infinite":"none",fontFamily:warrior,textShadow:timerLow?`0 0 20px ${t.hitGlow}`:"none" }}>{formatTime(placementTimer)}</div>
       {/* Extra time button */}
@@ -4774,9 +4804,19 @@ export default function Game() {
   if (phase === "playing") {
     const myLow = myClock <= 30, oppLow = oppClock <= 30, isAttack = activeBoard === "attack";
     const miniGrid = isOnboarding; // 7x7 grid for onboarding
-    const gridSize = miniGrid ? Math.min(38, Math.floor((Math.min((typeof window !== "undefined" ? window.innerWidth : 400) - 24, 320)) / 8)) : cellSize;
+    // SABİT TAHTA: ekran YÜKSEKLİĞİNE göre hücre boyutu — hiçbir cihazda dikey kaydırma olmaz.
+    // Üst şerit (ayrıl + saatler + isabet + sekmeler) ve alt sabit çubuklar düşülür.
+    // Kısa ekranlarda (küçük telefonlar) gemi durum paneli ve ikincil satırlar gizlenir —
+    // tahtanın tamamı her koşulda ekrana sığar, kaydırma gerekmez.
+    const shortScreen = viewport.h < 700;
+    const topChrome = isOnboarding ? 120 : (shortScreen ? 165 : 196);
+    const bottomChrome = isOnboarding ? 140 : (shortScreen ? 150 : 236);
+    const hCell = Math.floor((viewport.h - topChrome - bottomChrome - 10) / 11);
+    const wCell = Math.floor((Math.min(viewport.w - gutter - 16, 400)) / 11);
+    const playCell = Math.max(13, Math.min(30, wCell, hCell));
+    const gridSize = miniGrid ? Math.min(38, Math.floor((Math.min(viewport.w - 24, 320)) / 8)) : playCell;
     const flyEmoji = emojiToast || myEmojiToast;
-    return (<div style={{ ...appStyle, paddingBottom: "calc(130px + env(safe-area-inset-bottom, 0px))", background:`
+    return (<div style={{ ...appStyle, height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingTop:"calc(6px + env(safe-area-inset-top, 0px))", paddingBottom: "calc(126px + env(safe-area-inset-bottom, 0px))", background:`
       radial-gradient(ellipse at 15% 10%, rgba(0,229,255,0.14) 0%, transparent 50%),
       radial-gradient(ellipse at 85% 90%, rgba(255,71,87,0.12) 0%, transparent 50%),
       repeating-linear-gradient(0deg, transparent 0px, transparent 39px, rgba(0,229,255,0.07) 39px, rgba(0,229,255,0.07) 40px),
@@ -4794,9 +4834,9 @@ export default function Game() {
         <div style={{ fontSize:84,filter:"drop-shadow(0 12px 24px rgba(0,0,0,0.7)) drop-shadow(0 0 40px rgba(0,229,255,0.35)) saturate(1.4)" }}>{flyEmoji.emoji}</div>
         <div style={{ fontSize:15,fontWeight:900,color:"#fff",fontFamily:warrior,letterSpacing:3,textTransform:"uppercase",textShadow:"0 2px 0 rgba(0,0,0,0.8), 0 0 24px rgba(0,229,255,0.6)",marginTop:4 }}>{flyEmoji.label}</div>
       </div>}
-      {/* PES ET / OYUNDAN AYRIL butonu */}
-      <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-end",marginTop:38,marginBottom:4 }}>
-        <button onClick={() => setShowSurrenderConfirm(true)} style={{ padding:"4px 12px",background:"transparent",color:t.textDim,border:`1px solid rgba(255,71,87,0.2)`,borderRadius:6,fontSize:9,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior,opacity:0.7 }}>{L(appLang,"leaveGame")}</button>
+      {/* PES ET / OYUNDAN AYRIL butonu — küçük ama net görünür ve rahat tıklanır */}
+      <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-end",marginTop:34,marginBottom:5 }}>
+        <button onClick={() => setShowSurrenderConfirm(true)} style={{ padding:"7px 14px",minHeight:32,background:"linear-gradient(135deg, rgba(255,71,87,0.18), rgba(255,71,87,0.06))",color:"#ff8a95",border:`1.5px solid rgba(255,71,87,0.55)`,borderRadius:9,fontSize:11,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",gap:5,boxShadow:"0 2px 8px rgba(0,0,0,0.4)" }}>✕ {L(appLang,"leaveGame")}</button>
       </div>
       {/* Surrender confirm modal */}
       {showSurrenderConfirm && <div style={{ position:"fixed",inset:0,overflow:"hidden",background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(4px)" }}>
@@ -4828,7 +4868,7 @@ export default function Game() {
           ⏳ {L(appLang,"oppNotPlaying")} — {afkTimer}s
         </div>
       )}
-      {!isOnboarding && <div style={{ fontSize:12,color:t.text,marginBottom:6,fontFamily:mono,fontWeight:700 }}>{L(appLang,"hits")}: <span style={{ color:t.accent }}>{myHits}/20</span></div>}
+      {!isOnboarding && !shortScreen && <div style={{ fontSize:12,color:t.text,marginBottom:6,fontFamily:mono,fontWeight:700 }}>{L(appLang,"hits")}: <span style={{ color:t.accent }}>{myHits}/20</span></div>}
       
       {streakToast && <div style={{ background:"rgba(251,191,36,0.15)",border:`1px solid ${t.gold}`,borderRadius:8,padding:"6px 14px",marginBottom:6,fontSize:14,color:t.gold,fontWeight:700,textAlign:"center",width:"100%",maxWidth:400,animation:"popIn 0.3s ease-out",fontFamily:warrior,letterSpacing:2 }}>🔥 {streakToast.streak} {L(appLang,"hitStreak")} — x{streakToast.mult} {L(appLang,"multiplier")}</div>}
       {hitStreak > 0 && !streakToast && <div style={{ fontSize:10,color:t.gold,marginBottom:4,fontFamily:warrior,letterSpacing:1,textAlign:"center" }}>🔥 Seri: {hitStreak}</div>}
@@ -4841,7 +4881,7 @@ export default function Game() {
       {isAttack && <button onClick={()=>setMarkMode(!markMode)} style={{ marginBottom:6,padding:"6px 16px",fontSize:10,fontWeight:700,fontFamily:warrior,background:markMode?t.gold:"transparent",color:markMode?t.bg:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,cursor:"pointer",letterSpacing:2 }}>{markMode?`⚑ ${L(appLang,"markModeOn")}`:`⚑ ${L(appLang,"markMode")}`}</button>}
       </>}
       <div style={{ width:"100%",maxWidth:400,border:myTurn?`3px solid ${t.accent}`:`2px solid rgba(255,71,87,0.35)`,borderRadius:12,padding:2,animation:myTurn?"turnPulse 1.1s ease-in-out infinite":"none",transition:"border-color 0.4s ease",position:"relative" }}>
-        {isAttack?<><Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:cellSize} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} onboardingHint={isOnboarding?[[2,2],[2,3],[2,4]]:null} />{!isOnboarding&&<ShipStatusPanel title={L(appLang,"oppShips")} ships={oppShipsData} hitCells={atkHitMap} color={t.hit} lang={appLang} />}</>:<><Grid board={defenseBoard} cellSize={isOnboarding?gridSize:cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />{!isOnboarding&&<ShipStatusPanel title={L(appLang,"myShips")} ships={myShipsData} hitCells={defHitMap} color={t.accent} lang={appLang} />}</>}
+        {isAttack?<><Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:playCell} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} onboardingHint={isOnboarding?[[2,2],[2,3],[2,4]]:null} />{!isOnboarding&&!shortScreen&&<ShipStatusPanel title={L(appLang,"oppShips")} ships={oppShipsData} hitCells={atkHitMap} color={t.hit} lang={appLang} compact />}</>:<><Grid board={defenseBoard} cellSize={isOnboarding?gridSize:playCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />{!isOnboarding&&!shortScreen&&<ShipStatusPanel title={L(appLang,"myShips")} ships={myShipsData} hitCells={defHitMap} color={t.accent} lang={appLang} compact />}</>}
         {microFeedback && <MicroFeedback text={microFeedback.text} color={microFeedback.color} onDone={()=>setMicroFeedback(null)} />}
       </div>
       {isTestMode() && <button onClick={forceEndGame} style={{ marginTop:8,padding:"8px 16px",background:"rgba(251,191,36,0.2)",color:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"endGameTestBtn")}</button>}
