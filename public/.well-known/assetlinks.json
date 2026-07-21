@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.vercel.amiral_batti_topaz.twa",
+        "sha256_cert_fingerprints": ["3B:ED:F4:CD:E1:EE:F7:01:5A:E2:FF:15:5D:D5:D2:F5:75:DF:8A:89:D8:B3:48:DE:0E:F4:DD:A5:A4:41:54:A0"]
+      }
+    }]
