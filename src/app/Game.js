@@ -2301,7 +2301,7 @@ function BoardReview({ defenseBoard, shipColorMap, defenseOverlay, attackOverlay
       <button onClick={()=>setView("defense")} style={{ flex:1,padding:"8px 0",fontSize:12,fontWeight:700,fontFamily:warrior,cursor:"pointer",background:view==="defense"?t.accent:t.surfaceLight,color:view==="defense"?t.bg:t.textDim,border:`1px solid ${view==="defense"?t.accent:t.border}`,borderRadius:"0 8px 8px 0",letterSpacing:2 }}>{L(lang,"myField")}</button>
     </div>
     <div style={{ width:"100%",maxWidth:400 }}>
-      {view==="attack"?<><Grid board={oppBoard} cellSize={cellSize} isDefense shipColors={oppColors} overlay={attackOverlay} disabled showShipStatus /><ShipStatusPanel title={L(lang,"oppShips")} ships={oppShipsData} hitCells={atkHitMap} color={t.hit} lang={lang} /></>:<><Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled showShipStatus /><ShipStatusPanel title={L(lang,"myShips")} ships={myShipsData} hitCells={defHitMap} color={t.accent} lang={lang} /></>}
+      {view==="attack"?<><Grid board={oppBoard} cellSize={cellSize} isDefense shipColors={oppColors} overlay={attackOverlay} disabled showShipStatus /><ShipStatusPanel title={L(lang,"oppShips")} ships={oppShipsData} hitCells={atkHitMap} color={t.hit} lang={lang} /></>:<><Grid board={defenseBoard} cellSize={placeCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled showShipStatus /><ShipStatusPanel title={L(lang,"myShips")} ships={myShipsData} hitCells={defHitMap} color={t.accent} lang={lang} /></>}
     </div>
     <button onClick={onBack} style={{ marginTop:16,padding:"12px 32px",background:t.accent,color:t.bg,border:"none",borderRadius:8,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(lang,"backBtn")}</button>
   </div>);
@@ -4848,7 +4848,7 @@ export default function Game() {
         <div style={{ animation:"previewZoom 0.8s ease-out forwards",textAlign:"center",width:"100%",maxWidth:400 }}>
           <div style={{ fontSize:16,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,marginBottom:12,textShadow:`0 0 15px ${t.accentGlow}` }}>{L(appLang,"fleetReady")}</div>
           <div style={{ animation:"floatShadow 3s ease-in-out infinite",borderRadius:14,overflow:"hidden",border:`2px solid ${t.accent}`,boxShadow:`0 10px 40px rgba(0,0,0,0.5), 0 0 20px ${t.accentGlow}` }}>
-            <Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled />
+            <Grid board={defenseBoard} cellSize={placeCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled />
           </div>
           <div style={{ display:"flex",gap:10,marginTop:16,justifyContent:"center" }}>
             <button onClick={()=>setPlacementPreview(false)} style={{ padding:"12px 24px",background:"transparent",color:t.textDim,border:`2px solid ${t.border}`,borderRadius:10,fontSize:13,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"editBtn")}</button>
@@ -4857,36 +4857,42 @@ export default function Game() {
         </div>
       </div>);
     }
-    return (<div style={{ ...appStyle, paddingBottom: 80 }}><style>{ANIMS}</style>
+    // SABİT YERLEŞTİRME EKRANI — kaydırma yok. Kontroller sığmazsa hücre küçülür.
+    // Üst blok: geri 40 + başlık 26 + süre 30 + sayaç 22 + ipucu 34 + gemi butonları ~96 + rastgele 44 + döndür/geri al 50
+    const placeTop = allPlaced ? 240 : 350;
+    const phCell = Math.floor((viewport.h - placeTop - 16) / 12);
+    const pwCell = Math.floor((Math.min(viewport.w - gutter - 14, 400)) / 12);
+    const placeCell = Math.max(13, Math.min(30, pwCell, phCell));
+    return (<div style={{ ...appStyle, height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingBottom: 10 }}><style>{ANIMS}</style>
       {/* GERİ DÖN — bot maçından/hazırlıktan vazgeçip ana ekrana dönüş */}
-      <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-start",marginBottom:6 }}>
+      <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-start",marginBottom:4 }}>
         <button onClick={() => { sfx.init(); sfx.play('click'); if (isBotGame) resetGame(); else setShowSurrenderConfirm(true); }}
           style={{ padding:"7px 14px",minHeight:32,background:"rgba(255,255,255,0.05)",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:9,fontSize:11,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",gap:5 }}>← {L(appLang,"backBtn")}</button>
       </div>
-      <div style={{ fontSize:22,fontWeight:800,letterSpacing:5,color:t.accent,marginBottom:4,fontFamily:warrior,textShadow:`0 0 15px ${t.accentGlow}` }}>{L(appLang,"placeShipScreenTitle")}</div>
-      <div style={{ fontSize:26,fontWeight:800,marginBottom:6,color:timerLow?t.hit:t.accent,animation:timerLow?"blink3s 0.5s infinite":"none",fontFamily:warrior,textShadow:timerLow?`0 0 20px ${t.hitGlow}`:"none" }}>{formatTime(placementTimer)}</div>
+      <div style={{ fontSize:17,fontWeight:800,letterSpacing:4,color:t.accent,marginBottom:2,fontFamily:warrior,textShadow:`0 0 15px ${t.accentGlow}` }}>{L(appLang,"placeShipScreenTitle")}</div>
+      <div style={{ fontSize:20,fontWeight:800,marginBottom:3,color:timerLow?t.hit:t.accent,animation:timerLow?"blink3s 0.5s infinite":"none",fontFamily:warrior,textShadow:timerLow?`0 0 20px ${t.hitGlow}`:"none" }}>{formatTime(placementTimer)}</div>
       {/* Extra time button */}
       {placementTimer <= 15 && !extraTimeUsed && !placementConfirmed && (
         <button onClick={buyExtraTime} style={{ marginBottom:8,padding:"8px 18px",background:"linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,215,0,0.05))",color:t.gold,border:`2px solid rgba(255,215,0,0.3)`,borderRadius:10,fontSize:12,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior,animation:"borderGlow 1s infinite",boxShadow:`0 0 15px ${t.goldGlow}` }}>{L(appLang,"extraTimeBtn")}</button>
       )}
       {extraTimeUsed && <div style={{ fontSize:10,color:t.gold,fontFamily:warrior,marginBottom:6,letterSpacing:2 }}>{L(appLang,"extraTimeUsedMsg")}</div>}
-      <div style={{ fontSize:13,fontWeight:700,color:t.text,marginBottom:8,fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"shipsPlacedLabel")(placedShips.length, SHIPS.length)}</div>
+      <div style={{ fontSize:11,fontWeight:700,color:t.text,marginBottom:5,fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"shipsPlacedLabel")(placedShips.length, SHIPS.length)}</div>
       {entryFeeDeducted && <div style={{ fontSize:11,fontWeight:700,color:t.gold,fontFamily:warrior,marginBottom:6,letterSpacing:2 }}>{L(appLang,"entryFeeShort")(entryFeeDeducted)}</div>}
       {!allPlaced && !placementConfirmed && (<>
-        <div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.9), rgba(8,14,30,0.95))",border:`2px solid rgba(0,229,255,0.15)`,borderRadius:10,padding:"10px 16px",marginBottom:8,fontSize:13,textAlign:"center",width:"100%",maxWidth:400,fontFamily:warrior,fontWeight:700,letterSpacing:1 }}>{selectedShip?<span><span style={{ color:t.accent,fontWeight:800 }}>▸</span> {L(appLang,"tapMapHint")}</span>:<span><span style={{ color:t.accent,fontWeight:800 }}>▸</span> {L(appLang,"pickShipHint")}</span>}</div>
-        <div style={{ display:"flex",flexWrap:"wrap",gap:6,justifyContent:"center",marginBottom:10,maxWidth:400,width:"100%" }}>
+        <div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.9), rgba(8,14,30,0.95))",border:`2px solid rgba(0,229,255,0.15)`,borderRadius:10,padding:"6px 10px 16px",marginBottom:8,fontSize:13,textAlign:"center",width:"100%",maxWidth:400,fontFamily:warrior,fontWeight:700,letterSpacing:1 }}>{selectedShip?<span><span style={{ color:t.accent,fontWeight:800 }}>▸</span> {L(appLang,"tapMapHint")}</span>:<span><span style={{ color:t.accent,fontWeight:800 }}>▸</span> {L(appLang,"pickShipHint")}</span>}</div>
+        <div style={{ display:"flex",flexWrap:"wrap",gap:5,justifyContent:"center",marginBottom:6,maxWidth:400,width:"100%" }}>
           {SHIPS.map(ship=>{const placed=placedShips.some(p=>p.id===ship.id);const sel=selectedShip===ship.id;return(<button key={ship.id} onClick={()=>{if(!placed){setSelectedShip(sel?null:ship.id);setRotation(0);}}} style={{ padding:"7px 12px",background:placed?"rgba(22,32,64,0.4)":sel?t.accent:"rgba(12,21,41,0.8)",color:placed?t.textDim:sel?t.bg:t.text,border:`2px solid ${placed?"rgba(30,58,95,0.3)":sel?t.accent:ship.color+"66"}`,borderRadius:8,fontSize:11,cursor:placed?"default":"pointer",fontFamily:warrior,fontWeight:800,opacity:placed?0.35:1,textDecoration:placed?"line-through":"none",letterSpacing:1,animation:!placed&&!sel&&ship.id===nextShip?.id?"borderGlow 2s infinite":"none",transition:"all 0.15s ease" }}>{appLang==="en"?ship.nameEn:ship.name}({ship.size})</button>);})}
         </div>
         {/* Rastgele yerleştir */}
-        {!placementConfirmed && <button onClick={autoPlaceShips} style={{ width:"100%",maxWidth:400,padding:"13px 0",marginBottom:10,background:"linear-gradient(135deg, rgba(167,139,250,0.15), rgba(167,139,250,0.05))",color:"#a78bfa",border:"2px solid rgba(167,139,250,0.4)",borderRadius:12,fontSize:15,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:3,display:"flex",alignItems:"center",justifyContent:"center",gap:10,boxShadow:"0 0 16px rgba(167,139,250,0.15)" }}>
+        {!placementConfirmed && <button onClick={autoPlaceShips} style={{ width:"100%",maxWidth:400,padding:"9px 0",marginBottom:6,background:"linear-gradient(135deg, rgba(167,139,250,0.15), rgba(167,139,250,0.05))",color:"#a78bfa",border:"2px solid rgba(167,139,250,0.4)",borderRadius:12,fontSize:15,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:3,display:"flex",alignItems:"center",justifyContent:"center",gap:10,boxShadow:"0 0 16px rgba(167,139,250,0.15)" }}>
           {L(appLang,"randomPlaceBtn")}
         </button>}
         {/* Mobile-friendly rotate and undo buttons - large touch targets */}
-        <div style={{ display:"flex",gap:10,marginBottom:10,width:"100%",maxWidth:400,justifyContent:"center" }}>
-          {selectedShip && <button onClick={() => setRotation((rotation + 1) % 4)} style={{ flex:1,maxWidth:180,padding:"14px 0",background:"linear-gradient(135deg, rgba(0,229,255,0.12), rgba(0,229,255,0.04))",color:t.accent,border:`2px solid rgba(0,229,255,0.3)`,borderRadius:12,fontSize:20,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:2,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}>
+        <div style={{ display:"flex",gap:10,marginBottom:6,width:"100%",maxWidth:400,justifyContent:"center" }}>
+          {selectedShip && <button onClick={() => setRotation((rotation + 1) % 4)} style={{ flex:1,maxWidth:180,padding:"9px 0",background:"linear-gradient(135deg, rgba(0,229,255,0.12), rgba(0,229,255,0.04))",color:t.accent,border:`2px solid rgba(0,229,255,0.3)`,borderRadius:12,fontSize:20,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:2,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}>
             <span style={{ fontSize:24,display:"inline-block",transform:`rotate(${rotation*90}deg)`,transition:"transform 0.3s ease" }}>↻</span> {L(appLang,"rotateLabel")}
           </button>}
-          {placedShips.length > 0 && <button onClick={undoLastShip} style={{ flex:1,maxWidth:180,padding:"14px 0",background:"rgba(255,71,87,0.08)",color:t.hit,border:`2px solid rgba(255,71,87,0.3)`,borderRadius:12,fontSize:14,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"undoBtn")}</button>}
+          {placedShips.length > 0 && <button onClick={undoLastShip} style={{ flex:1,maxWidth:180,padding:"9px 0",background:"rgba(255,71,87,0.08)",color:t.hit,border:`2px solid rgba(255,71,87,0.3)`,borderRadius:12,fontSize:14,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"undoBtn")}</button>}
         </div>
         {selectedShip && <div style={{ fontSize:10,color:t.textDim,fontFamily:mono,marginBottom:6,textAlign:"center" }}>{L(appLang,"placeHint")}</div>}
       </>)}
@@ -4895,7 +4901,7 @@ export default function Game() {
         <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginTop:8,letterSpacing:1 }}>{L(appLang,"confirmShipsHint")}</div>
       </div>}
       {placementConfirmed && <div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.9), rgba(8,14,30,0.95))",border:`2px solid rgba(0,229,255,0.2)`,borderRadius:12,padding:"16px 24px",marginBottom:8,fontSize:14,fontWeight:700,color:t.accent,textAlign:"center",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"shipsReadyMsg")}<div style={{ marginTop:10 }}><div style={{ width:14,height:14,borderRadius:"50%",background:t.accent,margin:"0 auto",animation:"pulse 1.5s infinite" }} /></div></div>}
-      <div onMouseLeave={() => { if(!dragRef.current) setHoverCells([]); }}><Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} hoverCells={hoverCells} onClick={handleDefenseClick} onHover={handleDefenseHover} onCellPointerDown={handleShipPointerDown} disabled={placementConfirmed} /></div>
+      <div onMouseLeave={() => { if(!dragRef.current) setHoverCells([]); }}><Grid board={defenseBoard} cellSize={placeCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} hoverCells={hoverCells} onClick={handleDefenseClick} onHover={handleDefenseHover} onCellPointerDown={handleShipPointerDown} disabled={placementConfirmed} /></div>
     </div>);
   }
 
@@ -4911,8 +4917,9 @@ export default function Game() {
     const topChrome = isOnboarding ? 120 : (shortScreen ? 148 : 170);
     // alt: filo şeridi 40 + sabit alt çubuklar 126
     const bottomChrome = isOnboarding ? 140 : 168;
-    const hCell = Math.floor((viewport.h - topChrome - bottomChrome - 10) / 11);
-    const wCell = Math.floor((Math.min(viewport.w - gutter - 16, 400)) / 11);
+    // ÖNEMLİ: tahta 11x11 + etiket satır/sütunu = 12x12 hücre yüksekliği/genişliği
+    const hCell = Math.floor((viewport.h - topChrome - bottomChrome - 12) / 12);
+    const wCell = Math.floor((Math.min(viewport.w - gutter - 14, 400)) / 12);
     const playCell = Math.max(13, Math.min(30, wCell, hCell));
     const gridSize = miniGrid ? Math.min(38, Math.floor((Math.min(viewport.w - 24, 320)) / 8)) : playCell;
     const flyEmoji = emojiToast || myEmojiToast;
