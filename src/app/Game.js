@@ -4944,7 +4944,7 @@ export default function Game() {
             color:"#04252f",border:"none",borderRadius:16,
             fontSize:30,fontWeight:900,fontFamily:warrior,textTransform:"uppercase",
             /* letterSpacing son harften sonra da boşluk bırakır → textIndent ile telafi = GERÇEK merkez */
-            letterSpacing:9,textIndent:9,
+            letterSpacing:9,
             cursor:(matchmaking||authLoading)?"not-allowed":"pointer",opacity:(authLoading||matchmaking)?0.5:1,
             /* Fiziksel taban kenarı + zemin gölgesi */
             boxShadow:"0 7px 0 #0d5f86, 0 9px 20px rgba(0,0,0,0.55), inset 0 2px 0 rgba(255,255,255,0.75), inset 0 -3px 8px rgba(0,60,90,0.35)",
@@ -4954,7 +4954,7 @@ export default function Game() {
           <span style={{ position:"absolute",top:0,left:0,right:0,height:"46%",background:"linear-gradient(180deg, rgba(255,255,255,0.42), rgba(255,255,255,0))",borderRadius:"16px 16px 50% 50%",pointerEvents:"none" }} />
           {/* Ara sıra geçen ışık süpürmesi */}
           {!matchmaking && <span style={{ position:"absolute",top:0,left:0,width:"28%",height:"100%",background:"linear-gradient(100deg,transparent,rgba(255,255,255,0.5),transparent)",animation:"playSheen 4.5s ease-in-out infinite",pointerEvents:"none" }} />}
-          <span style={{ position:"relative",zIndex:1 }}>{L(appLang,"play")}</span>
+          <span style={{ position:"relative",zIndex:1,marginRight:-9 }}>{L(appLang,"play")}</span>
         </RippleButton>
       </div>
       <QuickMatchModal myProfile={myProfile} lang={appLang} phase={quickMatchPhase} candidate={quickMatchCandidate} opponent={quickMatchOpponent} secondsLeft={quickMatchSecondsLeft} onCancel={cancelQuickMatch} onRetry={retryQuickMatch} />
