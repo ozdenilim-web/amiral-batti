@@ -428,15 +428,24 @@ function applyLevelCredit(profile, credit) {
 }
 
 // Not: eski ELO sistemi kaldırıldı — rütbe artık ALTIN miktarına göre belirleniyor
-function getRankInfo(gold, lang = "tr") {
-  const g = gold || 0;
+// === ŞEREF — harcanamaz statü para birimi. SADECE savaşarak kazanılır, asla azalmaz. ===
+// Rütbe artık altına değil Şeref'e bağlı: arena girişi ödemek rütbeni düşüremez,
+// sandık/günlük ödül gibi pasif kazançlar rütbe kazandırmaz.
+const HONOR_WIN_ONLINE = 10, HONOR_LOSS_ONLINE = 3, HONOR_WIN_BOT = 5, HONOR_LOSS_BOT = 2;
+// Eski profiller için adil geçiş: honor alanı yoksa maç geçmişinden türet
+function migrateHonor(p) {
+  if (p && typeof p.honor === "number" && isFinite(p.honor) && p.honor >= 0) return Math.floor(p.honor);
+  return ((p?.wins || 0) * 8) + ((p?.losses || 0) * 3);
+}
+function getRankInfo(honor, lang = "tr") {
+  const h = honor || 0;
   const en = lang === "en";
-  if (g >= 50000) return { title: en?"ADMIRAL":"AMİRAL", color: "#fbbf24", icon: "⭐" };
-  if (g >= 20000) return { title: en?"COMMODORE":"KOMODOR", color: "#a78bfa", icon: "🎖" };
-  if (g >= 8000) return { title: en?"CAPTAIN":"KAPTAN", color: "#06b6d4", icon: "⚓" };
-  if (g >= 3000) return { title: en?"COMMANDER":"YÜZBAŞI", color: "#34d399", icon: "🏅" };
-  if (g >= 1000) return { title: en?"LIEUTENANT":"TEĞMEN", color: "#60a5fa", icon: "📛" };
-  return { title: en?"RECRUIT":"ER", color: "#9ca3af", icon: "🔰" };
+  if (h >= 5000) return { title: en?"ADMIRAL":"AMİRAL", color: "#fbbf24", icon: "⭐", next: null, base: 5000 };
+  if (h >= 2000) return { title: en?"COMMODORE":"KOMODOR", color: "#a78bfa", icon: "🎖", next: 5000, base: 2000 };
+  if (h >= 800) return { title: en?"CAPTAIN":"KAPTAN", color: "#06b6d4", icon: "⚓", next: 2000, base: 800 };
+  if (h >= 300) return { title: en?"COMMANDER":"YÜZBAŞI", color: "#34d399", icon: "🏅", next: 800, base: 300 };
+  if (h >= 100) return { title: en?"LIEUTENANT":"TEĞMEN", color: "#60a5fa", icon: "📛", next: 300, base: 100 };
+  return { title: en?"RECRUIT":"ER", color: "#9ca3af", icon: "🔰", next: 100, base: 0 };
 }
 
 // Son 5 maç form çizgisi — "W"/"L" dizisi, en fazla 5 eleman
@@ -974,6 +983,7 @@ async function checkDailyReward(uid) {
     recentResults: safeRecent(profile.recentResults),
     ach: (() => { const a = safeAch(profile.ach); a.goldEarned += reward; a.chest += 0; return a; })(),
     achievClaimed: safeClaimed(profile.achievClaimed),
+    honor: migrateHonor(profile),
   };
   await set(profileRef, cleanProfile);
   return { reward, streak, newGold };
@@ -1202,7 +1212,7 @@ async function ensureProfile(uid, displayName) {
   const snap = await get(profileRef);
   if (!snap.exists()) {
     const startGold = isTestMode() ? 5000 : STARTING_GOLD;
-    const profile = { displayName: displayName||"Denizci", wins:0, losses:0, totalGames:0, botGames:0, onlineGames:0, gold:startGold, level:0, levelProgress:0, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false, recentResults:[], ach:{ ...ACH_DEFAULT }, achievClaimed:{} };
+    const profile = { displayName: displayName||"Denizci", wins:0, losses:0, totalGames:0, botGames:0, onlineGames:0, gold:startGold, honor:0, level:0, levelProgress:0, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false, recentResults:[], ach:{ ...ACH_DEFAULT }, achievClaimed:{} };
     await set(profileRef, profile);
     return profile;
   }
@@ -1229,6 +1239,7 @@ async function ensureProfile(uid, displayName) {
     recentResults: safeRecent(existing.recentResults),
     ach: safeAch(existing.ach),
     achievClaimed: safeClaimed(existing.achievClaimed),
+    honor: migrateHonor(existing),
   };
   // ALWAYS overwrite with set() — kills any hidden NaN in any field
   await set(profileRef, sanitized);
@@ -1264,6 +1275,7 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
     onboardingDone: wd.onboardingDone === true, nameSetAt: wd.nameSetAt || null, avatar: wd.avatar || "⚓", dailyRewardCount: wd.dailyRewardCount || 0,
     recentResults: pushRecent(wd.recentResults, true),
     ach: safeAch(wd.ach), achievClaimed: safeClaimed(wd.achievClaimed),
+    honor: migrateHonor(wd) + HONOR_WIN_ONLINE,
   };
   const loserProfile = {
     displayName: ld.displayName || "Denizci",
@@ -1279,6 +1291,7 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
     onboardingDone: ld.onboardingDone === true, nameSetAt: ld.nameSetAt || null, avatar: ld.avatar || "⚓", dailyRewardCount: ld.dailyRewardCount || 0,
     recentResults: pushRecent(ld.recentResults, false),
     ach: safeAch(ld.ach), achievClaimed: safeClaimed(ld.achievClaimed),
+    honor: migrateHonor(ld) + HONOR_LOSS_ONLINE,
   };
   await set(ref(db, `profiles/${winnerUid}`), winnerProfile);
   await set(ref(db, `profiles/${loserUid}`), loserProfile);
@@ -1298,6 +1311,7 @@ async function fetchLeaderboard(sortBy='gold', count=15) {
       losses: (typeof v.losses === "number" && !isNaN(v.losses)) ? v.losses : 0,
       totalGames: (typeof v.totalGames === "number" && !isNaN(v.totalGames)) ? v.totalGames : 0,
       gold: (typeof v.gold === "number" && !isNaN(v.gold) && isFinite(v.gold)) ? Math.max(0, Math.floor(v.gold)) : 0,
+      honor: migrateHonor(v),
     });
   });
   if (sortBy === 'wins') profiles.sort((a,b) => b.wins - a.wins);
@@ -1356,7 +1370,7 @@ function Leaderboard({ onBack, myUid, lang = "tr" }) {
       <div style={{ width:"100%",maxWidth:440,display:"flex",flexDirection:"column",gap:6 }}>
         {players.slice(0,15).map((p,i) => {
           if (i >= revealed) return null;
-          const rank = getRankInfo(p.gold||0, lang), isMe = p.uid===myUid;
+          const rank = getRankInfo(p.honor||0, lang), isMe = p.uid===myUid;
           const winRate = p.totalGames>0?Math.round((p.wins/p.totalGames)*100):0;
           const medalColors = [["#ffd700","rgba(255,215,0,0.18)","rgba(255,215,0,0.4)"],["#c0c0c0","rgba(192,192,192,0.12)","rgba(192,192,192,0.3)"],["#cd7f32","rgba(205,127,50,0.12)","rgba(205,127,50,0.3)"]];
           const isMedal = i < 3;
@@ -1626,10 +1640,10 @@ function LivingHorizon({ profile, lang = "tr" }) {
     let sr = ((hourSeed + i * 7919) * 2654435761) & 0x7fffffff; const rnd = () => { sr = (sr * 1664525 + 1013904223) & 0x7fffffff; return sr / 0x7fffffff; };
     return { w: 14 + Math.round(rnd() * 12), top: 2 + rnd() * 6, dur: 55 + rnd() * 70, delay: -rnd() * 90, flip: rnd() > 0.5 };
   });
-  // Rütbe → gemi katmanı
-  const g = safeGold(profile?.gold);
-  const tier = g >= 50000 ? 5 : g >= 20000 ? 4 : g >= 8000 ? 3 : g >= 3000 ? 2 : g >= 1000 ? 1 : 0;
-  const rank = getRankInfo(g, lang);
+  // Rütbe → gemi katmanı (Şeref'e bağlı — sadece savaşarak büyür)
+  const hn = migrateHonor(profile);
+  const tier = hn >= 5000 ? 5 : hn >= 2000 ? 4 : hn >= 800 ? 3 : hn >= 300 ? 2 : hn >= 100 ? 1 : 0;
+  const rank = getRankInfo(hn, lang);
   const flag = profile && profile.avatar && !String(profile.avatar).startsWith("data:") ? profile.avatar : "⚓";
   const shipScale = [0.62, 0.72, 0.85, 0.95, 1.05, 1.18][tier];
   // Dönen altyazılar — hepsi dürüst metrik
@@ -2070,7 +2084,7 @@ function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack, ready, onTogg
     {players.length===0?(<div style={{ width:"100%",maxWidth:420,padding:"30px 20px",textAlign:"center",background:t.surface,border:`1px solid ${t.border}`,borderRadius:10,marginTop:8 }}><div style={{ fontSize:24,marginBottom:8 }}>🌊</div><div style={{ fontSize:12,color:t.textDim }}>{L(lang,"noSailors")}</div><div style={{ fontSize:10,color:t.textDim,marginTop:4 }}>{L(lang,"noSailorsHint")}</div></div>):(
       <div style={{ width:"100%",maxWidth:420,display:"flex",flexDirection:"column",gap:4 }}>
         <div style={{ fontSize:9,color:t.textDim,letterSpacing:2,marginBottom:4 }}>{players.length} {L(lang,"sailorsActive")}</div>
-        {players.map(p=>{const rank=getRankInfo(p.gold||0,lang);const alreadySent=sentInvite?.targetUid===p.uid;return(<div key={p.uid} style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:t.surface,border:`1px solid ${t.border}`,borderRadius:8 }}>
+        {players.map(p=>{const rank=getRankInfo(typeof p.honor==="number"?p.honor:((p.wins||0)*8+(p.losses||0)*3),lang);const alreadySent=sentInvite?.targetUid===p.uid;return(<div key={p.uid} style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:t.surface,border:`1px solid ${t.border}`,borderRadius:8 }}>
           <div style={{ width:8,height:8,borderRadius:"50%",background:"#34d399",boxShadow:"0 0 6px rgba(52,211,153,0.5)" }} />
           <div style={{ flex:1,minWidth:0 }}><div style={{ display:"flex",alignItems:"center",gap:6 }}><span style={{ fontSize:13,fontWeight:700,color:t.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.displayName}</span><span style={{ fontSize:9,color:rank.color,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1 }}>{rank.icon} {rank.title}</span>{p.ready && <span style={{ fontSize:8,fontWeight:900,color:"#04231a",background:"#34d399",padding:"2px 6px",borderRadius:5,letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif" }}>{L(lang,"ready")}</span>}</div><div style={{ fontSize:9,color:t.textDim,marginTop:1 }}>💰 {p.gold||0} • {p.wins||0}G/{p.losses||0}M</div></div>
           <button onClick={()=>sendInvite(p.uid,p.displayName)} disabled={!!sentInvite} style={{ padding:"6px 14px",background:alreadySent?t.surfaceLight:`linear-gradient(135deg,${t.hit},#dc2626)`,color:alreadySent?t.textDim:"#fff",border:"none",borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:sentInvite?"default":"pointer",fontFamily:"'Barlow Condensed',sans-serif",opacity:sentInvite&&!alreadySent?0.4:1 }}>{alreadySent?L(lang,"waitingBadge"):L(lang,"duel")}</button>
@@ -2402,8 +2416,8 @@ export default function Game() {
     if (!authUid || !myProfile || isOnboarding) return;
     // Kaybeden altın kaybetmez ama kazanmaz da — XP: kazanılanın %25'i
     const lvl2 = applyLevelCredit(myProfile, XP_BOT_LOSS);
-    update(ref(db, `profiles/${authUid}`), { losses: (myProfile.losses||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl2.level, levelProgress: lvl2.levelProgress, recentResults: pushRecent(myProfile.recentResults, false) }).catch(()=>{});
-    setMyProfile(prev => prev ? { ...prev, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl2.level, levelProgress: lvl2.levelProgress, recentResults: pushRecent(prev.recentResults, false) } : prev);
+    update(ref(db, `profiles/${authUid}`), { losses: (myProfile.losses||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl2.level, levelProgress: lvl2.levelProgress, recentResults: pushRecent(myProfile.recentResults, false), honor: migrateHonor(myProfile) + HONOR_LOSS_BOT }).catch(()=>{});
+    setMyProfile(prev => prev ? { ...prev, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl2.level, levelProgress: lvl2.levelProgress, recentResults: pushRecent(prev.recentResults, false), honor: migrateHonor(prev) + HONOR_LOSS_BOT } : prev);
     setMissionStats(prev => ({ ...prev, gamesPlayed: prev.gamesPlayed + 1 }));
     // Kazanım sayaçları: mağlubiyette isabet/batırma yine sayılır, seriler sıfırlanır
     bumpAch(a => { a.hits += myHits; a.sunk += killCountRef.current; a.winStreak = 0; a.turnStreak = 0; });
@@ -2450,7 +2464,7 @@ export default function Game() {
     if (!authUid || !playerName.trim()) return;
     if (phase !== "lobby") { remove(ref(db, `online_players/${authUid}`)); return; }
     const presenceRef = ref(db, `online_players/${authUid}`);
-    set(presenceRef, { displayName: playerName.trim(), gold: safeGold(myProfile?.gold), wins: myProfile?.wins || 0, losses: myProfile?.losses || 0, status: "idle", lastSeen: Date.now(), ready: readyToPlay, avatar: myProfile?.avatar || "⚓" });
+    set(presenceRef, { displayName: playerName.trim(), gold: safeGold(myProfile?.gold), honor: migrateHonor(myProfile), wins: myProfile?.wins || 0, losses: myProfile?.losses || 0, status: "idle", lastSeen: Date.now(), ready: readyToPlay, avatar: myProfile?.avatar || "⚓" });
     onDisconnect(presenceRef).remove();
     return () => { remove(presenceRef); };
   }, [authUid, playerName, phase, myProfile?.gold, readyToPlay]);
@@ -2615,7 +2629,7 @@ export default function Game() {
                   setEloChange({ myOld: result.winnerOldGold, myNew: result.winnerNewGold, oppOld: result.loserOldGold, oppNew: result.loserNewGold });
                   setGoldChange({ amount: result.winGold || 0 });
                   if (result.winGold > 0) { sfx.play('gold'); setGoldAnim({ amount: result.winGold }); }
-                  setMyProfile(prev => prev ? { ...prev, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1, onlineGames: (prev.onlineGames || 0) + 1, gold: result.winnerNewGold, level: result.winnerLevel, levelProgress: result.winnerLevelProgress, recentResults: pushRecent(prev.recentResults, true) } : prev);
+                  setMyProfile(prev => prev ? { ...prev, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1, onlineGames: (prev.onlineGames || 0) + 1, gold: result.winnerNewGold, level: result.winnerLevel, levelProgress: result.winnerLevelProgress, recentResults: pushRecent(prev.recentResults, true), honor: migrateHonor(prev) + HONOR_WIN_ONLINE } : prev);
                   // Kazanım sayaçları — online galibiyet
                   const myShotList = game.attacks ? Object.values(game.attacks).filter(x => x.by === pNum) : [];
                   const wHits = myShotList.reduce((n,x) => n + ((x.shots||[]).filter(s => s.result === "hit").length), 0);
@@ -2646,7 +2660,7 @@ export default function Game() {
               unsubElo(); // Bir kez oku, kapat
               setEloChange({ myOld: er.loserOldGold, myNew: er.loserNewGold, oppOld: er.winnerOldGold, oppNew: er.winnerNewGold });
               setGoldChange({ amount: er.loseGold || 0 });
-              setMyProfile(prev => prev ? { ...prev, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1, onlineGames: (prev.onlineGames || 0) + 1, gold: er.loserNewGold, level: er.loserLevel, levelProgress: er.loserLevelProgress, recentResults: pushRecent(prev.recentResults, false) } : prev);
+              setMyProfile(prev => prev ? { ...prev, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1, onlineGames: (prev.onlineGames || 0) + 1, gold: er.loserNewGold, level: er.loserLevel, levelProgress: er.loserLevelProgress, recentResults: pushRecent(prev.recentResults, false), honor: migrateHonor(prev) + HONOR_LOSS_ONLINE } : prev);
               // Kazanım sayaçları — online mağlubiyet: isabet/batırma sayılır, seriler sıfırlanır
               const lShotList = game.attacks ? Object.values(game.attacks).filter(x => x.by === pNum) : [];
               const lHits = lShotList.reduce((n,x) => n + ((x.shots||[]).filter(s => s.result === "hit").length), 0);
@@ -3443,8 +3457,8 @@ export default function Game() {
         const lvl1 = applyLevelCredit(myProfile, XP_BOT_WIN);
         const oldGold1 = safeGold(myProfile.gold);
         const newGold1 = oldGold1 + botWinGold;
-        update(ref(db, `profiles/${authUid}`), { gold: newGold1, wins: (myProfile.wins||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl1.level, levelProgress: lvl1.levelProgress, recentResults: pushRecent(myProfile.recentResults, true) }).catch(()=>{});
-        setMyProfile(prev => prev ? { ...prev, gold: newGold1, wins:(prev.wins||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl1.level, levelProgress: lvl1.levelProgress, recentResults: pushRecent(prev.recentResults, true) } : prev);
+        update(ref(db, `profiles/${authUid}`), { gold: newGold1, wins: (myProfile.wins||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl1.level, levelProgress: lvl1.levelProgress, recentResults: pushRecent(myProfile.recentResults, true), honor: migrateHonor(myProfile) + HONOR_WIN_BOT }).catch(()=>{});
+        setMyProfile(prev => prev ? { ...prev, gold: newGold1, wins:(prev.wins||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl1.level, levelProgress: lvl1.levelProgress, recentResults: pushRecent(prev.recentResults, true), honor: migrateHonor(prev) + HONOR_WIN_BOT } : prev);
         // Kazanım sayaçları — bot galibiyeti
         const missCount1 = newAtkOverlay.flat().filter(v => v === "miss").length;
         bumpAch(a => {
@@ -4070,7 +4084,7 @@ export default function Game() {
       </>);
     }
     const myEloDiff = eloChange ? eloChange.myNew - eloChange.myOld : null;
-    const myRank = eloChange ? getRankInfo(eloChange.myNew, appLang) : (myProfile ? getRankInfo(myProfile.gold, appLang) : null);
+    const myRank = myProfile ? getRankInfo(migrateHonor(myProfile), appLang) : null;
     const chestProgressPct = Math.round((Object.keys(missionProgress).length / (dailyMissions.length || 3)) * 100);
     return (<><style>{ANIMS}</style>
       <GameOverScreen winner={winner} myHits={myHits} oppHits={oppHits} isWin={isWin} onNewGame={resetGame} onHome={resetGame} onViewBoard={() => setShowReview(true)} goldEarned={myEloDiff ?? (goldAnim?.amount || 0)} myLevel={myProfile?.level || 0} chestProgressPct={chestProgressPct} lang={appLang} />
@@ -4143,10 +4157,11 @@ export default function Game() {
               </div>
               <div>
                 <div style={{ fontSize:20,fontWeight:800,color:t.text,fontFamily:warrior,letterSpacing:2 }}>{myProfile.displayName}</div>
-                {(() => { const rk = getRankInfo(safeGold(myProfile.gold), appLang); return (
+                {(() => { const hn = migrateHonor(myProfile); const rk = getRankInfo(hn, appLang); return (
                   <div style={{ display:"flex",alignItems:"center",gap:5,marginTop:2 }}>
                     <span style={{ fontSize:11 }}>{rk.icon}</span>
                     <span style={{ fontSize:11,fontWeight:900,color:rk.color,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 10px ${rk.color}55` }}>{rk.title}</span>
+                    <span title={appLang==="en"?"Honor — earned only in battle":"Şeref — sadece savaşarak kazanılır"} style={{ fontSize:9,fontWeight:800,color:"rgba(255,255,255,0.45)",fontFamily:mono,letterSpacing:1,marginLeft:2 }}>⚔ {hn}{rk.next?`/${rk.next}`:""}</span>
                   </div>
                 ); })()}
               </div>
