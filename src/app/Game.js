@@ -2037,9 +2037,9 @@ function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoar
         `}</style>
         {/* Gemi görseli — zafer: altın ihtişam / bozgun: yaralı ve dumanlı (aynı gemi, iki kader) */}
         <div style={{ position:"relative",width:150,height:150,margin:"0 auto 4px",animation:"goShipIn 0.9s cubic-bezier(0.34,1.56,0.64,1) both" }}>
-          <img src="/img/result-ship.png" onError={(e)=>{ e.currentTarget.onerror=null; e.currentTarget.src="/img/victory-medal.png"; }} alt="" style={{ width:"100%",height:"100%",objectFit:"contain",animation:"float 3s ease-in-out 0.9s infinite",filter:isWin
+          <img src={isWin ? "/img/ship-victory.png" : "/img/ship-defeat.png"} onError={(e)=>{ e.currentTarget.onerror=null; e.currentTarget.src="/img/victory-medal.png"; }} alt="" style={{ width:"100%",height:"100%",objectFit:"contain",animation:"float 3s ease-in-out 0.9s infinite",filter:isWin
             ? `drop-shadow(0 0 22px ${t.goldGlow}) drop-shadow(0 0 46px rgba(0,229,255,0.5)) drop-shadow(0 10px 18px rgba(0,0,0,0.6))`
-            : "grayscale(0.75) brightness(0.75) drop-shadow(0 0 24px rgba(255,71,87,0.55)) drop-shadow(0 10px 18px rgba(0,0,0,0.7))" }} />
+            : "drop-shadow(0 0 24px rgba(255,71,87,0.55)) drop-shadow(0 10px 18px rgba(0,0,0,0.7))" }} />
           {!isWin && [0,1,2].map(i => (<span key={i} style={{ position:"absolute",bottom:"34%",left:`${40+i*8}%`,fontSize:15,opacity:0,animation:`smokeRise ${2.4+i*0.5}s ease-in ${i*0.6}s infinite`,filter:"blur(1px) grayscale(1) brightness(1.4)",pointerEvents:"none" }}>💨</span>))}
           {isWin && [0,1].map(i => (<span key={`s${i}`} style={{ position:"absolute",top:`${12+i*30}%`,right:`${8+i*14}%`,fontSize:13,color:"#ffe94d",animation:`pulse ${1.4+i*0.5}s ease-in-out ${i*0.4}s infinite`,pointerEvents:"none",textShadow:"0 0 8px rgba(255,233,77,0.9)" }}>✦</span>))}
         </div>
