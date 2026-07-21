@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { db, auth, googleProvider, ref, set, get, onValue, update, remove, onDisconnect, runTransaction, query, orderByChild, limitToLast, signInAnonymously, onAuthStateChanged, signInWithPopup, signOut, track, identify } from "../lib/firebase";
+import { db, auth, googleProvider, ref, set, get, onValue, update, remove, onDisconnect, runTransaction, query, orderByChild, limitToLast, signInAnonymously, onAuthStateChanged, signInWithPopup, signOut, track, identify, EmailAuthProvider, linkWithCredential, signInWithEmailAndPassword } from "../lib/firebase";
 
 const ROWS = 11;
 const COLS = 11;
@@ -341,7 +341,7 @@ const TRANSLATIONS = {
     startBattleBtn: "SAVAŞA BAŞLA", watersHeating: "sular ısınsın...",
     goldChangeTitle: "ALTIN DEĞİŞİMİ", entryFeeLabel: (n) => `Giriş: -${n} 💰`, connectingToServer: "Sunucuya bağlanılıyor...", testModeMsg: "🧪 TEST MODU — 2 tab aç, oda koduyla oyna",
     pickAvatarTooltip: "Profil simgeni seç", uploadPhotoTooltip: "Kendi fotoğrafını yükle",
-    logoutBtn: "ÇIKIŞ YAP", waitingForOpponent: "RAKİP BEKLENİYOR", roomCodeLabel: "ODA KODU", sendCodeMsg: "Bu kodu rakibine gönder!", entryFeePaid: (n) => `Giriş ücreti: -${n} 💰`, fleetReady: "DONANMAN HAZIR!",
+    logoutBtn: "ÇIKIŞ YAP", logoutTitle: "ÇIKIŞ YAPILIYOR", logoutBody: "Çıkış yapmadan önce KURTARMA KODUNU not aldığından emin ol.", logoutBody2: "Geri dönmek için kullanıcı adın ve kurtarma kodun yeterli — ilerlemen kaybolmaz.", logoutStay: "VAZGEÇ", logoutGo: "ÇIKIŞ YAP", codeTitle: "KURTARMA KODUN", codeBody: "Bu kodu bir yere yaz! Çıkış yaparsan ya da telefonunu değiştirirsen, kullanıcı adın ve bu kodla hesabına geri dönersin.", codeCopy: "KOPYALA", codeCopied: "KOPYALANDI ✓", codeOk: "YAZDIM, DEVAM", recTitle: "BU İSİM SENİN Mİ?", recBody: (n) => `"${n}" adlı hesap zaten var. Senin hesabınsa kurtarma kodunu gir, ilerlemenle birlikte geri dön.`, recPlaceholder: "KURTARMA KODU", recEnter: "HESABIMA DÖN", recCancel: "BAŞKA İSİM SEÇ", recErrWrong: "Kod hatalı. Kontrol edip tekrar dene.", recErrShort: "Kodu eksiksiz gir.", recErrMany: "Çok fazla deneme. Biraz bekle.", myCode: "Kurtarma Kodum", myCodeNone: "Bu hesap için kod bulunamadı.", waitingForOpponent: "RAKİP BEKLENİYOR", roomCodeLabel: "ODA KODU", sendCodeMsg: "Bu kodu rakibine gönder!", entryFeePaid: (n) => `Giriş ücreti: -${n} 💰`, fleetReady: "DONANMAN HAZIR!",
     placeShipScreenTitle: "GEMİ YERLEŞTİR", extraTimeBtn: "⏱ +10 SANİYE (10 💰)", extraTimeUsedMsg: "⏱ Ek süre kullanıldı",
     shipsPlacedLabel: (n,tot) => `${n}/${tot} GEMİ YERLEŞTİRİLDİ`, entryFeeShort: (n) => `💰 Giriş: ${n} 💰`,
     tapMapHint: "Haritada bir yere dokun", pickShipHint: "Aşağıdan bir gemi seç", randomPlaceBtn: "🎲 RASTGELE YERLEŞTİR", undoBtn: "↩ GERİ AL",
@@ -414,7 +414,7 @@ const TRANSLATIONS = {
     startBattleBtn: "START BATTLE", watersHeating: "let the waters heat up...",
     goldChangeTitle: "GOLD CHANGE", entryFeeLabel: (n) => `Entry: -${n} 💰`, connectingToServer: "Connecting to server...", testModeMsg: "🧪 TEST MODE — open 2 tabs, play with room code",
     pickAvatarTooltip: "Pick your profile icon", uploadPhotoTooltip: "Upload your own photo",
-    logoutBtn: "LOG OUT", waitingForOpponent: "WAITING FOR OPPONENT", roomCodeLabel: "ROOM CODE", sendCodeMsg: "Send this code to your opponent!", entryFeePaid: (n) => `Entry fee: -${n} 💰`, fleetReady: "YOUR FLEET IS READY!",
+    logoutBtn: "LOG OUT", logoutTitle: "LOGGING OUT", logoutBody: "Make sure you have written down your RECOVERY CODE before logging out.", logoutBody2: "You only need your username and recovery code to come back — no progress is lost.", logoutStay: "CANCEL", logoutGo: "LOG OUT", codeTitle: "YOUR RECOVERY CODE", codeBody: "Write this down! If you log out or change phones, sign back in with your username and this code.", codeCopy: "COPY", codeCopied: "COPIED ✓", codeOk: "SAVED IT, CONTINUE", recTitle: "IS THIS YOU?", recBody: (n) => `An account named "${n}" already exists. If it is yours, enter your recovery code to get back in with all your progress.`, recPlaceholder: "RECOVERY CODE", recEnter: "RECOVER MY ACCOUNT", recCancel: "PICK ANOTHER NAME", recErrWrong: "Wrong code. Please check and try again.", recErrShort: "Enter the full code.", recErrMany: "Too many attempts. Please wait.", myCode: "My Recovery Code", myCodeNone: "No code found for this account.", waitingForOpponent: "WAITING FOR OPPONENT", roomCodeLabel: "ROOM CODE", sendCodeMsg: "Send this code to your opponent!", entryFeePaid: (n) => `Entry fee: -${n} 💰`, fleetReady: "YOUR FLEET IS READY!",
     placeShipScreenTitle: "PLACE YOUR SHIPS", extraTimeBtn: "⏱ +10 SECONDS (10 💰)", extraTimeUsedMsg: "⏱ Extra time used",
     shipsPlacedLabel: (n,tot) => `${n}/${tot} SHIPS PLACED`, entryFeeShort: (n) => `💰 Entry: ${n} 💰`,
     tapMapHint: "Tap a spot on the map", pickShipHint: "Pick a ship below", randomPlaceBtn: "🎲 RANDOM PLACEMENT", undoBtn: "↩ UNDO",
@@ -570,6 +570,29 @@ const ACH_SETS = [
 // 5. set kapısı (içerik yakında)
 const ACH_SET5_GATE = [ { tr:"201 oyun", en:"201 games" }, { tr:"30.000 altın kazan", en:"Earn 30,000 gold" }, { tr:"%50 kazanma oranı", en:"50% win rate" } ];
 function achSetDone(setDef, p) { const a = safeAch(p?.ach); return setDef.missions.every(m => { try { return m.check(p||{}, a); } catch(e) { return false; } }); }
+
+// === KURTARMA KODU SİSTEMİ ===
+// Hesaplar anonim başlar (cihaza bağlı). Kullanıcı adı seçilince hesabı kalıcı bir kimliğe
+// bağlarız: kullanıcı adından türetilen teknik bir e-posta + kurtarma kodu (şifre).
+// Böylece çıkış yapıp aynı isim ve kodla girince AYNI hesaba dönülür — ilerleme kaybolmaz.
+// Kullanıcı gerçek e-posta girmez; bu tamamen perde arkasındadır.
+const AUTH_DOMAIN_SUFFIX = "@oyuncu.amiralbatti.app";
+function nameToAuthEmail(name) {
+  // Türkçe karakterleri sadeleştir, yalnızca harf/rakam bırak → e-posta olarak geçerli olsun
+  const map = { "ç":"c","ğ":"g","ı":"i","ö":"o","ş":"s","ü":"u","Ç":"c","Ğ":"g","İ":"i","I":"i","Ö":"o","Ş":"s","Ü":"u" };
+  const slug = String(name || "").trim().toLowerCase()
+    .replace(/[çğıöşüÇĞİIÖŞÜ]/g, ch => map[ch] || ch)
+    .replace(/[^a-z0-9]/g, "");
+  return slug ? slug + AUTH_DOMAIN_SUFFIX : null;
+}
+// Karışması kolay karakterler (0/O, 1/I/L) dışarıda — telefonda elle girilebilir olmalı
+const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+function generateRecoveryCode() {
+  let out = "";
+  for (let i = 0; i < 8; i++) out += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+  return out.slice(0, 4) + "-" + out.slice(4); // ABCD-EFGH
+}
+function normalizeCode(c) { return String(c || "").toUpperCase().replace(/[^A-Z0-9]/g, ""); }
 
 // === ODA TEMİZLİĞİ ===
 // Biten/terk edilen odalar silinmezse veritabanı sonsuza kadar büyür (maliyet + yavaşlama).
@@ -2532,6 +2555,14 @@ export default function Game() {
   // çağırabilir ve aynı maç iki kez sayılabilirdi.
   const myProfileRef = useRef(null);
   useEffect(() => { myProfileRef.current = myProfile; }, [myProfile]);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showCodeModal, setShowCodeModal] = useState(null);   // yeni üretilen kurtarma kodu
+  const [recoverOpen, setRecoverOpen] = useState(false);      // "isim alınmış → kod gir" penceresi
+  const [recoverName, setRecoverName] = useState("");
+  const [recoverCode, setRecoverCode] = useState("");
+  const [recoverBusy, setRecoverBusy] = useState(false);
+  const [recoverErr, setRecoverErr] = useState("");
+  const [codeCopied, setCodeCopied] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);         // emoji paneli açık mı
   const [emojiCooldown, setEmojiCooldown] = useState(false); // spam engeli (3 sn)
   const roomCleanupRef = useRef(null); // maç sonu oda silme zamanlayıcısı
@@ -3279,7 +3310,8 @@ export default function Game() {
       profilesSnap.forEach(child => {
         if (child.key !== authUid && child.val().displayName?.toLowerCase() === name.toLowerCase()) taken = true;
       });
-      if (taken) { setMessage(L(appLang,"msgNameTaken")); return; }
+      // İsim alınmışsa: sahibi olabilir → kurtarma kodu iste (hesabına geri dönsün)
+      if (taken) { setRecoverName(name); setRecoverOpen(true); setMessage(""); return; }
     }
     // Check 14-day name lock
     if (myProfile && myProfile.nameSetAt) {
@@ -3290,10 +3322,31 @@ export default function Game() {
         return;
       }
     }
+    // HESABI KALICI HALE GETİR — kullanıcı adı + kurtarma kodu ile kimliğe bağla.
+    // Başarısız olursa (ör. Email/Password sağlayıcısı kapalıysa) oyun anonim olarak devam eder.
+    let newCode = null;
+    try {
+      const email = nameToAuthEmail(name);
+      if (email && auth.currentUser && auth.currentUser.isAnonymous) {
+        newCode = generateRecoveryCode();
+        const cred = EmailAuthProvider.credential(email, normalizeCode(newCode));
+        await linkWithCredential(auth.currentUser, cred);
+      }
+    } catch (e) {
+      console.warn("Hesap bağlama başarısız, anonim devam:", e?.code);
+      newCode = null;
+    }
+
     const profile = await ensureProfile(authUid, name);
     // Save nameSetAt timestamp
     await set(ref(db, `profiles/${authUid}/nameSetAt`), Date.now());
     profile.nameSetAt = Date.now();
+    if (newCode) {
+      await update(ref(db, `profiles/${authUid}`), { hasRecovery: true }).catch(()=>{});
+      profile.hasRecovery = true;
+      try { localStorage.setItem("ab_recovery_code", newCode); } catch(e) {}
+      setShowCodeModal(newCode); // kodu bir kez büyük büyük göster
+    }
     setMyProfile(profile);
     setPlayerName(name);
     // Check if onboarding needed
@@ -3305,10 +3358,33 @@ export default function Game() {
     sfx.init(); if (!sfx._audioEl) sfx.playAmbientIntro(); else { sfx._audioEl.volume = 0.10; }
   };
 
+  // HESABA GERİ DÖN — kullanıcı adı + kurtarma koduyla eski hesaba giriş yapar.
+  const handleRecover = async () => {
+    const code = normalizeCode(recoverCode);
+    if (code.length < 6) { setRecoverErr(L(appLang,"recErrShort")); return; }
+    const email = nameToAuthEmail(recoverName);
+    if (!email) { setRecoverErr(L(appLang,"recErrWrong")); return; }
+    setRecoverBusy(true); setRecoverErr("");
+    try {
+      await signInWithEmailAndPassword(auth, email, code);
+      // Başarılı: onAuthStateChanged yeni uid'i alacak, profil otomatik yüklenecek
+      try { localStorage.setItem("ab_recovery_code", recoverCode.toUpperCase()); } catch (e) {}
+      setRecoverOpen(false); setRecoverCode(""); setRecoverBusy(false);
+      setMessage("");
+    } catch (e) {
+      setRecoverBusy(false);
+      setRecoverErr(e?.code === "auth/too-many-requests" ? L(appLang,"recErrMany") : L(appLang,"recErrWrong"));
+    }
+  };
+
+  // NOT: Hesaplar anonimdir (cihaza bağlı). Sadece signOut yapmak hesabı ERİŞİLEMEZ hale
+  // getiriyor ama profili veritabanında bırakıyordu → kullanıcı adı sonsuza dek kilitli
+  // kalıyor ve kimse (sahibi dahil) o ismi bir daha alamıyordu. Artık çıkış = hesabı sil.
   const handleLogout = async () => {
     if (authUid) { remove(ref(db, `online_players/${authUid}`)).catch(() => {}); }
-    await signOut(auth);
-    setAuthUid(null); setMyProfile(null); setPlayerName(""); setPhase("splash");
+    forgetRoom();
+    try { await signOut(auth); } catch (e) {}
+    setAuthUid(null); setMyProfile(null); setPlayerName(""); setShowLogoutConfirm(false); setPhase("splash");
   };
 
   const canChangeName = () => {
@@ -3640,6 +3716,12 @@ export default function Game() {
                   <button onClick={()=>{ setAppLang('en'); try{ localStorage.setItem('ab_lang','en'); }catch(e){} }} style={langBtnStyle(appLang==='en')}>🇬🇧 English</button>
                 </div>
               </div>
+
+              {/* KURTARMA KODUM — kullanıcı kodunu unutmasın diye ayarlardan tekrar görebilir */}
+              <button onClick={()=>{ let c=null; try { c = localStorage.getItem("ab_recovery_code"); } catch(e){} setShowCodeModal(c || "—"); }} style={rowBtnStyle}>
+                <span style={rowIconStyle}>🔑</span>
+                <div style={{ flex:1,textAlign:"left" }}><div style={rowTitleStyle}>{L(appLang,"myCode")}</div></div>
+              </button>
 
               <button onClick={()=>setSettingsView("privacy")} style={rowBtnStyle}>
                 <span style={rowIconStyle}>📄</span>
@@ -4166,6 +4248,44 @@ export default function Game() {
   const btnStyle = { padding: "12px 28px", background: `linear-gradient(135deg, ${t.accent}, #0891b2)`, color: t.bg, border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", cursor: "pointer", fontFamily: warrior, boxShadow: `0 0 15px ${t.accentGlow}` };
   const btnSecStyle = { padding: "8px 16px", background: "transparent", color: t.accent, border: `1px solid ${t.accent}`, borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: 1, cursor: "pointer", fontFamily: warrior };
   const inputStyle = { padding: "12px 16px", background: t.surface, color: t.text, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 15, fontFamily: mono, outline: "none", textAlign: "center", width: "100%", maxWidth: 260, boxSizing: "border-box" };
+
+  // KURTARMA KODU PENCERESİ — hesap ilk kurulduğunda bir kez, büyük ve net gösterilir
+  const renderCodeModal = () => showCodeModal && (
+    <div style={{ position:"fixed",inset:0,overflow:"hidden",zIndex:9900,background:"rgba(2,6,16,0.92)",display:"flex",alignItems:"center",justifyContent:"center",padding:18 }}>
+      <div style={{ background:"linear-gradient(160deg, #0d1b32, #060e1f)",border:`2px solid ${t.gold}`,borderRadius:18,padding:"24px 22px 20px",width:"100%",maxWidth:340,textAlign:"center",boxShadow:`0 0 44px ${t.goldGlow}, 0 20px 60px rgba(0,0,0,0.75)`,animation:"tutCardEnter 0.6s cubic-bezier(0.16,1,0.3,1)" }}>
+        <div style={{ fontSize:38,marginBottom:6 }}>🔑</div>
+        <div style={{ fontSize:15,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:3,marginBottom:12,textShadow:`0 0 16px ${t.goldGlow}` }}>{L(appLang,"codeTitle")}</div>
+        <div style={{ fontSize:26,fontWeight:900,fontFamily:mono,letterSpacing:4,color:"#fff",background:"rgba(255,215,0,0.10)",border:`1.5px dashed ${t.gold}`,borderRadius:12,padding:"14px 8px",marginBottom:12,userSelect:"all" }}>{showCodeModal}</div>
+        <div style={{ fontSize:11,color:t.text,fontFamily:mono,lineHeight:1.6,marginBottom:16 }}>{L(appLang,"codeBody")}</div>
+        <div style={{ display:"flex",flexDirection:"column",gap:9 }}>
+          <button onClick={()=>{ try { navigator.clipboard?.writeText(showCodeModal); } catch(e){} setCodeCopied(true); setTimeout(()=>setCodeCopied(false), 2000); }}
+            style={{ width:"100%",padding:"12px 0",background:"rgba(255,215,0,0.12)",color:t.gold,border:`1.5px solid ${t.gold}`,borderRadius:12,fontSize:12,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{codeCopied?L(appLang,"codeCopied"):L(appLang,"codeCopy")}</button>
+          <button onClick={()=>setShowCodeModal(null)} style={{ width:"100%",padding:"14px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:13,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 20px ${t.accentGlow}` }}>{L(appLang,"codeOk")}</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // KURTARMA PENCERESİ — isim alınmışsa "senin mi?" diye sorar
+  const renderRecoverModal = () => recoverOpen && (
+    <div style={{ position:"fixed",inset:0,overflow:"hidden",zIndex:9900,background:"rgba(2,6,16,0.9)",display:"flex",alignItems:"center",justifyContent:"center",padding:18 }}>
+      <div style={{ background:"linear-gradient(160deg, #0d1b32, #060e1f)",border:`2px solid ${t.accent}`,borderRadius:18,padding:"24px 22px 20px",width:"100%",maxWidth:340,textAlign:"center",boxShadow:`0 0 40px ${t.accentGlow}, 0 20px 60px rgba(0,0,0,0.75)`,animation:"tutCardEnter 0.6s cubic-bezier(0.16,1,0.3,1)" }}>
+        <div style={{ fontSize:38,marginBottom:6 }}>🔐</div>
+        <div style={{ fontSize:15,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:2,marginBottom:10,textShadow:`0 0 16px ${t.accentGlow}` }}>{L(appLang,"recTitle")}</div>
+        <div style={{ fontSize:11.5,color:t.text,fontFamily:mono,lineHeight:1.6,marginBottom:14 }}>{L(appLang,"recBody")(recoverName)}</div>
+        <input value={recoverCode} onChange={e=>{ setRecoverCode(e.target.value.toUpperCase()); setRecoverErr(""); }}
+          placeholder={L(appLang,"recPlaceholder")} maxLength={12} autoCapitalize="characters" autoCorrect="off" spellCheck={false}
+          style={{ width:"100%",padding:"13px 12px",background:t.surface,color:"#fff",border:`1.5px solid ${recoverErr?t.hit:t.border}`,borderRadius:10,fontSize:19,fontFamily:mono,fontWeight:900,letterSpacing:3,outline:"none",textAlign:"center",boxSizing:"border-box",marginBottom:8 }} />
+        {recoverErr && <div style={{ fontSize:11,color:t.hit,fontFamily:mono,marginBottom:8 }}>{recoverErr}</div>}
+        <div style={{ display:"flex",flexDirection:"column",gap:9,marginTop:6 }}>
+          <button onClick={handleRecover} disabled={recoverBusy}
+            style={{ width:"100%",padding:"14px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:13,fontWeight:900,letterSpacing:2,cursor:recoverBusy?"wait":"pointer",fontFamily:warrior,opacity:recoverBusy?0.6:1,boxShadow:`0 0 20px ${t.accentGlow}` }}>{L(appLang,"recEnter")}</button>
+          <button onClick={()=>{ setRecoverOpen(false); setRecoverCode(""); setRecoverErr(""); }}
+            style={{ width:"100%",padding:"11px 0",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:12,fontSize:11,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"recCancel")}</button>
+        </div>
+      </div>
+    </div>
+  );
 
   // Faz bazlı içerik — TopBar'ın (müzik+ayarlar) her ekranda sabit kalması için IIFE'e sarıldı
   const content = (() => {
@@ -4923,7 +5043,22 @@ export default function Game() {
       {dailyChestModalOpen && <DailyChestPopup onClaim={claimDailyChest} onClose={() => setDailyChestModalOpen(false)} lang={appLang} />}
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
       <LivingHorizon profile={myProfile} lang={appLang} />
-      <button onClick={handleLogout} style={{ marginTop:16,padding:"10px 24px",background:"rgba(255,71,87,0.06)",color:t.hit,border:`2px solid ${t.hit}`,borderRadius:8,fontSize:14,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior,zIndex:1,opacity:0.9 }}>{L(appLang,"logoutBtn")}</button>
+      <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowLogoutConfirm(true); }} style={{ marginTop:16,padding:"10px 24px",background:"rgba(255,71,87,0.06)",color:t.hit,border:`2px solid ${t.hit}`,borderRadius:8,fontSize:14,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior,zIndex:1,opacity:0.9 }}>{L(appLang,"logoutBtn")}</button>
+      {/* ÇIKIŞ UYARISI — anonim hesap geri alınamaz, kullanıcı bunu bilerek onaylamalı */}
+      {showLogoutConfirm && (
+        <div onClick={()=>setShowLogoutConfirm(false)} style={{ position:"fixed",inset:0,overflow:"hidden",zIndex:9800,background:"rgba(2,6,16,0.85)",display:"flex",alignItems:"center",justifyContent:"center",padding:18,animation:"settingsFadeIn 0.25s ease-out" }}>
+          <div onClick={e=>e.stopPropagation()} style={{ background:"linear-gradient(160deg, #1a0d10, #0b0709)",border:`2px solid ${t.hit}`,borderRadius:18,padding:"24px 22px 20px",width:"100%",maxWidth:340,textAlign:"center",boxShadow:`0 0 40px rgba(255,71,87,0.25), 0 20px 60px rgba(0,0,0,0.75)`,animation:"tutCardEnter 0.5s cubic-bezier(0.16,1,0.3,1)" }}>
+            <div style={{ fontSize:40,marginBottom:8 }}>⚠️</div>
+            <div style={{ fontSize:15,fontWeight:900,color:t.hit,fontFamily:warrior,letterSpacing:2,marginBottom:12,lineHeight:1.3 }}>{L(appLang,"logoutTitle")}</div>
+            <div style={{ fontSize:12,color:t.text,fontFamily:mono,lineHeight:1.6,marginBottom:10 }}>{L(appLang,"logoutBody")}</div>
+            <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,lineHeight:1.5,marginBottom:18,fontStyle:"italic" }}>{L(appLang,"logoutBody2")}</div>
+            <div style={{ display:"flex",flexDirection:"column",gap:9 }}>
+              <button onClick={()=>setShowLogoutConfirm(false)} style={{ width:"100%",padding:"14px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:14,fontWeight:900,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 20px ${t.accentGlow}` }}>{L(appLang,"logoutStay")}</button>
+              <button onClick={handleLogout} style={{ width:"100%",padding:"12px 0",background:"transparent",color:t.hit,border:`2px solid ${t.hit}`,borderRadius:12,fontSize:12,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"logoutGo")}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>);
   }
 
@@ -5138,5 +5273,5 @@ export default function Game() {
   return null;
   })();
 
-  return (<>{content}{renderTopBar()}</>);
+  return (<>{content}{renderTopBar()}{renderCodeModal()}{renderRecoverModal()}</>);
 }
