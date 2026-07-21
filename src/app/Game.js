@@ -2574,6 +2574,13 @@ export default function Game() {
   const [authUid, setAuthUid] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [myProfile, setMyProfile] = useState(null);
+  // Profilin her zaman güncel kopyası. Sayaç artırıcıları (bumpAch/bumpDaily/bumpVoyageMatch)
+  // bunu okur; böylece veritabanı yazımı React'in state güncelleyicisinin DIŞINDA kalır.
+  // Güncelleyici içinde yan etki yapmak React'te yasaktır: React o fonksiyonu iki kez
+  // çağırabilir ve aynı maç iki kez sayılabilirdi.
+  const myProfileRef = useRef(null);
+  useEffect(() => { myProfileRef.current = myProfile; }, [myProfile]);
+
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [dailyOpen, setDailyOpen] = useState(false);
@@ -2781,14 +2788,14 @@ export default function Game() {
 
   // Sefer kapasitesi: her biten maç bugünün sefer süresini uzatır
   const bumpVoyageMatch = () => {
-    setMyProfile(prev => {
-      if (!prev) return prev;
-      const v = safeVoyage(prev.voyage); const tk = todayKey();
-      if (v.dayKey !== tk) { v.dayKey = tk; v.matches = 1; } else { v.matches += 1; }
-      if (!v.lastClaim) v.lastClaim = Date.now();
-      if (authUid) update(ref(db, `profiles/${authUid}`), { voyage: v }).catch(()=>{});
-      return { ...prev, voyage: v };
-    });
+    const prev = myProfileRef.current;
+    if (!prev) return;
+    const v = safeVoyage(prev.voyage); const tk = todayKey();
+    if (v.dayKey !== tk) { v.dayKey = tk; v.matches = 1; } else { v.matches += 1; }
+    if (!v.lastClaim) v.lastClaim = Date.now();
+    myProfileRef.current = { ...prev, voyage: v };
+    setMyProfile(p => p ? { ...p, voyage: v } : p);
+    if (authUid) update(ref(db, `profiles/${authUid}`), { voyage: v }).catch(()=>{});
   };
 
   // "SEFERE ÇIKIYORUZ" karşılaması — oyun açılınca bir kez, ganimet penceresi yoksa
@@ -2835,24 +2842,24 @@ export default function Game() {
   // GÜNLÜK GÖREV sayaçlarını güncelle — profile yazılır, uygulama kapansa da kaybolmaz.
   // Gün değişince safeDaily otomatik sıfırlar.
   const bumpDaily = (fn) => {
-    setMyProfile(prev => {
-      if (!prev) return prev;
-      const d = safeDaily(prev.daily);
-      try { fn(d); } catch (e) {}
-      if (authUid) update(ref(db, `profiles/${authUid}`), { daily: d }).catch(() => {});
-      return { ...prev, daily: d };
-    });
+    const prev = myProfileRef.current;
+    if (!prev) return;
+    const d = safeDaily(prev.daily);
+    try { fn(d); } catch (e) {}
+    myProfileRef.current = { ...prev, daily: d }; // aynı karede peş peşe çağrılırsa birikerek gitsin
+    setMyProfile(p => p ? { ...p, daily: d } : p);
+    if (authUid) update(ref(db, `profiles/${authUid}`), { daily: d }).catch(() => {});
   };
 
   // Kazanım sayaçlarını güncelle — fn(a) sayaç kopyasını mutasyona uğratır, DB + local senkronize edilir
   const bumpAch = (fn) => {
-    setMyProfile(prev => {
-      if (!prev) return prev;
-      const a = safeAch(prev.ach);
-      try { fn(a); } catch(e) {}
-      if (authUid) update(ref(db, `profiles/${authUid}`), { ach: a }).catch(()=>{});
-      return { ...prev, ach: a };
-    });
+    const prev = myProfileRef.current;
+    if (!prev) return;
+    const a = safeAch(prev.ach);
+    try { fn(a); } catch(e) {}
+    myProfileRef.current = { ...prev, ach: a };
+    setMyProfile(p => p ? { ...p, ach: a } : p);
+    if (authUid) update(ref(db, `profiles/${authUid}`), { ach: a }).catch(()=>{});
   };
 
   // Bot maçı mağlubiyetini kaydet — her yenilgi yolundan (batma, süre, yerleştirememe) çağrılır.
