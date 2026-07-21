@@ -4879,6 +4879,10 @@ export default function Game() {
 
   if (phase === "placing") {
     const allPlaced = placedShips.length === SHIPS.length, timerLow = placementTimer <= 15, nextShip = SHIPS.find(s => !placedShips.some(p => p.id === s.id));
+    // Tahta hücre boyutu — ölçülen boş alandan. ÖNEMLİ: önizleme ekranı da bunu kullandığı
+    // için tanım bloğun en başında olmalı (aksi halde erken return'de tanımsız kalır).
+    const measuredPlace = fitCell(10);
+    const placeCell = measuredPlace || Math.max(13, Math.min(24, Math.floor((viewport.w - gutter - 14) / 12)));
     // Placement preview overlay
     if (placementPreview && allPlaced) {
       return (<div style={{ ...appStyle, justifyContent:"center" }}><style>{ANIMS}</style>
@@ -4896,8 +4900,6 @@ export default function Game() {
     }
     // SABİT YERLEŞTİRME EKRANI — kaydırma yok. Kontroller sığmazsa hücre küçülür.
     // Üst blok: geri 40 + başlık 26 + süre 30 + sayaç 22 + ipucu 34 + gemi butonları ~96 + rastgele 44 + döndür/geri al 50
-    const measuredPlace = fitCell(10);
-    const placeCell = measuredPlace || Math.max(13, Math.min(24, Math.floor((viewport.w - gutter - 14) / 12)));
     return (<div style={{ ...appStyle, height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingBottom: 10 }}><style>{ANIMS}</style>
       {/* GERİ DÖN — bot maçından/hazırlıktan vazgeçip ana ekrana dönüş */}
       <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-start",marginBottom:4 }}>
