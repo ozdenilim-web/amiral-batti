@@ -313,7 +313,7 @@ const TRANSLATIONS = {
     tutPickShip: "BİR GEMİ SEÇ", tutTapRotate: "Geminin üzerine tıklayarak döndürebilirsin", tutGreat: "HARİKA! İŞTE BU KADAR", tutSwapHint: "Başka gemi seçmek için alttakilere dokun",
     noTouchRuleTitle: "DEĞMEZLİK KURALI", noTouchRuleBody1: "Gemileri yerleştirirken; gemiler birbirine dokunamaz —", noTouchRuleBody2: "köşeden bile olsa!",
     threeShotsTitle: "3 EL ATIŞ", threeShotsBody: "Rakibin gizlediği gemileri vurmak için 3 el ateş et.",
-    tutPeek: "GEMİLERE İYİ BAK!", tutFire3: "3 EL ATEŞ ET", tutHitsResult: (n) => n>0?`${n} İSABET! MÜTHİŞSİN`:"ISKA! BİR DAHA DENE", tutTryAgain: "↻ TEKRAR DENE",
+    tutPeek: "GEMİLERE İYİ BAK!", tutFire3: "3 EL ATEŞ ET", tutHitsResult: (n) => n>0?`${n} İSABET! MÜTHİŞSİN`:"ISKA! BİR DAHA DENE", tutTryAgain: "↻ TEKRAR DENE", tutSimple: "İşte bu kadar basit.",
     markTrackTitle: "İŞARETLE & TAKİP ET", markTrackBody1: "Atış yapmak istemediğin yerleri", markTrackBody2: "sağ tuş (mobilde uzun bas) ile işaretle.",
     startBattleBtn: "SAVAŞA BAŞLA", watersHeating: "sular ısınsın...",
     goldChangeTitle: "ALTIN DEĞİŞİMİ", entryFeeLabel: (n) => `Giriş: -${n} 💰`, connectingToServer: "Sunucuya bağlanılıyor...", testModeMsg: "🧪 TEST MODU — 2 tab aç, oda koduyla oyna",
@@ -376,7 +376,7 @@ const TRANSLATIONS = {
     tutPickShip: "PICK A SHIP", tutTapRotate: "Tap the ship to rotate it", tutGreat: "AWESOME! THAT'S IT", tutSwapHint: "Tap below to switch ships",
     noTouchRuleTitle: "NO-TOUCH RULE", noTouchRuleBody1: "When placing ships; they can't touch each other —", noTouchRuleBody2: "not even diagonally!",
     threeShotsTitle: "3-SHOT VOLLEY", threeShotsBody: "Fire 3 shots to hit the ships your opponent has hidden.",
-    tutPeek: "MEMORIZE THE SHIPS!", tutFire3: "FIRE 3 SHOTS", tutHitsResult: (n) => n>0?`${n} HIT${n!==1?"S":""}! AMAZING`:"ALL MISSED! TRY AGAIN", tutTryAgain: "↻ TRY AGAIN",
+    tutPeek: "MEMORIZE THE SHIPS!", tutFire3: "FIRE 3 SHOTS", tutHitsResult: (n) => n>0?`${n} HIT${n!==1?"S":""}! AMAZING`:"ALL MISSED! TRY AGAIN", tutTryAgain: "↻ TRY AGAIN", tutSimple: "That's how simple it is.",
     markTrackTitle: "MARK & TRACK", markTrackBody1: "Mark cells you don't want to shoot at", markTrackBody2: "with right-click (or long-press on mobile).",
     startBattleBtn: "START BATTLE", watersHeating: "let the waters heat up...",
     goldChangeTitle: "GOLD CHANGE", entryFeeLabel: (n) => `Entry: -${n} 💰`, connectingToServer: "Connecting to server...", testModeMsg: "🧪 TEST MODE — open 2 tabs, play with room code",
@@ -3361,9 +3361,9 @@ export default function Game() {
 
     // Adım 3 — ETKİLEŞİMLİ atış demosu: gemiler görünür → kaybolur → kullanıcı 3 el ateş eder
     function ShotAnim() {
-      const SHIP3 = [[0,0],[0,1],[0,2]];       // 3'lü — mavi
-      const SHIP2 = [[2,2],[2,3]];             // 2'li — yeşil
-      const ALL_SHIPS = [...SHIP3, ...SHIP2];
+      const SHIP2 = [[0,0],[0,1]];             // 2'li — mavi
+      const SHIP1 = [[2,3]];                   // tekli — yeşil
+      const ALL_SHIPS = [...SHIP2, ...SHIP1];
       const [stage, setStage] = useState('peek');   // peek|shoot|done
       const [shots, setShots] = useState([]);       // {r,c,hit}
       useEffect(() => {
@@ -3387,8 +3387,9 @@ export default function Game() {
         <div style={{ position:"relative",marginBottom:14,display:"flex",flexDirection:"column",alignItems:"center" }}>
           <style>{`
 @keyframes shotBubble{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
-@keyframes shotFade{0%{opacity:1}100%{opacity:0}}
 @keyframes shotWin{0%{box-shadow:0 0 0 rgba(74,222,128,0)}50%{box-shadow:0 0 28px rgba(74,222,128,0.6)}100%{box-shadow:0 0 10px rgba(74,222,128,0.25)}}
+@keyframes flamePop{0%{transform:scale(0.2) translateY(6px);opacity:0}45%{transform:scale(1.5) translateY(-3px);opacity:1}100%{transform:scale(1) translateY(0);opacity:1}}
+@keyframes flameFlicker{0%,100%{transform:scale(1) rotate(-3deg)}50%{transform:scale(1.15) rotate(3deg)}}
           `}</style>
           {/* Yönlendirme balonu */}
           <div style={{ minHeight:36,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:8 }}>
@@ -3400,15 +3401,20 @@ export default function Game() {
           <div style={{ display:"grid",gridTemplateColumns:`repeat(4,${cs}px)`,gridTemplateRows:`repeat(3,${cs}px)`,gap:2,background:t.surface,borderRadius:12,padding:8,border:`2px solid ${stage==='shoot'?"rgba(255,71,87,0.35)":stage==='done'?"rgba(74,222,128,0.4)":t.border}`,transition:"border-color 0.3s" }}>
             {Array.from({length:12}).map((_,i) => {
               const r=Math.floor(i/4), c=i%4;
-              const is3 = SHIP3.some(([sr,sc])=>sr===r&&sc===c);
               const is2 = SHIP2.some(([sr,sc])=>sr===r&&sc===c);
-              const isShip = is3 || is2;
+              const is1 = SHIP1.some(([sr,sc])=>sr===r&&sc===c);
+              const isShip = is2 || is1;
               const shot = shots.find(s=>s.r===r&&s.c===c);
               const showShip = isShip && (stage==='peek' || (stage==='done' && !shot));
-              const shipColor = is3 ? "rgba(0,229,255," : "rgba(52,211,153,";
+              const shipColor = is2 ? "rgba(0,229,255," : "rgba(52,211,153,";
               const ghostly = stage==='done' && showShip; // sonunda kaçanlar soluk görünür
-              return <div key={i} onClick={()=>fire(r,c)} style={{ borderRadius:5,background:shot?(shot.hit?t.hit:t.miss):showShip?shipColor+(ghostly?"0.15)":"0.35)"):t.water,border:`1px solid ${shot?(shot.hit?t.hit:t.miss):showShip?shipColor+(ghostly?"0.35)":"0.8)"):"rgba(55,65,81,0.4)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:shot?18:16,fontWeight:900,color:"#fff",cursor:stage==='shoot'&&!shot?"pointer":"default",transition:"all 0.25s ease",boxShadow:shot&&shot.hit?`inset 0 0 14px ${t.hitGlow}`:"none",opacity:isShip&&stage==='shoot'?1:undefined }}>
-                {shot ? (shot.hit?"✕":"•") : showShip ? <span style={{ fontSize:15,opacity:ghostly?0.45:1,animation:stage==='peek'?"shotBubble 1.2s ease-in-out infinite":"none" }}>🚢</span> : ""}
+              return <div key={i} onClick={()=>fire(r,c)} style={{ borderRadius:5,background:shot?(shot.hit?t.hit:t.miss):showShip?shipColor+(ghostly?"0.15)":"0.35)"):t.water,border:`1px solid ${shot?(shot.hit?t.hit:t.miss):showShip?shipColor+(ghostly?"0.35)":"0.8)"):"rgba(55,65,81,0.4)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:shot?18:16,fontWeight:900,color:"#fff",cursor:stage==='shoot'&&!shot?"pointer":"default",transition:"all 0.25s ease",boxShadow:shot&&shot.hit?`inset 0 0 16px ${t.hitGlow}, 0 0 14px rgba(255,140,40,0.5)`:"none" }}>
+                {shot ? (shot.hit
+                  ? <span style={{ position:"relative",display:"inline-block",animation:"flamePop 0.45s cubic-bezier(0.34,1.56,0.64,1)" }}>
+                      <span style={{ fontSize:19,display:"inline-block",animation:"flameFlicker 0.7s ease-in-out infinite",filter:"drop-shadow(0 0 8px rgba(255,140,40,0.9))" }}>🔥</span>
+                    </span>
+                  : "•")
+                  : showShip ? <span style={{ fontSize:15,opacity:ghostly?0.45:1,animation:stage==='peek'?"shotBubble 1.2s ease-in-out infinite":"none" }}>🚢</span> : ""}
               </div>;
             })}
           </div>
@@ -3418,6 +3424,7 @@ export default function Game() {
             {stage==='shoot' && <div style={{ fontSize:12,color:t.textDim,fontFamily:warrior,letterSpacing:2,marginLeft:6 }}>🔥 {L(appLang,"fire")}</div>}
             {stage==='done' && <button onClick={reset} style={{ padding:"8px 22px",background:"rgba(0,229,255,0.10)",color:t.accent,border:`1px solid rgba(0,229,255,0.4)`,borderRadius:20,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"tutTryAgain")}</button>}
           </div>
+          {stage==='done' && <div style={{ fontSize:14,color:t.gold,fontFamily:warrior,fontStyle:"italic",letterSpacing:2,marginTop:6,textShadow:`0 0 12px ${t.goldGlow}`,animation:"fadeUp 0.5s ease-out" }}>{L(appLang,"tutSimple")}</div>}
         </div>
       );
     }
