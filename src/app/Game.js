@@ -306,6 +306,7 @@ const TRANSLATIONS = {
     voyageTitle: "GEMİN SEFERDEN DÖNDÜ!", voyageBody: (h) => `${h} saatlik seferden ganimetle döndü`, voyageCollect: "GANİMETİ TOPLA", voyageHint: "Bugün ne kadar çok savaşırsan, gemin o kadar uzun sefere çıkar",
     rewardTitleWin: "GANİMET RAPORU", rewardTitleLoss: "SAVAŞ RAPORU", rewardGold: "ALTIN", rewardHonor: "ŞEREF", rewardXp: "TECRÜBE", rewardMissionsRow: "GÜNLÜK GÖREVLER", rewardAchRow: "YENİ KAZANIM AÇILDI!", rewardContinue: "DEVAM ▶", rewardRevengeRow: (m) => `İNTİKAM BONUSU ×${m} UYGULANDI`,
     hookWin: "SERİN SÜRÜYOR — DALGALAR SENDEN KORKUYOR!", hookLossRevenge: (m) => `⚔ İNTİKAM HAZIR: SONRAKİ ZAFERDE ×${m} ÖDÜL`, hookLoss: "RÖVANŞ SENİ BEKLİYOR, KAPTAN!",
+    goodsBadge: "GANİMET TABLOSU", revengeGauge: "İNTİKAM YÜKLENİYOR", revengeReady: "İNTİKAM HAZIR",
     oneChestPerDevice: "Her cihaza günde 1 sandık!", dailyRewardLabel: "GÜNLÜK ÖDÜL",
     battleStarting: "SAVAŞ BAŞLIYOR",
     tagline: "savaşların atası...",
@@ -375,6 +376,7 @@ const TRANSLATIONS = {
     voyageTitle: "YOUR SHIP HAS RETURNED!", voyageBody: (h) => `Returned with loot from a ${h}-hour voyage`, voyageCollect: "COLLECT THE LOOT", voyageHint: "The more you battle today, the longer your ship sails",
     rewardTitleWin: "LOOT REPORT", rewardTitleLoss: "BATTLE REPORT", rewardGold: "GOLD", rewardHonor: "HONOR", rewardXp: "EXPERIENCE", rewardMissionsRow: "DAILY MISSIONS", rewardAchRow: "ACHIEVEMENT UNLOCKED!", rewardContinue: "CONTINUE ▶", rewardRevengeRow: (m) => `REVENGE BONUS ×${m} APPLIED`,
     hookWin: "YOUR STREAK LIVES — THE WAVES FEAR YOU!", hookLossRevenge: (m) => `⚔ REVENGE READY: ×${m} REWARDS ON NEXT WIN`, hookLoss: "THE REMATCH AWAITS, CAPTAIN!",
+    goodsBadge: "LOOT REPORT", revengeGauge: "REVENGE CHARGING", revengeReady: "REVENGE READY",
     oneChestPerDevice: "1 chest per device, every day!", dailyRewardLabel: "DAILY REWARD",
     battleStarting: "BATTLE STARTING",
     tagline: "ancestor of battles...",
@@ -1957,7 +1959,7 @@ function useCountUp(target, active, duration = 1300) {
   return value;
 }
 
-function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoard, isWin, goldEarned = 0, myLevel = 0, chestProgressPct = 0, lang = "tr", hookText = null }) {
+function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoard, isWin, goldEarned = 0, myLevel = 0, chestProgressPct = 0, lang = "tr", hookText = null, onShowRewards = null, revengeStreak = 0 }) {
   const [showStats, setShowStats] = useState(false);
   const [showButtons, setShowButtons] = useState(false);
   const [showRain, setShowRain] = useState(false);
@@ -2020,6 +2022,29 @@ function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoar
             <div style={{ fontSize:11,color:t.textDim,letterSpacing:4,fontFamily:warrior,fontWeight:800,marginTop:4 }}>{L(lang,"missLabel")}</div>
           </div>
         </div>}
+        {/* İNTİKAM GÖSTERGESİ — bozgunda süreç: 3 mühür dolar (×2 → ×2.5 → ×3) */}
+        {showStats && !isWin && revengeStreak >= 1 && (() => {
+          const rm = revengeStreak >= 4 ? 3 : revengeStreak === 3 ? 2.5 : revengeStreak === 2 ? 2 : 1;
+          const filled = Math.min(3, Math.max(0, revengeStreak - 1)); // 1 kayıp=0 dolu, 2=1, 3=2, 4+=3
+          const ready = rm > 1;
+          return (
+            <div style={{ margin:"0 auto 16px",padding:"11px 16px",maxWidth:290,borderRadius:14,background:ready?"linear-gradient(135deg, rgba(200,30,30,0.16), rgba(255,140,0,0.10))":"rgba(255,255,255,0.03)",border:`2px solid ${ready?"rgba(255,80,60,0.6)":"rgba(255,255,255,0.10)"}`,animation:ready?"pulse 1.8s ease-in-out infinite":"none",boxShadow:ready?"0 0 20px rgba(255,60,40,0.25)":"none" }}>
+              <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:8 }}>
+                <span style={{ fontSize:16,filter:ready?"drop-shadow(0 0 6px rgba(255,90,50,0.9))":"grayscale(0.6)" }}>⚔</span>
+                <span style={{ fontSize:11,fontWeight:900,color:ready?"#ff9a76":t.textDim,fontFamily:warrior,letterSpacing:2 }}>{ready?L(lang,"revengeReady"):L(lang,"revengeGauge")}</span>
+                {ready && <span style={{ fontSize:15,fontWeight:900,color:"#ffd700",fontFamily:warrior,textShadow:"0 0 10px rgba(255,215,0,0.8)" }}>×{rm}</span>}
+              </div>
+              <div style={{ display:"flex",gap:6,justifyContent:"center" }}>
+                {[{m:"×2"},{m:"×2.5"},{m:"×3"}].map((seg,i) => (
+                  <div key={i} style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3 }}>
+                    <div style={{ width:"100%",height:8,borderRadius:5,background:i<filled?"linear-gradient(90deg,#ff5a3c,#ffb347)":"rgba(255,255,255,0.06)",border:`1px solid ${i<filled?"rgba(255,120,60,0.7)":"rgba(255,255,255,0.10)"}`,boxShadow:i<filled?"0 0 8px rgba(255,90,50,0.5)":"none",transition:"all 0.4s" }} />
+                    <span style={{ fontSize:8,fontWeight:800,color:i<filled?"#ff9a76":t.textDim,fontFamily:mono,letterSpacing:1 }}>{seg.m}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
         {/* Buttons — YENİ SAVAŞ ana yıldız */}
         {showButtons && <div style={{ display:"flex",flexDirection:"column",gap:10,animation:"fadeUp 0.5s ease-out" }}>
           {hookText && <div style={{ fontSize:11,fontWeight:900,color:isWin?t.gold:"#ff9a76",fontFamily:warrior,letterSpacing:2,textShadow:isWin?`0 0 12px ${t.goldGlow}`:"0 0 12px rgba(255,90,50,0.6)",animation:"pulse 1.8s ease-in-out infinite" }}>{hookText}</div>}
@@ -2027,8 +2052,11 @@ function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoar
             <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.45),transparent)",animation:"shimmerPass 2.6s ease-in-out infinite",pointerEvents:"none" }} />
             ⚔ {L(lang,"newBattle")}
           </button>
-          <button onClick={onViewBoard} style={{ padding:"11px 20px",background:"transparent",color:t.accent,border:`2px solid rgba(0,229,255,0.25)`,borderRadius:12,fontSize:12,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior }}>{L(lang,"battleMap")}</button>
-          <button onClick={onHome} style={{ padding:"10px 20px",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:10,fontSize:11,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior,opacity:0.8 }}>{L(lang,"homeBtn")}</button>
+          <div style={{ display:"flex",gap:10 }}>
+            {onShowRewards && <button onClick={onShowRewards} style={{ flex:1,padding:"11px 12px",background:"linear-gradient(135deg,rgba(255,215,0,0.12),rgba(255,159,67,0.05))",color:t.gold,border:`2px solid rgba(255,215,0,0.4)`,borderRadius:12,fontSize:11,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}>🏆 {L(lang,"goodsBadge")}</button>}
+            <button onClick={onViewBoard} style={{ flex:1,padding:"11px 12px",background:"transparent",color:t.accent,border:`2px solid rgba(0,229,255,0.25)`,borderRadius:12,fontSize:11,fontWeight:800,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>{L(lang,"battleMap")}</button>
+          </div>
+          <button onClick={onHome} style={{ padding:"12px 20px",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:10,fontSize:12,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior,opacity:0.9 }}>🏠 {L(lang,"homeBtn")}</button>
         </div>}
       </div>
     </div>
@@ -2400,6 +2428,7 @@ export default function Game() {
   const [rewardModalOpen, setRewardModalOpen] = useState(false);
   const [newAchUnlocks, setNewAchUnlocks] = useState([]); // bu maçta açılan kazanımlar
   const achDoneRef = useRef(null); // "setId:idx" kümesi — yeni açılan kazanımı tespit için
+  const [rewardNonce, setRewardNonce] = useState(0); // her yeni maç raporunda modalı taze yeniden monte eder
   const [eloChange, setEloChange] = useState(null);
   const [showOnlineLobby, setShowOnlineLobby] = useState(false);
   const [matchmaking, setMatchmaking] = useState(false);
@@ -2556,6 +2585,9 @@ export default function Game() {
     setMyProfile(prev => prev ? { ...prev, gold: newGold, ach: a2, achievClaimed: nc } : prev);
     setGoldAnim({ amount: setDef.reward });
   };
+
+  // Her yeni maç raporu geldiğinde nonce'u tazele — RewardModal remount olsun, animasyon her seferinde çalışsın
+  useEffect(() => { if (matchRewards && rewardModalOpen) setRewardNonce(n => n + 1); }, [matchRewards, rewardModalOpen]);
 
   // Yeni açılan kazanımları yakala — profil her değiştiğinde tamamlanan kazanım kümesini karşılaştır
   useEffect(() => {
@@ -4326,8 +4358,10 @@ export default function Game() {
     const chestProgressPct = Math.round((Object.keys(missionProgress).length / (dailyMissions.length || 3)) * 100);
     return (<><style>{ANIMS}</style>
       <GameOverScreen winner={winner} myHits={myHits} oppHits={oppHits} isWin={isWin} onNewGame={resetGame} onHome={resetGame} onViewBoard={() => setShowReview(true)} goldEarned={myEloDiff ?? (goldAnim?.amount || 0)} myLevel={myProfile?.level || 0} chestProgressPct={chestProgressPct} lang={appLang}
-        hookText={isWin ? L(appLang,"hookWin") : (revengeMult(safeAch(myProfile?.ach).lossStreak) > 1 ? L(appLang,"hookLossRevenge")(revengeMult(safeAch(myProfile?.ach).lossStreak)) : L(appLang,"hookLoss"))} />
-      {matchRewards && rewardModalOpen && !isOnboarding && <RewardModal rewards={matchRewards} dailyMissions={dailyMissions} missionProgress={missionProgress} newAch={newAchUnlocks} profile={myProfile} sfx={sfx} onClose={() => setRewardModalOpen(false)} lang={appLang} />}
+        hookText={isWin ? L(appLang,"hookWin") : (revengeMult(safeAch(myProfile?.ach).lossStreak) > 1 ? L(appLang,"hookLossRevenge")(revengeMult(safeAch(myProfile?.ach).lossStreak)) : L(appLang,"hookLoss"))}
+        onShowRewards={matchRewards && !isOnboarding ? (() => setRewardModalOpen(true)) : null}
+        revengeStreak={!isWin ? safeAch(myProfile?.ach).lossStreak : 0} />
+      {matchRewards && rewardModalOpen && !isOnboarding && <RewardModal key={rewardNonce} rewards={matchRewards} dailyMissions={dailyMissions} missionProgress={missionProgress} newAch={newAchUnlocks} profile={myProfile} sfx={sfx} onClose={() => setRewardModalOpen(false)} lang={appLang} />}
       {/* İntikam bildirimleri */}
       {isWin && revengeResult && (
         <div style={{ position:"fixed",top:"calc(14px + env(safe-area-inset-top, 0px))",left:0,right:0,display:"flex",justifyContent:"center",zIndex:10005,pointerEvents:"none" }}>
@@ -4347,23 +4381,6 @@ export default function Game() {
       ); })()}
       <canvas id="confetti-canvas" style={{ position:'fixed',inset:0,pointerEvents:'none',zIndex:10002 }} />
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
-      {eloChange && (<div style={{ position:"fixed",bottom:80,left:0,right:0,display:"flex",justifyContent:"center",zIndex:200,perspective:"600px" }}>
-        <div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))",border:`2px solid ${isWin?t.accent:t.hit}`,borderRadius:16,padding:"18px 28px",textAlign:"center",animation:"arSlideIn 0.7s ease-out forwards",'--ar-color':isWin?t.accentGlow:t.hitGlow,boxShadow:`0 15px 50px rgba(0,0,0,0.6), 0 0 30px ${isWin?t.accentGlow:t.hitGlow}` }}>
-          <div style={{ fontSize:12,letterSpacing:4,color:t.textDim,marginBottom:8,fontFamily:warrior,fontWeight:700 }}>{L(appLang,"goldChangeTitle")}</div>
-          <div style={{ display:"flex",alignItems:"center",gap:14,justifyContent:"center" }}>
-            <span style={{ fontSize:22,fontWeight:700,color:t.textDim,fontFamily:warrior }}>{eloChange.myOld} 💰</span>
-            <span style={{ fontSize:22,color:t.accent }}>→</span>
-            <span style={{ fontSize:28,fontWeight:800,color:myRank?.color||t.gold,fontFamily:warrior,textShadow:`0 0 12px ${myRank?.color||t.gold}44` }}>{eloChange.myNew} 💰</span>
-            <span style={{ fontSize:20,fontWeight:800,fontFamily:warrior,color:myEloDiff>=0?"#4ade80":t.hit,padding:"4px 12px",background:myEloDiff>=0?"rgba(74,222,128,0.1)":"rgba(255,71,87,0.1)",borderRadius:8 }}>{myEloDiff>=0?`+${myEloDiff}`:myEloDiff}</span>
-          </div>
-          {myRank && <div style={{ fontSize:13,fontWeight:800,color:myRank.color,marginTop:8,fontFamily:warrior,letterSpacing:3 }}>{myRank.icon} {myRank.title}</div>}
-          {entryFeeDeducted && (
-            <div style={{ marginTop:10,borderTop:`1px solid rgba(255,255,255,0.06)`,paddingTop:10 }}>
-              <div style={{ fontSize:12,fontWeight:700,color:t.hit,fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"entryFeeLabel")(entryFeeDeducted)}</div>
-            </div>
-          )}
-        </div>
-      </div>)}
     </>);
   }
 
