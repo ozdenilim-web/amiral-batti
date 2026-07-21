@@ -2053,7 +2053,11 @@ function BoardReview({ defenseBoard, shipColorMap, defenseOverlay, attackOverlay
 function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack, ready, onToggleReady, lang }) {
   const [players,setPlayers]=useState([]);const [invites,setInvites]=useState([]);const [sentInvite,setSentInvite]=useState(null);
   useEffect(()=>{const unsub=onValue(ref(db,"online_players"),snap=>{if(!snap.exists()){setPlayers([]);return;}const list=[];snap.forEach(child=>{const d=child.val();if(child.key!==myUid&&d.status==="idle")list.push({uid:child.key,...d});});list.sort((a,b)=>(b.gold||0)-(a.gold||0));setPlayers(list);});return()=>unsub();},[myUid]);
-  useEffect(()=>{const unsub=onValue(ref(db,`invites/${myUid}`),snap=>{if(!snap.exists()){setInvites([]);return;}const list=[];snap.forEach(child=>list.push({id:child.key,...child.val()}));setInvites(list);});return()=>unsub();},[myUid]);
+  const autoAcceptRef = useRef(false);
+  useEffect(()=>{const unsub=onValue(ref(db,`invites/${myUid}`),snap=>{if(!snap.exists()){setInvites([]);autoAcceptRef.current=false;return;}const list=[];snap.forEach(child=>list.push({id:child.key,...child.val()}));setInvites(list);
+    // HAZIRIM modundaysan düello davetini OTOMATİK kabul et — anında eşleşme
+    if(ready&&!autoAcceptRef.current){const pending=list.find(i=>i.status==="pending");if(pending){autoAcceptRef.current=true;acceptInvite(pending);}}
+  });return()=>unsub();},[myUid,ready]);
   useEffect(()=>{if(!sentInvite)return;const unsub=onValue(ref(db,`invites/${sentInvite.targetUid}/${myUid}`),snap=>{if(!snap.exists()){setSentInvite(null);return;}const d=snap.val();if(d.status==="accepted"&&d.roomId){remove(ref(db,`invites/${sentInvite.targetUid}/${myUid}`));remove(ref(db,`invites/${myUid}/${sentInvite.targetUid}`)).catch(()=>{});setSentInvite(null);onChallenge(d.roomId,1);}else if(d.status==="rejected"){remove(ref(db,`invites/${sentInvite.targetUid}/${myUid}`));setSentInvite(null);}});return()=>unsub();},[sentInvite,myUid,onChallenge]);
   // Ana eşleşme bildirimi — her zaman kendi uid'imizi dinliyoruz (quick-match'teki match_found deseniyle aynı,
   // sentInvite state'ine bağımlı değil, davet eden taraf için çok daha güvenilir).
@@ -2143,66 +2147,74 @@ function findMatch(myUid, myName, myGold, arenaId, timeoutMs = 60000) {
     return data;
   };
 
-  const queueJoinTime = Date.now();
   const promise = new Promise(async (resolve) => {
+    // Üzerimdeki bayat kilidi temizle + kuyruğa gir
+    await remove(ref(db, `matchmaking_claims/${myUid}`)).catch(() => {});
     await set(ref(db, `${queuePath}/${myUid}`), { displayName: myName, gold: myGold || STARTING_GOLD, time: Date.now() });
     onDisconnect(ref(db, `${queuePath}/${myUid}`)).remove();
+    onDisconnect(ref(db, `matchmaking_claims/${myUid}`)).remove();
 
-    // Timeout: 60 saniye sonra eşleşme bulunamazsa iptal
+    // Zaman aşımı — arayan taraf karar verir (OYNA: kısa + bot garantisi, arena: uzun)
     timeoutId = setTimeout(() => {
       if (!resolved && !cancelled) {
         cancelled = true;
         cleanup();
         remove(ref(db, `${queuePath}/${myUid}`)).catch(() => {});
         remove(ref(db, `match_found/${myUid}`)).catch(() => {});
+        remove(ref(db, `matchmaking_claims/${myUid}`)).catch(() => {});
         resolve(null);
       }
-    }, 60000);
+    }, timeoutMs);
 
-    // match_found dinle — biri bizi eşleştirirse buradan öğreniriz
+    // match_found dinle — biri bizi kilitleyip odaya attıysa buradan öğreniriz
     unsubMatch = onValue(ref(db, `match_found/${myUid}`), async (snap) => {
       if (cancelled || resolved || !snap.exists()) return;
       const data = snap.val();
       if (!data.roomId) return;
-      await remove(ref(db, `match_found/${myUid}`)).catch(() => {});
-      await remove(ref(db, `${queuePath}/${myUid}`)).catch(() => {});
+      remove(ref(db, `match_found/${myUid}`)).catch(() => {});
+      remove(ref(db, `${queuePath}/${myUid}`)).catch(() => {});
+      remove(ref(db, `matchmaking_claims/${myUid}`)).catch(() => {});
       resolve(finish(data));
     });
 
-    // Kuyruğu dinle — uid sıralaması ile sadece bir taraf oda oluşturur
+    // Kuyruğu dinle — ANINDA KİLİT: iki taraf da deneyebilir, atomik transaction ilk kapanı seçer.
+    // Altın penceresi YOK: kuyrukta kim varsa anında eşleş (en uzun bekleyen önce).
     unsubQueue = onValue(ref(db, queuePath), async (snap) => {
       if (cancelled || resolved || creating || !snap.exists()) return;
+      const nowT = Date.now();
       const queue = [];
-      snap.forEach(child => { if (child.key !== myUid) queue.push({ uid: child.key, ...child.val() }); });
+      snap.forEach(child => { const v = child.val() || {}; if (child.key !== myUid && (nowT - (v.time || 0)) < 30000) queue.push({ uid: child.key, ...v }); });
       if (queue.length === 0) return;
-      queue.sort((a, b) => Math.abs((a.gold || STARTING_GOLD) - (myGold || STARTING_GOLD)) - Math.abs((b.gold || STARTING_GOLD) - (myGold || STARTING_GOLD)));
-      // Altın penceresi: ilk 15s ±300, 15-35s ±1500, sonra herkes
-      const waitedMs = Date.now() - queueJoinTime;
-      const goldWindow = waitedMs < 15000 ? 300 : waitedMs < 35000 ? 1500 : 9999999;
-      const eligible = queue.filter(q => Math.abs((q.gold || STARTING_GOLD) - (myGold || STARTING_GOLD)) <= goldWindow);
-      if (eligible.length === 0) return;
-      const opponent = eligible[0];
+      queue.sort((a, b) => (a.time || 0) - (b.time || 0));
+      const opponent = queue[0];
 
-      // Sadece küçük uid olan taraf oda oluşturur (deterministik)
-      if (myUid < opponent.uid) {
-        creating = true; // Guard: bu listener tekrar çalışsa bile tekrar oda oluşturmaz
+      creating = true;
+      try {
+        // Atomik kapmaca — rakibin kilit düğümünü ilk yazan kazanır
+        const claimRef = ref(db, `matchmaking_claims/${opponent.uid}`);
+        const tx = await runTransaction(claimRef, cur => {
+          if (cur && cur.by && cur.by !== myUid && (nowT - (cur.t || 0)) < 15000) return; // taze kilit başkasının — vazgeç
+          return { by: myUid, t: nowT };
+        });
+        if (!tx.committed || !tx.snapshot.exists() || tx.snapshot.val().by !== myUid) { creating = false; return; }
+
+        // Rakip hâlâ kuyrukta mı? (çökmüş/ayrılmış olabilir)
+        const oppCheck = await get(ref(db, `${queuePath}/${opponent.uid}`));
+        if (!oppCheck.exists()) { remove(claimRef).catch(() => {}); creating = false; return; }
+
         const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-        try {
-          // Önce rakibin hâlâ kuyrukta olduğunu doğrula
-          const oppCheck = await get(ref(db, `${queuePath}/${opponent.uid}`));
-          if (!oppCheck.exists()) { creating = false; return; }
+        await set(ref(db, `rooms/${roomId}`), { p1_name: myName, p1_uid: myUid, p2_name: opponent.displayName, p2_uid: opponent.uid, phase: "placing", p1_board: null, p2_board: null, p1_ships: null, p2_ships: null, attacks: null, turn: 1, clocks: { p1: CLOCK_SECONDS, p2: CLOCK_SECONDS }, winner: null, winReason: null, eloProcessed: false, arena: arenaId || null, created: Date.now() });
 
-          await set(ref(db, `rooms/${roomId}`), { p1_name: myName, p1_uid: myUid, p2_name: opponent.displayName, p2_uid: opponent.uid, phase: "placing", p1_board: null, p2_board: null, p1_ships: null, p2_ships: null, attacks: null, turn: 1, clocks: { p1: CLOCK_SECONDS, p2: CLOCK_SECONDS }, winner: null, winReason: null, eloProcessed: false, arena: arenaId || null, created: Date.now() });
-
-          // Önce iki tarafın match_found'unu yaz, sonra kuyruktan sil
-          await set(ref(db, `match_found/${myUid}`), { roomId, playerNum: 1, oppName: opponent.displayName });
-          await set(ref(db, `match_found/${opponent.uid}`), { roomId, playerNum: 2, oppName: myName });
-          await remove(ref(db, `${queuePath}/${myUid}`)).catch(() => {});
-          await remove(ref(db, `${queuePath}/${opponent.uid}`)).catch(() => {});
-        } catch (e) {
-          console.error("Match creation error:", e);
-          creating = false;
-        }
+        // İki tarafın match_found'unu paralel yaz — rakip anında haberdar olur
+        await Promise.all([
+          set(ref(db, `match_found/${myUid}`), { roomId, playerNum: 1, oppName: opponent.displayName }),
+          set(ref(db, `match_found/${opponent.uid}`), { roomId, playerNum: 2, oppName: myName }),
+        ]);
+        remove(ref(db, `${queuePath}/${myUid}`)).catch(() => {});
+        remove(claimRef).catch(() => {});
+      } catch (e) {
+        console.error("Match creation error:", e);
+        creating = false;
       }
     });
   });
@@ -2212,6 +2224,7 @@ function findMatch(myUid, myName, myGold, arenaId, timeoutMs = 60000) {
     cleanup();
     await remove(ref(db, `${queuePath}/${myUid}`)).catch(() => {});
     await remove(ref(db, `match_found/${myUid}`)).catch(() => {});
+    await remove(ref(db, `matchmaking_claims/${myUid}`)).catch(() => {});
   };
   return promise;
 }
@@ -2226,6 +2239,28 @@ async function findReadyCandidate(myUid, myGold) {
     if (list.length === 0) return null;
     list.sort((a, b) => Math.abs((a.gold || 0) - (myGold || 0)) - Math.abs((b.gold || 0) - (myGold || 0)));
     return list[0];
+  } catch (e) { return null; }
+}
+
+// HAZIRIM diyen oyuncuyla ANINDA eşleş — davet/kabul yok: HAZIRIM demek "sormadan eşleştir" demektir.
+// Atomik kilit ile iki OYNA'cının aynı hazır oyuncuyu kapması engellenir.
+async function instantMatchWithReady(myUid, myName, candidate) {
+  try {
+    const nowT = Date.now();
+    const claimRef = ref(db, `matchmaking_claims/${candidate.uid}`);
+    const tx = await runTransaction(claimRef, cur => {
+      if (cur && cur.by && cur.by !== myUid && (nowT - (cur.t || 0)) < 15000) return;
+      return { by: myUid, t: nowT };
+    });
+    if (!tx.committed || !tx.snapshot.exists() || tx.snapshot.val().by !== myUid) return null;
+    // Hâlâ hazır ve boşta mı?
+    const pSnap = await get(ref(db, `online_players/${candidate.uid}`));
+    if (!pSnap.exists() || pSnap.val().ready !== true || pSnap.val().status !== "idle") { remove(claimRef).catch(() => {}); return null; }
+    const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    await set(ref(db, `rooms/${roomId}`), { p1_name: myName, p1_uid: myUid, p2_name: candidate.displayName || "Denizci", p2_uid: candidate.uid, phase: "placing", p1_board: null, p2_board: null, p1_ships: null, p2_ships: null, attacks: null, turn: 1, clocks: { p1: CLOCK_SECONDS, p2: CLOCK_SECONDS }, winner: null, winReason: null, eloProcessed: false, arena: null, created: Date.now() });
+    await set(ref(db, `match_found/${candidate.uid}`), { roomId, playerNum: 2, oppName: myName });
+    remove(claimRef).catch(() => {});
+    return { roomId, playerNum: 1 };
   } catch (e) { return null; }
 }
 
@@ -3585,7 +3620,9 @@ export default function Game() {
   const runQueueSearch = async (arena) => {
     if (quickMatchCancelledRef.current) return;
     setQuickMatchPhase("searching");
-    setQuickMatchSecondsLeft(30);
+    // OYNA: 7 saniyede insan yoksa bot kaptan garantisi. Arena: insan şart, 45 sn.
+    const searchTotalSec = arena ? 45 : 7;
+    setQuickMatchSecondsLeft(searchTotalSec);
 
     let pool = [];
     try {
@@ -3603,10 +3640,10 @@ export default function Game() {
     if (quickMatchCountdownRef.current) clearInterval(quickMatchCountdownRef.current);
     const searchStart = Date.now();
     quickMatchCountdownRef.current = setInterval(() => {
-      setQuickMatchSecondsLeft(Math.max(0, 30 - Math.floor((Date.now() - searchStart) / 1000)));
+      setQuickMatchSecondsLeft(Math.max(0, searchTotalSec - Math.floor((Date.now() - searchStart) / 1000)));
     }, 250);
 
-    const matchPromise = findMatch(authUid, playerName.trim(), myProfile?.gold ?? STARTING_GOLD, arena?.id || null, 30000);
+    const matchPromise = findMatch(authUid, playerName.trim(), myProfile?.gold ?? STARTING_GOLD, arena?.id || null, searchTotalSec * 1000);
     setMatchCancelFn(() => matchPromise._cancel);
     matchPromise.then(async (data) => {
       if (quickMatchCarouselRef.current) { clearInterval(quickMatchCarouselRef.current); quickMatchCarouselRef.current = null; }
@@ -3625,11 +3662,15 @@ export default function Game() {
           }
         } catch (e) {}
         finalizeQuickMatch(data.roomId, data.playerNum, oppInfo.name, oppInfo.avatar, oppInfo.gold, oppInfo.level);
+      } else if (!arena) {
+        // OYNA: 7 saniyede insan çıkmadı — bot kaptan meydan okur, oyuncu ASLA boş beklemez
+        setMatchmaking(false); setMatchCancelFn(null); setQuickMatchPhase(null); setQuickMatchOpponent(null); setQuickMatchCandidate(null);
+        startBotGame();
       } else {
-        // Eşleşme bulunamadı (30sn timeout) — arena ücreti varsa iade et
+        // Arena: insan şart — bulunamadı, ücret anında iade
         setMatchmaking(false); setMatchCancelFn(null);
         setQuickMatchPhase("notfound");
-        if (arena && entryFeeDeducted) {
+        if (entryFeeDeducted) {
           const refundGold = safeGold(myProfile?.gold) + arena.entryFee;
           ensureProfile(authUid).then(cleanP => { cleanP.gold = refundGold; set(ref(db, `profiles/${authUid}`), cleanP); }).catch(() => {});
           setMyProfile(prev => prev ? { ...prev, gold: refundGold } : prev);
@@ -3652,26 +3693,17 @@ export default function Game() {
     setQuickMatchCandidate(null);
     sfx.init(); sfx.play('click');
 
-    // 1. adım: salonda "OYUNA HAZIRIM" diyen biri varsa — en hızlı yol — direkt ona teklif at
+    // 1. adım: salonda "OYUNA HAZIRIM" diyen biri varsa — ANINDA eşleş, davet/kabul yok
     if (!arena) {
       const candidate = await findReadyCandidate(authUid, myProfile?.gold ?? STARTING_GOLD);
       if (candidate && !quickMatchCancelledRef.current) {
-        setQuickMatchPhase("inviting");
-        setQuickMatchSecondsLeft(10);
-        setQuickMatchCandidate({ name: candidate.displayName || "Denizci", gold: safeGold(candidate.gold), avatar: candidate.avatar || "⚓" });
-        if (quickMatchCountdownRef.current) clearInterval(quickMatchCountdownRef.current);
-        const inviteStart = Date.now();
-        quickMatchCountdownRef.current = setInterval(() => {
-          setQuickMatchSecondsLeft(Math.max(0, 10 - Math.floor((Date.now() - inviteStart) / 1000)));
-        }, 250);
-        const result = await sendReadyInviteAndAwait(authUid, playerName.trim(), myProfile?.gold ?? STARTING_GOLD, candidate, 10000);
-        if (quickMatchCountdownRef.current) { clearInterval(quickMatchCountdownRef.current); quickMatchCountdownRef.current = null; }
+        const instant = await instantMatchWithReady(authUid, playerName.trim(), candidate);
         if (quickMatchCancelledRef.current) return;
-        if (result.accepted) {
-          finalizeQuickMatch(result.roomId, result.playerNum, candidate.displayName, candidate.avatar, safeGold(candidate.gold), candidate.level || 0);
+        if (instant) {
+          finalizeQuickMatch(instant.roomId, instant.playerNum, candidate.displayName, candidate.avatar, safeGold(candidate.gold), candidate.level || 0);
           return;
         }
-        // Reddedildi / yanıt yok → normal kuyruğa devam
+        // Kilit kapılmış ya da oyuncu ayrılmış → kuyruğa devam
       }
     }
 
@@ -3688,6 +3720,18 @@ export default function Game() {
   };
 
   const retryQuickMatch = () => { startQuickMatch(lastQuickMatchArenaRef.current); };
+
+  // HAZIRIM diyen oyuncu ana ekrandayken de yakalanabilsin — global match_found dinleyicisi
+  useEffect(() => {
+    if (phase !== "lobby" || !authUid || !readyToPlay) return;
+    const unsub = onValue(ref(db, `match_found/${authUid}`), snap => {
+      if (!snap.exists()) return;
+      const d = snap.val(); if (!d.roomId) return;
+      remove(ref(db, `match_found/${authUid}`)).catch(() => {});
+      handleOnlineChallenge(d.roomId, d.playerNum || 2);
+    });
+    return () => unsub();
+  }, [phase, authUid, readyToPlay]);
 
   const appStyle = { minHeight: "100vh", minHeight: "100dvh", width: "100%", background: t.bg, color: t.text, fontFamily: mono, display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 8px", boxSizing: "border-box", overflowX: "hidden" };
   const btnStyle = { padding: "12px 28px", background: `linear-gradient(135deg, ${t.accent}, #0891b2)`, color: t.bg, border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", cursor: "pointer", fontFamily: warrior, boxShadow: `0 0 15px ${t.accentGlow}` };

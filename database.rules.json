@@ -52,6 +52,12 @@
         ".write": "auth != null && (auth.uid === $uid || !data.exists())"
       }
     },
+    "matchmaking_claims": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && (auth.uid === $uid || !data.exists() || data.child('by').val() === auth.uid)"
+      }
+    },
     "matchmaking_arena": {
       ".read": "auth != null",
       "$arenaId": {
