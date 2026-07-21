@@ -341,7 +341,7 @@ const TRANSLATIONS = {
     startBattleBtn: "SAVAŞA BAŞLA", watersHeating: "sular ısınsın...",
     goldChangeTitle: "ALTIN DEĞİŞİMİ", entryFeeLabel: (n) => `Giriş: -${n} 💰`, connectingToServer: "Sunucuya bağlanılıyor...", testModeMsg: "🧪 TEST MODU — 2 tab aç, oda koduyla oyna",
     pickAvatarTooltip: "Profil simgeni seç", uploadPhotoTooltip: "Kendi fotoğrafını yükle",
-    logoutBtn: "ÇIKIŞ YAP", logoutTitle: "ÇIKIŞ YAPILIYOR", logoutBody: "Çıkış yapmadan önce KURTARMA KODUNU not aldığından emin ol.", logoutBody2: "Geri dönmek için kullanıcı adın ve kurtarma kodun yeterli — ilerlemen kaybolmaz.", logoutStay: "VAZGEÇ", logoutGo: "ÇIKIŞ YAP", codeTitle: "KURTARMA KODUN", codeBody: "Bu kodu bir yere yaz! Çıkış yaparsan ya da telefonunu değiştirirsen, kullanıcı adın ve bu kodla hesabına geri dönersin.", codeCopy: "KOPYALA", codeCopied: "KOPYALANDI ✓", codeOk: "YAZDIM, DEVAM", recTitle: "BU İSİM SENİN Mİ?", recBody: (n) => `"${n}" adlı hesap zaten var. Senin hesabınsa kurtarma kodunu gir, ilerlemenle birlikte geri dön.`, recPlaceholder: "KURTARMA KODU", recEnter: "HESABIMA DÖN", recCancel: "BAŞKA İSİM SEÇ", recErrWrong: "Kod hatalı. Kontrol edip tekrar dene.", recErrShort: "Kodu eksiksiz gir.", recErrMany: "Çok fazla deneme. Biraz bekle.", myCode: "Kurtarma Kodum", myCodeNone: "Bu hesap için kod bulunamadı.", waitingForOpponent: "RAKİP BEKLENİYOR", roomCodeLabel: "ODA KODU", sendCodeMsg: "Bu kodu rakibine gönder!", entryFeePaid: (n) => `Giriş ücreti: -${n} 💰`, fleetReady: "DONANMAN HAZIR!",
+    logoutBtn: "ÇIKIŞ YAP", logoutTitle: "ÇIKIŞ YAPILIYOR", logoutBody: "Çıkış yapmadan önce KURTARMA KODUNU not aldığından emin ol.", logoutBody2: "Geri dönmek için kullanıcı adın ve kurtarma kodun yeterli — ilerlemen kaybolmaz.", logoutStay: "VAZGEÇ", logoutGo: "ÇIKIŞ YAP", codeTitle: "KURTARMA KODUN", codeBody: "Bu kodu bir yere yaz! Çıkış yaparsan ya da telefonunu değiştirirsen, kullanıcı adın ve bu kodla hesabına geri dönersin.", codeCopy: "KOPYALA", codeCopied: "KOPYALANDI ✓", codeOk: "YAZDIM, DEVAM", recTitle: "BU İSİM SENİN Mİ?", recInlineHint: "Bu isim kullanılıyor. Senin hesabınsa kurtarma kodunu gir.", recBody: (n) => `"${n}" adlı hesap zaten var. Senin hesabınsa kurtarma kodunu gir, ilerlemenle birlikte geri dön.`, recPlaceholder: "KURTARMA KODU", recEnter: "HESABIMA DÖN", recCancel: "BAŞKA İSİM SEÇ", recErrWrong: "Kod hatalı. Kontrol edip tekrar dene.", recErrShort: "Kodu eksiksiz gir.", recErrMany: "Çok fazla deneme. Biraz bekle.", myCode: "Kurtarma Kodum", myCodeNone: "Bu hesap için kod bulunamadı.", waitingForOpponent: "RAKİP BEKLENİYOR", roomCodeLabel: "ODA KODU", sendCodeMsg: "Bu kodu rakibine gönder!", entryFeePaid: (n) => `Giriş ücreti: -${n} 💰`, fleetReady: "DONANMAN HAZIR!",
     placeShipScreenTitle: "GEMİ YERLEŞTİR", extraTimeBtn: "⏱ +10 SANİYE (10 💰)", extraTimeUsedMsg: "⏱ Ek süre kullanıldı",
     shipsPlacedLabel: (n,tot) => `${n}/${tot} GEMİ YERLEŞTİRİLDİ`, entryFeeShort: (n) => `💰 Giriş: ${n} 💰`,
     tapMapHint: "Haritada bir yere dokun", pickShipHint: "Aşağıdan bir gemi seç", randomPlaceBtn: "🎲 RASTGELE YERLEŞTİR", undoBtn: "↩ GERİ AL",
@@ -414,7 +414,7 @@ const TRANSLATIONS = {
     startBattleBtn: "START BATTLE", watersHeating: "let the waters heat up...",
     goldChangeTitle: "GOLD CHANGE", entryFeeLabel: (n) => `Entry: -${n} 💰`, connectingToServer: "Connecting to server...", testModeMsg: "🧪 TEST MODE — open 2 tabs, play with room code",
     pickAvatarTooltip: "Pick your profile icon", uploadPhotoTooltip: "Upload your own photo",
-    logoutBtn: "LOG OUT", logoutTitle: "LOGGING OUT", logoutBody: "Make sure you have written down your RECOVERY CODE before logging out.", logoutBody2: "You only need your username and recovery code to come back — no progress is lost.", logoutStay: "CANCEL", logoutGo: "LOG OUT", codeTitle: "YOUR RECOVERY CODE", codeBody: "Write this down! If you log out or change phones, sign back in with your username and this code.", codeCopy: "COPY", codeCopied: "COPIED ✓", codeOk: "SAVED IT, CONTINUE", recTitle: "IS THIS YOU?", recBody: (n) => `An account named "${n}" already exists. If it is yours, enter your recovery code to get back in with all your progress.`, recPlaceholder: "RECOVERY CODE", recEnter: "RECOVER MY ACCOUNT", recCancel: "PICK ANOTHER NAME", recErrWrong: "Wrong code. Please check and try again.", recErrShort: "Enter the full code.", recErrMany: "Too many attempts. Please wait.", myCode: "My Recovery Code", myCodeNone: "No code found for this account.", waitingForOpponent: "WAITING FOR OPPONENT", roomCodeLabel: "ROOM CODE", sendCodeMsg: "Send this code to your opponent!", entryFeePaid: (n) => `Entry fee: -${n} 💰`, fleetReady: "YOUR FLEET IS READY!",
+    logoutBtn: "LOG OUT", logoutTitle: "LOGGING OUT", logoutBody: "Make sure you have written down your RECOVERY CODE before logging out.", logoutBody2: "You only need your username and recovery code to come back — no progress is lost.", logoutStay: "CANCEL", logoutGo: "LOG OUT", codeTitle: "YOUR RECOVERY CODE", codeBody: "Write this down! If you log out or change phones, sign back in with your username and this code.", codeCopy: "COPY", codeCopied: "COPIED ✓", codeOk: "SAVED IT, CONTINUE", recTitle: "IS THIS YOU?", recInlineHint: "This name is in use. If it is yours, enter your recovery code.", recBody: (n) => `An account named "${n}" already exists. If it is yours, enter your recovery code to get back in with all your progress.`, recPlaceholder: "RECOVERY CODE", recEnter: "RECOVER MY ACCOUNT", recCancel: "PICK ANOTHER NAME", recErrWrong: "Wrong code. Please check and try again.", recErrShort: "Enter the full code.", recErrMany: "Too many attempts. Please wait.", myCode: "My Recovery Code", myCodeNone: "No code found for this account.", waitingForOpponent: "WAITING FOR OPPONENT", roomCodeLabel: "ROOM CODE", sendCodeMsg: "Send this code to your opponent!", entryFeePaid: (n) => `Entry fee: -${n} 💰`, fleetReady: "YOUR FLEET IS READY!",
     placeShipScreenTitle: "PLACE YOUR SHIPS", extraTimeBtn: "⏱ +10 SECONDS (10 💰)", extraTimeUsedMsg: "⏱ Extra time used",
     shipsPlacedLabel: (n,tot) => `${n}/${tot} SHIPS PLACED`, entryFeeShort: (n) => `💰 Entry: ${n} 💰`,
     tapMapHint: "Tap a spot on the map", pickShipHint: "Pick a ship below", randomPlaceBtn: "🎲 RANDOM PLACEMENT", undoBtn: "↩ UNDO",
@@ -3311,7 +3311,7 @@ export default function Game() {
         if (child.key !== authUid && child.val().displayName?.toLowerCase() === name.toLowerCase()) taken = true;
       });
       // İsim alınmışsa: sahibi olabilir → kurtarma kodu iste (hesabına geri dönsün)
-      if (taken) { setRecoverName(name); setRecoverOpen(true); setMessage(""); return; }
+      if (taken) { setRecoverName(name); setRecoverOpen(true); setMessage(L(appLang,"recInlineHint")); return; }
     }
     // Check 14-day name lock
     if (myProfile && myProfile.nameSetAt) {
@@ -3345,7 +3345,6 @@ export default function Game() {
       await update(ref(db, `profiles/${authUid}`), { hasRecovery: true }).catch(()=>{});
       profile.hasRecovery = true;
       try { localStorage.setItem("ab_recovery_code", newCode); } catch(e) {}
-      setShowCodeModal(newCode); // kodu bir kez büyük büyük göster
     }
     setMyProfile(profile);
     setPlayerName(name);
@@ -3721,6 +3720,12 @@ export default function Game() {
               <button onClick={()=>{ let c=null; try { c = localStorage.getItem("ab_recovery_code"); } catch(e){} setShowCodeModal(c || "—"); }} style={rowBtnStyle}>
                 <span style={rowIconStyle}>🔑</span>
                 <div style={{ flex:1,textAlign:"left" }}><div style={rowTitleStyle}>{L(appLang,"myCode")}</div></div>
+              </button>
+
+              {/* ÇIKIŞ YAP — kodu gösterip çıkışa yönlendirir */}
+              <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowLogoutConfirm(true); }} style={rowBtnStyle}>
+                <span style={rowIconStyle}>🚪</span>
+                <div style={{ flex:1,textAlign:"left" }}><div style={rowTitleStyle}>{L(appLang,"logoutBtn")}</div></div>
               </button>
 
               <button onClick={()=>setSettingsView("privacy")} style={rowBtnStyle}>
@@ -4266,26 +4271,31 @@ export default function Game() {
     </div>
   );
 
-  // KURTARMA PENCERESİ — isim alınmışsa "senin mi?" diye sorar
-  const renderRecoverModal = () => recoverOpen && (
-    <div style={{ position:"fixed",inset:0,overflow:"hidden",zIndex:9900,background:"rgba(2,6,16,0.9)",display:"flex",alignItems:"center",justifyContent:"center",padding:18 }}>
-      <div style={{ background:"linear-gradient(160deg, #0d1b32, #060e1f)",border:`2px solid ${t.accent}`,borderRadius:18,padding:"24px 22px 20px",width:"100%",maxWidth:340,textAlign:"center",boxShadow:`0 0 40px ${t.accentGlow}, 0 20px 60px rgba(0,0,0,0.75)`,animation:"tutCardEnter 0.6s cubic-bezier(0.16,1,0.3,1)" }}>
-        <div style={{ fontSize:38,marginBottom:6 }}>🔐</div>
-        <div style={{ fontSize:15,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:2,marginBottom:10,textShadow:`0 0 16px ${t.accentGlow}` }}>{L(appLang,"recTitle")}</div>
-        <div style={{ fontSize:11.5,color:t.text,fontFamily:mono,lineHeight:1.6,marginBottom:14 }}>{L(appLang,"recBody")(recoverName)}</div>
-        <input value={recoverCode} onChange={e=>{ setRecoverCode(e.target.value.toUpperCase()); setRecoverErr(""); }}
-          placeholder={L(appLang,"recPlaceholder")} maxLength={12} autoCapitalize="characters" autoCorrect="off" spellCheck={false}
-          style={{ width:"100%",padding:"13px 12px",background:t.surface,color:"#fff",border:`1.5px solid ${recoverErr?t.hit:t.border}`,borderRadius:10,fontSize:19,fontFamily:mono,fontWeight:900,letterSpacing:3,outline:"none",textAlign:"center",boxSizing:"border-box",marginBottom:8 }} />
-        {recoverErr && <div style={{ fontSize:11,color:t.hit,fontFamily:mono,marginBottom:8 }}>{recoverErr}</div>}
-        <div style={{ display:"flex",flexDirection:"column",gap:9,marginTop:6 }}>
-          <button onClick={handleRecover} disabled={recoverBusy}
-            style={{ width:"100%",padding:"14px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:13,fontWeight:900,letterSpacing:2,cursor:recoverBusy?"wait":"pointer",fontFamily:warrior,opacity:recoverBusy?0.6:1,boxShadow:`0 0 20px ${t.accentGlow}` }}>{L(appLang,"recEnter")}</button>
-          <button onClick={()=>{ setRecoverOpen(false); setRecoverCode(""); setRecoverErr(""); }}
-            style={{ width:"100%",padding:"11px 0",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:12,fontSize:11,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"recCancel")}</button>
+  // ÇIKIŞ PENCERESİ — kurtarma kodunu gösterir, kopyalatır, sonra çıkışa izin verir
+  const renderLogoutModal = () => {
+    if (!showLogoutConfirm) return null;
+    let code = null; try { code = localStorage.getItem("ab_recovery_code"); } catch (e) {}
+    return (
+      <div onClick={()=>setShowLogoutConfirm(false)} style={{ position:"fixed",inset:0,overflow:"hidden",zIndex:9900,background:"rgba(2,6,16,0.9)",display:"flex",alignItems:"center",justifyContent:"center",padding:18 }}>
+        <div onClick={e=>e.stopPropagation()} style={{ background:"linear-gradient(160deg, #0d1b32, #060e1f)",border:`2px solid ${t.gold}`,borderRadius:18,padding:"22px 20px 18px",width:"100%",maxWidth:340,textAlign:"center",boxShadow:`0 0 40px ${t.goldGlow}, 0 20px 60px rgba(0,0,0,0.75)`,animation:"tutCardEnter 0.5s cubic-bezier(0.16,1,0.3,1)" }}>
+          <div style={{ fontSize:34,marginBottom:6 }}>🔑</div>
+          <div style={{ fontSize:14,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:2,marginBottom:10,textShadow:`0 0 14px ${t.goldGlow}` }}>{L(appLang,"codeTitle")}</div>
+          {code ? (
+            <div style={{ fontSize:25,fontWeight:900,fontFamily:mono,letterSpacing:4,color:"#fff",background:"rgba(255,215,0,0.10)",border:`1.5px dashed ${t.gold}`,borderRadius:12,padding:"13px 8px",marginBottom:10,userSelect:"all" }}>{code}</div>
+          ) : (
+            <div style={{ fontSize:11,color:t.hit,fontFamily:mono,marginBottom:10 }}>{L(appLang,"myCodeNone")}</div>
+          )}
+          <div style={{ fontSize:11,color:t.text,fontFamily:mono,lineHeight:1.55,marginBottom:14 }}>{L(appLang,"codeBody")}</div>
+          <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
+            {code && <button onClick={()=>{ try { navigator.clipboard?.writeText(code); } catch(e){} setCodeCopied(true); setTimeout(()=>setCodeCopied(false),2000); }}
+              style={{ width:"100%",padding:"12px 0",background:"rgba(255,215,0,0.12)",color:t.gold,border:`1.5px solid ${t.gold}`,borderRadius:12,fontSize:12,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{codeCopied?L(appLang,"codeCopied"):L(appLang,"codeCopy")}</button>}
+            <button onClick={()=>setShowLogoutConfirm(false)} style={{ width:"100%",padding:"13px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:13,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"logoutStay")}</button>
+            <button onClick={handleLogout} style={{ width:"100%",padding:"11px 0",background:"transparent",color:t.hit,border:`1.5px solid ${t.hit}`,borderRadius:12,fontSize:11,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"logoutGo")}</button>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Faz bazlı içerik — TopBar'ın (müzik+ayarlar) her ekranda sabit kalması için IIFE'e sarıldı
   const content = (() => {
@@ -4351,10 +4361,27 @@ export default function Game() {
       <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"80vh" }}>
         <div style={{ fontSize:30,fontWeight:700,letterSpacing:5,color:t.accent,textShadow:`0 0 30px ${t.accentGlow}`,marginBottom:6,fontFamily:warrior,animation:"fadeUp 0.4s ease-out" }}>{L(appLang,"welcome")}</div>
         <div style={{ fontSize:11,color:t.textDim,letterSpacing:2,marginBottom:24,fontFamily:mono }}>{L(appLang,"chooseName")}</div>
-        <input style={{ ...inputStyle,maxWidth:300,borderRadius:10,fontSize:16 }} placeholder={L(appLang,"namePlaceholder")} value={playerName} onChange={e=>setPlayerName(e.target.value)} maxLength={16} />
+        <input style={{ ...inputStyle,maxWidth:300,borderRadius:10,fontSize:16 }} placeholder={L(appLang,"namePlaceholder")} value={playerName} onChange={e=>{ if (recoverOpen) { setRecoverOpen(false); setRecoverCode(""); setRecoverErr(""); setMessage(""); } setPlayerName(e.target.value); }} maxLength={16} />
         <div style={{ fontSize:9,color:t.textDim,marginTop:6,fontFamily:mono,textAlign:"center" }}>{L(appLang,"nameHint")}</div>
-        <button onClick={handleSetUsername} style={{ ...btnStyle,marginTop:16,padding:"14px 40px",borderRadius:10,fontSize:15 }}>{L(appLang,"confirm")}</button>
-        {message && <div style={{ marginTop:12,color:t.hit,fontSize:11,fontFamily:mono,textAlign:"center",maxWidth:300 }}>{message}</div>}
+
+        {/* KURTARMA ALANI — yalnızca girilen isim BAŞKASINA AİTSE açılır.
+            Yeni/boş isimlerde hiç görünmez. */}
+        {recoverOpen && (
+          <div style={{ width:"100%",maxWidth:300,marginTop:12,padding:"12px 12px 10px",borderRadius:12,background:"rgba(0,229,255,0.06)",border:`1.5px solid ${t.accent}`,animation:"fadeUp 0.3s ease-out",boxSizing:"border-box" }}>
+            <div style={{ fontSize:11,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:2,marginBottom:6,textAlign:"center" }}>🔐 {L(appLang,"recTitle")}</div>
+            <input value={recoverCode} onChange={e=>{ setRecoverCode(e.target.value.toUpperCase()); setRecoverErr(""); }}
+              placeholder={L(appLang,"recPlaceholder")} maxLength={12} autoCapitalize="characters" autoCorrect="off" spellCheck={false}
+              style={{ width:"100%",padding:"11px 10px",background:t.surface,color:"#fff",border:`1.5px solid ${recoverErr?t.hit:t.border}`,borderRadius:9,fontSize:17,fontFamily:mono,fontWeight:900,letterSpacing:3,outline:"none",textAlign:"center",boxSizing:"border-box" }} />
+            {recoverErr && <div style={{ fontSize:10,color:t.hit,fontFamily:mono,marginTop:5,textAlign:"center" }}>{recoverErr}</div>}
+            <button onClick={handleRecover} disabled={recoverBusy}
+              style={{ width:"100%",marginTop:8,padding:"11px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:9,fontSize:12,fontWeight:900,letterSpacing:2,cursor:recoverBusy?"wait":"pointer",fontFamily:warrior,opacity:recoverBusy?0.6:1 }}>{L(appLang,"recEnter")}</button>
+            <button onClick={()=>{ setRecoverOpen(false); setRecoverCode(""); setRecoverErr(""); setMessage(""); }}
+              style={{ width:"100%",marginTop:6,padding:"8px 0",background:"transparent",color:t.textDim,border:"none",fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textDecoration:"underline" }}>{L(appLang,"recCancel")}</button>
+          </div>
+        )}
+
+        {!recoverOpen && <button onClick={handleSetUsername} style={{ ...btnStyle,marginTop:16,padding:"14px 40px",borderRadius:10,fontSize:15 }}>{L(appLang,"confirm")}</button>}
+        {message && <div style={{ marginTop:12,color:recoverOpen?t.accent:t.hit,fontSize:11,fontFamily:mono,textAlign:"center",maxWidth:300 }}>{message}</div>}
       </div>
     </div>);
     
@@ -5043,22 +5070,6 @@ export default function Game() {
       {dailyChestModalOpen && <DailyChestPopup onClaim={claimDailyChest} onClose={() => setDailyChestModalOpen(false)} lang={appLang} />}
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
       <LivingHorizon profile={myProfile} lang={appLang} />
-      <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowLogoutConfirm(true); }} style={{ marginTop:16,padding:"10px 24px",background:"rgba(255,71,87,0.06)",color:t.hit,border:`2px solid ${t.hit}`,borderRadius:8,fontSize:14,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior,zIndex:1,opacity:0.9 }}>{L(appLang,"logoutBtn")}</button>
-      {/* ÇIKIŞ UYARISI — anonim hesap geri alınamaz, kullanıcı bunu bilerek onaylamalı */}
-      {showLogoutConfirm && (
-        <div onClick={()=>setShowLogoutConfirm(false)} style={{ position:"fixed",inset:0,overflow:"hidden",zIndex:9800,background:"rgba(2,6,16,0.85)",display:"flex",alignItems:"center",justifyContent:"center",padding:18,animation:"settingsFadeIn 0.25s ease-out" }}>
-          <div onClick={e=>e.stopPropagation()} style={{ background:"linear-gradient(160deg, #1a0d10, #0b0709)",border:`2px solid ${t.hit}`,borderRadius:18,padding:"24px 22px 20px",width:"100%",maxWidth:340,textAlign:"center",boxShadow:`0 0 40px rgba(255,71,87,0.25), 0 20px 60px rgba(0,0,0,0.75)`,animation:"tutCardEnter 0.5s cubic-bezier(0.16,1,0.3,1)" }}>
-            <div style={{ fontSize:40,marginBottom:8 }}>⚠️</div>
-            <div style={{ fontSize:15,fontWeight:900,color:t.hit,fontFamily:warrior,letterSpacing:2,marginBottom:12,lineHeight:1.3 }}>{L(appLang,"logoutTitle")}</div>
-            <div style={{ fontSize:12,color:t.text,fontFamily:mono,lineHeight:1.6,marginBottom:10 }}>{L(appLang,"logoutBody")}</div>
-            <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,lineHeight:1.5,marginBottom:18,fontStyle:"italic" }}>{L(appLang,"logoutBody2")}</div>
-            <div style={{ display:"flex",flexDirection:"column",gap:9 }}>
-              <button onClick={()=>setShowLogoutConfirm(false)} style={{ width:"100%",padding:"14px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:14,fontWeight:900,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 20px ${t.accentGlow}` }}>{L(appLang,"logoutStay")}</button>
-              <button onClick={handleLogout} style={{ width:"100%",padding:"12px 0",background:"transparent",color:t.hit,border:`2px solid ${t.hit}`,borderRadius:12,fontSize:12,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"logoutGo")}</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>);
   }
 
@@ -5273,5 +5284,5 @@ export default function Game() {
   return null;
   })();
 
-  return (<>{content}{renderTopBar()}{renderCodeModal()}{renderRecoverModal()}</>);
+  return (<>{content}{renderTopBar()}{renderCodeModal()}{renderLogoutModal()}</>);
 }
