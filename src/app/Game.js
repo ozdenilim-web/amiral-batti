@@ -781,25 +781,27 @@ class SoundEngine {
   playIntroFanfare() { this.ensureMusic(0.10); }
   // YERLEŞTİRME — Taktik müzik (sakin ama gerilimli)
   playPlacementMusic() { this.ensureMusic(0.10); }
-  playVoice(name) {
+  // channel "fx" (patlama vb.) serbest çalar; channel "anon" (kill anonsları) kendi arasında tekildir.
+  playVoice(name, channel = "fx") {
     if (!this.sfxOn) return;
-    // Anons/efekt mp3'leri — kısa dosyalar. Önceki anons hâlâ çalıyorsa kesilir ki üst üste binmesin.
     try {
-      if (this._voiceEl) { try { this._voiceEl.pause(); this._voiceEl.currentTime = 0; } catch(e) {} }
+      if (channel === "anon" && this._anonEl) { try { this._anonEl.pause(); this._anonEl.currentTime = 0; } catch(e) {} }
       const a = new Audio(`/sfx/${name}.mp3`);
-      a.volume = 0.85;
-      this._voiceEl = a;
-      a.play().catch(()=>{});
+      a.volume = channel === "anon" ? 1.0 : 0.85;
+      if (channel === "anon") this._anonEl = a;
+      const p = a.play();
+      if (p && p.catch) p.catch(()=>{});
     } catch(e) {}
   }
   // TEK ATIŞTA (bir yaylım ateşinde) vurulan kutucuk sayısına göre anons.
   // 3 kutucuk → triple kill, 2 kutucuk → double kill, 1 kutucuk → (sadece ilk kez) first kill.
-  // Öncelik çoklu vuruşta: double/triple, first_kill'i ezer — anonslar birbirini boğmaz.
+  // Patlama sesinin üstüne binmemesi için kısa gecikmeyle, kendi kanalında çalar.
   playVolleyVoice(hitCount, isFirstEver) {
     if (!this.sfxOn) return;
-    if (hitCount >= 3) this.playVoice('triple_kill');
-    else if (hitCount === 2) this.playVoice('double_kill');
-    else if (hitCount === 1 && isFirstEver) this.playVoice('first_kill');
+    const name = hitCount >= 3 ? 'triple_kill' : hitCount === 2 ? 'double_kill' : (hitCount === 1 && isFirstEver ? 'first_kill' : null);
+    if (!name) return;
+    if (this._volleyTimer) clearTimeout(this._volleyTimer);
+    this._volleyTimer = setTimeout(() => this.playVoice(name, "anon"), 320);
   }
   play(type) {
     if (!this.enabled || !this.ctx || !this.sfxOn) return;
@@ -1290,6 +1292,42 @@ async function ensureProfile(uid, displayName) {
 }
 
 
+
+// === ONLINE MAÇ SONUCU — HER OYUNCU KENDİ PROFİLİNİ YAZAR ===
+// Firebase kuralları başkasının profiline yazmayı engeller (auth.uid === $uid). Eskiden kazanan
+// her iki profili birden yazmaya çalışıyor, izin hatası zinciri koparıyor ve ödüller hiç işlenmiyordu.
+async function applyOnlineResultSelf(uid, isWinner, arena, achMutator) {
+  try {
+    const snap = await get(ref(db, `profiles/${uid}`));
+    if (!snap.exists()) return null;
+    const p = snap.val();
+    const a = safeAch(p.ach);
+    const rev = isWinner ? revengeMult(a.lossStreak) : 1;
+    const baseXp = arena ? XP_ONLINE_WIN * 1.1 : XP_ONLINE_WIN;
+    const gold = isWinner ? Math.round((arena ? arena.winGold : 100) * rev) : (arena ? arena.entryFee : 0);
+    const xp = isWinner ? baseXp * rev : baseXp * 0.25;
+    const lvl = applyLevelCredit(p, xp);
+    const oldGold = safeGold(p.gold), newGold = oldGold + gold;
+    a.goldEarned += gold;
+    if (isWinner) { a.onlineWins += 1; a.winStreak += 1; a.bestWinStreak = Math.max(a.bestWinStreak, a.winStreak); a.lossStreak = 0; }
+    else { a.winStreak = 0; a.turnStreak = 0; a.lossStreak = (a.lossStreak || 0) + 1; }
+    try { if (achMutator) achMutator(a); } catch (e) {}
+    const upd = {
+      gold: newGold,
+      wins: (p.wins || 0) + (isWinner ? 1 : 0),
+      losses: (p.losses || 0) + (isWinner ? 0 : 1),
+      totalGames: (p.totalGames || 0) + 1,
+      onlineGames: (p.onlineGames || 0) + 1,
+      level: lvl.level, levelProgress: lvl.levelProgress,
+      lastGameAt: Date.now(),
+      recentResults: pushRecent(p.recentResults, isWinner),
+      honor: migrateHonor(p) + (isWinner ? HONOR_WIN_ONLINE : HONOR_LOSS_ONLINE),
+      ach: a,
+    };
+    await update(ref(db, `profiles/${uid}`), upd);
+    return { ...upd, oldGold, gold, xp, rev };
+  } catch (e) { console.error("applyOnlineResultSelf error:", e); return null; }
+}
 
 async function updateEloAfterGame(winnerUid, loserUid, arena) {
   const winnerSnap = await get(ref(db, `profiles/${winnerUid}`));
@@ -2894,79 +2932,40 @@ export default function Game() {
         else { setTimeout(() => sfx.playDefeatMusic(), 500); }
         if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
 
-        // ELO güncelleme — sadece bir kez, sadece kazanan tarafından
+        // MAÇ SONUCU — her oyuncu KENDİ profilini yazar (Firebase kuralları başkasınınkine izin vermez).
+        // Rakibi beklemeye gerek yok: kazanan da kaybeden de ödülünü anında alır.
         if (!eloUpdatedRef.current && game.p1_uid && game.p2_uid) {
-          const winnerUid = game.winner === 1 ? game.p1_uid : game.p2_uid, loserUid = game.winner === 1 ? game.p2_uid : game.p1_uid;
+          eloUpdatedRef.current = true;
+          const myUidNow = pNum === 1 ? game.p1_uid : game.p2_uid;
           const gameArena = game.arena ? ARENAS.find(a => a.id === game.arena) : null;
+          const myShotList = game.attacks ? Object.values(game.attacks).filter(x => x.by === pNum) : [];
+          const mHits = myShotList.reduce((n, x) => n + ((x.shots || []).filter(s => s.result === "hit").length), 0);
+          const mMiss = myShotList.reduce((n, x) => n + ((x.shots || []).filter(s => s.result === "miss").length), 0);
+          const mElapsed = gameStartTime ? (Date.now() - gameStartTime) / 1000 : 999;
+          const sunkNow = killCountRef.current;
 
-          if (iW && !game.eloProcessed) {
-            eloUpdatedRef.current = true;
-            // runTransaction ile atomik kontrol — iki tab aynı anda yazamaz
-            runTransaction(ref(db, `rooms/${roomIdRef.current}/eloProcessed`), (current) => {
-              if (current === true) return; // Zaten işlendi, iptal
-              return true;
-            }).then(async (txResult) => {
-              if (!txResult.committed) return; // Başka biri zaten işledi
-              try {
-                const result = await updateEloAfterGame(winnerUid, loserUid, gameArena);
-                if (result) {
-                  await update(ref(db, `rooms/${roomIdRef.current}`), { eloResult: { winnerOldGold: result.winnerOldGold, winnerNewGold: result.winnerNewGold, loserOldGold: result.loserOldGold, loserNewGold: result.loserNewGold, winGold: result.winGold || 0, loseGold: result.loseGold || 0, winnerLevel: result.winnerLevel, winnerLevelProgress: result.winnerLevelProgress, loserLevel: result.loserLevel, loserLevelProgress: result.loserLevelProgress } });
-                  setEloChange({ myOld: result.winnerOldGold, myNew: result.winnerNewGold, oppOld: result.loserOldGold, oppNew: result.loserNewGold });
-                  setGoldChange({ amount: result.winGold || 0 });
-                  if (result.winGold > 0) { sfx.play('gold'); setGoldAnim({ amount: result.winGold }); }
-                  setMyProfile(prev => prev ? { ...prev, wins: (prev.wins || 0) + 1, totalGames: (prev.totalGames || 0) + 1, onlineGames: (prev.onlineGames || 0) + 1, gold: result.winnerNewGold, level: result.winnerLevel, levelProgress: result.winnerLevelProgress, recentResults: pushRecent(prev.recentResults, true), honor: migrateHonor(prev) + HONOR_WIN_ONLINE } : prev);
-                  // Kazanım sayaçları — online galibiyet
-                  const myShotList = game.attacks ? Object.values(game.attacks).filter(x => x.by === pNum) : [];
-                  const wHits = myShotList.reduce((n,x) => n + ((x.shots||[]).filter(s => s.result === "hit").length), 0);
-                  const wMiss = myShotList.reduce((n,x) => n + ((x.shots||[]).filter(s => s.result === "miss").length), 0);
-                  const wElapsed = gameStartTime ? (Date.now() - gameStartTime) / 1000 : 999;
-                  if ((result.revenge || 1) > 1) setRevengeResult({ mult: result.revenge });
-                  setMatchRewards({ gold: result.winGold || 0, xp: (gameArena ? XP_ONLINE_WIN * 1.1 : XP_ONLINE_WIN) * (result.revenge || 1), honor: HONOR_WIN_ONLINE, revenge: result.revenge || 1, isWin: true }); setRewardModalOpen(true);
-                  bumpAch(a => {
-                    a.hits += wHits; a.sunk += killCountRef.current; a.onlineWins += 1; a.goldEarned += (result.winGold || 0);
-                    a.winStreak += 1; a.bestWinStreak = Math.max(a.bestWinStreak, a.winStreak); a.lossStreak = 0;
-                    if (wElapsed < 300) a.fast5 = Math.max(a.fast5, 1);
-                    if (wElapsed < 180) a.fast3 = Math.max(a.fast3, 1);
-                    if (wElapsed < 120) a.fast2 = Math.max(a.fast2, 1);
-                    if (wMiss === 0 && wHits >= 20) a.perfect = Math.max(a.perfect, 1);
-                    if (gameArena && gameArena.id === "acikdeniz") a.arenaAcik = Math.max(a.arenaAcik, 1);
-                    if (gameArena && gameArena.id === "firtina") a.arenaFirtina = Math.max(a.arenaFirtina, 1);
-                  });
-                  bumpGlobalStats(1, killCountRef.current);
-                  bumpVoyageMatch();
-                }
-              } catch (e) { console.error("ELO update error:", e); }
-            }).catch(e => console.error("ELO transaction error:", e));
-
-          } else if (!iW) {
-            eloUpdatedRef.current = true;
-            // Kaybeden: eloResult'ı dinle (setTimeout yerine listener — daha güvenilir)
-            const eloResultRef = ref(db, `rooms/${roomIdRef.current}/eloResult`);
-            const unsubElo = onValue(eloResultRef, (eloSnap) => {
-              if (!eloSnap.exists()) return;
-              const er = eloSnap.val();
-              unsubElo(); // Bir kez oku, kapat
-              setEloChange({ myOld: er.loserOldGold, myNew: er.loserNewGold, oppOld: er.winnerOldGold, oppNew: er.winnerNewGold });
-              setGoldChange({ amount: er.loseGold || 0 });
-              setMyProfile(prev => prev ? { ...prev, losses: (prev.losses || 0) + 1, totalGames: (prev.totalGames || 0) + 1, onlineGames: (prev.onlineGames || 0) + 1, gold: er.loserNewGold, level: er.loserLevel, levelProgress: er.loserLevelProgress, recentResults: pushRecent(prev.recentResults, false), honor: migrateHonor(prev) + HONOR_LOSS_ONLINE } : prev);
-              setMatchRewards({ gold: 0, xp: XP_ONLINE_WIN * 0.25, honor: HONOR_LOSS_ONLINE, revenge: 1, isWin: false }); setRewardModalOpen(true);
-              // Kazanım sayaçları — online mağlubiyet: isabet/batırma sayılır, seriler sıfırlanır
-              const lShotList = game.attacks ? Object.values(game.attacks).filter(x => x.by === pNum) : [];
-              const lHits = lShotList.reduce((n,x) => n + ((x.shots||[]).filter(s => s.result === "hit").length), 0);
-              bumpAch(a => { a.hits += lHits; a.sunk += killCountRef.current; a.winStreak = 0; a.turnStreak = 0; a.lossStreak = (a.lossStreak||0) + 1; });
-              bumpGlobalStats(0, killCountRef.current);
-              bumpVoyageMatch();
-            });
-            // 10 saniye timeout — kazanan çökerse sonsuza kadar beklemesin
-            setTimeout(() => {
-              unsubElo();
-              if (!eloChange) {
-                get(ref(db, `profiles/${pNum === 1 ? game.p1_uid : game.p2_uid}`)).then(snap => {
-                  if (snap.exists()) setMyProfile(prev => prev ? { ...prev, ...snap.val() } : prev);
-                }).catch(() => {});
-              }
-            }, 10000);
-          }
+          applyOnlineResultSelf(myUidNow, iW, gameArena, (a) => {
+            a.hits += mHits; a.sunk += sunkNow;
+            if (iW) {
+              if (mElapsed < 300) a.fast5 = Math.max(a.fast5, 1);
+              if (mElapsed < 180) a.fast3 = Math.max(a.fast3, 1);
+              if (mElapsed < 120) a.fast2 = Math.max(a.fast2, 1);
+              if (mMiss === 0 && mHits >= 20) a.perfect = Math.max(a.perfect, 1);
+              if (gameArena && gameArena.id === "acikdeniz") a.arenaAcik = Math.max(a.arenaAcik, 1);
+              if (gameArena && gameArena.id === "firtina") a.arenaFirtina = Math.max(a.arenaFirtina, 1);
+            }
+          }).then(r => {
+            if (!r) return;
+            setMyProfile(prev => prev ? { ...prev, ...r } : prev);
+            setEloChange({ myOld: r.oldGold, myNew: r.gold + r.oldGold });
+            setGoldChange({ amount: r.gold });
+            if (r.gold > 0) { sfx.play('gold'); setGoldAnim({ amount: r.gold }); }
+            if (iW && r.rev > 1) setRevengeResult({ mult: r.rev });
+            setMatchRewards({ gold: r.gold, xp: r.xp, honor: iW ? HONOR_WIN_ONLINE : HONOR_LOSS_ONLINE, revenge: r.rev, isWin: iW });
+            setRewardModalOpen(true);
+            bumpGlobalStats(iW ? 1 : 0, sunkNow);
+            bumpVoyageMatch();
+          });
         }
       }
     });
