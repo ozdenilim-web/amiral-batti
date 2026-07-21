@@ -143,6 +143,27 @@ const ALL_MISSIONS = [
   { id: "perfect",  text: "Hiç karavana vermeden kazan",textEn: "Win without a single miss",     icon: "👁",  check: s => s.perfectGame },
 ];
 
+// === GÜNLÜK GÖREV İSTATİSTİKLERİ ===
+// Kritik: bunlar profile yazılır. Eskiden yalnızca bellekte tutuluyordu, uygulama
+// kapanınca sıfırlanıyordu; ayrıca ONLINE maçlar hiç işlenmiyor ve görevlerin
+// ihtiyaç duyduğu 7 alan (markedCells, streakHits, perfectGame...) hiç yazılmıyordu.
+const DAILY_DEFAULT = {
+  gamesPlayed: 0, wins: 0, totalHits: 0, shipsSunk: 0, markedCells: 0, streakHits: 0, perfectTurns: 0,
+  perfectTurn: false, perfectTurn3: false, botWin: false, fastWin: false, fastWin5: false,
+  ultraFastWin: false, perfectGame: false, chestClaimed: false,
+};
+function safeDaily(d) {
+  const today = todayKey();
+  const o = { ...DAILY_DEFAULT, dayKey: today };
+  if (!d || typeof d !== "object" || d.dayKey !== today) return o; // yeni gün → sıfırla
+  for (const k in DAILY_DEFAULT) {
+    const v = d[k];
+    if (typeof DAILY_DEFAULT[k] === "number") { if (typeof v === "number" && isFinite(v) && v >= 0) o[k] = v; }
+    else if (v === true) o[k] = true;
+  }
+  return o;
+}
+
 function pickDailyMissions(seed) {
   // Günlük seed ile her gün aynı 3 görev — GARANTİ: 1 kolay + 1 orta + 1 zor/efsane
   const day = Math.floor(seed / 86400000);
@@ -1030,6 +1051,7 @@ async function checkDailyReward(uid) {
     achievClaimed: safeClaimed(profile.achievClaimed),
     honor: migrateHonor(profile),
     voyage: safeVoyage(profile.voyage),
+    daily: safeDaily(profile.daily),
   };
   await set(profileRef, cleanProfile);
   return { reward, streak, newGold };
@@ -1258,7 +1280,7 @@ async function ensureProfile(uid, displayName) {
   const snap = await get(profileRef);
   if (!snap.exists()) {
     const startGold = isTestMode() ? 5000 : STARTING_GOLD;
-    const profile = { displayName: displayName||"Denizci", wins:0, losses:0, totalGames:0, botGames:0, onlineGames:0, gold:startGold, honor:0, level:0, levelProgress:0, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false, recentResults:[], ach:{ ...ACH_DEFAULT }, achievClaimed:{}, voyage:{ lastClaim:Date.now(), dayKey:"", matches:0 } };
+    const profile = { displayName: displayName||"Denizci", wins:0, losses:0, totalGames:0, botGames:0, onlineGames:0, gold:startGold, honor:0, level:0, levelProgress:0, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false, recentResults:[], ach:{ ...ACH_DEFAULT }, achievClaimed:{}, voyage:{ lastClaim:Date.now(), dayKey:"", matches:0 }, daily:{ ...DAILY_DEFAULT, dayKey:todayKey() } };
     await set(profileRef, profile);
     return profile;
   }
@@ -1287,6 +1309,7 @@ async function ensureProfile(uid, displayName) {
     achievClaimed: safeClaimed(existing.achievClaimed),
     honor: migrateHonor(existing),
     voyage: safeVoyage(existing.voyage),
+    daily: safeDaily(existing.daily),
   };
   // ALWAYS overwrite with set() — kills any hidden NaN in any field
   await set(profileRef, sanitized);
@@ -1362,6 +1385,7 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
     ach: (() => { const a = safeAch(wd.ach); a.lossStreak = 0; return a; })(), achievClaimed: safeClaimed(wd.achievClaimed),
     honor: migrateHonor(wd) + HONOR_WIN_ONLINE,
     voyage: safeVoyage(wd.voyage),
+    daily: safeDaily(wd.daily),
   };
   const loserProfile = {
     displayName: ld.displayName || "Denizci",
@@ -1379,6 +1403,7 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
     ach: (() => { const a = safeAch(ld.ach); a.lossStreak = (a.lossStreak||0) + 1; return a; })(), achievClaimed: safeClaimed(ld.achievClaimed),
     honor: migrateHonor(ld) + HONOR_LOSS_ONLINE,
     voyage: safeVoyage(ld.voyage),
+    daily: safeDaily(ld.daily),
   };
   await set(ref(db, `profiles/${winnerUid}`), winnerProfile);
   await set(ref(db, `profiles/${loserUid}`), loserProfile);
@@ -2658,7 +2683,6 @@ export default function Game() {
   const [botName, setBotName] = useState("");
   const [dailyMissions, setDailyMissions] = useState(() => pickDailyMissions(Date.now()));
   const [missionProgress, setMissionProgress] = useState({});
-  const [missionStats, setMissionStats] = useState({ shipsSunk:0, wins:0, totalHits:0, perfectTurn:false, fastWin:false, botWin:false, gamesPlayed:0 });
   const [chestReward, setChestReward] = useState(null);
   const [chestClaimed, setChestClaimed] = useState(false);
   const [gameStartTime, setGameStartTime] = useState(null);
@@ -2808,6 +2832,18 @@ export default function Game() {
     setVoyageReward(null);
   };
 
+  // GÜNLÜK GÖREV sayaçlarını güncelle — profile yazılır, uygulama kapansa da kaybolmaz.
+  // Gün değişince safeDaily otomatik sıfırlar.
+  const bumpDaily = (fn) => {
+    setMyProfile(prev => {
+      if (!prev) return prev;
+      const d = safeDaily(prev.daily);
+      try { fn(d); } catch (e) {}
+      if (authUid) update(ref(db, `profiles/${authUid}`), { daily: d }).catch(() => {});
+      return { ...prev, daily: d };
+    });
+  };
+
   // Kazanım sayaçlarını güncelle — fn(a) sayaç kopyasını mutasyona uğratır, DB + local senkronize edilir
   const bumpAch = (fn) => {
     setMyProfile(prev => {
@@ -2828,7 +2864,7 @@ export default function Game() {
     const lvl2 = applyLevelCredit(myProfile, XP_BOT_LOSS);
     update(ref(db, `profiles/${authUid}`), { losses: (myProfile.losses||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl2.level, levelProgress: lvl2.levelProgress, recentResults: pushRecent(myProfile.recentResults, false), honor: migrateHonor(myProfile) + HONOR_LOSS_BOT }).catch(()=>{});
     setMyProfile(prev => prev ? { ...prev, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl2.level, levelProgress: lvl2.levelProgress, recentResults: pushRecent(prev.recentResults, false), honor: migrateHonor(prev) + HONOR_LOSS_BOT } : prev);
-    setMissionStats(prev => ({ ...prev, gamesPlayed: prev.gamesPlayed + 1 }));
+    bumpDaily(d => { d.gamesPlayed += 1; });
     setMatchRewards({ gold: 0, xp: XP_BOT_LOSS, honor: HONOR_LOSS_BOT, revenge: 1, isWin: false }); setRewardModalOpen(true);
     // Kazanım sayaçları: mağlubiyette isabet/batırma yine sayılır, seriler sıfırlanır
     bumpAch(a => { a.hits += myHits; a.sunk += killCountRef.current; a.winStreak = 0; a.turnStreak = 0; a.lossStreak = (a.lossStreak||0) + 1; });
@@ -2869,12 +2905,13 @@ export default function Game() {
   };
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
-  // Mission progress checker
+  // Görev ilerlemesi — artık KALICI günlük istatistiklerden hesaplanır (profilden gelir)
+  const dailyStats = safeDaily(myProfile?.daily);
   useEffect(() => {
     const newProgress = {};
-    dailyMissions.forEach(m => { if (m.check(missionStats)) newProgress[m.id] = true; });
+    dailyMissions.forEach(m => { try { if (m.check(dailyStats)) newProgress[m.id] = true; } catch (e) {} });
     setMissionProgress(newProgress);
-  }, [missionStats, dailyMissions]);
+  }, [myProfile?.daily, dailyMissions]);
 
   // Online player counter (update #9)
   useEffect(() => {
@@ -3020,7 +3057,7 @@ export default function Game() {
             if (!game.winner) { activeBoardTimerRef.current = setTimeout(() => setActiveBoard("defense"), 2000); }
             // Sound for own shots landing
             const myHitCount = lastAtk.shots.filter(s => s.result === "hit").length;
-            sfx.init(); if (myHitCount > 0) { sfx.play('hit'); sfx.setBattleIntensity(0.55 + myHitCount * 0.1); const wasFirstO = !firstHitVoiceRef.current; firstHitVoiceRef.current = true; sfx.playVolleyVoice(myHitCount, wasFirstO); const hit3b=appLang==="en"?FB_HIT3_EN:FB_HIT3, hit2b=appLang==="en"?FB_HIT2_EN:FB_HIT2, hit1b=appLang==="en"?FB_HIT1_EN:FB_HIT1; setMicroFeedback({ text: fbPick(myHitCount === 3 ? hit3b : myHitCount === 2 ? hit2b : hit1b), color: myHitCount === 3 ? t.gold : t.accent }); } else { sfx.play('miss'); sfx.setBattleIntensity(0.18); setMicroFeedback({ text: fbPick(appLang==="en"?FB_MISS_EN:FB_MISS), color: '#4dd8ff' }); }
+            sfx.init(); if (!isBotGame) { const shotN = (lastAtk.shots||[]).length; bumpDaily(d => { if (myHitCount >= 3) d.perfectTurn3 = true; if (myHitCount > 0 && myHitCount === shotN) { d.perfectTurn = true; d.perfectTurns += 1; } d.streakHits = Math.max(d.streakHits, myHitCount); }); } if (myHitCount > 0) { sfx.play('hit'); sfx.setBattleIntensity(0.55 + myHitCount * 0.1); const wasFirstO = !firstHitVoiceRef.current; firstHitVoiceRef.current = true; sfx.playVolleyVoice(myHitCount, wasFirstO); const hit3b=appLang==="en"?FB_HIT3_EN:FB_HIT3, hit2b=appLang==="en"?FB_HIT2_EN:FB_HIT2, hit1b=appLang==="en"?FB_HIT1_EN:FB_HIT1; setMicroFeedback({ text: fbPick(myHitCount === 3 ? hit3b : myHitCount === 2 ? hit2b : hit1b), color: myHitCount === 3 ? t.gold : t.accent }); } else { sfx.play('miss'); sfx.setBattleIntensity(0.18); setMicroFeedback({ text: fbPick(appLang==="en"?FB_MISS_EN:FB_MISS), color: '#4dd8ff' }); }
           }
         }
       }
@@ -3068,6 +3105,19 @@ export default function Game() {
             setRewardModalOpen(true);
             bumpGlobalStats(iW ? 1 : 0, sunkNow);
             bumpVoyageMatch();
+            // GÜNLÜK GÖREVLER — online maçlar da sayılır (eskiden hiç işlenmiyordu)
+            bumpDaily(d => {
+              d.gamesPlayed += 1;
+              d.totalHits += mHits;
+              d.shipsSunk = Math.max(d.shipsSunk, sunkNow);
+              if (iW) {
+                d.wins += 1;
+                if (mElapsed < 300) d.fastWin5 = true;
+                if (mElapsed < 180) d.fastWin = true;
+                if (mElapsed < 120) d.ultraFastWin = true;
+                if (mMiss === 0 && mHits >= 20) d.perfectGame = true;
+              }
+            });
           });
         }
       }
@@ -3425,7 +3475,7 @@ export default function Game() {
   };
   const handleAttackClick = (r, c) => { if (!myTurn || phase !== "playing") return; if (markMode) { handleAttackMark(r, c); return; } if (attackOverlay[r][c]) return; if (manualMarks[r][c]) return; const existing = currentShots.findIndex(([sr, sc]) => sr === r && sc === c); if (existing !== -1) { setCurrentShots(currentShots.filter((_, i) => i !== existing)); return; } if (currentShots.length >= SHOTS_PER_TURN) return; setCurrentShots([...currentShots, [r, c]]); };
   const handleAttackRightClick = (r, c) => { handleAttackMark(r, c); };
-  const handleAttackMark = (r, c) => { if (phase !== "playing") return; if (attackOverlay[r][c]) return; const nm = manualMarks.map(row => [...row]); nm[r][c] = !nm[r][c]; setManualMarks(nm); if (nm[r][c] && !isOnboarding) bumpAch(a => { a.marks += 1; }); };
+  const handleAttackMark = (r, c) => { if (phase !== "playing") return; if (attackOverlay[r][c]) return; const nm = manualMarks.map(row => [...row]); nm[r][c] = !nm[r][c]; setManualMarks(nm); if (nm[r][c] && !isOnboarding) { bumpAch(a => { a.marks += 1; }); bumpDaily(d => { d.markedCells += 1; }); } };
   const handleAttackLongPress = (r, c) => { handleAttackMark(r, c); };
   const fireShots = async () => {
     if (currentShots.length === 0) return;
@@ -3808,7 +3858,7 @@ export default function Game() {
     // Track mission stats
     const allHit = currentShots.every(([r,c]) => botBoard[r][c] > 0);
     const sunkNow = botShips ? Object.values(botShips).filter(ship => ship.cells.every(([r,c]) => newAtkOverlay[r][c] === "hit" || newAtkOverlay[r][c] === "sunk")).length : 0;
-    setMissionStats(prev => ({ ...prev, totalHits: prev.totalHits + currentShots.filter(([r,c]) => botBoard[r][c] > 0).length, perfectTurn: prev.perfectTurn || allHit, shipsSunk: Math.max(prev.shipsSunk, sunkNow) }));
+    (() => { const th = currentShots.filter(([r,c]) => botBoard[r][c] > 0).length; bumpDaily(d => { d.totalHits += th; if (allHit && currentShots.length > 0) { d.perfectTurn = true; d.perfectTurns += 1; } if (th >= 3) d.perfectTurn3 = true; d.shipsSunk = Math.max(d.shipsSunk, sunkNow); }); })();
     // Streak tracking
     const hitCount = currentShots.filter(([r,c]) => botBoard[r][c] > 0).length;
     if (hitCount === currentShots.length && hitCount > 0) {
@@ -3816,7 +3866,7 @@ export default function Game() {
       setHitStreak(newStreak);
       const mult = newStreak >= 9 ? 4 : newStreak >= 6 ? 3 : newStreak >= 3 ? 2 : 1;
       if (mult > 1) { setStreakToast({ streak: newStreak, mult }); setTimeout(() => setStreakToast(null), 2500); }
-      bumpAch(a => { a.bestHitStreak = Math.max(a.bestHitStreak, newStreak); });
+      bumpAch(a => { a.bestHitStreak = Math.max(a.bestHitStreak, newStreak); }); bumpDaily(d => { d.streakHits = Math.max(d.streakHits, newStreak); });
     } else {
       setHitStreak(0); setStreakToast(null);
     }
@@ -3841,7 +3891,7 @@ export default function Game() {
       // Count sunk ships
       const sunkCount = botShips ? Object.values(botShips).filter(ship => ship.cells.every(([r,c]) => newAtkOverlay[r][c] === "hit" || newAtkOverlay[r][c] === "sunk")).length : 0;
       const elapsed = gameStartTime ? (Date.now() - gameStartTime) / 1000 : 999;
-      setMissionStats(prev => ({ ...prev, wins: prev.wins + 1, botWin: true, gamesPlayed: prev.gamesPlayed + 1, totalHits: prev.totalHits + newMyHits, shipsSunk: prev.shipsSunk + sunkCount, fastWin: elapsed < 180 }));
+      bumpDaily(d => { d.wins += 1; d.botWin = true; d.gamesPlayed += 1; d.shipsSunk = Math.max(d.shipsSunk, sunkCount); if (elapsed < 300) d.fastWin5 = true; if (elapsed < 180) d.fastWin = true; if (elapsed < 120) d.ultraFastWin = true; if (newAtkOverlay.flat().filter(v => v === "miss").length === 0) d.perfectGame = true; });
       // Bot galibiyeti altını (seri çarpanlı)
       const streakMult = hitStreak >= 9 ? 4 : hitStreak >= 6 ? 3 : hitStreak >= 3 ? 2 : 1;
       // İntikam çarpanı — kayıp serisinden gelen bilenmişlik ödülü
@@ -4684,7 +4734,7 @@ export default function Game() {
       {/* GÜNLÜK GÖREVLER — kompakt canlı şerit */}
       {(() => {
         const dc = Object.keys(missionProgress).length;
-        const ready = dc >= 3 && !chestClaimed;
+        const ready = dc >= 3 && !chestClaimed && !dailyStats.chestClaimed;
         return (
           <div style={{ width:"100%",maxWidth:400,marginTop:10,zIndex:1 }}>
             <style>{`
@@ -4720,7 +4770,7 @@ export default function Game() {
           }).catch(() => {});
           setMyProfile(prev => { if (!prev) return prev; const ga = safeAch(prev.ach); ga.goldEarned += chestReward.gold; return { ...prev, gold: newGold, ach: ga }; });
         }
-        setChestClaimed(true); setChestReward(null);
+        setChestClaimed(true); bumpDaily(d => { d.chestClaimed = true; }); setChestReward(null);
       }} />}
       {dailyReward && <DailyRewardPopup reward={dailyReward.reward} streak={dailyReward.streak} onClose={() => { setMyProfile(prev => prev ? { ...prev, gold: dailyReward.newGold, loginStreak: dailyReward.streak } : prev); setDailyReward(null); }} lang={appLang} />}
       {/* SEFERE ÇIKIYORUZ — açılış karşılaması, çarpı veya arkaya dokunarak kapanır */}
