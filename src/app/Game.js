@@ -1259,13 +1259,16 @@ Bu veriler yalnızca oyun deneyimini sağlamak, skor tablosunu ve rütbeni göst
 3. ÜÇÜNCÜ TARAF ALTYAPISI
 Verilerin barındırılması ve kimlik doğrulaması için Google Firebase altyapısı kullanılır. Verilerin başka bir üçüncü tarafla ticari amaçla paylaşılması söz konusu değildir.
 
-4. YEREL DEPOLAMA
+4. KULLANIM ANALİTİĞİ
+Oyunu geliştirebilmek için Google Analytics for Firebase kullanılır. Bu araç; yaklaşık konum bilgisi (ülke/şehir düzeyinde, açık adres değil), cihaz modeli ve işletim sistemi, uygulama sürümü, oturum süresi ile hangi ekranların görüntülendiği ve kaç maç oynandığı gibi kullanım olaylarını toplar. Bu veriler anonim bir kimlikle ilişkilendirilir; adın, e-postan, telefon numaran veya tam konumun toplanmaz ve reklam amacıyla kullanılmaz. Analitik verileri Google tarafından 14 ay saklanır. Cihazının ayarlarından reklam kimliğini sıfırlayarak veya izleme engelleyici kullanarak bu toplamayı sınırlayabilirsin.
+
+5. YEREL DEPOLAMA
 Cihazında yalnızca ses/müzik tercihleri ve günlük ödül takibi gibi teknik ayarlar saklanır.
 
-5. HAKLARIN (KVKK & GDPR)
+6. HAKLARIN (KVKK & GDPR)
 KVKK'nın 11. maddesi ve GDPR kapsamında; verilerine erişme, düzeltme, taşınabilirlik talep etme ve verilerinin silinmesini isteme hakkına sahipsin. Ayarlar > Hesabımı/Verilerimi Sil yolunu kullanarak verilerini kalıcı olarak silebilir, ya da ozdenilim@gmail.com adresinden talepte bulunabilirsin.
 
-6. YAŞ SINIRI
+7. YAŞ SINIRI
 Oyun genel kitleye uygundur. 13 yaş altındaki kullanıcıların ebeveyn gözetiminde oynaması önerilir.
 
 KULLANIM KOŞULLARI
@@ -1291,13 +1294,16 @@ This data is used only to provide the game experience: showing your score and ra
 3. THIRD-PARTY INFRASTRUCTURE
 We use Google Firebase for hosting and authentication. Your data is never sold or shared with third parties for commercial purposes.
 
-4. LOCAL STORAGE
+4. USAGE ANALYTICS
+We use Google Analytics for Firebase to improve the game. It collects approximate location (country/city level, not your exact address), device model and operating system, app version, session duration, and usage events such as which screens you view and how many matches you play. This data is tied to an anonymous identifier; we do not collect your name, e-mail, phone number or precise location, and it is never used for advertising. Analytics data is retained by Google for 14 months. You can limit this collection by resetting your advertising ID in your device settings or by using a tracking blocker.
+
+5. LOCAL STORAGE
 Your device only stores technical settings such as sound/music preferences and daily reward tracking.
 
-5. YOUR RIGHTS (KVKK & GDPR)
+6. YOUR RIGHTS (KVKK & GDPR)
 Under Turkey's KVKK Article 11 and GDPR, you have the right to access, correct, port, and request deletion of your data. Use Settings > Delete My Account/Data to permanently erase your data, or contact ozdenilim@gmail.com.
 
-6. AGE
+7. AGE
 The game is suitable for a general audience. Players under 13 are encouraged to play under parental supervision.
 
 TERMS OF USE
