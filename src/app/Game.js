@@ -4558,18 +4558,18 @@ export default function Game() {
       {authLoading && <div style={{ background:"rgba(239,68,68,0.12)",border:`1px solid ${t.hit}`,borderRadius:8,padding:"10px 16px",marginBottom:12,fontSize:11,color:t.hit,fontFamily:mono,textAlign:"center",width:"100%",maxWidth:340,animation:"pulse 1.5s infinite" }}>{L(appLang,"connectingToServer")}</div>}
       {isTestMode() && <div style={{ background:"rgba(251,191,36,0.15)",border:`1px solid ${t.gold}`,borderRadius:8,padding:"8px 16px",marginBottom:12,fontSize:11,color:t.gold,fontFamily:warrior,letterSpacing:2,textAlign:"center",width:"100%",maxWidth:340 }}>{L(appLang,"testModeMsg")}</div>}
       {myProfile && (<div style={{ background:`linear-gradient(145deg, ${t.surface}, ${t.surfaceLight})`,border:`2px solid ${myLevelPct>=0.999?"#ffd700":t.border}`,borderRadius:16,padding:"18px 22px",marginBottom:16,width:"100%",maxWidth:360,animation:"fadeUp 0.3s ease-out",boxShadow:`0 4px 20px rgba(0,0,0,0.4)`,zIndex:1 }}>
-        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12 }}>
-          <div>
-            <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-              <div style={{ position:"relative",width:48,height:48 }}>
+        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:12 }}>
+          <div style={{ flex:1,minWidth:0 }}>
+            <div style={{ display:"flex",alignItems:"center",gap:10,minWidth:0 }}>
+              <div style={{ position:"relative",width:46,height:46,flexShrink:0 }}>
                 <div style={{ width:"100%",height:"100%",borderRadius:"50%",background:`conic-gradient(#ffd700 ${myLevelPct*360}deg, rgba(255,255,255,0.10) ${myLevelPct*360}deg)`,padding:3,boxShadow:myLevelPct>=0.999?`0 0 16px ${t.goldGlow}, 0 0 30px ${t.goldGlow}`:"none",transition:"box-shadow 0.4s ease" }}>
                   <button onClick={()=>setShowAvatarPick(v=>!v)} title={L(appLang,"pickAvatarTooltip")} style={{ width:"100%",height:"100%",borderRadius:"50%",background:"rgba(0,229,255,0.10)",border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,cursor:"pointer",padding:0,overflow:"hidden" }}>{(myProfile.avatar||"").startsWith("data:")?<img src={myProfile.avatar} alt="" style={{ width:"100%",height:"100%",objectFit:"cover" }} />:(myProfile.avatar||"⚓")}</button>
                 </div>
               </div>
-              <div>
-                <div style={{ fontSize:20,fontWeight:800,color:t.text,fontFamily:warrior,letterSpacing:2 }}>{myProfile.displayName}</div>
+              <div style={{ minWidth:0,flex:1 }}>
+                <div title={myProfile.displayName} style={{ fontSize:18,fontWeight:800,color:t.text,fontFamily:warrior,letterSpacing:1.5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"100%" }}>{myProfile.displayName}</div>
                 {(() => { const hn = migrateHonor(myProfile); const rk = getRankInfo(hn, appLang); return (
-                  <div style={{ display:"flex",alignItems:"center",gap:5,marginTop:2 }}>
+                  <div style={{ display:"flex",alignItems:"center",gap:5,marginTop:2,minWidth:0,flexWrap:"nowrap",overflow:"hidden" }}>
                     <span style={{ fontSize:11 }}>{rk.icon}</span>
                     <span style={{ fontSize:11,fontWeight:900,color:rk.color,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 10px ${rk.color}55` }}>{rk.title}</span>
                     <span title={appLang==="en"?"Honor — earned only in battle":"Şeref — sadece savaşarak kazanılır"} style={{ fontSize:9,fontWeight:800,color:"rgba(255,255,255,0.45)",fontFamily:mono,letterSpacing:1,marginLeft:2 }}>⚔ {hn}{rk.next?`/${rk.next}`:""}</span>
@@ -4586,12 +4586,10 @@ export default function Game() {
               <button onClick={()=>{setPhase("splash");}} style={{ fontSize:8,color:t.textDim,background:"transparent",border:`1px solid ${t.border}`,borderRadius:4,padding:"2px 6px",cursor:"pointer",fontFamily:mono }}>✏ {L(appLang,"editName")}</button>
             </div>}
           </div>
-          <div style={{ textAlign:"center",background:"linear-gradient(160deg, rgba(30,22,4,0.95), rgba(15,11,2,0.98))",borderRadius:14,padding:"10px 18px",border:"1.5px solid rgba(255,215,0,0.55)",boxShadow:`0 0 22px ${t.goldGlow}, inset 0 1px 0 rgba(255,235,140,0.25), inset 0 0 20px rgba(255,215,0,0.10), 0 4px 12px rgba(0,0,0,0.5)`,position:"relative",overflow:"hidden" }}>
-            <span style={{ position:"absolute",top:0,left:"-100%",width:"55%",height:"100%",background:"linear-gradient(105deg,transparent,rgba(255,244,180,0.22),transparent)",animation:"shimmerPass 3.2s ease-in-out infinite",pointerEvents:"none" }} />
-            <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:7 }}>
-              <img src="/img/coin.png" alt="" style={{ width:32,height:32,filter:"drop-shadow(0 0 6px #fff) drop-shadow(0 0 14px #ffd700) drop-shadow(0 2px 3px rgba(0,0,0,0.6))",animation:"rewardPulse 1.8s ease-in-out infinite" }} />
-              <div style={{ fontSize:34,fontWeight:900,fontFamily:warrior,lineHeight:1,letterSpacing:1,background:"linear-gradient(180deg,#fffbe0 0%,#ffe066 30%,#ffd700 60%,#e08a00 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 16px rgba(255,215,0,0.9)) drop-shadow(0 2px 3px rgba(0,0,0,0.7))" }}>{safeGold(myProfile.gold)}</div>
-            </div>
+          {/* ALTIN HAPI — kompakt ve sabit; uzun isim asla altına giremez */}
+          <div style={{ flexShrink:0,display:"flex",alignItems:"center",gap:5,background:"linear-gradient(160deg, rgba(26,19,4,0.96), rgba(12,9,2,0.98))",borderRadius:999,padding:"5px 12px 5px 6px",border:"1.5px solid rgba(255,215,0,0.5)",boxShadow:"0 0 14px rgba(255,215,0,0.25), inset 0 1px 0 rgba(255,235,140,0.2), 0 3px 8px rgba(0,0,0,0.5)" }}>
+            <img src="/img/coin.png" alt="" style={{ width:22,height:22,flexShrink:0,filter:"drop-shadow(0 0 5px rgba(255,215,0,0.85))" }} />
+            <div style={{ fontSize:19,fontWeight:900,fontFamily:warrior,lineHeight:1,letterSpacing:0.5,color:"#ffd94a",textShadow:"0 0 10px rgba(255,215,0,0.55), 0 1px 2px rgba(0,0,0,0.8)",whiteSpace:"nowrap" }}>{safeGold(myProfile.gold).toLocaleString(appLang==="en"?"en-US":"tr-TR")}</div>
           </div>
         </div>
         {/* Künye satırı + form çizgisi + oran halkası */}
