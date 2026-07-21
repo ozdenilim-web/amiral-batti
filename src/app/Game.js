@@ -302,6 +302,7 @@ const TRANSLATIONS = {
     chestReadyMsg: "SANDIK HAZIR!", collectRewardMsg: "Ödülünü topla", mysteryChest: "GİZEMLİ SANDIK", completedMissionsMsg: "3 görevi tamamladın!", openChestBtn: "SANDIĞI AÇ",
     dailyChestTooltip: "Günlük Sandık", rewardRare: "NADİR", rewardGood: "İYİ",
     achTitle: "KAZANIMLAR", achClaim: "ÖDÜLÜ AL", achClaimed: "ALINDI", achLocked: "KİLİTLİ", achSoon: "YAKINDA", achSetReward: "SET ÖDÜLÜ", achUnlockReq: "Açılma şartları", achPrevSet: "Önceki set tamamlanmalı", achBtn: "KAZANIMLAR", achAvatarReward: "ÖZEL AVATAR",
+    revengeActive: (m) => `İNTİKAM MODU — SONRAKİ ZAFERDE ÖDÜLLER ×${m}`, revengeTaken: (m) => `İNTİKAM ALINDI! ÖDÜLLER ×${m}`, revengeSub: "Denizin öfkesi seninle",
     oneChestPerDevice: "Her cihaza günde 1 sandık!", dailyRewardLabel: "GÜNLÜK ÖDÜL",
     battleStarting: "SAVAŞ BAŞLIYOR",
     tagline: "savaşların atası...",
@@ -367,6 +368,7 @@ const TRANSLATIONS = {
     chestReadyMsg: "CHEST READY!", collectRewardMsg: "Collect your reward", mysteryChest: "MYSTERY CHEST", completedMissionsMsg: "You've completed 3 missions!", openChestBtn: "OPEN CHEST",
     dailyChestTooltip: "Daily Chest", rewardRare: "RARE", rewardGood: "GOOD",
     achTitle: "ACHIEVEMENTS", achClaim: "CLAIM REWARD", achClaimed: "CLAIMED", achLocked: "LOCKED", achSoon: "COMING SOON", achSetReward: "SET REWARD", achUnlockReq: "Unlock requirements", achPrevSet: "Complete the previous set", achBtn: "ACHIEVEMENTS", achAvatarReward: "EXCLUSIVE AVATAR",
+    revengeActive: (m) => `REVENGE MODE — NEXT VICTORY REWARDS ×${m}`, revengeTaken: (m) => `REVENGE TAKEN! REWARDS ×${m}`, revengeSub: "The sea's fury is with you",
     oneChestPerDevice: "1 chest per device, every day!", dailyRewardLabel: "DAILY REWARD",
     battleStarting: "BATTLE STARTING",
     tagline: "ancestor of battles...",
@@ -453,7 +455,11 @@ function pushRecent(arr, won) { return [...(Array.isArray(arr) ? arr : []), won 
 function safeRecent(arr) { return Array.isArray(arr) ? arr.filter(x => x === "W" || x === "L").slice(-5) : []; }
 
 // === KAZANIM SİSTEMİ (kalıcı başarımlar) ===
-const ACH_DEFAULT = { hits:0, sunk:0, marks:0, chest:0, botWins:0, onlineWins:0, goldEarned:0, bestHitStreak:0, bestTurnStreak:0, turnStreak:0, bestWinStreak:0, winStreak:0, fast5:0, fast3:0, fast2:0, perfect:0, tripleTurn:0, arenaAcik:0, arenaFirtina:0 };
+const ACH_DEFAULT = { hits:0, sunk:0, marks:0, chest:0, botWins:0, onlineWins:0, goldEarned:0, bestHitStreak:0, bestTurnStreak:0, turnStreak:0, bestWinStreak:0, winStreak:0, lossStreak:0, fast5:0, fast3:0, fast2:0, perfect:0, tripleTurn:0, arenaAcik:0, arenaFirtina:0 };
+
+// === İNTİKAM MODU — üst üste kayıplar bir sonraki zaferin ödüllerini katlar ===
+// 2 mağlubiyet ×2, 3 mağlubiyet ×2.5, 4+ mağlubiyet ×3 (altın + XP)
+function revengeMult(lossStreak) { const ls = lossStreak || 0; return ls >= 4 ? 3 : ls === 3 ? 2.5 : ls === 2 ? 2 : 1; }
 function safeAch(a) { const o = { ...ACH_DEFAULT }; if (a && typeof a === "object") { for (const k in ACH_DEFAULT) { const v = a[k]; if (typeof v === "number" && isFinite(v) && v >= 0) o[k] = v; } } return o; }
 function safeClaimed(c) { const o = {}; if (c && typeof c === "object") { for (const k of ["s1","s2","s3","s4","s5"]) if (c[k] === true) o[k] = true; } return o; }
 
@@ -1254,13 +1260,15 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
   if (!winnerSnap.exists() || !loserSnap.exists()) return;
   const wd = winnerSnap.val(), ld = loserSnap.val();
   // Kaybeden altın kaybetmez ama kazanmaz da: arena giriş ücreti iade edilir, ekstra altın yok
-  const now = Date.now(), winGold = arena?arena.winGold:100, loseGold = arena?arena.entryFee:0;
+  // İntikam çarpanı: kazananın kayıp serisi ödülleri katlar (×2 / ×2.5 / ×3)
+  const wRevenge = revengeMult(safeAch(wd.ach).lossStreak);
+  const now = Date.now(), winGold = Math.round((arena?arena.winGold:100) * wRevenge), loseGold = arena?arena.entryFee:0;
   const wOldGold = safeGold(wd.gold), lOldGold = safeGold(ld.gold);
   const wNewGold = wOldGold + winGold, lNewGold = lOldGold + loseGold;
   // Full clean profiles with set() — no NaN can survive
-  const winCredit = arena ? XP_ONLINE_WIN * 1.1 : XP_ONLINE_WIN;
+  const winCredit = (arena ? XP_ONLINE_WIN * 1.1 : XP_ONLINE_WIN) * wRevenge;
   const wLevel = applyLevelCredit(wd, winCredit);
-  const lLevel = applyLevelCredit(ld, winCredit * 0.25); // kaybeden, kazananın XP'sinin %25'ini alır
+  const lLevel = applyLevelCredit(ld, (arena ? XP_ONLINE_WIN * 1.1 : XP_ONLINE_WIN) * 0.25); // kaybeden, baz XP'nin %25'ini alır
   const winnerProfile = {
     displayName: wd.displayName || "Denizci",
     wins: ((typeof wd.wins === "number" && !isNaN(wd.wins)) ? wd.wins : 0) + 1,
@@ -1274,7 +1282,7 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
     lastDailyReward: wd.lastDailyReward || null, createdAt: wd.createdAt || now, lastGameAt: now,
     onboardingDone: wd.onboardingDone === true, nameSetAt: wd.nameSetAt || null, avatar: wd.avatar || "⚓", dailyRewardCount: wd.dailyRewardCount || 0,
     recentResults: pushRecent(wd.recentResults, true),
-    ach: safeAch(wd.ach), achievClaimed: safeClaimed(wd.achievClaimed),
+    ach: (() => { const a = safeAch(wd.ach); a.lossStreak = 0; return a; })(), achievClaimed: safeClaimed(wd.achievClaimed),
     honor: migrateHonor(wd) + HONOR_WIN_ONLINE,
   };
   const loserProfile = {
@@ -1290,12 +1298,12 @@ async function updateEloAfterGame(winnerUid, loserUid, arena) {
     lastDailyReward: ld.lastDailyReward || null, createdAt: ld.createdAt || now, lastGameAt: now,
     onboardingDone: ld.onboardingDone === true, nameSetAt: ld.nameSetAt || null, avatar: ld.avatar || "⚓", dailyRewardCount: ld.dailyRewardCount || 0,
     recentResults: pushRecent(ld.recentResults, false),
-    ach: safeAch(ld.ach), achievClaimed: safeClaimed(ld.achievClaimed),
+    ach: (() => { const a = safeAch(ld.ach); a.lossStreak = (a.lossStreak||0) + 1; return a; })(), achievClaimed: safeClaimed(ld.achievClaimed),
     honor: migrateHonor(ld) + HONOR_LOSS_ONLINE,
   };
   await set(ref(db, `profiles/${winnerUid}`), winnerProfile);
   await set(ref(db, `profiles/${loserUid}`), loserProfile);
-  return { winnerOldGold:wOldGold, winnerNewGold:wNewGold, loserOldGold:lOldGold, loserNewGold:lNewGold, winGold, loseGold, winnerLevel: wLevel.level, winnerLevelProgress: wLevel.levelProgress, loserLevel: lLevel.level, loserLevelProgress: lLevel.levelProgress };
+  return { winnerOldGold:wOldGold, winnerNewGold:wNewGold, loserOldGold:lOldGold, loserNewGold:lNewGold, winGold, loseGold, winnerLevel: wLevel.level, winnerLevelProgress: wLevel.levelProgress, loserLevel: lLevel.level, loserLevelProgress: lLevel.levelProgress, revenge: wRevenge };
 }
 
 async function fetchLeaderboard(sortBy='gold', count=15) {
@@ -2241,6 +2249,7 @@ export default function Game() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [dailyOpen, setDailyOpen] = useState(false);
+  const [revengeResult, setRevengeResult] = useState(null); // { mult } — intikam alındığında maç sonunda gösterilir
   const [eloChange, setEloChange] = useState(null);
   const [showOnlineLobby, setShowOnlineLobby] = useState(false);
   const [matchmaking, setMatchmaking] = useState(false);
@@ -2420,7 +2429,7 @@ export default function Game() {
     setMyProfile(prev => prev ? { ...prev, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl2.level, levelProgress: lvl2.levelProgress, recentResults: pushRecent(prev.recentResults, false), honor: migrateHonor(prev) + HONOR_LOSS_BOT } : prev);
     setMissionStats(prev => ({ ...prev, gamesPlayed: prev.gamesPlayed + 1 }));
     // Kazanım sayaçları: mağlubiyette isabet/batırma yine sayılır, seriler sıfırlanır
-    bumpAch(a => { a.hits += myHits; a.sunk += killCountRef.current; a.winStreak = 0; a.turnStreak = 0; });
+    bumpAch(a => { a.hits += myHits; a.sunk += killCountRef.current; a.winStreak = 0; a.turnStreak = 0; a.lossStreak = (a.lossStreak||0) + 1; });
     bumpGlobalStats(1, killCountRef.current);
   };
 
@@ -2635,9 +2644,10 @@ export default function Game() {
                   const wHits = myShotList.reduce((n,x) => n + ((x.shots||[]).filter(s => s.result === "hit").length), 0);
                   const wMiss = myShotList.reduce((n,x) => n + ((x.shots||[]).filter(s => s.result === "miss").length), 0);
                   const wElapsed = gameStartTime ? (Date.now() - gameStartTime) / 1000 : 999;
+                  if ((result.revenge || 1) > 1) setRevengeResult({ mult: result.revenge });
                   bumpAch(a => {
                     a.hits += wHits; a.sunk += killCountRef.current; a.onlineWins += 1; a.goldEarned += (result.winGold || 0);
-                    a.winStreak += 1; a.bestWinStreak = Math.max(a.bestWinStreak, a.winStreak);
+                    a.winStreak += 1; a.bestWinStreak = Math.max(a.bestWinStreak, a.winStreak); a.lossStreak = 0;
                     if (wElapsed < 300) a.fast5 = Math.max(a.fast5, 1);
                     if (wElapsed < 180) a.fast3 = Math.max(a.fast3, 1);
                     if (wElapsed < 120) a.fast2 = Math.max(a.fast2, 1);
@@ -2664,7 +2674,7 @@ export default function Game() {
               // Kazanım sayaçları — online mağlubiyet: isabet/batırma sayılır, seriler sıfırlanır
               const lShotList = game.attacks ? Object.values(game.attacks).filter(x => x.by === pNum) : [];
               const lHits = lShotList.reduce((n,x) => n + ((x.shots||[]).filter(s => s.result === "hit").length), 0);
-              bumpAch(a => { a.hits += lHits; a.sunk += killCountRef.current; a.winStreak = 0; a.turnStreak = 0; });
+              bumpAch(a => { a.hits += lHits; a.sunk += killCountRef.current; a.winStreak = 0; a.turnStreak = 0; a.lossStreak = (a.lossStreak||0) + 1; });
               bumpGlobalStats(0, killCountRef.current);
             });
             // 10 saniye timeout — kazanan çökerse sonsuza kadar beklemesin
@@ -3061,7 +3071,7 @@ export default function Game() {
     /* müzik devam eder */
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
     finishDragListeners(); dragRef.current = null;
-    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShowSurrenderConfirm(false); setAfkTimer(null); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; killCountRef.current = 0; firstHitVoiceRef.current = false; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); isBotGameRef.current = false; setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false });
+    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShowSurrenderConfirm(false); setAfkTimer(null); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; killCountRef.current = 0; firstHitVoiceRef.current = false; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); isBotGameRef.current = false; setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false }); setRevengeResult(null);
     if (authUid) { get(ref(db, `profiles/${authUid}`)).then(snap => { if (snap.exists()) setMyProfile(snap.val()); }).catch(() => {}); }
     setTimeout(() => { sfx.init(); sfx.playBattleMusic(false); }, 300);
   };
@@ -3452,9 +3462,12 @@ export default function Game() {
       setMissionStats(prev => ({ ...prev, wins: prev.wins + 1, botWin: true, gamesPlayed: prev.gamesPlayed + 1, totalHits: prev.totalHits + newMyHits, shipsSunk: prev.shipsSunk + sunkCount, fastWin: elapsed < 180 }));
       // Bot galibiyeti altını (seri çarpanlı)
       const streakMult = hitStreak >= 9 ? 4 : hitStreak >= 6 ? 3 : hitStreak >= 3 ? 2 : 1;
-      const botWinGold = 25 * streakMult;
+      // İntikam çarpanı — kayıp serisinden gelen bilenmişlik ödülü
+      const rMult1 = revengeMult(safeAch(myProfile?.ach).lossStreak);
+      const botWinGold = Math.round(25 * streakMult * rMult1);
+      if (rMult1 > 1) setRevengeResult({ mult: rMult1 });
       if (authUid && myProfile && !isOnboarding) {
-        const lvl1 = applyLevelCredit(myProfile, XP_BOT_WIN);
+        const lvl1 = applyLevelCredit(myProfile, XP_BOT_WIN * rMult1);
         const oldGold1 = safeGold(myProfile.gold);
         const newGold1 = oldGold1 + botWinGold;
         update(ref(db, `profiles/${authUid}`), { gold: newGold1, wins: (myProfile.wins||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl1.level, levelProgress: lvl1.levelProgress, recentResults: pushRecent(myProfile.recentResults, true), honor: migrateHonor(myProfile) + HONOR_WIN_BOT }).catch(()=>{});
@@ -3463,7 +3476,7 @@ export default function Game() {
         const missCount1 = newAtkOverlay.flat().filter(v => v === "miss").length;
         bumpAch(a => {
           a.hits += newMyHits; a.sunk += sunkCount; a.botWins += 1; a.goldEarned += botWinGold;
-          a.winStreak += 1; a.bestWinStreak = Math.max(a.bestWinStreak, a.winStreak);
+          a.winStreak += 1; a.bestWinStreak = Math.max(a.bestWinStreak, a.winStreak); a.lossStreak = 0;
           if (elapsed < 300) a.fast5 = Math.max(a.fast5, 1);
           if (elapsed < 180) a.fast3 = Math.max(a.fast3, 1);
           if (elapsed < 120) a.fast2 = Math.max(a.fast2, 1);
@@ -4088,6 +4101,23 @@ export default function Game() {
     const chestProgressPct = Math.round((Object.keys(missionProgress).length / (dailyMissions.length || 3)) * 100);
     return (<><style>{ANIMS}</style>
       <GameOverScreen winner={winner} myHits={myHits} oppHits={oppHits} isWin={isWin} onNewGame={resetGame} onHome={resetGame} onViewBoard={() => setShowReview(true)} goldEarned={myEloDiff ?? (goldAnim?.amount || 0)} myLevel={myProfile?.level || 0} chestProgressPct={chestProgressPct} lang={appLang} />
+      {/* İntikam bildirimleri */}
+      {isWin && revengeResult && (
+        <div style={{ position:"fixed",top:"calc(14px + env(safe-area-inset-top, 0px))",left:0,right:0,display:"flex",justifyContent:"center",zIndex:10005,pointerEvents:"none" }}>
+          <div style={{ background:"linear-gradient(135deg, rgba(120,20,10,0.96), rgba(60,8,4,0.98))",border:"2px solid rgba(255,120,60,0.8)",borderRadius:12,padding:"10px 22px",display:"flex",alignItems:"center",gap:10,boxShadow:"0 0 34px rgba(255,80,40,0.5), 0 8px 24px rgba(0,0,0,0.6)",animation:"fadeUp 0.6s cubic-bezier(0.34,1.56,0.64,1)" }}>
+            <span style={{ fontSize:20 }}>⚔</span>
+            <span style={{ fontSize:14,fontWeight:900,color:"#ffb380",fontFamily:warrior,letterSpacing:2,textShadow:"0 0 14px rgba(255,120,60,0.8)" }}>{L(appLang,"revengeTaken")(revengeResult.mult)}</span>
+          </div>
+        </div>
+      )}
+      {!isWin && (() => { const rm = revengeMult(safeAch(myProfile?.ach).lossStreak); if (rm <= 1) return null; return (
+        <div style={{ position:"fixed",top:"calc(14px + env(safe-area-inset-top, 0px))",left:0,right:0,display:"flex",justifyContent:"center",zIndex:10005,pointerEvents:"none" }}>
+          <div style={{ background:"linear-gradient(135deg, rgba(120,20,10,0.96), rgba(60,8,4,0.98))",border:"2px solid rgba(255,120,60,0.8)",borderRadius:12,padding:"10px 22px",display:"flex",alignItems:"center",gap:10,boxShadow:"0 0 34px rgba(255,80,40,0.5), 0 8px 24px rgba(0,0,0,0.6)",animation:"fadeUp 0.8s cubic-bezier(0.34,1.56,0.64,1) 0.8s both, pulse 2s ease-in-out 1.8s infinite" }}>
+            <span style={{ fontSize:20 }}>⚔</span>
+            <span style={{ fontSize:13,fontWeight:900,color:"#ffb380",fontFamily:warrior,letterSpacing:2,textShadow:"0 0 14px rgba(255,120,60,0.8)" }}>{L(appLang,"revengeActive")(rm)}</span>
+          </div>
+        </div>
+      ); })()}
       <canvas id="confetti-canvas" style={{ position:'fixed',inset:0,pointerEvents:'none',zIndex:10002 }} />
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
       {eloChange && (<div style={{ position:"fixed",bottom:80,left:0,right:0,display:"flex",justifyContent:"center",zIndex:200,perspective:"600px" }}>
@@ -4219,6 +4249,22 @@ export default function Game() {
           </div>
         </div>
       </div>)}
+      {/* İNTİKAM MÜHRÜ — kayıp serisi varsa sonraki zafer katlanır */}
+      {(() => {
+        const ls = safeAch(myProfile?.ach).lossStreak;
+        const rm = revengeMult(ls);
+        if (rm <= 1) return null;
+        return (
+          <div style={{ width:"100%",maxWidth:360,marginBottom:10,zIndex:1,position:"relative",overflow:"hidden",background:"linear-gradient(135deg, rgba(200,30,30,0.16), rgba(255,140,0,0.10))",border:"2px solid rgba(255,80,60,0.55)",borderRadius:12,padding:"11px 14px",display:"flex",alignItems:"center",gap:10,animation:"pulse 1.8s ease-in-out infinite",boxShadow:"0 0 22px rgba(255,60,40,0.25)" }}>
+            <span style={{ fontSize:22,filter:"drop-shadow(0 0 8px rgba(255,90,50,0.9))" }}>⚔</span>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:12,fontWeight:900,color:"#ff9a76",fontFamily:warrior,letterSpacing:2,textShadow:"0 0 12px rgba(255,90,50,0.6)" }}>{L(appLang,"revengeActive")(rm)}</div>
+              <div style={{ fontSize:9,fontWeight:700,color:"rgba(255,180,150,0.7)",fontFamily:mono,letterSpacing:1,marginTop:2,fontStyle:"italic" }}>{L(appLang,"revengeSub")}</div>
+            </div>
+            <span style={{ fontSize:20,fontWeight:900,color:"#ffd700",fontFamily:warrior,textShadow:"0 0 14px rgba(255,215,0,0.8)" }}>×{rm}</span>
+          </div>
+        );
+      })()}
       {/* Main action buttons */}
       <div style={{ position:"relative",width:"100%",maxWidth:360,zIndex:1,animation:"fadeUp 0.5s ease-out" }}>
         {/* Köşe sonar dalgaları */}
