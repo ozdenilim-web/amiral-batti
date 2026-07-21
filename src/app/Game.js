@@ -1658,14 +1658,23 @@ function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
             : cells.map((_, j) => ({ r:0, c:j }));
           const gw = (isAdmiral ? 3 : cells.length) * S + ((isAdmiral ? 3 : cells.length) - 1) * G;
           const gh = (isAdmiral ? 2 : 1) * S + (isAdmiral ? G : 0);
+          // 3D kabartma kutucuk: üstten gelen ışık, iç parlaklık, alt gölge ve dış düşen gölge.
+          // Vurulunca kararır ve üzerine İNCE çarpı gelir (çetele çizgisi kaldırıldı).
           const Block = ({ hit }) => (
-            <span style={{ width:S,height:S,borderRadius:3,position:"relative",display:"inline-block",
-              background:hit?"rgba(18,18,22,0.94)":base,
-              border:"1px solid rgba(0,0,0,0.4)",
-              boxShadow:hit?"none":"inset 0 1px 0 rgba(255,255,255,0.3)",transition:"background 0.2s" }}>
+            <span style={{ width:S,height:S,borderRadius:3.5,position:"relative",display:"inline-block",
+              background: hit
+                ? "linear-gradient(160deg, #3a3f47 0%, #23262b 45%, #14161a 100%)"
+                : `linear-gradient(160deg, ${base} 0%, ${base} 42%, rgba(0,0,0,0.42) 100%)`,
+              border: `1px solid ${hit ? "rgba(0,0,0,0.55)" : "rgba(0,0,0,0.45)"}`,
+              boxShadow: hit
+                ? "inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -1px 2px rgba(0,0,0,0.6), 0 1px 1px rgba(0,0,0,0.5)"
+                : "inset 0 1.5px 0 rgba(255,255,255,0.55), inset 0 -2px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.55)",
+              transition:"background 0.25s" }}>
+              {/* Üst yüzeydeki cam parlaması */}
+              {!hit && <span style={{ position:"absolute",top:1,left:1.5,right:1.5,height:"38%",borderRadius:"3px 3px 60% 60%",background:"linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0.05))",pointerEvents:"none" }} />}
               {hit && (
-                <svg viewBox="0 0 10 10" style={{ position:"absolute",inset:0,width:"100%",height:"100%" }}>
-                  <path d="M2 2 L8 8 M8 2 L2 8" stroke="#000" strokeWidth="2.8" strokeLinecap="round" />
+                <svg viewBox="0 0 12 12" style={{ position:"absolute",inset:0,width:"100%",height:"100%" }}>
+                  <path d="M3.2 3.2 L8.8 8.8 M8.8 3.2 L3.2 8.8" stroke="rgba(255,255,255,0.9)" strokeWidth="1.3" strokeLinecap="round" />
                 </svg>
               )}
             </span>
@@ -1673,19 +1682,13 @@ function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
           return (
             <div key={i} title={(lang==="en"?sd?.nameEn:sd?.name)||""}
               style={{ position:"relative",width:gw,height:gh,flexShrink:0,
-                alignSelf:isAdmiral?"center":"flex-start",marginTop:isAdmiral?0:S+G }}>
+                alignSelf:isAdmiral?"center":"flex-start",marginTop:isAdmiral?0:S+G,
+                opacity:sunk?0.55:1,transition:"opacity 0.3s" }}>
               {layout.map((pos, j) => (
                 <span key={j} style={{ position:"absolute",left:pos.c*(S+G),top:pos.r*(S+G),lineHeight:0 }}>
                   <Block hit={j < hits} />
                 </span>
               ))}
-              {/* Gemi tamamen battı → çetele usulü KALIN çapraz çizgi */}
-              {sunk && (
-                <svg style={{ position:"absolute",left:-4,top:-3,width:gw+8,height:gh+6,pointerEvents:"none",overflow:"visible" }}>
-                  <line x1="2" y1={gh+3} x2={gw+6} y2="2" stroke="#000" strokeWidth="8" strokeLinecap="round" />
-                  <line x1="2" y1={gh+3} x2={gw+6} y2="2" stroke="#ff4757" strokeWidth="4.5" strokeLinecap="round" />
-                </svg>
-              )}
             </div>
           );
         })}
@@ -3593,9 +3596,9 @@ export default function Game() {
   // Splash'ten oyun bitene kadar tüm ekranlarda sabit duran müzik + ayarlar barı
   const renderTopBar = () => (
     <>
-      <div style={{ position:"fixed",top:"calc(12px + env(safe-area-inset-top, 0px))",right:14,zIndex:9500,display:"flex",alignItems:"center",gap:8 }}>
-        <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowSettings(true); setSettingsView(null); }} title={L(appLang,"settingsTooltip")} style={{ width:34,height:34,borderRadius:8,background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,fontSize:16,cursor:"pointer",color:t.textDim,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>⚙️</button>
-        <button onClick={toggleMusic} title={L(appLang,"musicTooltip")} style={{ width:34,height:34,borderRadius:8,background:musicOn?"rgba(255,255,255,0.06)":"rgba(255,71,87,0.14)",border:`1px solid ${musicOn?t.border:t.hit}`,fontSize:16,cursor:"pointer",color:musicOn?t.textDim:t.hit,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>{musicOn?"🔊":"🔇"}</button>
+      <div style={{ position:"fixed",top:"calc(10px + env(safe-area-inset-top, 0px))",right:14,zIndex:9500,display:"flex",alignItems:"center",gap:8 }}>
+        <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowSettings(true); setSettingsView(null); }} title={L(appLang,"settingsTooltip")} style={{ width:30,height:30,borderRadius:8,background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,fontSize:14,cursor:"pointer",color:t.textDim,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>⚙️</button>
+        <button onClick={toggleMusic} title={L(appLang,"musicTooltip")} style={{ width:30,height:30,borderRadius:8,background:musicOn?"rgba(255,255,255,0.06)":"rgba(255,71,87,0.14)",border:`1px solid ${musicOn?t.border:t.hit}`,fontSize:14,cursor:"pointer",color:musicOn?t.textDim:t.hit,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>{musicOn?"🔊":"🔇"}</button>
       </div>
       {showSettings && (
         <div style={{ position:"fixed",inset:0,overflowX:"hidden",zIndex:9600,background:"rgba(0,0,0,0.62)",backdropFilter:"blur(4px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"settingsFadeIn 0.2s ease-out" }} onClick={()=>{ setShowSettings(false); setSettingsView(null); }}>
@@ -5039,12 +5042,11 @@ export default function Game() {
       </div>}
       {/* OYUNDAN AYRIL — sol üstte sabit, üstteki ayar/ses butonlarıyla aynı tasarım dilinde.
           Sağ üstteki butonlarla çakışmaz, akışta yer kaplamaz. */}
-      {/* AYRIL — sağ üstteki ayar/ses butonlarıyla BİREBİR aynı ölçü: 34×34, radius 8,
-          aynı kenarlık kalınlığı, aynı üst hiza. Sol kenardan 14px (sağdakiler sağdan 14px)
-          → ekranın iki ucunda simetrik üçlü. Aralarında ekran genişliği kadar boşluk var. */}
+      {/* AYRIL — ayar ve ses butonlarının hemen soluna, aynı üçlünün parçası olarak.
+          Aynı ölçü (30×30), aynı köşe, aynı nötr renk. Sağdan konum: 14 + 30 + 8 + 30 + 8 = 90px */}
       <button onClick={() => { sfx.init(); sfx.play('click'); setShowSurrenderConfirm(true); }} title={L(appLang,"leaveGame")}
-        style={{ position:"fixed",top:"calc(12px + env(safe-area-inset-top, 0px))",left:14,zIndex:9500,width:34,height:34,borderRadius:8,background:"rgba(255,71,87,0.10)",border:`1px solid rgba(255,71,87,0.45)`,color:"#ff8a95",fontSize:16,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,transition:"all 0.15s ease" }}>⚑</button>
-      <div style={{ height:40 }} />
+        style={{ position:"fixed",top:"calc(10px + env(safe-area-inset-top, 0px))",right:90,zIndex:9500,width:30,height:30,borderRadius:8,background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,color:t.textDim,fontSize:14,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,transition:"all 0.15s ease" }}>⚑</button>
+      <div style={{ height:48 }} />
       {/* Surrender confirm modal */}
       {showSurrenderConfirm && <div style={{ position:"fixed",inset:0,overflow:"hidden",background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(4px)" }}>
         <div style={{ background:`linear-gradient(145deg,rgba(12,21,41,0.99),rgba(8,14,30,0.99))`,border:`2px solid ${t.hit}`,borderRadius:16,padding:"28px 32px",textAlign:"center",maxWidth:300,width:"90%",boxShadow:`0 0 60px ${t.hitGlow}`,animation:"scaleUp 0.3s ease-out" }}>
