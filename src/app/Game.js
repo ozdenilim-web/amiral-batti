@@ -1036,13 +1036,13 @@ function RippleButton({ children, onClick, style, disabled, ...props }) {
 
 // === MİKRO FEEDBACK ===
 function MicroFeedback({ text, color, onDone }) {
-  useEffect(() => { const tm = setTimeout(()=>onDone?.(), 2100); return ()=>clearTimeout(tm); }, []);
+  useEffect(() => { const tm = setTimeout(()=>onDone?.(), 3100); return ()=>clearTimeout(tm); }, []);
   const clr = color || t.gold;
   // İlk anda maksimum parlaklıkla belirir, platformun hemen altında 1.5sn sabit durur, sonra ekrana doğru küçülüp solarak kaybolur
-  return (<div style={{ position:'absolute',top:'100%',left:'50%',marginTop:12,zIndex:10001,fontSize:24,fontWeight:900,color:clr,fontFamily:warrior,letterSpacing:4,textTransform:'uppercase',whiteSpace:'nowrap',
+  return (<div style={{ position:'absolute',top:'100%',left:'50%',marginTop:26,zIndex:10050,fontSize:24,fontWeight:900,color:clr,fontFamily:warrior,letterSpacing:4,textTransform:'uppercase',whiteSpace:'nowrap',
     WebkitTextStroke:'1.5px rgba(0,0,0,0.85)',
     textShadow:`0 3px 0 rgba(0,0,0,0.9), 0 6px 0 rgba(0,0,0,0.55), 0 12px 24px rgba(0,0,0,0.9), 0 0 34px ${clr}, 0 0 90px ${clr}66`,
-    animation:'feedbackHoldRise 2.1s ease-out forwards',pointerEvents:'none' }}>{text}</div>);
+    animation:'feedbackHoldRise 3.1s ease-out forwards',pointerEvents:'none' }}>{text}</div>);
 }
 
 const ARENAS = [
@@ -1553,7 +1553,7 @@ const ANIMS = `
 @keyframes btnBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
 @keyframes sonarArc{0%,100%{opacity:0.35;transform:scale(1)}50%{opacity:1;transform:scale(1.18)}}
 @keyframes arZoomText{0%{opacity:0;transform:translateX(-50%) scale(0.2)}8%{opacity:1;transform:translateX(-50%) scale(1.05)}12%{transform:translateX(-50%) scale(1)}70%{opacity:1;transform:translateX(-50%) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-40px) scale(2.6);filter:blur(3px)}}
-@keyframes feedbackHoldRise{0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}71%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-14px) scale(0.5);filter:blur(3px)}}
+@keyframes feedbackHoldRise{0%{opacity:0;transform:translateX(-50%) translateY(6px) scale(0.86)}7%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}80%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-16px) scale(0.55);filter:blur(4px)}}
 @keyframes popFlash{0%{opacity:0;transform:translateX(-50%) scale(0.1) rotate(-8deg)}22%{opacity:1;transform:translateX(-50%) scale(1.45) rotate(4deg)}38%{transform:translateX(-50%) scale(1.05) rotate(0deg)}72%{opacity:1;transform:translateX(-50%) scale(1.05)}100%{opacity:0;transform:translateX(-50%) scale(0.7) translateY(-16px)}}
 @keyframes fbPop3d{0%{opacity:0;transform:translateX(-50%) scale(0.3) perspective(500px) rotateX(40deg)}12%{opacity:1;transform:translateX(-50%) scale(1.25) perspective(500px) rotateX(-6deg)}22%{transform:translateX(-50%) scale(1) perspective(500px) rotateX(0deg)}78%{opacity:1;transform:translateX(-50%) scale(1) translateY(0)}100%{opacity:0;transform:translateX(-50%) scale(0.92) translateY(-30px)}}
 @keyframes floatShadow{0%,100%{transform:translateY(0);filter:drop-shadow(0 8px 20px rgba(0,0,0,0.4))}50%{transform:translateY(-8px);filter:drop-shadow(0 16px 30px rgba(0,0,0,0.6))}}
@@ -1918,7 +1918,7 @@ function LivingHorizon({ profile, lang = "tr" }) {
         <div style={{ textAlign:"center",marginTop:-6,fontSize:9,fontWeight:900,color:rank.color,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 10px ${rank.color}66`,opacity:0.9 }}>{rank.icon} {rank.title}</div>
       </div>
       {/* Dönen altyazı — dürüst canlı metrikler */}
-      <div key={capIdx} style={{ position:"absolute",bottom:8,left:14,fontSize:11,fontWeight:800,color:"rgba(160,200,235,0.85)",fontFamily:mono,letterSpacing:1,animation:"lhCaption 4.2s ease-in-out forwards",textShadow:"0 1px 3px rgba(0,0,0,0.8)" }}>{caption}</div>
+      <div key={capIdx} style={{ position:"absolute",bottom:9,left:0,right:0,textAlign:"center",fontSize:12.5,fontWeight:700,color:"rgba(190,232,255,0.92)",fontFamily:warrior,fontStyle:"italic",letterSpacing:2.5,animation:"lhCaption 4.2s ease-in-out forwards",textShadow:"0 1px 4px rgba(0,0,0,0.85), 0 0 14px rgba(120,200,255,0.45)" }}>{caption}</div>
     </div>
   );
 }
@@ -4939,12 +4939,12 @@ export default function Game() {
       </div>
       <QuickMatchModal myProfile={myProfile} lang={appLang} phase={quickMatchPhase} candidate={quickMatchCandidate} opponent={quickMatchOpponent} secondsLeft={quickMatchSecondsLeft} onCancel={cancelQuickMatch} onRetry={retryQuickMatch} />
       <div style={{ display:"flex",gap:8,marginTop:10,width:"100%",maxWidth:400,animation:"fadeUp 0.6s ease-out",zIndex:1 }}>
-        <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowOnlineLobby(true);}} disabled={authLoading} style={{ flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(0,212,255,0.16),rgba(0,212,255,0.05))`,color:t.accent,border:`2px solid rgba(0,212,255,0.45)`,borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}>🌐 {L(appLang,"salon")}</RippleButton>
-        <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowArenaSelect(true);}} disabled={authLoading} style={{ flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(167,139,250,0.16),rgba(167,139,250,0.05))`,color:"#a78bfa",border:"2px solid rgba(167,139,250,0.45)",borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={20} color="#a78bfa"/> {L(appLang,"arena")}</RippleButton>
+        <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowOnlineLobby(true);}} disabled={authLoading} style={{ position:"relative",overflow:"hidden",flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(0,212,255,0.16),rgba(0,212,255,0.05))`,color:t.accent,border:`2px solid rgba(0,212,255,0.45)`,borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}><span style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg,transparent,rgba(255,255,255,0.10),transparent)",animation:"dmShine 3.6s ease-in-out infinite",pointerEvents:"none",borderRadius:10 }} />{L(appLang,"salon")}</RippleButton>
+        <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowArenaSelect(true);}} disabled={authLoading} style={{ position:"relative",overflow:"hidden",flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(167,139,250,0.16),rgba(167,139,250,0.05))`,color:"#a78bfa",border:"2px solid rgba(167,139,250,0.45)",borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><span style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg,transparent,rgba(255,255,255,0.10),transparent)",animation:"dmShine 3.6s ease-in-out infinite",pointerEvents:"none",borderRadius:10 }} />{L(appLang,"arena")}</RippleButton>
       </div>
       <div style={{ display:"flex",gap:8,marginTop:8,width:"100%",maxWidth:400,animation:"fadeUp 0.7s ease-out",zIndex:1 }}>
-        <RippleButton onClick={startBotGame} style={{ flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(52,211,153,0.16),rgba(52,211,153,0.05))`,color:"#34d399",border:"2px solid rgba(52,211,153,0.45)",borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🤖 {L(appLang,"bot")}</RippleButton>
-        <RippleButton onClick={()=>setShowLeaderboard(true)} style={{ flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(255,215,0,0.14),rgba(255,215,0,0.04))`,color:t.gold,border:`2px solid rgba(255,215,0,0.45)`,borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}>🏆 {L(appLang,"leaderboard")}</RippleButton>
+        <RippleButton onClick={startBotGame} style={{ position:"relative",overflow:"hidden",flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(52,211,153,0.16),rgba(52,211,153,0.05))`,color:"#34d399",border:"2px solid rgba(52,211,153,0.45)",borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}><span style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg,transparent,rgba(255,255,255,0.10),transparent)",animation:"dmShine 3.6s ease-in-out infinite",pointerEvents:"none",borderRadius:10 }} />{L(appLang,"bot")}</RippleButton>
+        <RippleButton onClick={()=>setShowLeaderboard(true)} style={{ position:"relative",overflow:"hidden",flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(255,215,0,0.14),rgba(255,215,0,0.04))`,color:t.gold,border:`2px solid rgba(255,215,0,0.45)`,borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}><span style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg,transparent,rgba(255,255,255,0.10),transparent)",animation:"dmShine 3.6s ease-in-out infinite",pointerEvents:"none",borderRadius:10 }} />{L(appLang,"leaderboard")}</RippleButton>
       </div>
       {/* Kazanımlar */}
       {(() => {
@@ -4953,8 +4953,8 @@ export default function Game() {
         const aDone = aSet && myProfile ? aSet.missions.filter(m => { try { return m.check(myProfile, safeAch(myProfile.ach)); } catch(e) { return false; } }).length : 0;
         const claimable = myProfile ? ACH_SETS.some((s,i) => achSetUnlocked(i, myProfile) && achSetDone(s, myProfile) && !safeClaimed(myProfile.achievClaimed)[s.id]) : false;
         return (
-          <RippleButton onClick={()=>setShowAchievements(true)} style={{ width:"100%",maxWidth:360,marginTop:8,padding:"13px 16px",background:claimable?"linear-gradient(135deg,rgba(255,215,0,0.20),rgba(255,159,67,0.08))":"linear-gradient(135deg,rgba(167,139,250,0.12),rgba(167,139,250,0.03))",color:claimable?t.gold:"#a78bfa",border:`2px solid ${claimable?"rgba(255,215,0,0.6)":"rgba(167,139,250,0.4)"}`,borderRadius:10,fontSize:17,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",display:"flex",alignItems:"center",justifyContent:"center",gap:8,zIndex:1,animation:claimable?"borderGlow 1.6s infinite":"none" }}>
-            🏅 {L(appLang,"achBtn")}
+          <RippleButton onClick={()=>setShowAchievements(true)} style={{ position:"relative",overflow:"hidden",width:"100%",maxWidth:400,marginTop:8,padding:"13px 16px",background:claimable?"linear-gradient(135deg,rgba(255,215,0,0.20),rgba(255,159,67,0.08))":"linear-gradient(135deg,rgba(167,139,250,0.12),rgba(167,139,250,0.03))",color:claimable?t.gold:"#a78bfa",border:`2px solid ${claimable?"rgba(255,215,0,0.6)":"rgba(167,139,250,0.4)"}`,borderRadius:10,fontSize:17,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",display:"flex",alignItems:"center",justifyContent:"center",gap:8,zIndex:1,animation:claimable?"borderGlow 1.6s infinite":"none" }}>
+            <span style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg,transparent,rgba(255,255,255,0.10),transparent)",animation:"dmShine 3.6s ease-in-out infinite",pointerEvents:"none",borderRadius:10 }} />{L(appLang,"achBtn")}
             {claimable
               ? <span style={{ fontSize:10,fontWeight:900,background:"#ffd700",color:"#1a1206",borderRadius:10,padding:"2px 8px",letterSpacing:1 }}>{L(appLang,"achClaim")}!</span>
               : aSet && <span style={{ fontSize:11,fontWeight:800,fontFamily:mono,opacity:0.8 }}>{aDone}/10</span>}
@@ -4981,7 +4981,7 @@ export default function Game() {
                 animation: ready ? "dmReady 1.4s ease-in-out infinite" : "none" }}>
               <span style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg,transparent,rgba(255,255,255,0.09),transparent)",animation:"dmShine 3.4s ease-in-out infinite",pointerEvents:"none" }} />
               <span style={{ fontSize:20,display:"inline-block",animation:ready?"dmGift 0.8s ease-in-out infinite":"none",filter:ready?"drop-shadow(0 0 8px rgba(255,215,0,0.8))":"none" }}>🎁</span>
-              <span style={{ fontSize:14,fontWeight:900,color:ready?t.gold:t.text,letterSpacing:2,textShadow:ready?`0 0 12px ${t.goldGlow}`:"none" }}>{ready ? L(appLang,"openChestBtn")+"!" : L(appLang,"missionsTitle")}</span>
+              <span style={{ fontSize:17,fontWeight:900,color:ready?t.gold:"#fff",letterSpacing:1,textTransform:"uppercase",textShadow:ready?`0 0 12px ${t.goldGlow}`:"0 1px 3px rgba(0,0,0,0.6)" }}>{ready ? L(appLang,"openChestBtn")+"!" : L(appLang,"missionsTitle")}</span>
               <span style={{ display:"flex",gap:5,marginLeft:"auto",alignItems:"center" }}>
                 {[0,1,2].map(i => <span key={i} style={{ width:10,height:10,borderRadius:"50%",display:"inline-block",background:i<dc?"linear-gradient(160deg,#fff9c4,#ffd700)":"rgba(255,255,255,0.10)",boxShadow:i<dc?`0 0 8px ${t.goldGlow}`:"none",animation:i===dc-1?"dmDotPop 0.4s cubic-bezier(0.34,1.56,0.64,1)":"none" }} />)}
               </span>
