@@ -3291,10 +3291,14 @@ export default function Game() {
       return null;
     }
 
-    const skipTutorial = () => {
+    // Eğitim savaşı kaldırıldı — tutorial bitince/atlanınca doğrudan ana sayfaya geçilir
+    const finishTutorial = () => {
       sfx.init(); sfx.play('click');
-      setPhase("playing"); setActiveBoard("attack"); sfx.transitionToBattle();
+      if (authUid) { update(ref(db, `profiles/${authUid}`), { onboardingDone: true }).catch(() => {}); }
+      setMyProfile(prev => prev ? { ...prev, onboardingDone: true } : prev);
+      resetGame();
     };
+    const skipTutorial = finishTutorial;
     const nextStep = () => { sfx.init(); sfx.play('click'); setOnboardingStep(s => s + 1); };
 
     // Amiral gemi animasyon bileşeni — yatay, döner, tekrar yerleşir (2 kez sonra loop)
@@ -3635,7 +3639,7 @@ export default function Game() {
           <MarkDemo />
           {/* SAVAŞ CTA */}
           <div style={{ textAlign:"center",display:"flex",flexDirection:"column",alignItems:"center",gap:0,width:"100%",maxWidth:340 }}>
-            <button onClick={() => { setPhase("playing"); setActiveBoard("attack"); sfx.init(); sfx.play('click'); sfx.transitionToBattle(); }} style={{ width:"100%",padding:"18px 0",background:"linear-gradient(180deg, #a01f0c 0%, #6b1108 50%, #3a0804 100%)",color:"#fff",border:"1px solid rgba(255,200,120,0.35)",borderRadius:6,fontSize:20,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 60px rgba(200,50,20,0.6), 0 0 120px rgba(180,30,10,0.3), 0 8px 40px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,180,120,0.2)",position:"relative",overflow:"hidden",textTransform:"uppercase",textShadow:"0 0 30px rgba(255,140,60,0.9), 0 0 60px rgba(255,80,20,0.5), 0 2px 8px rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>
+            <button onClick={finishTutorial} style={{ width:"100%",padding:"18px 0",background:"linear-gradient(180deg, #a01f0c 0%, #6b1108 50%, #3a0804 100%)",color:"#fff",border:"1px solid rgba(255,200,120,0.35)",borderRadius:6,fontSize:20,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 60px rgba(200,50,20,0.6), 0 0 120px rgba(180,30,10,0.3), 0 8px 40px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,180,120,0.2)",position:"relative",overflow:"hidden",textTransform:"uppercase",textShadow:"0 0 30px rgba(255,140,60,0.9), 0 0 60px rgba(255,80,20,0.5), 0 2px 8px rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>
               <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,150,80,0.1),transparent)",animation:"shimmerPass 3s ease-in-out infinite" }} />
               <XAnchors size={22} color="#ffd8a8" /> {L(appLang,"startBattleBtn")}
             </button>
