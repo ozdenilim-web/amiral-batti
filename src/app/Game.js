@@ -1669,10 +1669,18 @@ function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
   if (!ships) return null;
   const list = Object.values(ships);
   const sunkCount = list.filter(s => { const c = s.cells || []; return c.length > 0 && c.every(([r, cc]) => hitCells?.[r]?.[cc]); }).length;
+  const isHit = color === t.hit;
+  const titleGrad = isHit
+    ? "linear-gradient(180deg, #fff5f5 0%, #ffb3ba 30%, #ff4757 65%, #b91c1c 100%)"
+    : "linear-gradient(180deg, #ffffff 0%, #dff6ff 35%, #7fd9f5 70%, #3aa8cc 100%)";
+  const titleGlow = isHit ? "rgba(255,71,87,0.6)" : "rgba(120,220,255,0.5)";
   return (
-    <div style={{ width:"100%",maxWidth:400,marginTop:5,padding:"6px 9px",borderRadius:10,background:"linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))",border:`1px solid ${color===t.hit?"rgba(255,71,87,0.28)":"rgba(0,229,255,0.22)"}`,display:"flex",alignItems:"center",gap:8 }}>
-      <span style={{ fontSize:9,fontWeight:900,color:t.textDim,fontFamily:warrior,letterSpacing:1.5,flexShrink:0 }}>{title}</span>
-      <div style={{ flex:1,display:"flex",alignItems:"flex-start",gap:7,flexWrap:"wrap",rowGap:4 }}>
+    <div style={{ width:"100%",maxWidth:400,marginTop:5,padding:"8px 11px",borderRadius:10,background:"linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))",border:`2px solid ${isHit?"rgba(255,71,87,0.4)":"rgba(0,229,255,0.35)"}`,boxShadow:isHit?"0 0 14px rgba(255,71,87,0.25), inset 0 1px 0 rgba(255,255,255,0.03)":"0 0 14px rgba(0,229,255,0.2), inset 0 1px 0 rgba(255,255,255,0.03)",display:"flex",flexDirection:"column",gap:5 }}>
+      <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+        <span style={{ fontSize:14,fontWeight:900,fontFamily:warrior,letterSpacing:2.5,textTransform:"uppercase",flexShrink:0,background:titleGrad,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text",filter:`drop-shadow(0 1px 0 rgba(0,0,0,0.5)) drop-shadow(0 0 10px ${titleGlow})` }}>{title}</span>
+        <span style={{ fontSize:12,fontWeight:900,color:sunkCount>0?t.sunk:t.textDim,fontFamily:mono,flexShrink:0 }}>{sunkCount}/{list.length}</span>
+      </div>
+      <div style={{ display:"flex",alignItems:"flex-start",gap:8,flexWrap:"wrap",rowGap:5 }}>
         {list.map((ship, i) => {
           const cells = ship.cells || [];
           const hits = cells.filter(([r, c]) => hitCells?.[r]?.[c]).length;
@@ -1680,7 +1688,7 @@ function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
           const sd = SHIPS.find(x => x.id === ship.id);
           const base = sd?.color || t.accent;
           const isAdmiral = ship.id === "amiral";
-          const S = 11, G = 2; // TÜM kutucuklar aynı boyut (11px), aralarında 2px
+          const S = 13, G = 2.5; // TÜM kutucuklar aynı boyut (13px), aralarında 2.5px — bir tık büyütüldü
           // Amiral gerçek şekliyle çizilir: üstte 3, altta ortada 1 (T formu).
           // Diğer gemiler tek sıra. Hasar sırayla dolar (rakibin konumunu sızdırmaz).
           const layout = isAdmiral
@@ -1723,7 +1731,6 @@ function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
           );
         })}
       </div>
-      <span style={{ fontSize:11,fontWeight:900,color:sunkCount>0?t.sunk:t.textDim,fontFamily:mono,flexShrink:0 }}>{sunkCount}/{list.length}</span>
     </div>
   );
 }
@@ -5270,11 +5277,11 @@ export default function Game() {
           <div onClick={()=>setEmojiOpen(false)} style={{ position:"fixed",inset:0,zIndex:119 }} />
         )}
         {emojiOpen && (
-          <div style={{ position:"fixed",right:12,bottom:`calc(${myTurn&&activeBoard==="attack"&&!markMode?"126px":"64px"} + env(safe-area-inset-bottom, 0px))`,zIndex:121,display:"grid",gridTemplateColumns:"repeat(4, 40px)",gap:6,padding:8,borderRadius:14,background:"rgba(10,14,23,0.97)",border:`1px solid ${t.border}`,boxShadow:"0 6px 24px rgba(0,0,0,0.6)",animation:"fadeUp 0.18s ease-out" }}>
+          <div style={{ position:"fixed",right:64,bottom:`calc(${myTurn&&activeBoard==="attack"&&!markMode?"76px":"14px"} + env(safe-area-inset-bottom, 0px))`,zIndex:121,display:"flex",flexDirection:"row",flexWrap:"nowrap",gap:6,padding:8,borderRadius:12,background:"rgba(10,14,23,0.97)",border:"3px solid rgba(255,71,87,0.65)",boxShadow:"0 0 22px rgba(255,71,87,0.5), 0 6px 24px rgba(0,0,0,0.6)",animation:"fadeUp 0.18s ease-out",maxWidth:"calc(100vw - 84px)",overflowX:"auto" }}>
             {QUICK_EMOJIS.map(qe=>(
               <button key={qe.id} disabled={emojiCooldown}
                 onClick={()=>{ if (emojiCooldown) return; sendEmoji(qe); setEmojiOpen(false); setEmojiCooldown(true); setTimeout(()=>setEmojiCooldown(false), 3000); }}
-                style={{ width:40,height:40,background:"rgba(255,255,255,0.05)",border:`1px solid ${t.border}`,fontSize:21,cursor:emojiCooldown?"not-allowed":"pointer",borderRadius:10,padding:0,opacity:emojiCooldown?0.4:1 }}>{qe.emoji}</button>
+                style={{ width:38,height:38,flexShrink:0,background:"rgba(255,255,255,0.05)",border:`1px solid ${t.border}`,fontSize:20,cursor:emojiCooldown?"not-allowed":"pointer",borderRadius:10,padding:0,opacity:emojiCooldown?0.4:1 }}>{qe.emoji}</button>
             ))}
           </div>
         )}
