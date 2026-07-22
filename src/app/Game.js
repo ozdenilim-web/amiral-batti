@@ -1608,6 +1608,8 @@ const ANIMS = `
 @keyframes qmVsPulse{0%,100%{transform:scale(1);opacity:0.85}50%{transform:scale(1.25);opacity:1}}
 @keyframes radarSpin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 @keyframes settingsFadeIn{0%{opacity:0}100%{opacity:1}}
+@keyframes radarSweepLine{0%{top:0%;opacity:0}6%{opacity:1}90%{opacity:1}100%{top:100%;opacity:0}}
+@keyframes mapReveal{0%{clip-path:inset(0 0 100% 0)}100%{clip-path:inset(0 0 0% 0)}}
 
 /* ═══════════════════════════════════════════════════════════════════
    MOBİL PERFORMANS KATMANI — en sonda tanımlı, öncekileri EZER.
@@ -2754,6 +2756,10 @@ export default function Game() {
   const [salvoResult, setSalvoResult] = useState(null); // { myHits, oppHits, myOverlay, oppOverlay, won }
   const salvoTimerRef = useRef(null);
   const salvoBotShotsRef = useRef([]);
+  // Sonuç ekranı: radar taraması ile senkron slot-makinesi sayaç
+  const salvoRevealActive = phase === "salvoreveal" && !!salvoResult;
+  const salvoMyHitsAnim = useCountUp(salvoResult?.myHits ?? 0, salvoRevealActive, 2200);
+  const salvoOppHitsAnim = useCountUp(salvoResult?.oppHits ?? 0, salvoRevealActive, 2200);
   const [dailyMissions, setDailyMissions] = useState(() => pickDailyMissions(Date.now()));
   const [missionProgress, setMissionProgress] = useState({});
   const [chestReward, setChestReward] = useState(null);
@@ -5393,6 +5399,8 @@ export default function Game() {
     const measuredSalvo = fitCell(10);
     const revealCell = Math.max(12, Math.min(measuredSalvo || 18, 18));
     const titleText = won ? L(appLang,"victory") : draw ? (appLang==="en"?"DRAW":"BERABERE") : L(appLang,"defeat");
+    const sweepColor = won ? t.gold : draw ? "#67e8f9" : t.hit;
+    const panelBorder = won ? "rgba(255,215,0,0.35)" : draw ? "rgba(103,232,249,0.35)" : "rgba(255,71,87,0.35)";
     return (<div style={{ ...appStyle, justifyContent:"flex-start", paddingTop:"calc(10px + env(safe-area-inset-top, 0px))" }}><style>{ANIMS}</style>
       {/* Harf harf çöken destansı başlık — mevcut oyun sonu ekranıyla AYNI stil */}
       <div style={{ position:"relative",marginBottom:8,marginTop:4 }}>
@@ -5414,24 +5422,29 @@ export default function Game() {
       <div style={{ display:"flex",gap:26,marginBottom:18,alignItems:"flex-start",justifyContent:"center" }}>
         <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:5 }}>
           <div style={{ width:44,height:44,borderRadius:"50%",background:`${t.accent}22`,border:`2px solid ${t.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,boxShadow:`0 0 14px ${t.accentGlow}` }}>{myProfile?.avatar || "⚓"}</div>
-          <div style={{ fontSize:32,fontWeight:900,color:t.accent,fontFamily:mono }}>{myHits}</div>
+          <div style={{ fontSize:32,fontWeight:900,color:t.accent,fontFamily:mono,minWidth:38,textAlign:"center" }}>{salvoMyHitsAnim}</div>
           <div style={{ fontSize:10,color:t.textDim,letterSpacing:2,fontFamily:warrior }}>{appLang==="en"?"YOUR HITS":"SENİN İSABETİN"}</div>
         </div>
         <div style={{ fontSize:20,color:t.textDim,alignSelf:"center",marginTop:12 }}>—</div>
         <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:5 }}>
           <div style={{ width:44,height:44,borderRadius:"50%",background:`${t.hit}22`,border:`2px solid ${t.hit}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,boxShadow:`0 0 14px ${t.hitGlow}` }}>🤖</div>
-          <div style={{ fontSize:32,fontWeight:900,color:t.hit,fontFamily:mono }}>{oppHits}</div>
+          <div style={{ fontSize:32,fontWeight:900,color:t.hit,fontFamily:mono,minWidth:38,textAlign:"center" }}>{salvoOppHitsAnim}</div>
           <div style={{ fontSize:10,color:t.textDim,letterSpacing:2,fontFamily:warrior }}>{(opponentName||"").toUpperCase()}</div>
         </div>
       </div>
-      <div style={{ display:"flex",flexDirection:"column",gap:28,width:"100%",maxWidth:400,alignItems:"center" }}>
-        <div>
-          <div style={{ fontSize:11,fontWeight:800,color:t.accent,marginBottom:4,textAlign:"center",letterSpacing:2,fontFamily:warrior }}>{appLang==="en"?"YOUR SHOTS":"SENİN ATIŞLARIN"}</div>
-          <Grid board={emptyGrid()} cellSize={revealCell} overlay={myOverlay} disabled />
-        </div>
-        <div>
-          <div style={{ fontSize:11,fontWeight:800,color:t.hit,marginBottom:4,textAlign:"center",letterSpacing:2,fontFamily:warrior }}>{(opponentName||(appLang==="en"?"OPPONENT":"RAKİP")).toUpperCase()} {appLang==="en"?"SHOTS":"ATIŞLARI"}</div>
-          <Grid board={emptyGrid()} cellSize={revealCell} overlay={oppOverlay} disabled />
+      {/* Tek birleşik taktik harita paneli — iki filo aynı okyanusta, radar taramasıyla açığa çıkıyor */}
+      <div style={{ position:"relative",width:"100%",maxWidth:400,padding:"14px 12px 16px",borderRadius:16,background:"linear-gradient(180deg, rgba(10,18,36,0.97), rgba(6,11,24,0.99))",border:`2px solid ${panelBorder}`,boxShadow:"0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)",overflow:"hidden" }}>
+        <div style={{ position:"absolute",left:0,right:0,height:3,zIndex:5,pointerEvents:"none",background:`linear-gradient(90deg, transparent, ${sweepColor}, transparent)`,boxShadow:`0 0 18px 4px ${sweepColor}`,animation:"radarSweepLine 2.2s linear both" }} />
+        <div style={{ animation:"mapReveal 2.2s linear both" }}>
+          <div style={{ fontSize:11,fontWeight:800,color:t.accent,marginBottom:6,textAlign:"center",letterSpacing:2,fontFamily:warrior }}>{appLang==="en"?"YOUR SHOTS":"SENİN ATIŞLARIN"}</div>
+          <div style={{ display:"flex",justifyContent:"center" }}><Grid board={emptyGrid()} cellSize={revealCell} overlay={myOverlay} disabled /></div>
+          <div style={{ display:"flex",alignItems:"center",gap:10,margin:"14px 0" }}>
+            <div style={{ flex:1,height:1,background:`linear-gradient(90deg,transparent,${sweepColor}88)` }} />
+            <span style={{ fontSize:12,fontWeight:900,letterSpacing:3,color:sweepColor,fontFamily:warrior,textShadow:`0 0 10px ${sweepColor}` }}>VS</span>
+            <div style={{ flex:1,height:1,background:`linear-gradient(270deg,transparent,${sweepColor}88)` }} />
+          </div>
+          <div style={{ fontSize:11,fontWeight:800,color:t.hit,marginBottom:6,textAlign:"center",letterSpacing:2,fontFamily:warrior }}>{(opponentName||(appLang==="en"?"OPPONENT":"RAKİP")).toUpperCase()} {appLang==="en"?"SHOTS":"ATIŞLARI"}</div>
+          <div style={{ display:"flex",justifyContent:"center" }}><Grid board={emptyGrid()} cellSize={revealCell} overlay={oppOverlay} disabled /></div>
         </div>
       </div>
       {won && goldChange && <div style={{ fontSize:14,fontWeight:800,color:t.gold,marginTop:14,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}` }}>+{goldChange.amount} 💰</div>}
