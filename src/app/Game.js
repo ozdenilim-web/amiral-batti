@@ -1613,6 +1613,7 @@ const ANIMS = `
 @keyframes settingsFadeIn{0%{opacity:0}100%{opacity:1}}
 @keyframes radarSweepLine{0%{top:0%;opacity:0}6%{opacity:1}90%{opacity:1}100%{top:100%;opacity:0}}
 @keyframes mapReveal{0%{clip-path:inset(0 0 100% 0)}100%{clip-path:inset(0 0 0% 0)}}
+@keyframes goldDrain{0%{opacity:0;transform:translateY(-6px) scale(0.9)}30%{opacity:1;transform:translateY(0) scale(1.05)}100%{opacity:0.6;transform:translateY(10px) scale(0.92)}}
 
 /* ═══════════════════════════════════════════════════════════════════
    MOBİL PERFORMANS KATMANI — en sonda tanımlı, öncekileri EZER.
@@ -3784,6 +3785,16 @@ export default function Game() {
         <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowSettings(true); setSettingsView(null); }} title={L(appLang,"settingsTooltip")} style={{ width:30,height:30,borderRadius:8,background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,fontSize:14,cursor:"pointer",color:t.textDim,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>⚙️</button>
         <button onClick={toggleMusic} title={L(appLang,"musicTooltip")} style={{ width:30,height:30,borderRadius:8,background:musicOn?"rgba(255,255,255,0.06)":"rgba(255,71,87,0.14)",border:`1px solid ${musicOn?t.border:t.hit}`,fontSize:14,cursor:"pointer",color:musicOn?t.textDim:t.hit,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>{musicOn?"🔊":"🔇"}</button>
       </div>
+      {/* Mini profil — TEK SALVO bahis akışında (yerleştirme/işaretleme/sonuç) altın bakiyesi her an görünsün, oyuncu devam/bırak kararını buna göre versin */}
+      {salvoMode && ["placing","salvo","salvoreveal"].includes(phase) && (
+        <div style={{ position:"fixed",top:"calc(10px + env(safe-area-inset-top, 0px))",left:14,zIndex:9500,display:"flex",alignItems:"center",gap:7,background:"linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))",border:`1px solid ${t.border}`,borderRadius:20,padding:"4px 12px 4px 4px",boxShadow:"0 4px 14px rgba(0,0,0,0.4)" }}>
+          <span style={{ width:22,height:22,borderRadius:"50%",background:`${t.accent}22`,border:`1.5px solid ${t.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,flexShrink:0 }}>{myProfile?.avatar || "⚓"}</span>
+          <span style={{ fontSize:10,fontWeight:800,color:t.accent,fontFamily:mono,whiteSpace:"nowrap" }}>Lv{myProfile?.level || 0}</span>
+          <span style={{ fontSize:10,fontWeight:800,color:"#c084fc",fontFamily:mono,whiteSpace:"nowrap" }}>🎖{migrateHonor(myProfile)}</span>
+          <span style={{ width:1,height:12,background:t.border }} />
+          <span style={{ fontSize:12,fontWeight:900,color:t.gold,fontFamily:mono,whiteSpace:"nowrap",textShadow:`0 0 8px ${t.goldGlow}` }}>💰{safeGold(myProfile?.gold)}</span>
+        </div>
+      )}
       {showSettings && (
         <div style={{ position:"fixed",inset:0,overflowX:"hidden",zIndex:9600,background:"rgba(0,0,0,0.62)",backdropFilter:"blur(4px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"settingsFadeIn 0.2s ease-out" }} onClick={()=>{ setShowSettings(false); setSettingsView(null); }}>
           <div onClick={e=>e.stopPropagation()} style={{ width:"100%",maxWidth:400,maxHeight:"86vh",overflowY:"auto",background:"linear-gradient(180deg, rgba(14,20,40,0.99), rgba(7,11,24,0.99))",border:`1px solid ${t.border}`,borderBottom:"none",borderRadius:"20px 20px 0 0",padding:"14px 20px 30px",animation:"sheetSlideUp 0.3s cubic-bezier(0.22,1,0.36,1)",boxShadow:"0 -10px 50px rgba(0,0,0,0.5)" }}>
@@ -4038,7 +4049,7 @@ export default function Game() {
           const newGold = safeGold(p.gold) + SALVO_WIN_GOLD;
           update(ref(db, `profiles/${authUid}`), { gold: newGold, wins: (p.wins||0)+1, totalGames: (p.totalGames||0)+1, botGames: (p.botGames||0)+1, lastGameAt: Date.now(), recentResults: pushRecent(p.recentResults, true) }).catch(()=>{});
           setMyProfile(prev => prev ? { ...prev, gold: newGold, wins:(prev.wins||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, recentResults: pushRecent(prev.recentResults, true) } : prev);
-          setGoldChange({ amount: SALVO_WIN_GOLD, refund:false }); sfx.play('gold');
+          setGoldChange({ amount: SALVO_WIN_GOLD, refund:false }); setGoldAnim({ amount: SALVO_WIN_GOLD }); sfx.play('gold');
         } else if (draw) {
           const newGold = safeGold(p.gold) + SALVO_ANTE; // ante iadesi
           update(ref(db, `profiles/${authUid}`), { gold: newGold, totalGames: (p.totalGames||0)+1, botGames: (p.botGames||0)+1, lastGameAt: Date.now() }).catch(()=>{});
@@ -5366,7 +5377,7 @@ export default function Game() {
         <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginTop:8,letterSpacing:1 }}>{L(appLang,"confirmShipsHint")}</div>
       </div>}
       {placementConfirmed && <div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.9), rgba(8,14,30,0.95))",border:`2px solid rgba(0,229,255,0.2)`,borderRadius:12,padding:"16px 24px",marginBottom:8,fontSize:14,fontWeight:700,color:t.accent,textAlign:"center",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"shipsReadyMsg")}<div style={{ marginTop:10 }}><div style={{ width:14,height:14,borderRadius:"50%",background:t.accent,margin:"0 auto",animation:"pulse 1.5s infinite" }} /></div></div>}
-      <div ref={boardBoxRef} style={{ flex:1,minHeight:0,width:"100%",maxWidth:400,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden" }}>
+      <div ref={boardBoxRef} style={{ flex:1,minHeight:0,width:"100%",maxWidth:400,display:"flex",alignItems:"center",justifyContent:"flex-start",paddingTop:10,overflow:"hidden" }}>
       <div onMouseLeave={() => { if(!dragRef.current) setHoverCells([]); }}><Grid board={defenseBoard} cellSize={placeCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} hoverCells={hoverCells} onClick={handleDefenseClick} onHover={handleDefenseHover} onCellPointerDown={handleShipPointerDown} disabled={placementConfirmed} /></div>
       </div>
     </div>);
@@ -5406,7 +5417,7 @@ export default function Game() {
         <span style={{ fontSize:22,fontWeight:800,fontFamily:warrior,color:t.textDim }}>/{SALVO_SHOTS}</span>
       </div>
       <div style={{ fontSize:11,fontWeight:700,color:t.text,marginBottom:8,fontFamily:warrior,letterSpacing:3,textAlign:"center" }}>{appLang==="en"?"CELLS MARKED":"HÜCRE İŞARETLENDİ"}</div>
-      <div ref={boardBoxRef} style={{ flex:1,minHeight:0,width:"100%",maxWidth:400,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden" }}>
+      <div ref={boardBoxRef} style={{ flex:1,minHeight:0,width:"100%",maxWidth:400,display:"flex",alignItems:"center",justifyContent:"flex-start",paddingTop:10,overflow:"hidden" }}>
         <Grid board={emptyGrid()} cellSize={salvoCell} overlay={salvoOverlay} onClick={toggleSalvoCell} disabled={salvoSubmitted} />
       </div>
       {/* Gönder butonundan hemen önce de aynı sayaç — son kontrol için */}
@@ -5478,13 +5489,14 @@ export default function Game() {
         </div>
       </div>
       {goldChange && (won || draw) && <div style={{ fontSize:14,fontWeight:800,color:t.gold,marginTop:14,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}` }}>{goldChange.refund ? `↩ ${goldChange.amount} 💰 ${appLang==="en"?"REFUNDED":"İADE"}` : `+${goldChange.amount} 💰`}</div>}
-      {!won && !draw && <div style={{ fontSize:12,fontWeight:700,color:t.textDim,marginTop:14,fontFamily:warrior,letterSpacing:1 }}>-{SALVO_ANTE} 💰</div>}
+      {!won && !draw && <div style={{ fontSize:13,fontWeight:800,color:t.hit,marginTop:14,fontFamily:warrior,letterSpacing:1,animation:"goldDrain 1.4s ease-out both" }}>-{SALVO_ANTE} 💰</div>}
       {/* Tek buton: doğrudan yeni bir maça sokar (hazır olan biriyle) — "aynı kişiye tekrar davet et" gibi ayrı bir akış yok. */}
       <button onClick={replaySalvo} style={{ marginTop:18,padding:"13px 40px",background:`linear-gradient(135deg,${t.gold},#d97706)`,color:t.bg,border:"none",borderRadius:12,fontSize:15,fontWeight:900,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 24px ${t.goldGlow}`,animation:"borderGlow 1.8s infinite",display:"flex",flexDirection:"column",alignItems:"center",gap:2 }}>
         <span>⚔ {appLang==="en"?"NEW GAME":"YENİ OYUN"}</span>
         <span style={{ fontSize:9,fontWeight:700,letterSpacing:1,opacity:0.75 }}>{appLang==="en"?"Entry":"Giriş"} {SALVO_ANTE} 💰</span>
       </button>
       <button onClick={resetGame} style={{ marginTop:10,marginBottom:24,padding:"10px 28px",background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:10,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"backBtn")}</button>
+      {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
     </div>);
   }
 
