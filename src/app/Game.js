@@ -1040,9 +1040,11 @@ function MicroFeedback({ text, color, onDone }) {
   const clr = color || t.gold;
   // İçindeki emoji'leri metinden ayırıp küçük/gölgesiz çiziyoruz — kalın kontur+parlama emojiye binince kirli görünüyordu.
   const parts = text.split(/(\p{Extended_Pictographic}+)/gu).filter(Boolean);
-  // İlk anda maksimum parlaklıkla belirir, platform ile filo şeridi arasında ~2sn EN PARLAK sabit durur,
-  // sonra geri çekilip solmak yerine izleyiciye doğru BÜYÜYEREK parlayıp kaybolur.
-  return (<div style={{ position:'absolute',top:'100%',left:'50%',marginTop:8,zIndex:10050,fontSize:24,fontWeight:900,color:clr,fontFamily:warrior,letterSpacing:4,textTransform:'uppercase',whiteSpace:'nowrap',
+  // Platform ile filo şeridi arasındaki dar boşluktan YUKARI doğru, tahtanın son satırının üzerine biner —
+  // filo şeridine (gemi kutucuklarına) ASLA binmez. Taban noktası hep o aralıktan gelir.
+  // İlk anda maksimum parlaklıkla belirir, ~2sn EN PARLAK sabit durur, sonra geri çekilip solmak yerine
+  // izleyiciye doğru BÜYÜYEREK parlayıp kaybolur.
+  return (<div style={{ position:'absolute',bottom:-4,left:'50%',zIndex:10050,fontSize:24,fontWeight:900,color:clr,fontFamily:warrior,letterSpacing:4,textTransform:'uppercase',whiteSpace:'nowrap',
     animation:'feedbackHoldRise 3.1s ease-out forwards',pointerEvents:'none' }}>
     {parts.map((p,i) => /\p{Extended_Pictographic}/u.test(p)
       ? <span key={i} style={{ fontSize:20,display:'inline-block',filter:'drop-shadow(0 2px 4px rgba(0,0,0,0.6))' }}>{p}</span>
@@ -1559,7 +1561,7 @@ const ANIMS = `
 @keyframes btnBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
 @keyframes sonarArc{0%,100%{opacity:0.35;transform:scale(1)}50%{opacity:1;transform:scale(1.18)}}
 @keyframes arZoomText{0%{opacity:0;transform:translateX(-50%) scale(0.2)}8%{opacity:1;transform:translateX(-50%) scale(1.05)}12%{transform:translateX(-50%) scale(1)}70%{opacity:1;transform:translateX(-50%) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-40px) scale(2.6);filter:blur(3px)}}
-@keyframes feedbackHoldRise{0%{opacity:0;transform:translateX(-50%) translateY(6px) scale(0.86)}8%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}72%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(0) scale(1.6);filter:blur(1px)}}
+@keyframes feedbackHoldRise{0%{opacity:0;transform:translateX(-50%) translateY(14px) scale(0.86)}8%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}72%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(0) scale(1.6);filter:blur(1px)}}
 @keyframes popFlash{0%{opacity:0;transform:translateX(-50%) scale(0.1) rotate(-8deg)}22%{opacity:1;transform:translateX(-50%) scale(1.45) rotate(4deg)}38%{transform:translateX(-50%) scale(1.05) rotate(0deg)}72%{opacity:1;transform:translateX(-50%) scale(1.05)}100%{opacity:0;transform:translateX(-50%) scale(0.7) translateY(-16px)}}
 @keyframes fbPop3d{0%{opacity:0;transform:translateX(-50%) scale(0.3) perspective(500px) rotateX(40deg)}12%{opacity:1;transform:translateX(-50%) scale(1.25) perspective(500px) rotateX(-6deg)}22%{transform:translateX(-50%) scale(1) perspective(500px) rotateX(0deg)}78%{opacity:1;transform:translateX(-50%) scale(1) translateY(0)}100%{opacity:0;transform:translateX(-50%) scale(0.92) translateY(-30px)}}
 @keyframes floatShadow{0%,100%{transform:translateY(0);filter:drop-shadow(0 8px 20px rgba(0,0,0,0.4))}50%{transform:translateY(-8px);filter:drop-shadow(0 16px 30px rgba(0,0,0,0.6))}}
