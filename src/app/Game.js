@@ -4032,6 +4032,9 @@ export default function Game() {
     setPhase("salvoreveal");
   };
 
+  // Sonuç ekranından ana sayfaya hiç uğramadan doğrudan yeni bir Tek Salvo maçı başlatır.
+  const replaySalvo = () => { resetGame(); startSalvoBotGame(); };
+
   const startOnboarding = () => {
     const MINI = 7;
     // Oyuncunun gemileri — otomatik (sadece savunma amaçlı, bot miss edecek)
@@ -5360,12 +5363,22 @@ export default function Game() {
         <button onClick={resetGame} style={{ padding:"7px 14px",minHeight:32,background:"rgba(255,255,255,0.05)",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:9,fontSize:11,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",gap:5 }}>← {L(appLang,"backBtn")}</button>
       </div>
       <div style={{ fontSize:17,fontWeight:800,letterSpacing:4,color:t.gold,marginBottom:2,fontFamily:warrior,textShadow:`0 0 15px ${t.goldGlow}` }}>{appLang==="en"?"SINGLE SALVO":"TEK SALVO"}</div>
-      <div style={{ fontSize:20,fontWeight:800,marginBottom:3,color:timerLow?t.hit:t.gold,animation:timerLow?"blink3s 0.5s infinite":"none",fontFamily:warrior,textShadow:timerLow?`0 0 20px ${t.hitGlow}`:"none" }}>{formatTime(salvoTimer)}</div>
-      <div style={{ fontSize:12,fontWeight:700,color:t.text,marginBottom:8,fontFamily:warrior,letterSpacing:2 }}>{salvoSelected.length}/{SALVO_SHOTS} {appLang==="en"?"MARKED":"İŞARETLENDİ"}</div>
+      <div style={{ fontSize:20,fontWeight:800,marginBottom:6,color:timerLow?t.hit:t.gold,animation:timerLow?"blink3s 0.5s infinite":"none",fontFamily:warrior,textShadow:timerLow?`0 0 20px ${t.hitGlow}`:"none" }}>{formatTime(salvoTimer)}</div>
+      {/* Görkemli sayaç — kaç hücre işaretlendiği tek bakışta belli olsun */}
+      <div style={{ display:"flex",alignItems:"baseline",justifyContent:"center",gap:5,marginBottom:2 }}>
+        <span style={{ fontSize:46,fontWeight:900,fontFamily:warrior,lineHeight:1,color:t.gold,textShadow:`0 2px 0 rgba(0,0,0,0.5), 0 0 18px ${t.goldGlow}, 0 0 42px ${t.goldGlow}`,transition:"transform 0.15s ease",display:"inline-block",animation:salvoSelected.length>0?"popIn 0.25s ease-out":"none" }}>{salvoSelected.length}</span>
+        <span style={{ fontSize:22,fontWeight:800,fontFamily:warrior,color:t.textDim }}>/{SALVO_SHOTS}</span>
+      </div>
+      <div style={{ fontSize:11,fontWeight:700,color:t.text,marginBottom:8,fontFamily:warrior,letterSpacing:3,textAlign:"center" }}>{appLang==="en"?"CELLS MARKED":"HÜCRE İŞARETLENDİ"}</div>
       <div ref={boardBoxRef} style={{ flex:1,minHeight:0,width:"100%",maxWidth:400,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden" }}>
         <Grid board={emptyGrid()} cellSize={salvoCell} overlay={salvoOverlay} onClick={toggleSalvoCell} disabled={salvoSubmitted} />
       </div>
-      <button onClick={()=>submitSalvo()} disabled={salvoSubmitted} style={{ width:"100%",maxWidth:400,marginTop:10,padding:"14px 0",background:salvoSubmitted?t.surfaceLight:`linear-gradient(135deg,${t.gold},#d97706)`,color:salvoSubmitted?t.textDim:t.bg,border:"none",borderRadius:12,fontSize:16,fontWeight:900,letterSpacing:3,cursor:salvoSubmitted?"default":"pointer",fontFamily:warrior,boxShadow:salvoSubmitted?"none":`0 0 20px ${t.goldGlow}` }}>{salvoSubmitted?(appLang==="en"?"RESOLVING...":"SONUÇLANIYOR..."):(appLang==="en"?"FIRE SALVO":"SALVOYU GÖNDER")}</button>
+      {/* Gönder butonundan hemen önce de aynı sayaç — son kontrol için */}
+      <div style={{ display:"flex",alignItems:"baseline",justifyContent:"center",gap:6,marginTop:10 }}>
+        <span style={{ fontSize:26,fontWeight:900,fontFamily:warrior,color:t.gold,textShadow:`0 0 14px ${t.goldGlow}` }}>{salvoSelected.length}</span>
+        <span style={{ fontSize:13,fontWeight:700,color:t.textDim,fontFamily:warrior,letterSpacing:1 }}>/{SALVO_SHOTS} {appLang==="en"?"MARKED":"İŞARETLENDİ"}</span>
+      </div>
+      <button onClick={()=>submitSalvo()} disabled={salvoSubmitted} style={{ width:"100%",maxWidth:400,marginTop:6,padding:"14px 0",background:salvoSubmitted?t.surfaceLight:`linear-gradient(135deg,${t.gold},#d97706)`,color:salvoSubmitted?t.textDim:t.bg,border:"none",borderRadius:12,fontSize:16,fontWeight:900,letterSpacing:3,cursor:salvoSubmitted?"default":"pointer",fontFamily:warrior,boxShadow:salvoSubmitted?"none":`0 0 20px ${t.goldGlow}` }}>{salvoSubmitted?(appLang==="en"?"RESOLVING...":"SONUÇLANIYOR..."):(appLang==="en"?"FIRE SALVO":"SALVOYU GÖNDER")}</button>
     </div>);
   }
 
@@ -5379,16 +5392,39 @@ export default function Game() {
     const { myHits, oppHits, myOverlay, oppOverlay, won, draw } = salvoResult;
     const measuredSalvo = fitCell(10);
     const revealCell = Math.max(12, Math.min(measuredSalvo || 18, 18));
+    const titleText = won ? L(appLang,"victory") : draw ? (appLang==="en"?"DRAW":"BERABERE") : L(appLang,"defeat");
     return (<div style={{ ...appStyle, justifyContent:"flex-start", paddingTop:"calc(10px + env(safe-area-inset-top, 0px))" }}><style>{ANIMS}</style>
-      <div style={{ fontSize:22,fontWeight:900,letterSpacing:3,marginBottom:4,fontFamily:warrior,color:won?t.gold:draw?t.textDim:t.hit,textShadow:won?`0 0 20px ${t.goldGlow}`:draw?"none":`0 0 20px ${t.hitGlow}`,textTransform:"uppercase" }}>
-        {won ? (appLang==="en"?"VICTORY!":"ZAFER!") : draw ? (appLang==="en"?"DRAW":"BERABERE") : (appLang==="en"?"DEFEAT":"YENİLGİ")}
+      {/* Harf harf çöken destansı başlık — mevcut oyun sonu ekranıyla AYNI stil */}
+      <div style={{ position:"relative",marginBottom:8,marginTop:4 }}>
+        <div style={{ display:"flex",justifyContent:"center",gap:"clamp(2px, 1.2vw, 6px)",perspective:"500px",maxWidth:"100%" }}>
+          {titleText.split("").map((ch,i) => (
+            <span key={i} style={{ fontSize:"clamp(30px, 10vw, 48px)",fontWeight:900,fontFamily:warrior,lineHeight:1,display:"inline-block",textTransform:"uppercase",
+              animation:`goLetter 0.55s cubic-bezier(0.34,1.56,0.64,1) ${0.15+i*0.08}s both${won?`, goFloat 2.6s ease-in-out ${1+i*0.15}s infinite`:""}`,
+              ...(won
+                ? { background:"linear-gradient(180deg,#fffbe0 0%,#ffe066 26%,#ffd700 50%,#b45309 72%,#ffe066 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 4px 0 rgba(110,55,0,0.6)) drop-shadow(0 0 28px rgba(255,215,0,0.7)) drop-shadow(0 12px 24px rgba(0,0,0,0.8))" }
+                : draw
+                ? { color:"#67e8f9",textShadow:"0 4px 0 rgba(0,40,50,0.75), 0 0 32px rgba(103,232,249,0.7), 0 12px 26px rgba(0,0,0,0.8)" }
+                : { color:"#ff4757",textShadow:"0 4px 0 rgba(70,0,0,0.75), 0 0 32px rgba(255,71,87,0.75), 0 12px 26px rgba(0,0,0,0.8)" })
+            }}>{ch}</span>
+          ))}
+        </div>
+        <div style={{ height:2,margin:"8px auto 0",width:"min(180px, 60%)",background:won?"linear-gradient(90deg,transparent,#ffd700,transparent)":draw?"linear-gradient(90deg,transparent,#67e8f9,transparent)":"linear-gradient(90deg,transparent,#ff4757,transparent)",boxShadow:won?`0 0 16px ${t.goldGlow}`:draw?"0 0 16px rgba(103,232,249,0.5)":`0 0 16px ${t.hitGlow}`,animation:"goLine 1s ease-out 0.7s both" }} />
       </div>
-      <div style={{ display:"flex",gap:20,marginBottom:14,alignItems:"center" }}>
-        <div style={{ textAlign:"center" }}><div style={{ fontSize:32,fontWeight:900,color:t.accent,fontFamily:mono }}>{myHits}</div><div style={{ fontSize:10,color:t.textDim,letterSpacing:2,fontFamily:warrior }}>{appLang==="en"?"YOUR HITS":"SENİN İSABETİN"}</div></div>
-        <div style={{ fontSize:20,color:t.textDim }}>—</div>
-        <div style={{ textAlign:"center" }}><div style={{ fontSize:32,fontWeight:900,color:t.hit,fontFamily:mono }}>{oppHits}</div><div style={{ fontSize:10,color:t.textDim,letterSpacing:2,fontFamily:warrior }}>{(opponentName||"").toUpperCase()}</div></div>
+      {/* Skor — iki tarafın da avatarıyla birlikte */}
+      <div style={{ display:"flex",gap:26,marginBottom:18,alignItems:"flex-start",justifyContent:"center" }}>
+        <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:5 }}>
+          <div style={{ width:44,height:44,borderRadius:"50%",background:`${t.accent}22`,border:`2px solid ${t.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,boxShadow:`0 0 14px ${t.accentGlow}` }}>{myProfile?.avatar || "⚓"}</div>
+          <div style={{ fontSize:32,fontWeight:900,color:t.accent,fontFamily:mono }}>{myHits}</div>
+          <div style={{ fontSize:10,color:t.textDim,letterSpacing:2,fontFamily:warrior }}>{appLang==="en"?"YOUR HITS":"SENİN İSABETİN"}</div>
+        </div>
+        <div style={{ fontSize:20,color:t.textDim,alignSelf:"center",marginTop:12 }}>—</div>
+        <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:5 }}>
+          <div style={{ width:44,height:44,borderRadius:"50%",background:`${t.hit}22`,border:`2px solid ${t.hit}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,boxShadow:`0 0 14px ${t.hitGlow}` }}>🤖</div>
+          <div style={{ fontSize:32,fontWeight:900,color:t.hit,fontFamily:mono }}>{oppHits}</div>
+          <div style={{ fontSize:10,color:t.textDim,letterSpacing:2,fontFamily:warrior }}>{(opponentName||"").toUpperCase()}</div>
+        </div>
       </div>
-      <div style={{ display:"flex",flexDirection:"column",gap:14,width:"100%",maxWidth:400,alignItems:"center" }}>
+      <div style={{ display:"flex",flexDirection:"column",gap:28,width:"100%",maxWidth:400,alignItems:"center" }}>
         <div>
           <div style={{ fontSize:11,fontWeight:800,color:t.accent,marginBottom:4,textAlign:"center",letterSpacing:2,fontFamily:warrior }}>{appLang==="en"?"YOUR SHOTS":"SENİN ATIŞLARIN"}</div>
           <Grid board={emptyGrid()} cellSize={revealCell} overlay={myOverlay} disabled />
@@ -5398,8 +5434,9 @@ export default function Game() {
           <Grid board={emptyGrid()} cellSize={revealCell} overlay={oppOverlay} disabled />
         </div>
       </div>
-      {won && goldChange && <div style={{ fontSize:14,fontWeight:800,color:t.gold,marginTop:12,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}` }}>+{goldChange.amount} 💰</div>}
-      <button onClick={resetGame} style={{ marginTop:16,marginBottom:24,padding:"14px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:14,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 20px ${t.accentGlow}` }}>{L(appLang,"backBtn")}</button>
+      {won && goldChange && <div style={{ fontSize:14,fontWeight:800,color:t.gold,marginTop:14,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}` }}>+{goldChange.amount} 💰</div>}
+      <button onClick={replaySalvo} style={{ marginTop:18,padding:"15px 40px",background:`linear-gradient(135deg,${t.gold},#d97706)`,color:t.bg,border:"none",borderRadius:12,fontSize:15,fontWeight:900,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 24px ${t.goldGlow}`,animation:"borderGlow 1.8s infinite" }}>⚔ {appLang==="en"?"PLAY AGAIN":"TEKRAR OYNA"}</button>
+      <button onClick={resetGame} style={{ marginTop:10,marginBottom:24,padding:"10px 28px",background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:10,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"backBtn")}</button>
     </div>);
   }
 
