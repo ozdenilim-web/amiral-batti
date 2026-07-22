@@ -10,16 +10,16 @@ const CLOCK_SECONDS = 300;
 const PLACEMENT_SECONDS = 60;
 
 const SHIPS = [
-  { id: "amiral", name: "Amiral", nameEn: "Admiral", shape: [[0,0],[0,1],[0,2],[1,1]], size: 4, color: "#e74c3c" },
-  { id: "uclu1", name: "Üçlü-1", nameEn: "Triple-1", shape: [[0,0],[0,1],[0,2]], size: 3, color: "#3498db" },
-  { id: "uclu2", name: "Üçlü-2", nameEn: "Triple-2", shape: [[0,0],[0,1],[0,2]], size: 3, color: "#2980b9" },
-  { id: "ikili1", name: "İkili-1", nameEn: "Double-1", shape: [[0,0],[0,1]], size: 2, color: "#2ecc71" },
-  { id: "ikili2", name: "İkili-2", nameEn: "Double-2", shape: [[0,0],[0,1]], size: 2, color: "#27ae60" },
-  { id: "ikili3", name: "İkili-3", nameEn: "Double-3", shape: [[0,0],[0,1]], size: 2, color: "#1abc9c" },
-  { id: "tekli1", name: "Tekli-1", nameEn: "Single-1", shape: [[0,0]], size: 1, color: "#f39c12" },
-  { id: "tekli2", name: "Tekli-2", nameEn: "Single-2", shape: [[0,0]], size: 1, color: "#f39c12" },
-  { id: "tekli3", name: "Tekli-3", nameEn: "Single-3", shape: [[0,0]], size: 1, color: "#f39c12" },
-  { id: "tekli4", name: "Tekli-4", nameEn: "Single-4", shape: [[0,0]], size: 1, color: "#f39c12" },
+  { id: "amiral", name: "Amiral", nameEn: "Leviathan", shape: [[0,0],[0,1],[0,2],[1,1]], size: 4, color: "#e74c3c" },
+  { id: "uclu1", name: "Muhrip", nameEn: "Destroyer", shape: [[0,0],[0,1],[0,2]], size: 3, color: "#3498db" },
+  { id: "uclu2", name: "Muhrip", nameEn: "Destroyer", shape: [[0,0],[0,1],[0,2]], size: 3, color: "#2980b9" },
+  { id: "ikili1", name: "Korvet", nameEn: "Vanguard", shape: [[0,0],[0,1]], size: 2, color: "#2ecc71" },
+  { id: "ikili2", name: "Korvet", nameEn: "Vanguard", shape: [[0,0],[0,1]], size: 2, color: "#27ae60" },
+  { id: "ikili3", name: "Korvet", nameEn: "Vanguard", shape: [[0,0],[0,1]], size: 2, color: "#1abc9c" },
+  { id: "tekli1", name: "Devriye Botu", nameEn: "Scout", shape: [[0,0]], size: 1, color: "#f39c12" },
+  { id: "tekli2", name: "Devriye Botu", nameEn: "Scout", shape: [[0,0]], size: 1, color: "#f39c12" },
+  { id: "tekli3", name: "Devriye Botu", nameEn: "Scout", shape: [[0,0]], size: 1, color: "#f39c12" },
+  { id: "tekli4", name: "Devriye Botu", nameEn: "Scout", shape: [[0,0]], size: 1, color: "#f39c12" },
 ];
 
 function rotateShape(shape, times) {
@@ -1673,12 +1673,12 @@ function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
   const sunkCount = list.filter(s => { const c = s.cells || []; return c.length > 0 && c.every(([r, cc]) => hitCells?.[r]?.[cc]); }).length;
   const isHit = color === t.hit;
   return (
-    <div style={{ width:"100%",maxWidth:400,marginTop:10,padding:"8px 11px",borderRadius:10,background:"linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))",border:`2px solid ${isHit?"rgba(255,71,87,0.4)":"rgba(0,229,255,0.35)"}`,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.05)",display:"flex",flexDirection:"column",gap:5 }}>
+    <div style={{ width:"100%",maxWidth:400,marginTop:10,padding:"8px 11px 10px",borderRadius:10,background:"linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))",border:`2px solid ${isHit?"rgba(255,71,87,0.4)":"rgba(0,229,255,0.35)"}`,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.05)",display:"flex",flexDirection:"column",gap:6 }}>
       <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
         <span style={{ fontSize:14,fontWeight:900,fontFamily:warrior,letterSpacing:2.5,textTransform:"uppercase",flexShrink:0,color:color,textShadow:`0 1px 2px rgba(0,0,0,0.6), 0 0 12px ${isHit?t.hitGlow:t.accentGlow}` }}>{title}</span>
         <span style={{ fontSize:12,fontWeight:900,color:sunkCount>0?t.sunk:t.textDim,fontFamily:mono,flexShrink:0 }}>{sunkCount}/{list.length}</span>
       </div>
-      <div style={{ display:"flex",alignItems:"flex-start",gap:8,flexWrap:"wrap",rowGap:5 }}>
+      <div style={{ display:"flex",alignItems:"flex-start",gap:9,flexWrap:"wrap",rowGap:10 }}>
         {list.map((ship, i) => {
           const cells = ship.cells || [];
           const hits = cells.filter(([r, c]) => hitCells?.[r]?.[c]).length;
@@ -1715,16 +1715,19 @@ function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
               )}
             </span>
           );
+          const shipLabel = (lang==="en"?sd?.nameEn:sd?.name)||"";
           return (
-            <div key={i} title={(lang==="en"?sd?.nameEn:sd?.name)||""}
-              style={{ position:"relative",width:gw,height:gh,flexShrink:0,
-                alignSelf:isAdmiral?"center":"flex-start",marginTop:isAdmiral?0:S+G,
-                opacity:sunk?0.55:1,transition:"opacity 0.3s" }}>
-              {layout.map((pos, j) => (
-                <span key={j} style={{ position:"absolute",left:pos.c*(S+G),top:pos.r*(S+G),lineHeight:0 }}>
-                  <Block hit={j < hits} />
-                </span>
-              ))}
+            <div key={i} title={shipLabel}
+              style={{ display:"flex",flexDirection:"column",alignItems:"center",flexShrink:0,
+                marginTop:isAdmiral?0:S+G, opacity:sunk?0.55:1,transition:"opacity 0.3s" }}>
+              <div style={{ position:"relative",width:gw,height:gh }}>
+                {layout.map((pos, j) => (
+                  <span key={j} style={{ position:"absolute",left:pos.c*(S+G),top:pos.r*(S+G),lineHeight:0 }}>
+                    <Block hit={j < hits} />
+                  </span>
+                ))}
+              </div>
+              <span style={{ fontSize:7.5,fontWeight:800,fontFamily:mono,letterSpacing:0.3,textTransform:"uppercase",whiteSpace:"nowrap",marginTop:3,color:sunk?t.textDim:base,textShadow:sunk?"none":`0 1px 2px rgba(0,0,0,0.7), 0 0 6px ${base}88` }}>{shipLabel}</span>
             </div>
           );
         })}
@@ -5137,7 +5140,7 @@ export default function Game() {
       {!allPlaced && !placementConfirmed && (<>
         <div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.9), rgba(8,14,30,0.95))",border:`2px solid rgba(0,229,255,0.15)`,borderRadius:10,padding:"6px 10px 16px",marginBottom:8,fontSize:13,textAlign:"center",width:"100%",maxWidth:400,fontFamily:warrior,fontWeight:700,letterSpacing:1 }}>{selectedShip?<span><span style={{ color:t.accent,fontWeight:800 }}>▸</span> {L(appLang,"tapMapHint")}</span>:<span><span style={{ color:t.accent,fontWeight:800 }}>▸</span> {L(appLang,"pickShipHint")}</span>}</div>
         <div style={{ display:"flex",flexWrap:"wrap",gap:5,justifyContent:"center",marginBottom:6,maxWidth:400,width:"100%" }}>
-          {SHIPS.map(ship=>{const placed=placedShips.some(p=>p.id===ship.id);const sel=selectedShip===ship.id;return(<button key={ship.id} onClick={()=>{if(!placed){setSelectedShip(sel?null:ship.id);setRotation(0);}}} style={{ padding:"7px 12px",background:placed?"rgba(22,32,64,0.4)":sel?t.accent:"rgba(12,21,41,0.8)",color:placed?t.textDim:sel?t.bg:t.text,border:`2px solid ${placed?"rgba(30,58,95,0.3)":sel?t.accent:ship.color+"66"}`,borderRadius:8,fontSize:11,cursor:placed?"default":"pointer",fontFamily:warrior,fontWeight:800,opacity:placed?0.35:1,textDecoration:placed?"line-through":"none",letterSpacing:1,animation:!placed&&!sel&&ship.id===nextShip?.id?"borderGlow 2s infinite":"none",transition:"all 0.15s ease" }}>{appLang==="en"?ship.nameEn:ship.name}({ship.size})</button>);})}
+          {SHIPS.map(ship=>{const placed=placedShips.some(p=>p.id===ship.id);const sel=selectedShip===ship.id;return(<button key={ship.id} onClick={()=>{if(!placed){setSelectedShip(sel?null:ship.id);setRotation(0);}}} style={{ padding:"6px 9px",background:placed?"rgba(22,32,64,0.4)":sel?t.accent:"rgba(12,21,41,0.8)",color:placed?t.textDim:sel?t.bg:t.text,border:`2px solid ${placed?"rgba(30,58,95,0.3)":sel?t.accent:ship.color+"66"}`,borderRadius:8,fontSize:10,cursor:placed?"default":"pointer",fontFamily:warrior,fontWeight:800,opacity:placed?0.35:1,textDecoration:placed?"line-through":"none",letterSpacing:0.4,whiteSpace:"nowrap",animation:!placed&&!sel&&ship.id===nextShip?.id?"borderGlow 2s infinite":"none",transition:"all 0.15s ease" }}>{appLang==="en"?ship.nameEn:ship.name}({ship.size})</button>);})}
         </div>
         {/* Rastgele yerleştir */}
         {!placementConfirmed && <button onClick={autoPlaceShips} style={{ width:"100%",maxWidth:400,padding:"9px 0",marginBottom:6,background:"linear-gradient(135deg, rgba(167,139,250,0.15), rgba(167,139,250,0.05))",color:"#a78bfa",border:"2px solid rgba(167,139,250,0.4)",borderRadius:12,fontSize:15,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:3,display:"flex",alignItems:"center",justifyContent:"center",gap:10,boxShadow:"0 0 16px rgba(167,139,250,0.15)" }}>
@@ -5247,7 +5250,6 @@ export default function Game() {
         <button onClick={()=>{setActiveBoard("attack");setMarkMode(false);}} style={{ flex:1,padding:"8px 0",fontSize:13,fontWeight:800,fontFamily:warrior,cursor:"pointer",background:isAttack?`linear-gradient(135deg,${t.accent},#0891b2)`:t.surfaceLight,color:isAttack?t.bg:t.textDim,border:`2px solid ${isAttack?t.accent:t.border}`,borderRadius:"10px 0 0 10px",letterSpacing:4,animation:myTurn&&isAttack?"borderGlow 2s infinite":"none",display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={16} color={isAttack?t.bg:t.textDim}/> {L(appLang,"attack")}</button>
         <button onClick={()=>{setActiveBoard("defense");setMarkMode(false);}} style={{ flex:1,padding:"8px 0",fontSize:13,fontWeight:800,fontFamily:warrior,cursor:"pointer",background:!isAttack?`linear-gradient(135deg,${t.accent},#0891b2)`:t.surfaceLight,color:!isAttack?t.bg:t.textDim,border:`2px solid ${!isAttack?t.accent:t.border}`,borderRadius:"0 10px 10px 0",letterSpacing:4 }}>🛡 {L(appLang,"defense")}</button>
       </div>
-      {isAttack && <button onClick={()=>setMarkMode(!markMode)} style={{ marginBottom:5,padding:"4px 14px",fontSize:10,fontWeight:700,fontFamily:warrior,background:markMode?t.gold:"transparent",color:markMode?t.bg:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,cursor:"pointer",letterSpacing:2 }}>{markMode?`⚑ ${L(appLang,"markModeOn")}`:`⚑ ${L(appLang,"markMode")}`}</button>}
       </>}
       <div ref={boardBoxRef} style={{ flex:1,minHeight:0,width:"100%",maxWidth:400,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden" }}>
       <div style={{ border:myTurn?`3px solid ${t.accent}`:`2px solid rgba(255,71,87,0.35)`,borderRadius:12,padding:2,animation:myTurn?"turnPulse 1.1s ease-in-out infinite":"none",transition:"border-color 0.4s ease",position:"relative" }}>
@@ -5255,6 +5257,11 @@ export default function Game() {
           ? <Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:playCell} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} onboardingHint={isOnboarding?[[2,2],[2,3],[2,4]]:null} turnGlow={myTurn && !isOnboarding} />
           : <Grid board={defenseBoard} cellSize={isOnboarding?gridSize:playCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />}
         {microFeedback && <MicroFeedback text={microFeedback.text} color={microFeedback.color} onDone={()=>setMicroFeedback(null)} />}
+        {/* İŞARETLE — tahtanın sol üst köşesinde tek ikon, üzerine gelince etiket çıkar */}
+        {isAttack && !isOnboarding && (
+          <button onClick={()=>setMarkMode(!markMode)} title={markMode?L(appLang,"markModeOn"):L(appLang,"markMode")}
+            style={{ position:"absolute",top:-10,left:-10,zIndex:6,width:26,height:26,borderRadius:"50%",background:markMode?t.gold:"rgba(10,14,23,0.95)",color:markMode?t.bg:t.gold,border:`2px solid ${t.gold}`,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,boxShadow:markMode?`0 0 10px ${t.goldGlow}`:"0 2px 8px rgba(0,0,0,0.5)" }}>⚑</button>
+        )}
       </div>
       </div>
       {!isOnboarding && (isAttack
