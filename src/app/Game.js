@@ -348,7 +348,7 @@ const TRANSLATIONS = {
     goldChangeTitle: "ALTIN DEĞİŞİMİ", entryFeeLabel: (n) => `Giriş: -${n} 💰`, connectingToServer: "Sunucuya bağlanılıyor...", testModeMsg: "🧪 TEST MODU — 2 tab aç, oda koduyla oyna",
     pickAvatarTooltip: "Profil simgeni seç", uploadPhotoTooltip: "Kendi fotoğrafını yükle",
     logoutBtn: "ÇIKIŞ YAP", logoutTitle: "ÇIKIŞ YAPILIYOR", logoutBody: "Çıkış yapmadan önce KURTARMA KODUNU not aldığından emin ol.", logoutBody2: "Geri dönmek için kullanıcı adın ve kurtarma kodun yeterli — ilerlemen kaybolmaz.", logoutStay: "VAZGEÇ", logoutGo: "ÇIKIŞ YAP", codeTitle: "KURTARMA KODUN", codeBody: "Bu kodu bir yere yaz! Çıkış yaparsan ya da telefonunu değiştirirsen, kullanıcı adın ve bu kodla hesabına geri dönersin.", codeCopy: "KOPYALA", codeCopied: "KOPYALANDI ✓", codeOk: "YAZDIM, DEVAM", recTitle: "BU İSİM SENİN Mİ?", recInlineHint: "Bu isim kullanılıyor. Senin hesabınsa kurtarma kodunu gir.", recBody: (n) => `"${n}" adlı hesap zaten var. Senin hesabınsa kurtarma kodunu gir, ilerlemenle birlikte geri dön.`, recPlaceholder: "KURTARMA KODU", recEnter: "HESABIMA DÖN", recCancel: "BAŞKA İSİM SEÇ", recErrWrong: "Kod hatalı. Kontrol edip tekrar dene.", recErrShort: "Kodu eksiksiz gir.", recErrMany: "Çok fazla deneme. Biraz bekle.", myCode: "Kurtarma Kodum", myCodeNone: "Bu hesap için kod bulunamadı.", waitingForOpponent: "RAKİP BEKLENİYOR", roomCodeLabel: "ODA KODU", sendCodeMsg: "Bu kodu rakibine gönder!", entryFeePaid: (n) => `Giriş ücreti: -${n} 💰`, fleetReady: "DONANMAN HAZIR!",
-    placeShipScreenTitle: "GEMİ YERLEŞTİR", extraTimeBtn: "⏱ +10 SANİYE (10 💰)", extraTimeUsedMsg: "⏱ Ek süre kullanıldı",
+    placeShipScreenTitle: "GEMİLERİ YERLEŞTİR", extraTimeBtn: "⏱ +10 SANİYE (10 💰)", extraTimeUsedMsg: "⏱ Ek süre kullanıldı",
     shipsPlacedLabel: (n,tot) => `${n}/${tot} GEMİ YERLEŞTİRİLDİ`, entryFeeShort: (n) => `💰 Giriş: ${n} 💰`,
     tapMapHint: "Haritada bir yere dokun", pickShipHint: "Aşağıdan bir gemi seç", randomPlaceBtn: "🎲 RASTGELE YERLEŞTİR", undoBtn: "↩ GERİ AL",
     placeHint: "Haritaya dokun yerleştir • Döndür butonuna veya tekrar dokun", confirmShipsBtn: "✓ GEMİLERİ ONAYLA",
@@ -1659,7 +1659,9 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, on
         if(isHov){bg="rgba(6,182,212,0.35)";shadow=`inset 0 0 10px ${t.accentGlow}`;}
         const isHint = onboardingHint?.some(([hr,hc])=>hr===r&&hc===c) && !ovr;
         if(isHint){bg="rgba(255,215,0,0.25)";shadow=`inset 0 0 12px ${t.goldGlow}, 0 0 8px ${t.goldGlow}`;content="◆";clr=t.gold;}
-        return <div key={c} data-cell="1" data-r={r} data-c={c} className={disabled?"":"ab-cell"} onClick={()=>handleClick(r,c)} onMouseEnter={()=>onHover?.(r,c)} onContextMenu={e=>{e.preventDefault();onRightClick?.(r,c);}} onMouseDown={disabled?undefined:(e)=>onCellPointerDown?.(r,c,e)} onTouchStart={disabled?undefined:(e)=>{ if(onCellPointerDown){ onCellPointerDown(r,c,e); } else { handleTouchStart(r,c); } }} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={{ position:"relative",overflow:"hidden",width:cellSize,height:cellSize,border:"1px solid rgba(0,229,255,0.22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:ovr==="sunk"?13:11,fontWeight:900,cursor:disabled?"default":"pointer",background:bg,boxShadow:shadow,color:clr,boxSizing:"border-box",transition:"background 0.15s ease, box-shadow 0.15s ease",animation:isBlink?"blink3s 0.5s ease-in-out 6":isRipple?"popIn 0.3s ease-out":"none",borderRadius:1,touchAction:onCellPointerDown?"none":"auto" }}>{content}</div>;
+        // Gemi hücrelerinde ANA SAYFA'daki OYNA tuşuyla AYNI cam parlaması — üstte parlak, aşağı doğru eriyen bir cam yüzeyi hissi.
+        const isPlainShipCell = isDefense && val>0 && shipColor && !ovr && !showShipStatus;
+        return <div key={c} data-cell="1" data-r={r} data-c={c} className={disabled?"":"ab-cell"} onClick={()=>handleClick(r,c)} onMouseEnter={()=>onHover?.(r,c)} onContextMenu={e=>{e.preventDefault();onRightClick?.(r,c);}} onMouseDown={disabled?undefined:(e)=>onCellPointerDown?.(r,c,e)} onTouchStart={disabled?undefined:(e)=>{ if(onCellPointerDown){ onCellPointerDown(r,c,e); } else { handleTouchStart(r,c); } }} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={{ position:"relative",overflow:"hidden",width:cellSize,height:cellSize,border:"1px solid rgba(0,229,255,0.22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:ovr==="sunk"?13:11,fontWeight:900,cursor:disabled?"default":"pointer",background:bg,boxShadow:isPlainShipCell?`${shadow==="none"?"":shadow+", "}inset 0 -3px 5px rgba(0,0,0,0.28)`:shadow,color:clr,boxSizing:"border-box",transition:"background 0.15s ease, box-shadow 0.15s ease",animation:isBlink?"blink3s 0.5s ease-in-out 6":isRipple?"popIn 0.3s ease-out":"none",borderRadius:1,touchAction:onCellPointerDown?"none":"auto" }}>{content}{isPlainShipCell && <span style={{ position:"absolute",top:0,left:0,right:0,height:"46%",background:"linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0))",borderRadius:"1px 1px 50% 50%",pointerEvents:"none" }} />}</div>;
       })}</div>))}
   </div>);
 }
@@ -4942,7 +4944,7 @@ export default function Game() {
 @keyframes playHalo{0%,100%{transform:translate(-50%,-50%) scale(0.94);opacity:0.35}50%{transform:translate(-50%,-50%) scale(1.06);opacity:0.7}}
 @keyframes playSheen{0%{transform:translate3d(-120%,0,0)}55%{transform:translate3d(320%,0,0)}100%{transform:translate3d(320%,0,0)}}
 .play-key{transition:transform .08s ease-out, box-shadow .08s ease-out}
-.play-key:active{transform:translateY(6px)!important;box-shadow:0 0 0 #0d5f86, 0 2px 8px rgba(0,0,0,0.5)!important}
+.play-key:active{transform:translateY(2px)!important;box-shadow:inset 0 2px 0 rgba(255,255,255,0.4), inset 0 -3px 8px rgba(0,60,90,0.55)!important}
         `}</style>
         {/* Nefes alan hale — butonun ARKASINDA, ona değmez */}
         {!matchmaking && <span style={{ position:"absolute",top:"50%",left:"50%",width:"86%",height:"150%",borderRadius:"50%",background:"radial-gradient(ellipse, rgba(0,229,255,0.42) 0%, rgba(0,180,255,0.16) 42%, transparent 70%)",animation:"playHalo 3s ease-in-out infinite",pointerEvents:"none",filter:"blur(10px)",zIndex:0 }} />}
@@ -4955,8 +4957,8 @@ export default function Game() {
             /* letterSpacing son harften sonra da boşluk bırakır → textIndent ile telafi = GERÇEK merkez */
             letterSpacing:9,
             cursor:(matchmaking||authLoading)?"not-allowed":"pointer",opacity:(authLoading||matchmaking)?0.5:1,
-            /* Fiziksel taban kenarı + zemin gölgesi */
-            boxShadow:"0 7px 0 #0d5f86, 0 9px 20px rgba(0,0,0,0.55), inset 0 2px 0 rgba(255,255,255,0.75), inset 0 -3px 8px rgba(0,60,90,0.35)",
+            /* Camsı 3D yüzey — sadece iç gölgeler, dışa taşan/asimetrik gölge yok (üst-alt boşluk eşit) */
+            boxShadow:"inset 0 2px 0 rgba(255,255,255,0.75), inset 0 -3px 8px rgba(0,60,90,0.35)",
             textShadow:"0 1px 0 rgba(255,255,255,0.5), 0 2px 4px rgba(0,60,90,0.35)",
             display:"flex",alignItems:"center",justifyContent:"center" }}>
           {/* Üst yüzey parlaması — cam hissi */}
@@ -5138,9 +5140,23 @@ export default function Game() {
       <div style={{ fontSize:11,fontWeight:700,color:t.text,marginBottom:5,fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"shipsPlacedLabel")(placedShips.length, SHIPS.length)}</div>
       {entryFeeDeducted && <div style={{ fontSize:11,fontWeight:700,color:t.gold,fontFamily:warrior,marginBottom:6,letterSpacing:2 }}>{L(appLang,"entryFeeShort")(entryFeeDeducted)}</div>}
       {!allPlaced && !placementConfirmed && (<>
-        <div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.9), rgba(8,14,30,0.95))",border:`2px solid rgba(0,229,255,0.15)`,borderRadius:10,padding:"6px 10px 16px",marginBottom:8,fontSize:13,textAlign:"center",width:"100%",maxWidth:400,fontFamily:warrior,fontWeight:700,letterSpacing:1 }}>{selectedShip?<span><span style={{ color:t.accent,fontWeight:800 }}>▸</span> {L(appLang,"tapMapHint")}</span>:<span><span style={{ color:t.accent,fontWeight:800 }}>▸</span> {L(appLang,"pickShipHint")}</span>}</div>
-        <div style={{ display:"flex",flexWrap:"wrap",gap:5,justifyContent:"center",marginBottom:6,maxWidth:400,width:"100%" }}>
-          {SHIPS.map(ship=>{const placed=placedShips.some(p=>p.id===ship.id);const sel=selectedShip===ship.id;return(<button key={ship.id} onClick={()=>{if(!placed){setSelectedShip(sel?null:ship.id);setRotation(0);}}} style={{ padding:"6px 9px",background:placed?"rgba(22,32,64,0.4)":sel?t.accent:"rgba(12,21,41,0.8)",color:placed?t.textDim:sel?t.bg:t.text,border:`2px solid ${placed?"rgba(30,58,95,0.3)":sel?t.accent:ship.color+"66"}`,borderRadius:8,fontSize:10,cursor:placed?"default":"pointer",fontFamily:warrior,fontWeight:800,opacity:placed?0.35:1,textDecoration:placed?"line-through":"none",letterSpacing:0.4,whiteSpace:"nowrap",animation:!placed&&!sel&&ship.id===nextShip?.id?"borderGlow 2s infinite":"none",transition:"all 0.15s ease" }}>{appLang==="en"?ship.nameEn:ship.name}({ship.size})</button>);})}
+        <div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.9), rgba(8,14,30,0.95))",border:`2px solid rgba(0,229,255,0.15)`,borderRadius:10,padding:"10px",marginBottom:8,fontSize:13,textAlign:"center",width:"100%",maxWidth:400,fontFamily:warrior,fontWeight:700,letterSpacing:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><span style={{ color:t.accent,fontWeight:800 }}>▾</span> <span>{selectedShip?L(appLang,"tapMapHint"):L(appLang,"pickShipHint")}</span></div>
+        <div style={{ display:"flex",flexWrap:"wrap",gap:6,justifyContent:"center",marginBottom:6,maxWidth:400,width:"100%" }}>
+          {SHIPS.map(ship=>{
+            const placed=placedShips.some(p=>p.id===ship.id);
+            const sel=selectedShip===ship.id;
+            const maxR=Math.max(...ship.shape.map(([r])=>r)), maxC=Math.max(...ship.shape.map(([,c])=>c));
+            const S2=8, G2=1.5;
+            const bw=(maxC+1)*S2+maxC*G2, bh=(maxR+1)*S2+maxR*G2;
+            return(<button key={ship.id} onClick={()=>{if(!placed){setSelectedShip(sel?null:ship.id);setRotation(0);}}} style={{ padding:"9px 10px",display:"flex",flexDirection:"column",alignItems:"center",gap:5,background:placed?"rgba(22,32,64,0.4)":sel?t.accent:"rgba(12,21,41,0.8)",color:placed?t.textDim:sel?t.bg:t.text,border:`2px solid ${placed?"rgba(30,58,95,0.3)":sel?t.accent:ship.color+"66"}`,borderRadius:8,fontSize:10,cursor:placed?"default":"pointer",fontFamily:warrior,fontWeight:800,opacity:placed?0.35:1,textDecoration:placed?"line-through":"none",letterSpacing:0.4,whiteSpace:"nowrap",animation:!placed&&!sel&&ship.id===nextShip?.id?"borderGlow 2s infinite":"none",transition:"all 0.15s ease" }}>
+              <span>{appLang==="en"?ship.nameEn:ship.name}</span>
+              <div style={{ position:"relative",width:bw,height:bh }}>
+                {ship.shape.map(([r,c],idx)=>(
+                  <span key={idx} style={{ position:"absolute",left:c*(S2+G2),top:r*(S2+G2),width:S2,height:S2,borderRadius:2,background:`linear-gradient(160deg, ${ship.color} 0%, ${ship.color} 42%, rgba(0,0,0,0.42) 100%)`,border:"1px solid rgba(0,0,0,0.45)",boxShadow:"inset 0 1.5px 0 rgba(255,255,255,0.55), inset 0 -2px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.55)" }} />
+                ))}
+              </div>
+            </button>);
+          })}
         </div>
         {/* Rastgele yerleştir */}
         {!placementConfirmed && <button onClick={autoPlaceShips} style={{ width:"100%",maxWidth:400,padding:"9px 0",marginBottom:6,background:"linear-gradient(135deg, rgba(167,139,250,0.15), rgba(167,139,250,0.05))",color:"#a78bfa",border:"2px solid rgba(167,139,250,0.4)",borderRadius:12,fontSize:15,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:3,display:"flex",alignItems:"center",justifyContent:"center",gap:10,boxShadow:"0 0 16px rgba(167,139,250,0.15)" }}>
