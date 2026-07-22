@@ -444,6 +444,10 @@ const MAX_LEVEL = 83;
 const XP_ONLINE_WIN = 1;
 const XP_BOT_WIN = 0.5;
 const XP_BOT_LOSS = XP_BOT_WIN / 4;       // kaybeden, kazanılan XP'nin %25'ini alır
+// TEK SALVO — kısa (~1dk) maç olduğu için bot maçının yarısı XP verir, şeref (honor) vermez, altın sabit ve düşüktür.
+const XP_SALVO_WIN = XP_BOT_WIN / 2;      // 0.25
+const XP_SALVO_LOSS = XP_SALVO_WIN / 4;   // kaybeden, kazanılanın %25'i
+const SALVO_WIN_GOLD = 22;
 function gamesNeededForLevel(fromLevel) {
   if (fromLevel >= MAX_LEVEL) return Infinity;
   return Math.max(1, Math.round(3 * Math.pow(5 / 3, fromLevel - 1)));
@@ -4015,23 +4019,37 @@ export default function Game() {
     botCells.forEach(([r, c]) => { const hit = myShipCells.some(([sr, sc]) => sr === r && sc === c); oppOverlay[r][c] = hit ? "hit" : "miss"; if (hit) oppHits++; });
     const won = myHits > oppHits;
     const draw = myHits === oppHits;
-    // Basit ödül — mevcut bot ekonomisine dokunmadan, mütevazı sabit bir kazanım.
-    if (won && authUid) {
-      const gold = 40;
+    // Batırılan gemi sayısı — kazanım/görev sayaçları için
+    const sunkCount = Object.values(botShips || {}).filter(s => (s.cells||[]).length > 0 && s.cells.every(([r,c]) => myOverlay[r][c] === "hit")).length;
+    // TEK SALVO ekonomisi (karar: şeref YOK, XP bot maçının yarısı, altın sabit-düşük, görev/kazanım normal bot maçı gibi sayılır)
+    if (authUid) {
       get(ref(db, `profiles/${authUid}`)).then(snap => {
         if (!snap.exists()) return;
         const p = snap.val();
-        const newGold = safeGold(p.gold) + gold;
-        update(ref(db, `profiles/${authUid}`), { gold: newGold, wins: (p.wins||0)+1, totalGames: (p.totalGames||0)+1, botGames: (p.botGames||0)+1, lastGameAt: Date.now() }).catch(()=>{});
-        setMyProfile(prev => prev ? { ...prev, gold: newGold, wins: (prev.wins||0)+1 } : prev);
+        if (won) {
+          const lvl = applyLevelCredit(p, XP_SALVO_WIN);
+          const newGold = safeGold(p.gold) + SALVO_WIN_GOLD;
+          update(ref(db, `profiles/${authUid}`), { gold: newGold, wins: (p.wins||0)+1, totalGames: (p.totalGames||0)+1, botGames: (p.botGames||0)+1, lastGameAt: Date.now(), level: lvl.level, levelProgress: lvl.levelProgress, recentResults: pushRecent(p.recentResults, true) }).catch(()=>{});
+          setMyProfile(prev => prev ? { ...prev, gold: newGold, wins:(prev.wins||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl.level, levelProgress: lvl.levelProgress, recentResults: pushRecent(prev.recentResults, true) } : prev);
+          setGoldChange({ amount: SALVO_WIN_GOLD }); sfx.play('gold');
+        } else {
+          const lvl = applyLevelCredit(p, XP_SALVO_LOSS);
+          const patch = { totalGames: (p.totalGames||0)+1, botGames: (p.botGames||0)+1, lastGameAt: Date.now(), level: lvl.level, levelProgress: lvl.levelProgress };
+          if (!draw) { patch.losses = (p.losses||0)+1; patch.recentResults = pushRecent(p.recentResults, false); }
+          update(ref(db, `profiles/${authUid}`), patch).catch(()=>{});
+          setMyProfile(prev => prev ? { ...prev, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl.level, levelProgress: lvl.levelProgress, ...(draw?{}:{ losses:(prev.losses||0)+1, recentResults: pushRecent(prev.recentResults, false) }) } : prev);
+        }
       }).catch(()=>{});
-      setGoldChange({ amount: gold }); sfx.play('gold');
-    } else if (authUid) {
-      get(ref(db, `profiles/${authUid}`)).then(snap => {
-        if (!snap.exists()) return;
-        const p = snap.val();
-        update(ref(db, `profiles/${authUid}`), { totalGames: (p.totalGames||0)+1, botGames: (p.botGames||0)+1, losses: draw?(p.losses||0):(p.losses||0)+(won?0:1), lastGameAt: Date.now() }).catch(()=>{});
-      }).catch(()=>{});
+      // Günlük görev + kazanım + Yaşayan Ufuk sayaçları — normal bot maçı gibi işlenir
+      bumpDaily(d => { d.gamesPlayed += 1; d.totalHits += myHits; d.markedCells += myCells.length; d.shipsSunk = Math.max(d.shipsSunk, sunkCount); if (won) { d.wins += 1; d.botWin = true; } });
+      bumpAch(a => {
+        a.hits += myHits; a.sunk += sunkCount;
+        if (won) { a.botWins += 1; a.goldEarned += SALVO_WIN_GOLD; a.winStreak += 1; a.bestWinStreak = Math.max(a.bestWinStreak, a.winStreak); a.lossStreak = 0; }
+        else if (!draw) { a.winStreak = 0; a.lossStreak = (a.lossStreak||0) + 1; }
+      });
+      bumpGlobalStats(1, sunkCount);
+      bumpVoyageMatch();
+      track("game_end", { mode: "salvo", result: won ? "win" : draw ? "draw" : "loss", gold: won ? SALVO_WIN_GOLD : 0 });
     }
     sfx.init(); sfx.play(won ? 'win' : draw ? 'click' : 'lose');
     setSalvoResult({ myHits, oppHits, myOverlay, oppOverlay, won, draw });
