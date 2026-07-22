@@ -1627,15 +1627,17 @@ function AnchorHeroLogo() {
   return (<img src="/img/anchor-logo.png" alt="Amiral Battı" draggable={false} style={{ width:"100%",height:"100%",objectFit:"contain",userSelect:"none",pointerEvents:"none" }} />);
 }
 
-function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, onCellPointerDown, overlay, hoverCells, isDefense, shipColors, disabled, blinkCells, manualMarks, showShipStatus, onboardingHint }) {
+function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, onCellPointerDown, overlay, hoverCells, isDefense, shipColors, disabled, blinkCells, manualMarks, showShipStatus, onboardingHint, turnGlow }) {
   const longPressRef = useRef(null);
   const [rippleCell, setRippleCell] = useState(null);
   const handleClick = (r,c) => { if(disabled)return; sfx.init(); setRippleCell(`${r},${c}`); setTimeout(()=>setRippleCell(null),400); onClick?.(r,c); };
   const handleTouchStart = (r,c) => { longPressRef.current = setTimeout(()=>{ onLongPress?.(r,c); longPressRef.current=null; },500); };
   const handleTouchEnd = () => { if(longPressRef.current){clearTimeout(longPressRef.current);longPressRef.current=null;} };
+  // Sıra oyuncudayken etiket şeridi (harf/sayı alanı) dikkat çeksin diye yanıp söner — SADECE etiketler, oyun kareleri asla.
+  const labelGlowStyle = turnGlow ? { background:"rgba(0,229,255,0.18)", borderRadius:3, animation:"pulse 1.1s ease-in-out infinite" } : null;
   return (<div className="paint-box" style={{ background:`linear-gradient(135deg,${t.surfaceLight} 0%,${t.surface} 100%)`,border:"1px solid rgba(0,229,255,0.3)",borderRadius:10,padding:4,overflow:"hidden",boxShadow:"0 4px 20px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.06)" }}>
-    <div style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize }} />{board[0]?.map((_,i) => <div key={i} style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:cellSize>30?13:11,fontWeight:900,color:t.text,fontFamily:warrior,letterSpacing:1,textShadow:"0 1px 2px rgba(0,0,0,0.6)" }}>{COL_LABELS[i]||""}</div>)}</div>
-    {board.map((row,r) => (<div key={r} style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:cellSize>30?13:11,fontWeight:900,color:t.text,fontFamily:warrior,textShadow:"0 1px 2px rgba(0,0,0,0.6)" }}>{r+1}</div>
+    <div style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize,...labelGlowStyle }} />{board[0]?.map((_,i) => <div key={i} style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:cellSize>30?13:11,fontWeight:900,color:t.text,fontFamily:warrior,letterSpacing:1,textShadow:"0 1px 2px rgba(0,0,0,0.6)",...labelGlowStyle }}>{COL_LABELS[i]||""}</div>)}</div>
+    {board.map((row,r) => (<div key={r} style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:cellSize>30?13:11,fontWeight:900,color:t.text,fontFamily:warrior,textShadow:"0 1px 2px rgba(0,0,0,0.6)",...labelGlowStyle }}>{r+1}</div>
       {row.map((val,c) => {
         const ovr=overlay?.[r]?.[c], isHov=hoverCells?.some(([hr,hc])=>hr===r&&hc===c), shipColor=shipColors?.[r]?.[c], isBlink=blinkCells?.some(([br,bc])=>br===r&&bc===c), isManual=manualMarks?.[r]?.[c], isRipple=rippleCell===`${r},${c}`;
         let bg=t.water,content="",shadow="none",clr=t.textDim;
@@ -1670,14 +1672,10 @@ function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
   const list = Object.values(ships);
   const sunkCount = list.filter(s => { const c = s.cells || []; return c.length > 0 && c.every(([r, cc]) => hitCells?.[r]?.[cc]); }).length;
   const isHit = color === t.hit;
-  const titleGrad = isHit
-    ? "linear-gradient(180deg, #fff5f5 0%, #ffb3ba 30%, #ff4757 65%, #b91c1c 100%)"
-    : "linear-gradient(180deg, #ffffff 0%, #dff6ff 35%, #7fd9f5 70%, #3aa8cc 100%)";
-  const titleGlow = isHit ? "rgba(255,71,87,0.6)" : "rgba(120,220,255,0.5)";
   return (
-    <div style={{ width:"100%",maxWidth:400,marginTop:5,padding:"8px 11px",borderRadius:10,background:"linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))",border:`2px solid ${isHit?"rgba(255,71,87,0.4)":"rgba(0,229,255,0.35)"}`,boxShadow:isHit?"0 0 14px rgba(255,71,87,0.25), inset 0 1px 0 rgba(255,255,255,0.03)":"0 0 14px rgba(0,229,255,0.2), inset 0 1px 0 rgba(255,255,255,0.03)",display:"flex",flexDirection:"column",gap:5 }}>
+    <div style={{ width:"100%",maxWidth:400,marginTop:10,padding:"8px 11px",borderRadius:10,background:"linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))",border:`2px solid ${isHit?"rgba(255,71,87,0.4)":"rgba(0,229,255,0.35)"}`,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.05)",display:"flex",flexDirection:"column",gap:5 }}>
       <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
-        <span style={{ fontSize:14,fontWeight:900,fontFamily:warrior,letterSpacing:2.5,textTransform:"uppercase",flexShrink:0,background:titleGrad,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text",filter:`drop-shadow(0 1px 0 rgba(0,0,0,0.5)) drop-shadow(0 0 10px ${titleGlow})` }}>{title}</span>
+        <span style={{ fontSize:14,fontWeight:900,fontFamily:warrior,letterSpacing:2.5,textTransform:"uppercase",flexShrink:0,color:color,textShadow:`0 1px 2px rgba(0,0,0,0.6), 0 0 12px ${isHit?t.hitGlow:t.accentGlow}` }}>{title}</span>
         <span style={{ fontSize:12,fontWeight:900,color:sunkCount>0?t.sunk:t.textDim,fontFamily:mono,flexShrink:0 }}>{sunkCount}/{list.length}</span>
       </div>
       <div style={{ display:"flex",alignItems:"flex-start",gap:8,flexWrap:"wrap",rowGap:5 }}>
@@ -5254,7 +5252,7 @@ export default function Game() {
       <div ref={boardBoxRef} style={{ flex:1,minHeight:0,width:"100%",maxWidth:400,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden" }}>
       <div style={{ border:myTurn?`3px solid ${t.accent}`:`2px solid rgba(255,71,87,0.35)`,borderRadius:12,padding:2,animation:myTurn?"turnPulse 1.1s ease-in-out infinite":"none",transition:"border-color 0.4s ease",position:"relative" }}>
         {isAttack
-          ? <Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:playCell} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} onboardingHint={isOnboarding?[[2,2],[2,3],[2,4]]:null} />
+          ? <Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:playCell} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} onboardingHint={isOnboarding?[[2,2],[2,3],[2,4]]:null} turnGlow={myTurn && !isOnboarding} />
           : <Grid board={defenseBoard} cellSize={isOnboarding?gridSize:playCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />}
         {microFeedback && <MicroFeedback text={microFeedback.text} color={microFeedback.color} onDone={()=>setMicroFeedback(null)} />}
       </div>
@@ -5277,7 +5275,7 @@ export default function Game() {
           <div onClick={()=>setEmojiOpen(false)} style={{ position:"fixed",inset:0,zIndex:119 }} />
         )}
         {emojiOpen && (
-          <div style={{ position:"fixed",right:64,bottom:`calc(${myTurn&&activeBoard==="attack"&&!markMode?"76px":"14px"} + env(safe-area-inset-bottom, 0px))`,zIndex:121,display:"flex",flexDirection:"row",flexWrap:"nowrap",gap:6,padding:8,borderRadius:12,background:"rgba(10,14,23,0.97)",border:"3px solid rgba(255,71,87,0.65)",boxShadow:"0 0 22px rgba(255,71,87,0.5), 0 6px 24px rgba(0,0,0,0.6)",animation:"fadeUp 0.18s ease-out",maxWidth:"calc(100vw - 84px)",overflowX:"auto" }}>
+          <div style={{ position:"fixed",right:64,bottom:`calc(${myTurn&&activeBoard==="attack"&&!markMode?"76px":"14px"} + env(safe-area-inset-bottom, 0px))`,zIndex:121,display:"flex",flexDirection:"row",flexWrap:"nowrap",gap:6,padding:8,borderRadius:12,background:"rgba(10,14,23,0.97)",border:"3px solid rgba(255,71,87,0.65)",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.06), 0 6px 20px rgba(0,0,0,0.6)",animation:"fadeUp 0.18s ease-out",maxWidth:"calc(100vw - 84px)",overflowX:"auto" }}>
             {QUICK_EMOJIS.map(qe=>(
               <button key={qe.id} disabled={emojiCooldown}
                 onClick={()=>{ if (emojiCooldown) return; sendEmoji(qe); setEmojiOpen(false); setEmojiCooldown(true); setTimeout(()=>setEmojiCooldown(false), 3000); }}
