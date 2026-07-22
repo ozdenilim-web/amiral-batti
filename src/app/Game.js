@@ -444,10 +444,9 @@ const MAX_LEVEL = 83;
 const XP_ONLINE_WIN = 1;
 const XP_BOT_WIN = 0.5;
 const XP_BOT_LOSS = XP_BOT_WIN / 4;       // kaybeden, kazanılan XP'nin %25'ini alır
-// TEK SALVO — kısa (~1dk) maç olduğu için bot maçının yarısı XP verir, şeref (honor) vermez, altın sabit ve düşüktür.
-const XP_SALVO_WIN = XP_BOT_WIN / 2;      // 0.25
-const XP_SALVO_LOSS = XP_SALVO_WIN / 4;   // kaybeden, kazanılanın %25'i
-const SALVO_WIN_GOLD = 22;
+// TEK SALVO — arena tarzı bahis: giriş 25 altın (ortaya konur), kazanan 50 altın alır (net +25), kaybeden anteyi kaybeder, berabere ante iade edilir. XP/şeref YOK, sadece altın.
+const SALVO_ANTE = 25;
+const SALVO_WIN_GOLD = 50;
 function gamesNeededForLevel(fromLevel) {
   if (fromLevel >= MAX_LEVEL) return Infinity;
   return Math.max(1, Math.round(3 * Math.pow(5 / 3, fromLevel - 1)));
@@ -1189,7 +1188,7 @@ function ArenaSelect({ myGold, onSelect, onBack, lang = "tr" }) {
 
 // === FARKLI SULAR — özel oyun modları merkezi. Aynı temel kurallar, değişik harita/gemi/oynanış varyantları. ===
 const WATER_MODES = [
-  { id:"teksalvo", name:"TEK SALVO", nameEn:"SINGLE SALVO", icon:"💥", color:"#fbbf24", desc:"20 atışını tek seferde işaretle, en çok vuran kazanır.", descEn:"Mark all 20 shots at once — most hits wins." },
+  { id:"teksalvo", name:"TEK SALVO", nameEn:"SINGLE SALVO", icon:"💥", color:"#fbbf24", desc:"20 atışını tek seferde işaretle, en çok vuran kazanır. 💰25 giriş, kazanana 50.", descEn:"Mark all 20 shots at once — most hits wins. 💰25 entry, winner takes 50." },
   { id:"kusatma", name:"KUŞATMA", nameEn:"SIEGE", icon:"⚔️", color:"#ff4757", desc:"3 kişi serbest, 4 kişi 2'ye 2 — aynı sularda çok filo.", descEn:"3-player free-for-all or 4-player 2v2 — multiple fleets, same waters." },
   { id:"tersane", name:"TERSANE", nameEn:"SHIPYARD", icon:"⚒️", color:"#f59e0b", desc:"20 kutucuk, 5 gemi, istediğin şekli ver.", descEn:"20 cells, 5 ships, any shape you want." },
   { id:"girdap", name:"GİRDAP", nameEn:"WHIRLPOOL", icon:"🌀", color:"#6366f1", desc:"9x9'dan 15x15'e — tahta boyu her seferinde değişir.", descEn:"From 9x9 to 15x15 — board size shifts each time." },
@@ -1675,7 +1674,7 @@ function AnchorHeroLogo() {
   return (<img src="/img/anchor-logo.png" alt="Amiral Battı" draggable={false} style={{ width:"100%",height:"100%",objectFit:"contain",userSelect:"none",pointerEvents:"none" }} />);
 }
 
-function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, onCellPointerDown, overlay, hoverCells, isDefense, shipColors, disabled, blinkCells, manualMarks, showShipStatus, onboardingHint, turnGlow }) {
+function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, onCellPointerDown, overlay, hoverCells, isDefense, shipColors, disabled, blinkCells, manualMarks, showShipStatus, onboardingHint, turnGlow, revealSweepMs }) {
   const longPressRef = useRef(null);
   const [rippleCell, setRippleCell] = useState(null);
   const handleClick = (r,c) => { if(disabled)return; sfx.init(); setRippleCell(`${r},${c}`); setTimeout(()=>setRippleCell(null),400); onClick?.(r,c); };
@@ -1685,23 +1684,26 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, on
   const labelGlowStyle = turnGlow ? { background:"rgba(0,229,255,0.18)", borderRadius:3, animation:"pulse 1.1s ease-in-out infinite" } : null;
   return (<div className="paint-box" style={{ background:`linear-gradient(135deg,${t.surfaceLight} 0%,${t.surface} 100%)`,border:"1px solid rgba(0,229,255,0.3)",borderRadius:10,padding:4,overflow:"hidden",boxShadow:"0 4px 20px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.06)" }}>
     <div style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize,...labelGlowStyle }} />{board[0]?.map((_,i) => <div key={i} style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:cellSize>30?13:11,fontWeight:900,color:t.text,fontFamily:warrior,letterSpacing:1,textShadow:"0 1px 2px rgba(0,0,0,0.6)",...labelGlowStyle }}>{COL_LABELS[i]||""}</div>)}</div>
-    {board.map((row,r) => (<div key={r} style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:cellSize>30?13:11,fontWeight:900,color:t.text,fontFamily:warrior,textShadow:"0 1px 2px rgba(0,0,0,0.6)",...labelGlowStyle }}>{r+1}</div>
+    {board.map((row,r) => { const rowDelayMs = revealSweepMs ? Math.round((r/(board.length||1))*revealSweepMs) : 0; return (<div key={r} style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:cellSize>30?13:11,fontWeight:900,color:t.text,fontFamily:warrior,textShadow:"0 1px 2px rgba(0,0,0,0.6)",...labelGlowStyle }}>{r+1}</div>
       {row.map((val,c) => {
         const ovr=overlay?.[r]?.[c], isHov=hoverCells?.some(([hr,hc])=>hr===r&&hc===c), shipColor=shipColors?.[r]?.[c], isBlink=blinkCells?.some(([br,bc])=>br===r&&bc===c), isManual=manualMarks?.[r]?.[c], isRipple=rippleCell===`${r},${c}`;
         let bg=t.water,content="",shadow="none",clr=t.textDim;
         if(isDefense){
           if(val>0&&shipColor)bg=shipColor;else if(val>0)bg=t.shipCell;
           if(ovr==="hit"){bg="#1a0505";content=(<span style={{position:"absolute",inset:0,display:"block",pointerEvents:"none"}}>
-          <span style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 50%, rgba(255,235,120,0.95) 0%, rgba(255,150,30,0.9) 22%, rgba(220,50,10,0.85) 45%, rgba(80,10,5,0.9) 70%, rgba(10,2,2,0.95) 100%)",animation:"explodeCore 1.1s ease-in-out 3"}} />
+          {revealSweepMs && <span style={{position:"absolute",inset:"-40%",borderRadius:"50%",border:"2px solid rgba(255,150,30,0.85)",animation:`explodeWave 0.6s ease-out ${rowDelayMs}ms both`}} />}
+          <span style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 50%, rgba(255,235,120,0.95) 0%, rgba(255,150,30,0.9) 22%, rgba(220,50,10,0.85) 45%, rgba(80,10,5,0.9) 70%, rgba(10,2,2,0.95) 100%)",animation:`explodeCore 1.1s ease-in-out ${rowDelayMs}ms 3`}} />
           </span>);shadow="inset 0 0 14px rgba(255,90,20,0.6)";clr="#fff";}
           else if(ovr==="miss"){bg=t.miss;content="•";}
           // showShipStatus: savaş haritasında vurulan gemi hücreleri farklı gösterilir
           else if(showShipStatus&&val>0&&shipColor){bg=shipColor;content="■";clr="rgba(255,255,255,0.6)";}
         }
         else{if(ovr==="hit"){bg="#1a0505";content=(<span style={{position:"absolute",inset:0,display:"block",pointerEvents:"none"}}>
-          <span style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 50%, rgba(255,235,120,0.95) 0%, rgba(255,150,30,0.9) 22%, rgba(220,50,10,0.85) 45%, rgba(80,10,5,0.9) 70%, rgba(10,2,2,0.95) 100%)",animation:"explodeCore 1.1s ease-in-out 3"}} />
+          {revealSweepMs && <span style={{position:"absolute",inset:"-40%",borderRadius:"50%",border:"2px solid rgba(255,150,30,0.85)",animation:`explodeWave 0.6s ease-out ${rowDelayMs}ms both`}} />}
+          <span style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 50%, rgba(255,235,120,0.95) 0%, rgba(255,150,30,0.9) 22%, rgba(220,50,10,0.85) 45%, rgba(80,10,5,0.9) 70%, rgba(10,2,2,0.95) 100%)",animation:`explodeCore 1.1s ease-in-out ${rowDelayMs}ms 3`}} />
           </span>);shadow="inset 0 0 14px rgba(255,90,20,0.6)";clr="#fff";}else if(ovr==="miss"){bg=t.miss;content="•";}else if(ovr==="sunk"){bg="#0d0303";content=(<span style={{position:"absolute",inset:0,display:"block",pointerEvents:"none"}}>
-          <span style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 55%, rgba(255,190,80,0.85) 0%, rgba(230,90,15,0.85) 28%, rgba(140,25,8,0.9) 55%, rgba(30,5,3,0.96) 85%)",animation:"explodeCore 1.5s ease-in-out 3"}} />
+          {revealSweepMs && <span style={{position:"absolute",inset:"-40%",borderRadius:"50%",border:"2px solid rgba(255,190,80,0.85)",animation:`explodeWave 0.7s ease-out ${rowDelayMs}ms both`}} />}
+          <span style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 55%, rgba(255,190,80,0.85) 0%, rgba(230,90,15,0.85) 28%, rgba(140,25,8,0.9) 55%, rgba(30,5,3,0.96) 85%)",animation:`explodeCore 1.5s ease-in-out ${rowDelayMs}ms 3`}} />
           <span style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",fontSize:"0.95em",fontWeight:900,color:"#fff",textShadow:"0 0 8px rgba(0,0,0,1), 0 0 4px rgba(0,0,0,1)"}}>✕</span>
         </span>);shadow="inset 0 0 16px rgba(180,50,10,0.7)";clr="#fff";}else if(ovr==="selected"){bg="rgba(6,182,212,0.45)";content="◎";shadow=`inset 0 0 12px ${t.accentGlow}`;clr=t.accent;}if(!ovr&&isManual){bg="rgba(251,191,36,0.15)";content="⚑";clr=t.gold;}}
         if(isHov){bg="rgba(6,182,212,0.35)";shadow=`inset 0 0 10px ${t.accentGlow}`;}
@@ -1710,7 +1712,7 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, on
         // Gemi hücrelerinde ANA SAYFA'daki OYNA tuşuyla AYNI cam parlaması — üstte parlak, aşağı doğru eriyen bir cam yüzeyi hissi.
         const isPlainShipCell = isDefense && val>0 && shipColor && !ovr && !showShipStatus;
         return <div key={c} data-cell="1" data-r={r} data-c={c} className={disabled?"":"ab-cell"} onClick={()=>handleClick(r,c)} onMouseEnter={()=>onHover?.(r,c)} onContextMenu={e=>{e.preventDefault();onRightClick?.(r,c);}} onMouseDown={disabled?undefined:(e)=>onCellPointerDown?.(r,c,e)} onTouchStart={disabled?undefined:(e)=>{ if(onCellPointerDown){ onCellPointerDown(r,c,e); } else { handleTouchStart(r,c); } }} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={{ position:"relative",overflow:"hidden",width:cellSize,height:cellSize,border:"1px solid rgba(0,229,255,0.22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:ovr==="sunk"?13:11,fontWeight:900,cursor:disabled?"default":"pointer",background:bg,boxShadow:isPlainShipCell?`${shadow==="none"?"":shadow+", "}inset 0 -3px 5px rgba(0,0,0,0.28)`:shadow,color:clr,boxSizing:"border-box",transition:"background 0.15s ease, box-shadow 0.15s ease",animation:isBlink?"blink3s 0.5s ease-in-out 6":isRipple?"popIn 0.3s ease-out":"none",borderRadius:1,touchAction:onCellPointerDown?"none":"auto" }}>{content}{isPlainShipCell && <span style={{ position:"absolute",top:0,left:0,right:0,height:"46%",background:"linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0))",borderRadius:"1px 1px 50% 50%",pointerEvents:"none" }} />}</div>;
-      })}</div>))}
+      })}</div>); })}
   </div>);
 }
 
@@ -3975,6 +3977,11 @@ export default function Game() {
   const startSalvoBotGame = () => {
     track("game_start", { mode: "salvo" });
     if (!playerName.trim()) { setMessage(L(appLang,"msgTypeName")); return; }
+    // Arena tarzı bahis: ortaya 25 altın konur, yetersiz altınla girilemez.
+    if (safeGold(myProfile?.gold) < SALVO_ANTE) { setMessage(L(appLang,"msgNotEnoughGold")); return; }
+    const anteGold = safeGold(myProfile?.gold) - SALVO_ANTE;
+    setMyProfile(prev => prev ? { ...prev, gold: anteGold } : prev);
+    if (authUid) update(ref(db, `profiles/${authUid}`), { gold: anteGold }).catch(()=>{});
     const bot = botPlaceShips();
     const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
     setIsBotGame(true); isBotGameRef.current = true;
@@ -4021,26 +4028,28 @@ export default function Game() {
     const draw = myHits === oppHits;
     // Batırılan gemi sayısı — kazanım/görev sayaçları için
     const sunkCount = Object.values(botShips || {}).filter(s => (s.cells||[]).length > 0 && s.cells.every(([r,c]) => myOverlay[r][c] === "hit")).length;
-    // TEK SALVO ekonomisi (karar: şeref YOK, XP bot maçının yarısı, altın sabit-düşük, görev/kazanım normal bot maçı gibi sayılır)
+    // TEK SALVO ekonomisi — arena tarzı bahis: giriş (25) zaten başlangıçta kesildi.
+    // Kazanan tam 50 alır (net +25), kaybeden anteyi kaybeder (net -25), berabere ante iade edilir (net 0). XP/şeref YOK, sadece altın.
     if (authUid) {
       get(ref(db, `profiles/${authUid}`)).then(snap => {
         if (!snap.exists()) return;
         const p = snap.val();
         if (won) {
-          const lvl = applyLevelCredit(p, XP_SALVO_WIN);
           const newGold = safeGold(p.gold) + SALVO_WIN_GOLD;
-          update(ref(db, `profiles/${authUid}`), { gold: newGold, wins: (p.wins||0)+1, totalGames: (p.totalGames||0)+1, botGames: (p.botGames||0)+1, lastGameAt: Date.now(), level: lvl.level, levelProgress: lvl.levelProgress, recentResults: pushRecent(p.recentResults, true) }).catch(()=>{});
-          setMyProfile(prev => prev ? { ...prev, gold: newGold, wins:(prev.wins||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl.level, levelProgress: lvl.levelProgress, recentResults: pushRecent(prev.recentResults, true) } : prev);
-          setGoldChange({ amount: SALVO_WIN_GOLD }); sfx.play('gold');
+          update(ref(db, `profiles/${authUid}`), { gold: newGold, wins: (p.wins||0)+1, totalGames: (p.totalGames||0)+1, botGames: (p.botGames||0)+1, lastGameAt: Date.now(), recentResults: pushRecent(p.recentResults, true) }).catch(()=>{});
+          setMyProfile(prev => prev ? { ...prev, gold: newGold, wins:(prev.wins||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, recentResults: pushRecent(prev.recentResults, true) } : prev);
+          setGoldChange({ amount: SALVO_WIN_GOLD, refund:false }); sfx.play('gold');
+        } else if (draw) {
+          const newGold = safeGold(p.gold) + SALVO_ANTE; // ante iadesi
+          update(ref(db, `profiles/${authUid}`), { gold: newGold, totalGames: (p.totalGames||0)+1, botGames: (p.botGames||0)+1, lastGameAt: Date.now() }).catch(()=>{});
+          setMyProfile(prev => prev ? { ...prev, gold: newGold, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1 } : prev);
+          setGoldChange({ amount: SALVO_ANTE, refund:true });
         } else {
-          const lvl = applyLevelCredit(p, XP_SALVO_LOSS);
-          const patch = { totalGames: (p.totalGames||0)+1, botGames: (p.botGames||0)+1, lastGameAt: Date.now(), level: lvl.level, levelProgress: lvl.levelProgress };
-          if (!draw) { patch.losses = (p.losses||0)+1; patch.recentResults = pushRecent(p.recentResults, false); }
-          update(ref(db, `profiles/${authUid}`), patch).catch(()=>{});
-          setMyProfile(prev => prev ? { ...prev, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl.level, levelProgress: lvl.levelProgress, ...(draw?{}:{ losses:(prev.losses||0)+1, recentResults: pushRecent(prev.recentResults, false) }) } : prev);
+          update(ref(db, `profiles/${authUid}`), { totalGames: (p.totalGames||0)+1, botGames: (p.botGames||0)+1, losses: (p.losses||0)+1, lastGameAt: Date.now(), recentResults: pushRecent(p.recentResults, false) }).catch(()=>{});
+          setMyProfile(prev => prev ? { ...prev, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, losses:(prev.losses||0)+1, recentResults: pushRecent(prev.recentResults, false) } : prev);
         }
       }).catch(()=>{});
-      // Günlük görev + kazanım + Yaşayan Ufuk sayaçları — normal bot maçı gibi işlenir
+      // Günlük görev + kazanım + Yaşayan Ufuk sayaçları — normal bot maçı gibi işlenir (para değil, ilerleme kaydı)
       bumpDaily(d => { d.gamesPlayed += 1; d.totalHits += myHits; d.markedCells += myCells.length; d.shipsSunk = Math.max(d.shipsSunk, sunkCount); if (won) { d.wins += 1; d.botWin = true; } });
       bumpAch(a => {
         a.hits += myHits; a.sunk += sunkCount;
@@ -4049,7 +4058,7 @@ export default function Game() {
       });
       bumpGlobalStats(1, sunkCount);
       bumpVoyageMatch();
-      track("game_end", { mode: "salvo", result: won ? "win" : draw ? "draw" : "loss", gold: won ? SALVO_WIN_GOLD : 0 });
+      track("game_end", { mode: "salvo", result: won ? "win" : draw ? "draw" : "loss", gold: won ? SALVO_WIN_GOLD : (draw ? SALVO_ANTE : 0) });
     }
     sfx.init(); sfx.play(won ? 'win' : draw ? 'click' : 'lose');
     setSalvoResult({ myHits, oppHits, myOverlay, oppOverlay, won, draw });
@@ -5386,7 +5395,10 @@ export default function Game() {
       <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-start",marginBottom:4 }}>
         <button onClick={resetGame} style={{ padding:"7px 14px",minHeight:32,background:"rgba(255,255,255,0.05)",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:9,fontSize:11,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",gap:5 }}>← {L(appLang,"backBtn")}</button>
       </div>
-      <div style={{ fontSize:17,fontWeight:800,letterSpacing:4,color:t.gold,marginBottom:2,fontFamily:warrior,textShadow:`0 0 15px ${t.goldGlow}` }}>{appLang==="en"?"SINGLE SALVO":"TEK SALVO"}</div>
+      <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:2 }}>
+        <span style={{ fontSize:17,fontWeight:800,letterSpacing:4,color:t.gold,fontFamily:warrior,textShadow:`0 0 15px ${t.goldGlow}` }}>{appLang==="en"?"SINGLE SALVO":"TEK SALVO"}</span>
+        <span style={{ fontSize:10,fontWeight:900,color:t.gold,background:"rgba(255,215,0,0.12)",border:`1px solid ${t.gold}66`,borderRadius:8,padding:"3px 8px",fontFamily:mono,letterSpacing:1,animation:"rewardPulse 1.6s ease-in-out infinite" }}>🏆 {SALVO_WIN_GOLD}💰</span>
+      </div>
       <div style={{ fontSize:20,fontWeight:800,marginBottom:6,color:timerLow?t.hit:t.gold,animation:timerLow?"blink3s 0.5s infinite":"none",fontFamily:warrior,textShadow:timerLow?`0 0 20px ${t.hitGlow}`:"none" }}>{formatTime(salvoTimer)}</div>
       {/* Görkemli sayaç — kaç hücre işaretlendiği tek bakışta belli olsun */}
       <div style={{ display:"flex",alignItems:"baseline",justifyContent:"center",gap:5,marginBottom:2 }}>
@@ -5455,18 +5467,23 @@ export default function Game() {
         <div style={{ position:"absolute",left:0,right:0,height:3,zIndex:5,pointerEvents:"none",background:`linear-gradient(90deg, transparent, ${sweepColor}, transparent)`,boxShadow:`0 0 18px 4px ${sweepColor}`,animation:"radarSweepLine 2.2s linear both" }} />
         <div style={{ animation:"mapReveal 2.2s linear both" }}>
           <div style={{ fontSize:11,fontWeight:800,color:t.accent,marginBottom:6,textAlign:"center",letterSpacing:2,fontFamily:warrior }}>{appLang==="en"?"YOUR SHOTS":"SENİN ATIŞLARIN"}</div>
-          <div style={{ display:"flex",justifyContent:"center" }}><Grid board={emptyGrid()} cellSize={revealCell} overlay={myOverlay} disabled /></div>
+          <div style={{ display:"flex",justifyContent:"center" }}><Grid board={emptyGrid()} cellSize={revealCell} overlay={myOverlay} disabled revealSweepMs={2200} /></div>
           <div style={{ display:"flex",alignItems:"center",gap:10,margin:"14px 0" }}>
             <div style={{ flex:1,height:1,background:`linear-gradient(90deg,transparent,${sweepColor}88)` }} />
             <span style={{ fontSize:12,fontWeight:900,letterSpacing:3,color:sweepColor,fontFamily:warrior,textShadow:`0 0 10px ${sweepColor}` }}>VS</span>
             <div style={{ flex:1,height:1,background:`linear-gradient(270deg,transparent,${sweepColor}88)` }} />
           </div>
           <div style={{ fontSize:11,fontWeight:800,color:t.hit,marginBottom:6,textAlign:"center",letterSpacing:2,fontFamily:warrior }}>{(opponentName||(appLang==="en"?"OPPONENT":"RAKİP")).toUpperCase()} {appLang==="en"?"SHOTS":"ATIŞLARI"}</div>
-          <div style={{ display:"flex",justifyContent:"center" }}><Grid board={emptyGrid()} cellSize={revealCell} overlay={oppOverlay} disabled /></div>
+          <div style={{ display:"flex",justifyContent:"center" }}><Grid board={emptyGrid()} cellSize={revealCell} overlay={oppOverlay} disabled revealSweepMs={2200} /></div>
         </div>
       </div>
-      {won && goldChange && <div style={{ fontSize:14,fontWeight:800,color:t.gold,marginTop:14,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}` }}>+{goldChange.amount} 💰</div>}
-      <button onClick={replaySalvo} style={{ marginTop:18,padding:"15px 40px",background:`linear-gradient(135deg,${t.gold},#d97706)`,color:t.bg,border:"none",borderRadius:12,fontSize:15,fontWeight:900,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 24px ${t.goldGlow}`,animation:"borderGlow 1.8s infinite" }}>⚔ {appLang==="en"?"PLAY AGAIN":"TEKRAR OYNA"}</button>
+      {goldChange && (won || draw) && <div style={{ fontSize:14,fontWeight:800,color:t.gold,marginTop:14,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}` }}>{goldChange.refund ? `↩ ${goldChange.amount} 💰 ${appLang==="en"?"REFUNDED":"İADE"}` : `+${goldChange.amount} 💰`}</div>}
+      {!won && !draw && <div style={{ fontSize:12,fontWeight:700,color:t.textDim,marginTop:14,fontFamily:warrior,letterSpacing:1 }}>-{SALVO_ANTE} 💰</div>}
+      {/* Tek buton: doğrudan yeni bir maça sokar (hazır olan biriyle) — "aynı kişiye tekrar davet et" gibi ayrı bir akış yok. */}
+      <button onClick={replaySalvo} style={{ marginTop:18,padding:"13px 40px",background:`linear-gradient(135deg,${t.gold},#d97706)`,color:t.bg,border:"none",borderRadius:12,fontSize:15,fontWeight:900,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 24px ${t.goldGlow}`,animation:"borderGlow 1.8s infinite",display:"flex",flexDirection:"column",alignItems:"center",gap:2 }}>
+        <span>⚔ {appLang==="en"?"NEW GAME":"YENİ OYUN"}</span>
+        <span style={{ fontSize:9,fontWeight:700,letterSpacing:1,opacity:0.75 }}>{appLang==="en"?"Entry":"Giriş"} {SALVO_ANTE} 💰</span>
+      </button>
       <button onClick={resetGame} style={{ marginTop:10,marginBottom:24,padding:"10px 28px",background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:10,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"backBtn")}</button>
     </div>);
   }
