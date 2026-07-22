@@ -8,6 +8,8 @@ const COL_LABELS = ["A","B","C","D","E","F","G","H","I","J","K"];
 const SHOTS_PER_TURN = 3;
 const CLOCK_SECONDS = 300;
 const PLACEMENT_SECONDS = 60;
+const SALVO_SECONDS = 60; // TEK SALVO modu: 20 atışını işaretlemek için süre
+const SALVO_SHOTS = 20;
 
 const SHIPS = [
   { id: "amiral", name: "Amiral", nameEn: "Leviathan", shape: [[0,0],[0,1],[0,2],[1,1]], size: 4, color: "#e74c3c" },
@@ -1183,28 +1185,31 @@ function ArenaSelect({ myGold, onSelect, onBack, lang = "tr" }) {
 
 // === FARKLI SULAR — özel oyun modları merkezi. Aynı temel kurallar, değişik harita/gemi/oynanış varyantları. ===
 const WATER_MODES = [
-  { id:"klasik", name:"KLASİK", nameEn:"CLASSIC", icon:"⚓", color:"#00e5ff", desc:"Standart kurallar, standart tahta.", descEn:"Standard rules, standard board." },
-  { id:"sis", name:"SİS PERDESİ", nameEn:"FOG VEIL", icon:"🌫️", color:"#94a3b8", desc:"Rakip alanı sisle kaplı, görüş menzilin kısıtlı.", descEn:"Enemy waters covered in fog, limited visibility." },
-  { id:"mayin", name:"MAYIN TARLASI", nameEn:"MINEFIELD", icon:"💣", color:"#ff4757", desc:"Tahtada gizli mayınlar var, dikkatli ilerle.", descEn:"Hidden mines on the board, tread carefully." },
-  { id:"dev", name:"DEV FİLO", nameEn:"GIANT FLEET", icon:"🚢", color:"#a78bfa", desc:"Daha büyük tahta, daha kalabalık filo.", descEn:"Bigger board, bigger fleet." },
-  { id:"hizli", name:"HIZLI VURUŞ", nameEn:"QUICK STRIKE", icon:"⚡", color:"#fbbf24", desc:"Kısa süre, hızlı kararlar.", descEn:"Short clock, fast decisions." },
-  { id:"kor", name:"KÖR NOKTA", nameEn:"BLIND SPOT", icon:"🕶️", color:"#4ade80", desc:"Sınırlı görüş, tahmine dayalı savaş.", descEn:"Limited sight, guesswork warfare." },
+  { id:"teksalvo", name:"TEK SALVO", nameEn:"SINGLE SALVO", icon:"💥", color:"#fbbf24", desc:"20 atışını tek seferde işaretle, en çok vuran kazanır.", descEn:"Mark all 20 shots at once — most hits wins." },
+  { id:"kusatma", name:"KUŞATMA", nameEn:"SIEGE", icon:"⚔️", color:"#ff4757", desc:"3 kişi serbest, 4 kişi 2'ye 2 — aynı sularda çok filo.", descEn:"3-player free-for-all or 4-player 2v2 — multiple fleets, same waters." },
+  { id:"tersane", name:"TERSANE", nameEn:"SHIPYARD", icon:"⚒️", color:"#f59e0b", desc:"20 kutucuk, 5 gemi, istediğin şekli ver.", descEn:"20 cells, 5 ships, any shape you want." },
+  { id:"girdap", name:"GİRDAP", nameEn:"WHIRLPOOL", icon:"🌀", color:"#6366f1", desc:"9x9'dan 15x15'e — tahta boyu her seferinde değişir.", descEn:"From 9x9 to 15x15 — board size shifts each time." },
+  { id:"manevra", name:"MANEVRA", nameEn:"MANEUVER", icon:"🧭", color:"#4ade80", desc:"Savaş sürerken kalan gemilerini yeniden konumlandır.", descEn:"Reposition your remaining ships mid-battle." },
+  { id:"ateskes", name:"ATEŞKES", nameEn:"CEASEFIRE", icon:"🕊️", color:"#94a3b8", desc:"5 dakika sonunda en AZ vuran kazanır.", descEn:"After 5 minutes, whoever hits the LEAST wins." },
 ];
-function DifferentWaters({ onBack, lang = "tr" }) {
+function DifferentWaters({ onBack, onPlaySalvo, lang = "tr" }) {
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:`linear-gradient(180deg, ${t.bg} 0%, #071428 100%)`,padding:"24px 14px",fontFamily:mono,color:t.text }}>
     <div style={{ fontSize:26,fontWeight:800,letterSpacing:6,color:t.accent,marginBottom:6,fontFamily:warrior,textShadow:`0 0 25px ${t.accentGlow}`,textAlign:"center" }}>{lang==="en"?"DIFFERENT WATERS":"FARKLI SULAR"}</div>
     <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,textAlign:"center",marginBottom:18,maxWidth:400,lineHeight:1.6,padding:"0 8px" }}>{lang==="en"?"New rules, new maps, new fleets — coming soon.":"Farklı kurallar, farklı haritalar, farklı filolar — çok yakında."}</div>
     <div style={{ width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:10 }}>
-      {WATER_MODES.map(mode => (
-        <div key={mode.id} style={{ display:"flex",alignItems:"center",gap:16,padding:"16px 18px",background:`linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))`,border:`2px solid ${mode.color}55`,borderRadius:14 }}>
+      {WATER_MODES.map(mode => {
+        const playable = mode.id === "teksalvo";
+        return (
+        <div key={mode.id} onClick={playable ? onPlaySalvo : undefined} style={{ display:"flex",alignItems:"center",gap:16,padding:"16px 18px",background:`linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))`,border:`2px solid ${mode.color}${playable?"":"55"}`,borderRadius:14,cursor:playable?"pointer":"default",boxShadow:playable?`0 0 18px ${mode.color}33`:"none",animation:playable?"borderGlow 2.4s infinite":"none" }}>
           <div style={{ fontSize:26,width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",background:`${mode.color}15`,borderRadius:12,border:`1px solid ${mode.color}33`,flexShrink:0 }}>{mode.icon}</div>
           <div style={{ flex:1,minWidth:0 }}>
             <div style={{ fontSize:15,fontWeight:800,color:mode.color,fontFamily:warrior,letterSpacing:3 }}>{lang==="en"?mode.nameEn:mode.name}</div>
             <div style={{ fontSize:10,fontWeight:600,color:t.textDim,marginTop:3,fontFamily:mono,lineHeight:1.4 }}>{lang==="en"?mode.descEn:mode.desc}</div>
           </div>
-          <div style={{ fontSize:9,fontWeight:900,color:t.textDim,background:"rgba(255,255,255,0.06)",padding:"4px 10px",borderRadius:8,letterSpacing:1,flexShrink:0 }}>{lang==="en"?"SOON":"YAKINDA"}</div>
+          <div style={{ fontSize:9,fontWeight:900,color:playable?t.bg:t.textDim,background:playable?mode.color:"rgba(255,255,255,0.06)",padding:"4px 10px",borderRadius:8,letterSpacing:1,flexShrink:0 }}>{playable?(lang==="en"?"PLAY":"OYNA"):(lang==="en"?"SOON":"YAKINDA")}</div>
         </div>
-      ))}
+        );
+      })}
     </div>
     <button onClick={onBack} style={{ marginTop:24,padding:"14px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:14,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 4px 20px ${t.accentGlow}` }}>{L(lang,"backBtn")}</button>
   </div>);
@@ -2738,6 +2743,17 @@ export default function Game() {
   const [botShips, setBotShips] = useState(null);
   const [botAttackOverlay, setBotAttackOverlay] = useState(() => emptyGrid().map(r => r.map(() => null)));
   const [botName, setBotName] = useState("");
+  // === TEK SALVO modu ===
+  const [salvoMode, setSalvoMode] = useState(false);
+  const salvoModeRef = useRef(false);
+  const [salvoSelected, setSalvoSelected] = useState([]); // [[r,c],...] max 20
+  const salvoSelectedRef = useRef([]); // setInterval kapanışında güncel kalsın diye state'in aynası
+  const [salvoTimer, setSalvoTimer] = useState(SALVO_SECONDS);
+  const [salvoSubmitted, setSalvoSubmitted] = useState(false);
+  const salvoSubmittedRef = useRef(false); // eski (stale) kapanışlar da tekrar göndermeyi engellesin diye
+  const [salvoResult, setSalvoResult] = useState(null); // { myHits, oppHits, myOverlay, oppOverlay, won }
+  const salvoTimerRef = useRef(null);
+  const salvoBotShotsRef = useRef([]);
   const [dailyMissions, setDailyMissions] = useState(() => pickDailyMissions(Date.now()));
   const [missionProgress, setMissionProgress] = useState({});
   const [chestReward, setChestReward] = useState(null);
@@ -3635,6 +3651,20 @@ export default function Game() {
     setPlacementConfirmed(true);
     setPlacementPreview(false);
     sfx.init(); sfx.play('click');
+    if (isBotGame && salvoModeRef.current) {
+      salvoBotShotsRef.current = generateBotSalvo();
+      salvoSelectedRef.current = []; salvoSubmittedRef.current = false;
+      setPhase("salvo"); setSalvoTimer(SALVO_SECONDS); setSalvoSelected([]); setSalvoSubmitted(false);
+      sfx.init(); sfx.playBattleMusic(false);
+      if (salvoTimerRef.current) clearInterval(salvoTimerRef.current);
+      salvoTimerRef.current = setInterval(() => {
+        setSalvoTimer(prev => {
+          if (prev <= 1) { clearInterval(salvoTimerRef.current); salvoTimerRef.current = null; submitSalvo(); return 0; }
+          return prev - 1;
+        });
+      }, 1000);
+      return;
+    }
     if (isBotGame) {
       setPhase("playing"); setMyTurn(true); setActiveBoard("attack");
       sfx.init(); sfx.playBattleMusic(false); // oyun başladı → alçak volume
@@ -3680,6 +3710,9 @@ export default function Game() {
     forgetRoom();
     if (roomCleanupRef.current) { clearTimeout(roomCleanupRef.current); roomCleanupRef.current = null; }
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
+    if (salvoTimerRef.current) { clearInterval(salvoTimerRef.current); salvoTimerRef.current = null; }
+    salvoModeRef.current = false; salvoSelectedRef.current = []; salvoBotShotsRef.current = []; salvoSubmittedRef.current = false;
+    setSalvoMode(false); setSalvoSelected([]); setSalvoSubmitted(false); setSalvoResult(null); setSalvoTimer(SALVO_SECONDS);
     finishDragListeners(); dragRef.current = null;
     setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShowSurrenderConfirm(false); setAfkTimer(null); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; killCountRef.current = 0; firstHitVoiceRef.current = false; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); isBotGameRef.current = false; setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false }); setRevengeResult(null); setMatchRewards(null); setRewardModalOpen(false); setNewAchUnlocks([]);
     // Profili sunucudan tazele — AMA günlük görev ve kazanım sayaçlarında YEREL ilerleme
@@ -3925,6 +3958,78 @@ export default function Game() {
     setOppClock(CLOCK_SECONDS);
     setPhase("placing");
     sfx.init(); sfx.playPlacementMusic();
+  };
+
+  // TEK SALVO — normal bot maçıyla aynı yerleştirme, tek fark: yerleştirme bitince
+  // sıra tabanlı savaş yerine 60sn'lik eşzamanlı işaretleme fazına giriyor.
+  const startSalvoBotGame = () => {
+    track("game_start", { mode: "salvo" });
+    if (!playerName.trim()) { setMessage(L(appLang,"msgTypeName")); return; }
+    const bot = botPlaceShips();
+    const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+    setIsBotGame(true); isBotGameRef.current = true;
+    setSalvoMode(true); salvoModeRef.current = true;
+    setBotBoard(bot.board);
+    setGameStartTime(Date.now());
+    const shipData = {};
+    bot.ships.forEach((s, i) => { shipData[i] = { id: s.id, cells: s.cells }; });
+    setBotShips(shipData);
+    setOppShipsData(shipData);
+    setBotAttackOverlay(emptyGrid().map(r => r.map(() => null)));
+    setBotName(name);
+    setOpponentName(name);
+    salvoSelectedRef.current = []; salvoSubmittedRef.current = false; salvoBotShotsRef.current = [];
+    setSalvoSelected([]); setSalvoSubmitted(false); setSalvoResult(null); setSalvoTimer(SALVO_SECONDS);
+    setPhase("placing");
+    sfx.init(); sfx.playPlacementMusic();
+  };
+
+  // Rakip (bot) 20 hücrelik salvosunu üretir — kendi tahtasında dolu olmayan hücrelerden rastgele, tekrarsız.
+  const generateBotSalvo = () => {
+    const all = []; for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) all.push([r, c]);
+    for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
+    return all.slice(0, SALVO_SHOTS);
+  };
+
+  // Oyuncu salvosunu gönderir (elle veya süre dolunca otomatik) — sonuçları hesaplar, açılış ekranına geçer.
+  const submitSalvo = (cellsOverride) => {
+    if (salvoSubmittedRef.current) return;
+    salvoSubmittedRef.current = true;
+    setSalvoSubmitted(true);
+    if (salvoTimerRef.current) { clearInterval(salvoTimerRef.current); salvoTimerRef.current = null; }
+    const myCells = cellsOverride || salvoSelectedRef.current;
+    const botCells = salvoBotShotsRef.current.length ? salvoBotShotsRef.current : generateBotSalvo();
+    const botShipCells = Object.values(botShips || {}).flatMap(s => s.cells);
+    const myShipCells = placedShips.flatMap(s => s.cells);
+    const myOverlay = emptyGrid().map(row => row.map(() => null));
+    let myHits = 0;
+    myCells.forEach(([r, c]) => { const hit = botShipCells.some(([sr, sc]) => sr === r && sc === c); myOverlay[r][c] = hit ? "hit" : "miss"; if (hit) myHits++; });
+    const oppOverlay = emptyGrid().map(row => row.map(() => null));
+    let oppHits = 0;
+    botCells.forEach(([r, c]) => { const hit = myShipCells.some(([sr, sc]) => sr === r && sc === c); oppOverlay[r][c] = hit ? "hit" : "miss"; if (hit) oppHits++; });
+    const won = myHits > oppHits;
+    const draw = myHits === oppHits;
+    // Basit ödül — mevcut bot ekonomisine dokunmadan, mütevazı sabit bir kazanım.
+    if (won && authUid) {
+      const gold = 40;
+      get(ref(db, `profiles/${authUid}`)).then(snap => {
+        if (!snap.exists()) return;
+        const p = snap.val();
+        const newGold = safeGold(p.gold) + gold;
+        update(ref(db, `profiles/${authUid}`), { gold: newGold, wins: (p.wins||0)+1, totalGames: (p.totalGames||0)+1, botGames: (p.botGames||0)+1, lastGameAt: Date.now() }).catch(()=>{});
+        setMyProfile(prev => prev ? { ...prev, gold: newGold, wins: (prev.wins||0)+1 } : prev);
+      }).catch(()=>{});
+      setGoldChange({ amount: gold }); sfx.play('gold');
+    } else if (authUid) {
+      get(ref(db, `profiles/${authUid}`)).then(snap => {
+        if (!snap.exists()) return;
+        const p = snap.val();
+        update(ref(db, `profiles/${authUid}`), { totalGames: (p.totalGames||0)+1, botGames: (p.botGames||0)+1, losses: draw?(p.losses||0):(p.losses||0)+(won?0:1), lastGameAt: Date.now() }).catch(()=>{});
+      }).catch(()=>{});
+    }
+    sfx.init(); sfx.play(won ? 'win' : draw ? 'click' : 'lose');
+    setSalvoResult({ myHits, oppHits, myOverlay, oppOverlay, won, draw });
+    setPhase("salvoreveal");
   };
 
   const startOnboarding = () => {
@@ -4819,7 +4924,7 @@ export default function Game() {
   }
   if (showAchievements) return <><style>{ANIMS}</style><AchievementsScreen profile={myProfile} onClose={() => setShowAchievements(false)} onClaim={claimAchievementSet} lang={appLang} /></>;
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} lang={appLang} /></>;
-  if (showDifferentWaters) return <><style>{ANIMS}</style><DifferentWaters onBack={() => setShowDifferentWaters(false)} lang={appLang} /></>;
+  if (showDifferentWaters) return <><style>{ANIMS}</style><DifferentWaters onBack={() => setShowDifferentWaters(false)} onPlaySalvo={() => { setShowDifferentWaters(false); startSalvoBotGame(); }} lang={appLang} /></>;
   if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => { setSelectedArena(arena); setShowArenaSelect(false); startQuickMatch(arena); }} lang={appLang} /></>;
   if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myGold={myProfile?.gold} onBack={() => setShowOnlineLobby(false)} onChallenge={handleOnlineChallenge} ready={readyToPlay} onToggleReady={()=>setReadyToPlay(v=>!v)} lang={appLang} /></>;
 
@@ -5228,6 +5333,73 @@ export default function Game() {
       <div ref={boardBoxRef} style={{ flex:1,minHeight:0,width:"100%",maxWidth:400,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden" }}>
       <div onMouseLeave={() => { if(!dragRef.current) setHoverCells([]); }}><Grid board={defenseBoard} cellSize={placeCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} hoverCells={hoverCells} onClick={handleDefenseClick} onHover={handleDefenseHover} onCellPointerDown={handleShipPointerDown} disabled={placementConfirmed} /></div>
       </div>
+    </div>);
+  }
+
+  // === TEK SALVO — işaretleme fazı: 60sn içinde rakip sularında 20 hücre işaretle, sonra aynı anda açılır ===
+  if (phase === "salvo") {
+    const timerLow = salvoTimer <= 15;
+    const measuredSalvo = fitCell(10);
+    const salvoCell = measuredSalvo || Math.max(13, Math.min(24, Math.floor((viewport.w - gutter - 14) / 12)));
+    const salvoOverlay = emptyGrid().map(row => row.map(() => null));
+    salvoSelected.forEach(([r, c]) => { salvoOverlay[r][c] = "selected"; });
+    const toggleSalvoCell = (r, c) => {
+      if (salvoSubmitted) return;
+      sfx.init(); sfx.play('click');
+      setSalvoSelected(prev => {
+        const exists = prev.some(([pr, pc]) => pr === r && pc === c);
+        let next;
+        if (exists) next = prev.filter(([pr, pc]) => !(pr === r && pc === c));
+        else { if (prev.length >= SALVO_SHOTS) return prev; next = [...prev, [r, c]]; }
+        salvoSelectedRef.current = next;
+        return next;
+      });
+    };
+    return (<div style={{ ...appStyle, height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingBottom:10 }}><style>{ANIMS}</style>
+      <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-start",marginBottom:4 }}>
+        <button onClick={resetGame} style={{ padding:"7px 14px",minHeight:32,background:"rgba(255,255,255,0.05)",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:9,fontSize:11,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",gap:5 }}>← {L(appLang,"backBtn")}</button>
+      </div>
+      <div style={{ fontSize:17,fontWeight:800,letterSpacing:4,color:t.gold,marginBottom:2,fontFamily:warrior,textShadow:`0 0 15px ${t.goldGlow}` }}>{appLang==="en"?"SINGLE SALVO":"TEK SALVO"}</div>
+      <div style={{ fontSize:20,fontWeight:800,marginBottom:3,color:timerLow?t.hit:t.gold,animation:timerLow?"blink3s 0.5s infinite":"none",fontFamily:warrior,textShadow:timerLow?`0 0 20px ${t.hitGlow}`:"none" }}>{formatTime(salvoTimer)}</div>
+      <div style={{ fontSize:12,fontWeight:700,color:t.text,marginBottom:8,fontFamily:warrior,letterSpacing:2 }}>{salvoSelected.length}/{SALVO_SHOTS} {appLang==="en"?"MARKED":"İŞARETLENDİ"}</div>
+      <div ref={boardBoxRef} style={{ flex:1,minHeight:0,width:"100%",maxWidth:400,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden" }}>
+        <Grid board={emptyGrid()} cellSize={salvoCell} overlay={salvoOverlay} onClick={toggleSalvoCell} disabled={salvoSubmitted} />
+      </div>
+      <button onClick={()=>submitSalvo()} disabled={salvoSubmitted} style={{ width:"100%",maxWidth:400,marginTop:10,padding:"14px 0",background:salvoSubmitted?t.surfaceLight:`linear-gradient(135deg,${t.gold},#d97706)`,color:salvoSubmitted?t.textDim:t.bg,border:"none",borderRadius:12,fontSize:16,fontWeight:900,letterSpacing:3,cursor:salvoSubmitted?"default":"pointer",fontFamily:warrior,boxShadow:salvoSubmitted?"none":`0 0 20px ${t.goldGlow}` }}>{salvoSubmitted?(appLang==="en"?"RESOLVING...":"SONUÇLANIYOR..."):(appLang==="en"?"FIRE SALVO":"SALVOYU GÖNDER")}</button>
+    </div>);
+  }
+
+  // === TEK SALVO — açılış: iki taraf da aynı anda görünür, çok vuran kazanır ===
+  if (phase === "salvoreveal") {
+    if (!salvoResult) {
+      return (<div style={{ ...appStyle, justifyContent:"center", alignItems:"center" }}><style>{ANIMS}</style>
+        <button onClick={resetGame} style={{ padding:"14px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:14,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"backBtn")}</button>
+      </div>);
+    }
+    const { myHits, oppHits, myOverlay, oppOverlay, won, draw } = salvoResult;
+    const measuredSalvo = fitCell(10);
+    const revealCell = Math.max(12, Math.min(measuredSalvo || 18, 18));
+    return (<div style={{ ...appStyle, justifyContent:"flex-start", paddingTop:"calc(10px + env(safe-area-inset-top, 0px))" }}><style>{ANIMS}</style>
+      <div style={{ fontSize:22,fontWeight:900,letterSpacing:3,marginBottom:4,fontFamily:warrior,color:won?t.gold:draw?t.textDim:t.hit,textShadow:won?`0 0 20px ${t.goldGlow}`:draw?"none":`0 0 20px ${t.hitGlow}`,textTransform:"uppercase" }}>
+        {won ? (appLang==="en"?"VICTORY!":"ZAFER!") : draw ? (appLang==="en"?"DRAW":"BERABERE") : (appLang==="en"?"DEFEAT":"YENİLGİ")}
+      </div>
+      <div style={{ display:"flex",gap:20,marginBottom:14,alignItems:"center" }}>
+        <div style={{ textAlign:"center" }}><div style={{ fontSize:32,fontWeight:900,color:t.accent,fontFamily:mono }}>{myHits}</div><div style={{ fontSize:10,color:t.textDim,letterSpacing:2,fontFamily:warrior }}>{appLang==="en"?"YOUR HITS":"SENİN İSABETİN"}</div></div>
+        <div style={{ fontSize:20,color:t.textDim }}>—</div>
+        <div style={{ textAlign:"center" }}><div style={{ fontSize:32,fontWeight:900,color:t.hit,fontFamily:mono }}>{oppHits}</div><div style={{ fontSize:10,color:t.textDim,letterSpacing:2,fontFamily:warrior }}>{(opponentName||"").toUpperCase()}</div></div>
+      </div>
+      <div style={{ display:"flex",flexDirection:"column",gap:14,width:"100%",maxWidth:400,alignItems:"center" }}>
+        <div>
+          <div style={{ fontSize:11,fontWeight:800,color:t.accent,marginBottom:4,textAlign:"center",letterSpacing:2,fontFamily:warrior }}>{appLang==="en"?"YOUR SHOTS":"SENİN ATIŞLARIN"}</div>
+          <Grid board={emptyGrid()} cellSize={revealCell} overlay={myOverlay} disabled />
+        </div>
+        <div>
+          <div style={{ fontSize:11,fontWeight:800,color:t.hit,marginBottom:4,textAlign:"center",letterSpacing:2,fontFamily:warrior }}>{(opponentName||(appLang==="en"?"OPPONENT":"RAKİP")).toUpperCase()} {appLang==="en"?"SHOTS":"ATIŞLARI"}</div>
+          <Grid board={emptyGrid()} cellSize={revealCell} overlay={oppOverlay} disabled />
+        </div>
+      </div>
+      {won && goldChange && <div style={{ fontSize:14,fontWeight:800,color:t.gold,marginTop:12,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}` }}>+{goldChange.amount} 💰</div>}
+      <button onClick={resetGame} style={{ marginTop:16,marginBottom:24,padding:"14px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:14,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 20px ${t.accentGlow}` }}>{L(appLang,"backBtn")}</button>
     </div>);
   }
 
