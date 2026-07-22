@@ -290,7 +290,7 @@ function requestImmersive() {
 const TRANSLATIONS = {
   tr: {
     welcome: "HOŞ GELDİN!", chooseName: "Denizci adını seç", namePlaceholder: "Kullanıcı adın", nameHint: "2-16 karakter • 14 gün boyunca değiştirilemez", confirm: "ONAYLA",
-    play: "OYNA", salon: "SALON", arena: "ARENA", bot: "BOT", leaderboard: "SIRALAMA",
+    play: "OYNA", salon: "SALON", arena: "ARENA", bot: "BOT", leaderboard: "SIRALAMA", differentWaters: "FARKLI SULAR",
     roomCodeToggle: "ODA KODU İLE OYNA", roomCodePlaceholder: "Oda Kodu", join: "KATIL", createRoom: "+ YENİ ODA OLUŞTUR",
     level: "SEVİYE", wins: "GALİBİYET", losses: "MAĞLUBİYET", winRate: "ORAN", editName: "İsmi değiştir",
     attack: "SALDIRI", defense: "SAVUNMA", fire: "ATEŞ", leaveGame: "OYUNDAN AYRIL", markMode: "İŞARETLE", markModeOn: "İŞARETLEME MODU: AÇIK", hits: "İsabet",
@@ -363,7 +363,7 @@ const TRANSLATIONS = {
   },
   en: {
     welcome: "WELCOME!", chooseName: "Choose your sailor name", namePlaceholder: "Your username", nameHint: "2-16 characters • can't change for 14 days", confirm: "CONFIRM",
-    play: "PLAY", salon: "LOBBY", arena: "ARENA", bot: "BOT", leaderboard: "RANKINGS",
+    play: "PLAY", salon: "LOBBY", arena: "ARENA", bot: "BOT", leaderboard: "RANKINGS", differentWaters: "DIFFERENT WATERS",
     roomCodeToggle: "PLAY WITH ROOM CODE", roomCodePlaceholder: "Room Code", join: "JOIN", createRoom: "+ CREATE NEW ROOM",
     level: "LEVEL", wins: "WINS", losses: "LOSSES", winRate: "RATE", editName: "Change name",
     attack: "ATTACK", defense: "DEFENSE", fire: "FIRE", leaveGame: "LEAVE GAME", markMode: "MARK", markModeOn: "MARK MODE: ON", hits: "Hits",
@@ -1176,6 +1176,35 @@ function ArenaSelect({ myGold, onSelect, onBack, lang = "tr" }) {
           </div>}
         </div>);
       })}
+    </div>
+    <button onClick={onBack} style={{ marginTop:24,padding:"14px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:14,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 4px 20px ${t.accentGlow}` }}>{L(lang,"backBtn")}</button>
+  </div>);
+}
+
+// === FARKLI SULAR — özel oyun modları merkezi. Aynı temel kurallar, değişik harita/gemi/oynanış varyantları. ===
+const WATER_MODES = [
+  { id:"klasik", name:"KLASİK", nameEn:"CLASSIC", icon:"⚓", color:"#00e5ff", desc:"Standart kurallar, standart tahta.", descEn:"Standard rules, standard board." },
+  { id:"sis", name:"SİS PERDESİ", nameEn:"FOG VEIL", icon:"🌫️", color:"#94a3b8", desc:"Rakip alanı sisle kaplı, görüş menzilin kısıtlı.", descEn:"Enemy waters covered in fog, limited visibility." },
+  { id:"mayin", name:"MAYIN TARLASI", nameEn:"MINEFIELD", icon:"💣", color:"#ff4757", desc:"Tahtada gizli mayınlar var, dikkatli ilerle.", descEn:"Hidden mines on the board, tread carefully." },
+  { id:"dev", name:"DEV FİLO", nameEn:"GIANT FLEET", icon:"🚢", color:"#a78bfa", desc:"Daha büyük tahta, daha kalabalık filo.", descEn:"Bigger board, bigger fleet." },
+  { id:"hizli", name:"HIZLI VURUŞ", nameEn:"QUICK STRIKE", icon:"⚡", color:"#fbbf24", desc:"Kısa süre, hızlı kararlar.", descEn:"Short clock, fast decisions." },
+  { id:"kor", name:"KÖR NOKTA", nameEn:"BLIND SPOT", icon:"🕶️", color:"#4ade80", desc:"Sınırlı görüş, tahmine dayalı savaş.", descEn:"Limited sight, guesswork warfare." },
+];
+function DifferentWaters({ onBack, lang = "tr" }) {
+  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:`linear-gradient(180deg, ${t.bg} 0%, #071428 100%)`,padding:"24px 14px",fontFamily:mono,color:t.text }}>
+    <div style={{ fontSize:26,fontWeight:800,letterSpacing:6,color:t.accent,marginBottom:6,fontFamily:warrior,textShadow:`0 0 25px ${t.accentGlow}`,textAlign:"center" }}>{lang==="en"?"DIFFERENT WATERS":"FARKLI SULAR"}</div>
+    <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,textAlign:"center",marginBottom:18,maxWidth:400,lineHeight:1.6,padding:"0 8px" }}>{lang==="en"?"New rules, new maps, new fleets — coming soon.":"Farklı kurallar, farklı haritalar, farklı filolar — çok yakında."}</div>
+    <div style={{ width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:10 }}>
+      {WATER_MODES.map(mode => (
+        <div key={mode.id} style={{ display:"flex",alignItems:"center",gap:16,padding:"16px 18px",background:`linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))`,border:`2px solid ${mode.color}55`,borderRadius:14 }}>
+          <div style={{ fontSize:26,width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",background:`${mode.color}15`,borderRadius:12,border:`1px solid ${mode.color}33`,flexShrink:0 }}>{mode.icon}</div>
+          <div style={{ flex:1,minWidth:0 }}>
+            <div style={{ fontSize:15,fontWeight:800,color:mode.color,fontFamily:warrior,letterSpacing:3 }}>{lang==="en"?mode.nameEn:mode.name}</div>
+            <div style={{ fontSize:10,fontWeight:600,color:t.textDim,marginTop:3,fontFamily:mono,lineHeight:1.4 }}>{lang==="en"?mode.descEn:mode.desc}</div>
+          </div>
+          <div style={{ fontSize:9,fontWeight:900,color:t.textDim,background:"rgba(255,255,255,0.06)",padding:"4px 10px",borderRadius:8,letterSpacing:1,flexShrink:0 }}>{lang==="en"?"SOON":"YAKINDA"}</div>
+        </div>
+      ))}
     </div>
     <button onClick={onBack} style={{ marginTop:24,padding:"14px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:14,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 4px 20px ${t.accentGlow}` }}>{L(lang,"backBtn")}</button>
   </div>);
@@ -2602,6 +2631,7 @@ export default function Game() {
   const sweptRef = useRef(false);      // eski oda süpürmesi oturumda bir kez
 
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showDifferentWaters, setShowDifferentWaters] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [dailyOpen, setDailyOpen] = useState(false);
   const [revengeResult, setRevengeResult] = useState(null); // { mult } — intikam alındığında maç sonunda gösterilir
@@ -3705,6 +3735,7 @@ export default function Game() {
   const renderTopBar = () => (
     <>
       <div style={{ position:"fixed",top:"calc(10px + env(safe-area-inset-top, 0px))",right:14,zIndex:9500,display:"flex",alignItems:"center",gap:8 }}>
+        <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowLeaderboard(true); }} title={L(appLang,"leaderboardTitle")} style={{ width:30,height:30,borderRadius:8,background:"rgba(255,215,0,0.10)",border:"1px solid rgba(255,215,0,0.4)",fontSize:14,cursor:"pointer",color:t.gold,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>🏆</button>
         <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowSettings(true); setSettingsView(null); }} title={L(appLang,"settingsTooltip")} style={{ width:30,height:30,borderRadius:8,background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,fontSize:14,cursor:"pointer",color:t.textDim,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>⚙️</button>
         <button onClick={toggleMusic} title={L(appLang,"musicTooltip")} style={{ width:30,height:30,borderRadius:8,background:musicOn?"rgba(255,255,255,0.06)":"rgba(255,71,87,0.14)",border:`1px solid ${musicOn?t.border:t.hit}`,fontSize:14,cursor:"pointer",color:musicOn?t.textDim:t.hit,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>{musicOn?"🔊":"🔇"}</button>
       </div>
@@ -4788,6 +4819,7 @@ export default function Game() {
   }
   if (showAchievements) return <><style>{ANIMS}</style><AchievementsScreen profile={myProfile} onClose={() => setShowAchievements(false)} onClaim={claimAchievementSet} lang={appLang} /></>;
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} lang={appLang} /></>;
+  if (showDifferentWaters) return <><style>{ANIMS}</style><DifferentWaters onBack={() => setShowDifferentWaters(false)} lang={appLang} /></>;
   if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => { setSelectedArena(arena); setShowArenaSelect(false); startQuickMatch(arena); }} lang={appLang} /></>;
   if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myGold={myProfile?.gold} onBack={() => setShowOnlineLobby(false)} onChallenge={handleOnlineChallenge} ready={readyToPlay} onToggleReady={()=>setReadyToPlay(v=>!v)} lang={appLang} /></>;
 
@@ -4992,7 +5024,7 @@ export default function Game() {
       </div>
       <div style={{ display:"flex",gap:8,marginTop:10,width:"100%",maxWidth:400,animation:"fadeUp 0.7s ease-out",zIndex:1 }}>
         <RippleButton onClick={startBotGame} style={{ position:"relative",overflow:"hidden",flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(52,211,153,0.16),rgba(52,211,153,0.05))`,color:"#34d399",border:"2px solid rgba(52,211,153,0.45)",borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}><span style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg,transparent,rgba(255,255,255,0.10),transparent)",animation:"dmShine 3.6s ease-in-out infinite",pointerEvents:"none",borderRadius:10 }} />{L(appLang,"bot")}</RippleButton>
-        <RippleButton onClick={()=>setShowLeaderboard(true)} style={{ position:"relative",overflow:"hidden",flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(255,215,0,0.14),rgba(255,215,0,0.04))`,color:t.gold,border:`2px solid rgba(255,215,0,0.45)`,borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}><span style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg,transparent,rgba(255,255,255,0.10),transparent)",animation:"dmShine 3.6s ease-in-out infinite",pointerEvents:"none",borderRadius:10 }} />{L(appLang,"leaderboard")}</RippleButton>
+        <RippleButton onClick={()=>setShowDifferentWaters(true)} style={{ position:"relative",overflow:"hidden",flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(45,212,191,0.16),rgba(45,212,191,0.05))`,color:"#2dd4bf",border:"2px solid rgba(45,212,191,0.45)",borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}><span style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg,transparent,rgba(255,255,255,0.10),transparent)",animation:"dmShine 3.6s ease-in-out infinite",pointerEvents:"none",borderRadius:10 }} />{L(appLang,"differentWaters")}</RippleButton>
       </div>
       {/* Kazanımlar */}
       {(() => {
