@@ -1038,11 +1038,17 @@ function RippleButton({ children, onClick, style, disabled, ...props }) {
 function MicroFeedback({ text, color, onDone }) {
   useEffect(() => { const tm = setTimeout(()=>onDone?.(), 3100); return ()=>clearTimeout(tm); }, []);
   const clr = color || t.gold;
-  // İlk anda maksimum parlaklıkla belirir, platformun hemen altında 1.5sn sabit durur, sonra ekrana doğru küçülüp solarak kaybolur
-  return (<div style={{ position:'absolute',top:'100%',left:'50%',marginTop:26,zIndex:10050,fontSize:24,fontWeight:900,color:clr,fontFamily:warrior,letterSpacing:4,textTransform:'uppercase',whiteSpace:'nowrap',
-    WebkitTextStroke:'1.5px rgba(0,0,0,0.85)',
-    textShadow:`0 3px 0 rgba(0,0,0,0.9), 0 6px 0 rgba(0,0,0,0.55), 0 12px 24px rgba(0,0,0,0.9), 0 0 34px ${clr}, 0 0 90px ${clr}66`,
-    animation:'feedbackHoldRise 3.1s ease-out forwards',pointerEvents:'none' }}>{text}</div>);
+  // İçindeki emoji'leri metinden ayırıp küçük/gölgesiz çiziyoruz — kalın kontur+parlama emojiye binince kirli görünüyordu.
+  const parts = text.split(/(\p{Extended_Pictographic}+)/gu).filter(Boolean);
+  // İlk anda maksimum parlaklıkla belirir, platform ile filo şeridi arasında ~2sn EN PARLAK sabit durur,
+  // sonra geri çekilip solmak yerine izleyiciye doğru BÜYÜYEREK parlayıp kaybolur.
+  return (<div style={{ position:'absolute',top:'100%',left:'50%',marginTop:8,zIndex:10050,fontSize:24,fontWeight:900,color:clr,fontFamily:warrior,letterSpacing:4,textTransform:'uppercase',whiteSpace:'nowrap',
+    animation:'feedbackHoldRise 3.1s ease-out forwards',pointerEvents:'none' }}>
+    {parts.map((p,i) => /\p{Extended_Pictographic}/u.test(p)
+      ? <span key={i} style={{ fontSize:20,display:'inline-block',filter:'drop-shadow(0 2px 4px rgba(0,0,0,0.6))' }}>{p}</span>
+      : <span key={i} style={{ WebkitTextStroke:'1.5px rgba(0,0,0,0.85)',
+          textShadow:`0 3px 0 rgba(0,0,0,0.9), 0 6px 0 rgba(0,0,0,0.55), 0 12px 24px rgba(0,0,0,0.9), 0 0 34px ${clr}, 0 0 90px ${clr}66` }}>{p}</span>)}
+  </div>);
 }
 
 const ARENAS = [
@@ -1553,7 +1559,7 @@ const ANIMS = `
 @keyframes btnBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.045)}}
 @keyframes sonarArc{0%,100%{opacity:0.35;transform:scale(1)}50%{opacity:1;transform:scale(1.18)}}
 @keyframes arZoomText{0%{opacity:0;transform:translateX(-50%) scale(0.2)}8%{opacity:1;transform:translateX(-50%) scale(1.05)}12%{transform:translateX(-50%) scale(1)}70%{opacity:1;transform:translateX(-50%) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-40px) scale(2.6);filter:blur(3px)}}
-@keyframes feedbackHoldRise{0%{opacity:0;transform:translateX(-50%) translateY(6px) scale(0.86)}7%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}80%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-16px) scale(0.55);filter:blur(4px)}}
+@keyframes feedbackHoldRise{0%{opacity:0;transform:translateX(-50%) translateY(6px) scale(0.86)}8%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}72%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(0) scale(1.6);filter:blur(1px)}}
 @keyframes popFlash{0%{opacity:0;transform:translateX(-50%) scale(0.1) rotate(-8deg)}22%{opacity:1;transform:translateX(-50%) scale(1.45) rotate(4deg)}38%{transform:translateX(-50%) scale(1.05) rotate(0deg)}72%{opacity:1;transform:translateX(-50%) scale(1.05)}100%{opacity:0;transform:translateX(-50%) scale(0.7) translateY(-16px)}}
 @keyframes fbPop3d{0%{opacity:0;transform:translateX(-50%) scale(0.3) perspective(500px) rotateX(40deg)}12%{opacity:1;transform:translateX(-50%) scale(1.25) perspective(500px) rotateX(-6deg)}22%{transform:translateX(-50%) scale(1) perspective(500px) rotateX(0deg)}78%{opacity:1;transform:translateX(-50%) scale(1) translateY(0)}100%{opacity:0;transform:translateX(-50%) scale(0.92) translateY(-30px)}}
 @keyframes floatShadow{0%,100%{transform:translateY(0);filter:drop-shadow(0 8px 20px rgba(0,0,0,0.4))}50%{transform:translateY(-8px);filter:drop-shadow(0 16px 30px rgba(0,0,0,0.6))}}
@@ -1680,8 +1686,14 @@ function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
         <span style={{ fontSize:14,fontWeight:900,fontFamily:warrior,letterSpacing:2.5,textTransform:"uppercase",flexShrink:0,color:color,textShadow:`0 1px 2px rgba(0,0,0,0.6), 0 0 12px ${isHit?t.hitGlow:t.accentGlow}` }}>{title}</span>
         <span style={{ fontSize:12,fontWeight:900,color:sunkCount>0?t.sunk:t.textDim,fontFamily:mono,flexShrink:0 }}>{sunkCount}/{list.length}</span>
       </div>
-      <div style={{ display:"flex",alignItems:"flex-start",gap:9,flexWrap:"wrap",rowGap:10 }}>
-        {list.map((ship, i) => {
+      <div style={{ display:"flex",alignItems:"flex-start",justifyContent:"center",gap:9,flexWrap:"wrap",rowGap:10 }}>
+        {(() => {
+          // Aynı tip gemiler (Muhrip, Korvet, Devriye Botu) tek grup halinde satır atlamadan birlikte kalsın diye önce tipe göre grupluyoruz.
+          const groups = []; const byKey = {};
+          list.forEach(ship => { const key = ship.id.replace(/\d+$/,''); if (!byKey[key]) { byKey[key] = []; groups.push(byKey[key]); } byKey[key].push(ship); });
+          return groups.map((grp, gi) => (
+            <div key={gi} style={{ display:"flex",gap:9,flexWrap:"nowrap" }}>
+              {grp.map((ship, i) => {
           const cells = ship.cells || [];
           const hits = cells.filter(([r, c]) => hitCells?.[r]?.[c]).length;
           const sunk = cells.length > 0 && hits === cells.length;
@@ -1732,7 +1744,10 @@ function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
               <span style={{ fontSize:7.5,fontWeight:800,fontFamily:mono,letterSpacing:0.3,textTransform:"uppercase",whiteSpace:"nowrap",marginTop:3,color:sunk?t.textDim:base,textShadow:sunk?"none":`0 1px 2px rgba(0,0,0,0.7), 0 0 6px ${base}88` }}>{shipLabel}</span>
             </div>
           );
-        })}
+              })}
+            </div>
+          ));
+        })()}
       </div>
     </div>
   );
@@ -5267,18 +5282,21 @@ export default function Game() {
         <button onClick={()=>{setActiveBoard("defense");setMarkMode(false);}} style={{ flex:1,padding:"8px 0",fontSize:13,fontWeight:800,fontFamily:warrior,cursor:"pointer",background:!isAttack?`linear-gradient(135deg,${t.accent},#0891b2)`:t.surfaceLight,color:!isAttack?t.bg:t.textDim,border:`2px solid ${!isAttack?t.accent:t.border}`,borderRadius:"0 10px 10px 0",letterSpacing:4 }}>🛡 {L(appLang,"defense")}</button>
       </div>
       </>}
-      <div ref={boardBoxRef} style={{ flex:1,minHeight:0,width:"100%",maxWidth:400,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden" }}>
+      <div style={{ flex:1,minHeight:0,width:"100%",maxWidth:400,position:"relative" }}>
+      <div ref={boardBoxRef} style={{ position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden" }}>
       <div style={{ border:myTurn?`3px solid ${t.accent}`:`2px solid rgba(255,71,87,0.35)`,borderRadius:12,padding:2,animation:myTurn?"turnPulse 1.1s ease-in-out infinite":"none",transition:"border-color 0.4s ease",position:"relative" }}>
         {isAttack
           ? <Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:playCell} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} onboardingHint={isOnboarding?[[2,2],[2,3],[2,4]]:null} turnGlow={myTurn && !isOnboarding} />
           : <Grid board={defenseBoard} cellSize={isOnboarding?gridSize:playCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />}
-        {microFeedback && <MicroFeedback text={microFeedback.text} color={microFeedback.color} onDone={()=>setMicroFeedback(null)} />}
-        {/* İŞARETLE — tahtanın sol üst köşesinde tek ikon, üzerine gelince etiket çıkar */}
+        {/* İŞARETLE — tahtanın sol üst köşesinde, köşeye tam oturan tek ikon */}
         {isAttack && !isOnboarding && (
           <button onClick={()=>setMarkMode(!markMode)} title={markMode?L(appLang,"markModeOn"):L(appLang,"markMode")}
-            style={{ position:"absolute",top:-10,left:-10,zIndex:6,width:26,height:26,borderRadius:"50%",background:markMode?t.gold:"rgba(10,14,23,0.95)",color:markMode?t.bg:t.gold,border:`2px solid ${t.gold}`,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,boxShadow:markMode?`0 0 10px ${t.goldGlow}`:"0 2px 8px rgba(0,0,0,0.5)" }}>⚑</button>
+            style={{ position:"absolute",top:6,left:6,zIndex:6,width:24,height:24,borderRadius:"50%",background:markMode?t.gold:"rgba(10,14,23,0.95)",color:markMode?t.bg:t.gold,border:`2px solid ${t.gold}`,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,boxShadow:markMode?`0 0 10px ${t.goldGlow}`:"0 2px 8px rgba(0,0,0,0.5)" }}>⚑</button>
         )}
       </div>
+      </div>
+      {/* İSKA/KARAVANA/İSABET bildirimi — tahtanın DIŞINDA (overflow:hidden'a takılmasın), platform ile filo şeridi arasında görünür */}
+      {microFeedback && <MicroFeedback text={microFeedback.text} color={microFeedback.color} onDone={()=>setMicroFeedback(null)} />}
       </div>
       {!isOnboarding && (isAttack
         ? <FleetBar title={L(appLang,"oppShips")} ships={oppShipsData} hitCells={atkHitMap} color={t.hit} lang={appLang} />
