@@ -59,9 +59,11 @@ const TERSANE_CELLS = 20;
 const TERSANE_SHIPS = 5;
 const TERSANE_PAINT = "#22d3ee";                                   // yerleştirmede tek parlak renk
 const TERSANE_PALETTE = ["#22d3ee", "#f472b6", "#a78bfa", "#34d399", "#fbbf24"]; // savaşta gemi renkleri
+const TERSANE_N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const TERSANE_N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 function boardCellCount(board) { let n = 0; for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (board[r][c] > 0) n++; return n; }
-// 4-yönlü bağlı bileşenler = gemiler. Köşe teması gemi birleştirmez.
-function tersaneComponents(board) {
+// Bağlı bileşenler. dirs=4 → gemi (kenar bitişik); dirs=8 → köşe temasını da birleştirir.
+function tersaneComponents(board, dirs = TERSANE_N4) {
   const seen = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
   const comps = [];
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
@@ -69,12 +71,63 @@ function tersaneComponents(board) {
       const stack = [[r, c]]; seen[r][c] = true; const cells = [];
       while (stack.length) {
         const [cr, cc] = stack.pop(); cells.push([cr, cc]);
-        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dr, dc]) => { const nr = cr + dr, nc = cc + dc; if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && board[nr][nc] > 0 && !seen[nr][nc]) { seen[nr][nc] = true; stack.push([nr, nc]); } });
+        dirs.forEach(([dr, dc]) => { const nr = cr + dr, nc = cc + dc; if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && board[nr][nc] > 0 && !seen[nr][nc]) { seen[nr][nc] = true; stack.push([nr, nc]); } });
       }
       comps.push(cells);
     }
   }
   return comps;
+}
+// Geçerli Tersane dizilimi: 20 kutu, tam 5 gemi, VE gemiler köşeden bile değmez (8-bağlı da 5 olmalı).
+function tersaneValid(board) {
+  return boardCellCount(board) === TERSANE_CELLS
+    && tersaneComponents(board, TERSANE_N4).length === TERSANE_SHIPS
+    && tersaneComponents(board, TERSANE_N8).length === TERSANE_SHIPS;
+}
+// Rastgele kenar-bağlı polyomino (göreli hücreler).
+function tersaneRandomPolyomino(size) {
+  const cells = [[0, 0]]; const set = new Set(["0,0"]);
+  let guard = 0;
+  while (cells.length < size && guard++ < 500) {
+    const [br, bc] = cells[Math.floor(Math.random() * cells.length)];
+    const nbrs = [[br + 1, bc], [br - 1, bc], [br, bc + 1], [br, bc - 1]].filter(([r, c]) => !set.has(r + "," + c));
+    if (!nbrs.length) continue;
+    const [nr, nc] = nbrs[Math.floor(Math.random() * nbrs.length)];
+    set.add(nr + "," + nc); cells.push([nr, nc]);
+  }
+  return cells;
+}
+// BOT için: 20 hücre, 5 rastgele serbest-şekil gemi, köşeden bile değmeden yerleştirir.
+function tersaneBotPlace() {
+  const palette = TERSANE_PALETTE;
+  for (let attempt = 0; attempt < 60; attempt++) {
+    // 20'yi 5 parçaya böl (her biri 1..6)
+    const sizes = [1, 1, 1, 1, 1]; let rem = TERSANE_CELLS - 5;
+    while (rem > 0) { const i = Math.floor(Math.random() * 5); if (sizes[i] < 6) { sizes[i]++; rem--; } }
+    const board = emptyGrid();
+    const ships = [];
+    let ok = true;
+    for (let s = 0; s < 5 && ok; s++) {
+      let poly = tersaneRandomPolyomino(sizes[s]);
+      const minR = Math.min(...poly.map(([r]) => r)), minC = Math.min(...poly.map(([, c]) => c));
+      poly = poly.map(([r, c]) => [r - minR, c - minC]);
+      const h = Math.max(...poly.map(([r]) => r)) + 1, w = Math.max(...poly.map(([, c]) => c)) + 1;
+      let placed = false;
+      for (let tryPos = 0; tryPos < 80 && !placed; tryPos++) {
+        const or = Math.floor(Math.random() * (ROWS - h + 1)), oc = Math.floor(Math.random() * (COLS - w + 1));
+        const abs = poly.map(([r, c]) => [r + or, c + oc]);
+        const clash = abs.some(([r, c]) => TERSANE_N8.some(([dr, dc]) => { const nr = r + dr, nc = c + dc; return nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && board[nr][nc] > 0; }) || board[r][c] > 0);
+        if (clash) continue;
+        abs.forEach(([r, c]) => { board[r][c] = 1; });
+        ships.push({ id: `botters${s}`, custom: true, name: `Gemi ${s + 1}`, nameEn: `Ship ${s + 1}`, color: palette[s % palette.length], cells: abs });
+        placed = true;
+      }
+      if (!placed) ok = false;
+    }
+    if (ok && ships.length === 5) return { board, ships };
+  }
+  // Emniyet: standart filo (her zaman yerleşir)
+  return null;
 }
 function coordStr(r, c) { return `${r + 1}${COL_LABELS[c]}`; }
 function formatTime(sec) { const s = Math.max(0, sec); return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`; }
@@ -1793,7 +1846,7 @@ function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
         {(() => {
           // Aynı tip gemiler (Muhrip, Korvet, Devriye Botu) tek grup halinde satır atlamadan birlikte kalsın diye önce tipe göre grupluyoruz.
           const groups = []; const byKey = {};
-          list.forEach(ship => { const key = ship.id.replace(/\d+$/,''); if (!byKey[key]) { byKey[key] = []; groups.push(byKey[key]); } byKey[key].push(ship); });
+          list.forEach(ship => { const key = ship.custom ? `c${ship.id}` : ship.id.replace(/\d+$/,''); if (!byKey[key]) { byKey[key] = []; groups.push(byKey[key]); } byKey[key].push(ship); });
           return groups.map((grp, gi) => (
             <div key={gi} style={{ display:"flex",gap:9,flexWrap:"nowrap" }}>
               {grp.map((ship, i) => {
@@ -2513,7 +2566,7 @@ function SiegeReview({ players, showAll, concluded, cellSize, lang = "tr", onBac
 function BoardReview({ defenseBoard, shipColorMap, defenseOverlay, attackOverlay, oppShipsData, myShipsData, defHitMap, atkHitMap, cellSize, onBack, lang = "tr" }) {
   const [view,setView] = useState("attack");
   const oppBoard=emptyGrid(), oppColors=Array.from({length:ROWS},()=>Array(COLS).fill(null));
-  if(oppShipsData){Object.values(oppShipsData).forEach(ship=>{const sd=SHIPS.find(s=>s.id===ship.id);ship.cells?.forEach(([r,c])=>{oppBoard[r][c]=1;oppColors[r][c]=sd?.color||t.shipCell;});});}
+  if(oppShipsData){Object.values(oppShipsData).forEach(ship=>{const sd=SHIPS.find(s=>s.id===ship.id);ship.cells?.forEach(([r,c])=>{oppBoard[r][c]=1;oppColors[r][c]=sd?.color||ship.color||t.shipCell;});});}
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:t.bg,padding:"12px 8px",fontFamily:mono,color:t.text }}>
     <style>{ANIMS}</style>
     <div style={{ fontSize:18,fontWeight:700,color:t.accent,marginBottom:8,fontFamily:warrior,letterSpacing:3 }}>{L(lang,"battleMap")}</div>
@@ -2522,7 +2575,7 @@ function BoardReview({ defenseBoard, shipColorMap, defenseOverlay, attackOverlay
       <button onClick={()=>setView("defense")} style={{ flex:1,padding:"8px 0",fontSize:12,fontWeight:700,fontFamily:warrior,cursor:"pointer",background:view==="defense"?t.accent:t.surfaceLight,color:view==="defense"?t.bg:t.textDim,border:`1px solid ${view==="defense"?t.accent:t.border}`,borderRadius:"0 8px 8px 0",letterSpacing:2 }}>{L(lang,"myField")}</button>
     </div>
     <div style={{ width:"100%",maxWidth:400 }}>
-      {view==="attack"?<><Grid board={oppBoard} cellSize={cellSize} isDefense shipColors={oppColors} overlay={attackOverlay} disabled showShipStatus /><ShipStatusPanel title={L(lang,"oppShips")} ships={oppShipsData} hitCells={atkHitMap} color={t.hit} lang={lang} /></>:<><Grid board={defenseBoard} cellSize={placeCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled showShipStatus /><ShipStatusPanel title={L(lang,"myShips")} ships={myShipsData} hitCells={defHitMap} color={t.accent} lang={lang} /></>}
+      {view==="attack"?<><Grid board={oppBoard} cellSize={cellSize} isDefense shipColors={oppColors} overlay={attackOverlay} disabled showShipStatus /><ShipStatusPanel title={L(lang,"oppShips")} ships={oppShipsData} hitCells={atkHitMap} color={t.hit} lang={lang} /></>:<><Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled showShipStatus /><ShipStatusPanel title={L(lang,"myShips")} ships={myShipsData} hitCells={defHitMap} color={t.accent} lang={lang} /></>}
     </div>
     <button onClick={onBack} style={{ marginTop:16,padding:"12px 32px",background:t.accent,color:t.bg,border:"none",borderRadius:8,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(lang,"backBtn")}</button>
   </div>);
@@ -4192,13 +4245,13 @@ export default function Game() {
   const startTersaneBotGame = () => {
     track("game_start", { mode: "tersane" });
     if (!playerName.trim()) { setMessage(L(appLang,"msgTypeName")); return; }
-    const bot = botPlaceShips(); // rakip standart filo (20 hücre) — sağlam
+    const bot = tersaneBotPlace() || botPlaceShips(); // rakip de rastgele serbest-şekil 5 gemi; olmazsa standart filoya düş
     const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
     setIsBotGame(true); isBotGameRef.current = true;
     setTersaneMode(true); tersaneModeRef.current = true;
     setBotBoard(bot.board);
     setGameStartTime(Date.now());
-    const shipData = {}; bot.ships.forEach((s, i) => { shipData[i] = { id: s.id, cells: s.cells }; });
+    const shipData = {}; bot.ships.forEach((s, i) => { shipData[i] = { id: s.id, cells: s.cells, color: s.color, name: s.name, nameEn: s.nameEn, custom: s.custom }; });
     setBotShips(shipData); setOppShipsData(shipData);
     setBotAttackOverlay(emptyGrid().map(r => r.map(() => null)));
     setBotName(name); setOpponentName(name);
@@ -4220,8 +4273,8 @@ export default function Game() {
   };
   // Onay: 20 kutu ve tam 5 bağlı grup şart. Her grup bir gemi olur, ayrı renk alır.
   const confirmTersane = () => {
+    if (!tersaneValid(defenseBoard)) return;
     const comps = tersaneComponents(defenseBoard);
-    if (boardCellCount(defenseBoard) !== TERSANE_CELLS || comps.length !== TERSANE_SHIPS) return;
     const ships = comps.map((cells, i) => ({ id: `ters${i}`, custom: true, name: `Gemi ${i + 1}`, nameEn: `Ship ${i + 1}`, color: TERSANE_PALETTE[i % TERSANE_PALETTE.length], cells }));
     const nc = shipColorMap.map(row => [...row]);
     ships.forEach(s => s.cells.forEach(([r, c]) => { nc[r][c] = s.color; }));
@@ -5828,7 +5881,9 @@ export default function Game() {
     const count = boardCellCount(defenseBoard);
     const comps = tersaneComponents(defenseBoard);
     const shipsCount = comps.length;
-    const valid = count === TERSANE_CELLS && shipsCount === TERSANE_SHIPS;
+    const comps8 = tersaneComponents(defenseBoard, TERSANE_N8).length;
+    const diagTouch = comps8 !== shipsCount; // köşeden değen gemiler var
+    const valid = count === TERSANE_CELLS && shipsCount === TERSANE_SHIPS && !diagTouch;
     const tCell = Math.max(16, Math.min(30, Math.floor(Math.min((viewport.w - gutter - 8) / 12, (viewport.h - 320) / 12))));
     const liveColors = shipColorMap.map(row => [...row]);
     comps.forEach((cells, i) => { const col = shipsCount === TERSANE_SHIPS ? TERSANE_PALETTE[i % TERSANE_PALETTE.length] : TERSANE_PAINT; cells.forEach(([r, c]) => { liveColors[r][c] = col; }); });
@@ -5842,10 +5897,11 @@ export default function Game() {
       <div style={{ display:"flex",flexWrap:"wrap",gap:3,justifyContent:"center",maxWidth:300,marginBottom:6 }}>
         {Array.from({length:TERSANE_CELLS}).map((_,i)=>(<span key={i} style={{ width:11,height:11,borderRadius:3,background:i<count?TERSANE_PAINT:"rgba(255,255,255,0.08)",boxShadow:i<count?`0 0 6px ${TERSANE_PAINT}`:"none",transition:"all 0.15s" }} />))}
       </div>
-      <div style={{ display:"flex",gap:14,marginBottom:8 }}>
+      <div style={{ display:"flex",gap:14,marginBottom:diagTouch?3:8 }}>
         <div style={{ fontSize:13,fontWeight:900,fontFamily:mono,color:count===TERSANE_CELLS?"#34d399":t.textDim }}>{appLang==="en"?"CELLS":"KUTU"}: {count}/{TERSANE_CELLS}</div>
-        <div style={{ fontSize:13,fontWeight:900,fontFamily:mono,color:shipsCount===TERSANE_SHIPS?"#34d399":(shipsCount>TERSANE_SHIPS?t.hit:t.textDim) }}>{appLang==="en"?"SHIPS":"GEMİ"}: {shipsCount}/{TERSANE_SHIPS}</div>
+        <div style={{ fontSize:13,fontWeight:900,fontFamily:mono,color:(shipsCount===TERSANE_SHIPS&&!diagTouch)?"#34d399":(shipsCount>TERSANE_SHIPS||diagTouch?t.hit:t.textDim) }}>{appLang==="en"?"SHIPS":"GEMİ"}: {shipsCount}/{TERSANE_SHIPS}</div>
       </div>
+      {diagTouch && <div style={{ fontSize:10,fontWeight:800,color:t.hit,fontFamily:warrior,letterSpacing:1,marginBottom:6,textAlign:"center" }}>⚠ {appLang==="en"?"Ships can't touch — not even at corners!":"Gemiler köşeden bile değemez!"}</div>}
       <div style={{ display:"flex",justifyContent:"center",marginBottom:10 }}>
         <Grid board={defenseBoard} cellSize={tCell} isDefense shipColors={liveColors} overlay={emptyGrid().map(r=>r.map(()=>null))} onClick={tersaneToggleCell} />
       </div>
