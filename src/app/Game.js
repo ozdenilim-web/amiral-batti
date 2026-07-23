@@ -1252,27 +1252,28 @@ function DailyRewardPopup({ reward, streak, onClose, lang = "tr" }) {
 
 function ArenaSelect({ myGold, onSelect, onBack, lang = "tr" }) {
   const [openInfo, setOpenInfo] = useState(null);
-  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:`linear-gradient(180deg, ${t.bg} 0%, #071428 100%)`,padding:"24px 14px",fontFamily:mono,color:t.text }}>
-    <div style={{ fontSize:26,fontWeight:800,letterSpacing:6,color:t.accent,marginBottom:6,fontFamily:warrior,textShadow:`0 0 25px ${t.accentGlow}` }}>{L(lang,"arenaSelectTitle")}</div>
-    <div style={{ fontSize:14,fontWeight:800,color:t.gold,fontFamily:warrior,marginBottom:14,padding:"6px 20px",background:"rgba(255,215,0,0.08)",borderRadius:10,border:"1px solid rgba(255,215,0,0.2)",letterSpacing:2 }}><img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /> {myGold} {L(lang,"goldLabel")}</div>
-    <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,textAlign:"center",marginBottom:16,maxWidth:400,lineHeight:1.6,padding:"0 8px" }}>{L(lang,"arenaGeneralNote")}</div>
-    <div style={{ width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:10 }}>
+  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)",padding:"24px 14px",fontFamily:mono,color:"#dfe9f0" }}>
+    <div style={{ fontSize:24,fontWeight:900,letterSpacing:5,color:"#f0d79a",marginBottom:6,fontFamily:warrior }}>{L(lang,"arenaSelectTitle")}</div>
+    <div style={{ fontSize:14,fontWeight:700,color:"#f0d79a",fontFamily:mono,marginBottom:14,padding:"6px 16px",background:"linear-gradient(180deg, rgba(26,19,4,0.9), rgba(12,9,2,0.95))",borderRadius:10,border:"1px solid rgba(201,161,94,0.45)",letterSpacing:1,display:"flex",alignItems:"center",gap:6 }}><img src="/img/coin.png" alt="" style={{ width:18,height:18 }} /> {myGold} {L(lang,"goldLabel")}</div>
+    <div style={{ fontSize:11,color:"#7A8FA0",fontFamily:mono,textAlign:"center",marginBottom:16,maxWidth:400,lineHeight:1.6,padding:"0 8px" }}>{L(lang,"arenaGeneralNote")}</div>
+    <div style={{ width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:12 }}>
       {ARENAS.map(arena => {
         const locked = (myGold||0) < arena.minGold, cantAfford = (myGold||0) < arena.entryFee, disabled = locked||cantAfford;
         const infoOpen = openInfo === arena.id;
         return (<div key={arena.id}>
-          <div onClick={()=>!disabled&&onSelect(arena)} style={{ display:"flex",alignItems:"center",gap:16,padding:"18px 20px",background:disabled?"rgba(22,32,64,0.5)":`linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))`,border:`2px solid ${disabled?"rgba(30,58,95,0.3)":arena.color}`,borderRadius:infoOpen?"14px 14px 0 0":14,cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.45:1,textAlign:"left",width:"100%",boxShadow:disabled?"none":`0 0 20px ${arena.color}22, 0 4px 20px rgba(0,0,0,0.3)`,transition:"all 0.2s ease" }}>
-            <div style={{ fontSize:32,width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",background:`${arena.color}15`,borderRadius:12,border:`1px solid ${arena.color}33`,flexShrink:0 }}>{arena.icon}</div>
+          <div onClick={()=>!disabled&&onSelect(arena)} style={{ position:"relative",overflow:"hidden",display:"flex",alignItems:"center",gap:14,padding:"16px 18px",background:"linear-gradient(180deg,#20313f,#132030)",border:"1px solid #26394b",borderRadius:infoOpen?"12px 12px 0 0":12,cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.45:1,textAlign:"left",width:"100%",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 14px rgba(0,0,0,0.3)" }}>
+            <span style={{ position:"absolute",left:0,top:0,bottom:0,width:3,background:arena.color }} />
+            <div style={{ fontSize:26,width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(255,255,255,0.04)",borderRadius:10,border:"1px solid #26394b",flexShrink:0,filter:disabled?"grayscale(1)":"none" }}>{arena.icon}</div>
             <div style={{ flex:1,minWidth:0 }}>
               <div style={{ display:"flex",alignItems:"center",gap:6 }}>
-                <div style={{ fontSize:16,fontWeight:800,color:arena.color,fontFamily:warrior,letterSpacing:4 }}>{lang==="en"?arena.nameEn:arena.name}</div>
-                <button onClick={(e)=>{e.stopPropagation();setOpenInfo(infoOpen?null:arena.id);}} title={L(lang,"infoIconTooltip")} style={{ width:24,height:24,borderRadius:"50%",background:infoOpen?t.accent:"rgba(0,229,255,0.18)",border:`2px solid ${t.accent}`,color:infoOpen?t.bg:t.accent,fontSize:14,fontWeight:900,fontFamily:"Georgia, serif",fontStyle:"italic",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,flexShrink:0,boxShadow:`0 0 10px ${t.accentGlow}`,lineHeight:1 }}>i</button>
+                <div style={{ fontSize:16,fontWeight:800,color:"#A9BCC9",fontFamily:warrior,letterSpacing:3 }}>{lang==="en"?arena.nameEn:arena.name}</div>
+                <button onClick={(e)=>{e.stopPropagation();setOpenInfo(infoOpen?null:arena.id);}} title={L(lang,"infoIconTooltip")} style={{ width:22,height:22,borderRadius:"50%",background:infoOpen?"#26394b":"rgba(255,255,255,0.04)",border:"1px solid #26394b",color:"#A9BCC9",fontSize:13,fontWeight:900,fontFamily:"Georgia, serif",fontStyle:"italic",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,flexShrink:0,lineHeight:1 }}>i</button>
               </div>
-              <div style={{ fontSize:10,fontWeight:700,color:t.textDim,marginTop:3,fontFamily:mono }}>{locked?L(lang,"goldRequired")(arena.minGold):L(lang,"minGoldLabel")(arena.minGold)}</div>
+              <div style={{ fontSize:10,fontWeight:700,color:"#54697a",marginTop:3,fontFamily:mono }}>{locked?L(lang,"goldRequired")(arena.minGold):L(lang,"minGoldLabel")(arena.minGold)}</div>
             </div>
-            <div style={{ textAlign:"right",flexShrink:0 }}><div style={{ fontSize:16,fontWeight:800,color:cantAfford?t.hit:t.gold,fontFamily:warrior }}>{arena.entryFee} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /></div><div style={{ fontSize:9,color:t.textDim,fontWeight:700,letterSpacing:1 }}>{L(lang,"entryLabel")}</div><div style={{ fontSize:12,fontWeight:800,color:"#4ade80",fontFamily:warrior,marginTop:3 }}>🏆 {arena.winGold} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /></div></div>
+            <div style={{ textAlign:"right",flexShrink:0 }}><div style={{ fontSize:16,fontWeight:800,color:cantAfford?"#e0645a":"#f0d79a",fontFamily:warrior }}>{arena.entryFee} <img src="/img/coin.png" alt="" style={{ width:16,height:16,verticalAlign:"middle" }} /></div><div style={{ fontSize:9,color:"#54697a",fontWeight:700,letterSpacing:1 }}>{L(lang,"entryLabel")}</div><div style={{ fontSize:12,fontWeight:800,color:"#c9a15e",fontFamily:warrior,marginTop:3 }}>🏆 {arena.winGold} <img src="/img/coin.png" alt="" style={{ width:16,height:16,verticalAlign:"middle" }} /></div></div>
           </div>
-          {infoOpen && <div style={{ background:"rgba(6,10,22,0.96)",border:`2px solid ${arena.color}`,borderTop:"none",borderRadius:"0 0 14px 14px",padding:"12px 18px",fontSize:12,color:t.text,fontFamily:mono,lineHeight:1.8,animation:"fadeUp 0.2s ease-out" }}>
+          {infoOpen && <div style={{ background:"rgba(8,17,24,0.96)",border:"1px solid #26394b",borderTop:"none",borderRadius:"0 0 12px 12px",padding:"12px 18px",fontSize:12,color:"#A9BCC9",fontFamily:mono,lineHeight:1.8,animation:"fadeUp 0.2s ease-out" }}>
             <div>💰 {L(lang,"arenaInfoEntry")(arena.entryFee)}</div>
             <div>🏆 {L(lang,"arenaInfoWin")(arena.winGold)}</div>
             <div>⭐ {L(lang,"arenaInfoXpBonus")}</div>
@@ -1280,7 +1281,7 @@ function ArenaSelect({ myGold, onSelect, onBack, lang = "tr" }) {
         </div>);
       })}
     </div>
-    <button onClick={onBack} style={{ marginTop:24,padding:"14px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:14,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 4px 20px ${t.accentGlow}` }}>{L(lang,"backBtn")}</button>
+    <button onClick={onBack} style={{ marginTop:24,padding:"14px 36px",background:"linear-gradient(180deg,#20313f,#132030)",color:"#A9BCC9",border:"1px solid #26394b",borderRadius:12,fontSize:14,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 0 rgba(0,0,0,0.4)" }}>{L(lang,"backBtn")}</button>
   </div>);
 }
 
@@ -1294,26 +1295,27 @@ const WATER_MODES = [
   { id:"ateskes", name:"ATEŞKES", nameEn:"CEASEFIRE", icon:"🕊️", color:"#94a3b8", desc:"Sular çekilince göreceksin…", descEn:"You'll see when the tide turns…" },
 ];
 function DifferentWaters({ onBack, onPlaySalvo, onPlayKusatma, onPlayTersane, lang = "tr" }) {
-  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:`linear-gradient(180deg, ${t.bg} 0%, #071428 100%)`,padding:"24px 14px",fontFamily:mono,color:t.text }}>
-    <div style={{ fontSize:26,fontWeight:800,letterSpacing:6,color:t.accent,marginBottom:6,fontFamily:warrior,textShadow:`0 0 25px ${t.accentGlow}`,textAlign:"center" }}>{lang==="en"?"DIFFERENT WATERS":"FARKLI SULAR"}</div>
-    <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,textAlign:"center",marginBottom:18,maxWidth:400,lineHeight:1.6,padding:"0 8px" }}>{lang==="en"?"New rules, new maps, new fleets — coming soon.":"Farklı kurallar, farklı haritalar, farklı filolar — çok yakında."}</div>
-    <div style={{ width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:10 }}>
+  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)",padding:"24px 14px",fontFamily:mono,color:"#dfe9f0" }}>
+    <div style={{ fontSize:24,fontWeight:900,letterSpacing:5,color:"#5fd8ee",marginBottom:6,fontFamily:warrior,textShadow:"0 0 24px rgba(28,199,230,0.3)",textAlign:"center" }}>{lang==="en"?"DIFFERENT WATERS":"FARKLI SULAR"}</div>
+    <div style={{ fontSize:11,color:"#7A8FA0",fontFamily:mono,textAlign:"center",marginBottom:18,maxWidth:400,lineHeight:1.6,padding:"0 8px" }}>{lang==="en"?"New rules, new maps, new fleets — coming soon.":"Farklı kurallar, farklı haritalar, farklı filolar — çok yakında."}</div>
+    <div style={{ width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:12 }}>
       {WATER_MODES.map(mode => {
         const playable = mode.id === "teksalvo" || mode.id === "kusatma" || mode.id === "tersane";
         const onPlay = mode.id === "teksalvo" ? onPlaySalvo : mode.id === "kusatma" ? onPlayKusatma : mode.id === "tersane" ? onPlayTersane : undefined;
         return (
-        <div key={mode.id} onClick={playable ? onPlay : undefined} style={{ display:"flex",alignItems:"center",gap:16,padding:"16px 18px",background:`linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))`,border:`2px solid ${mode.color}${playable?"":"55"}`,borderRadius:14,cursor:playable?"pointer":"default",boxShadow:playable?`0 0 18px ${mode.color}33`:"none",animation:playable?"borderGlow 2.4s infinite":"none" }}>
-          <div style={{ fontSize:26,width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",background:`${mode.color}15`,borderRadius:12,border:`1px solid ${mode.color}33`,flexShrink:0 }}>{mode.icon}</div>
+        <div key={mode.id} onClick={playable ? onPlay : undefined} style={{ position:"relative",overflow:"hidden",display:"flex",alignItems:"center",gap:14,padding:"15px 17px",background:"linear-gradient(180deg,#20313f,#132030)",border:"1px solid #26394b",borderRadius:12,cursor:playable?"pointer":"default",opacity:playable?1:0.7,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 14px rgba(0,0,0,0.3)" }}>
+          <span style={{ position:"absolute",left:0,top:0,bottom:0,width:3,background:mode.color,opacity:playable?1:0.5 }} />
+          <div style={{ fontSize:24,width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(255,255,255,0.04)",borderRadius:10,border:"1px solid #26394b",flexShrink:0,filter:playable?"none":"grayscale(0.6)" }}>{mode.icon}</div>
           <div style={{ flex:1,minWidth:0 }}>
-            <div style={{ fontSize:15,fontWeight:800,color:mode.color,fontFamily:warrior,letterSpacing:3 }}>{lang==="en"?mode.nameEn:mode.name}</div>
-            <div style={{ fontSize:10,fontWeight:600,color:t.textDim,marginTop:3,fontFamily:mono,lineHeight:1.4,opacity:playable?1:0.5,fontStyle:playable?"normal":"italic" }}>{lang==="en"?mode.descEn:mode.desc}</div>
+            <div style={{ fontSize:15,fontWeight:800,color:"#A9BCC9",fontFamily:warrior,letterSpacing:3 }}>{lang==="en"?mode.nameEn:mode.name}</div>
+            <div style={{ fontSize:10,fontWeight:600,color:"#54697a",marginTop:3,fontFamily:mono,lineHeight:1.4,opacity:playable?1:0.7,fontStyle:playable?"normal":"italic" }}>{lang==="en"?mode.descEn:mode.desc}</div>
           </div>
-          <div style={{ fontSize:9,fontWeight:900,color:playable?t.bg:t.textDim,background:playable?mode.color:"rgba(255,255,255,0.06)",padding:"4px 10px",borderRadius:8,letterSpacing:1,flexShrink:0 }}>{playable?(lang==="en"?"PLAY":"OYNA"):(lang==="en"?"SOON":"YAKINDA")}</div>
+          <div style={{ fontSize:9,fontWeight:900,fontFamily:warrior,letterSpacing:1,flexShrink:0,padding:"4px 10px",borderRadius:8,color:playable?"#f0d79a":"#54697a",background:playable?"rgba(201,161,94,0.12)":"rgba(255,255,255,0.04)",border:`1px solid ${playable?"rgba(201,161,94,0.4)":"#26394b"}` }}>{playable?(lang==="en"?"PLAY":"OYNA"):(lang==="en"?"SOON":"YAKINDA")}</div>
         </div>
         );
       })}
     </div>
-    <button onClick={onBack} style={{ marginTop:24,padding:"14px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:14,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:`0 4px 20px ${t.accentGlow}` }}>{L(lang,"backBtn")}</button>
+    <button onClick={onBack} style={{ marginTop:24,padding:"14px 36px",background:"linear-gradient(180deg,#20313f,#132030)",color:"#A9BCC9",border:"1px solid #26394b",borderRadius:12,fontSize:14,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 0 rgba(0,0,0,0.4)" }}>{L(lang,"backBtn")}</button>
   </div>);
 }
 
@@ -2635,35 +2637,35 @@ function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack, ready, onTogg
   };
   const cancelInvite=async()=>{if(!sentInvite)return;await remove(ref(db,`invites/${sentInvite.targetUid}/${myUid}`));setSentInvite(null);};
   const rejectInvite=async(invite)=>{await update(ref(db,`invites/${myUid}/${invite.id}`),{status:"rejected"});setTimeout(()=>remove(ref(db,`invites/${myUid}/${invite.id}`)),2000);};
-  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:t.bg,padding:"20px 12px",fontFamily:"'Space Mono',monospace",color:t.text }}>
-    <div style={{ fontSize:22,fontWeight:700,letterSpacing:5,color:t.accent,marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",textShadow:`0 0 20px ${t.accentGlow}` }}>{L(lang,"onlineSalon")}</div>
-    <div style={{ fontSize:10,color:t.textDim,letterSpacing:4,marginBottom:14,fontFamily:"'Barlow Condensed',sans-serif" }}>{L(lang,"activeSailors")}</div>
-    <button onClick={onToggleReady} style={{ width:"100%",maxWidth:400,marginBottom:14,padding:"13px 0",background:ready?"linear-gradient(135deg,#34d399,#0d9488)":"rgba(255,255,255,0.05)",color:ready?"#04231a":t.textDim,border:`2px solid ${ready?"#34d399":t.border}`,borderRadius:12,fontSize:14,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",textTransform:"uppercase",boxShadow:ready?"0 0 24px rgba(52,211,153,0.5)":"none",animation:ready?"borderGlow 2s infinite":"none",transition:"all 0.2s ease" }}>{ready?"✅":"⚡"} {L(lang,"readyToPlay")}</button>
-    {ready && <div style={{ fontSize:10,color:"#34d399",fontFamily:"'Space Mono',monospace",marginBottom:14,textAlign:"center" }}>{L(lang,"readyHint")}</div>}
-    {invites.filter(inv=>inv.status==="pending").map(invite=>(<div key={invite.id} style={{ width:"100%",maxWidth:400,marginBottom:8,padding:"12px 16px",background:"rgba(6,182,212,0.1)",border:`1px solid ${t.accent}`,borderRadius:10,animation:"borderGlow 2s infinite" }}>
-      <div style={{ fontSize:12,color:t.accent,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,marginBottom:6,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={14} color={t.accent}/> {L(lang,"duelInvite")}</div>
-      <div style={{ fontSize:13,color:t.text,marginBottom:8 }}><span style={{ fontWeight:700 }}>{invite.fromName}</span><span style={{ color:t.textDim,fontSize:10,marginLeft:8 }}>💰 {invite.fromGold||0}</span></div>
+  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)",padding:"20px 12px",fontFamily:mono,color:"#dfe9f0" }}>
+    <div style={{ fontSize:22,fontWeight:900,letterSpacing:5,color:"#5fd8ee",marginBottom:4,fontFamily:warrior,textShadow:"0 0 20px rgba(28,199,230,0.3)" }}>{L(lang,"onlineSalon")}</div>
+    <div style={{ fontSize:10,color:"#54697a",letterSpacing:4,marginBottom:14,fontFamily:warrior }}>{L(lang,"activeSailors")}</div>
+    <button onClick={onToggleReady} style={{ width:"100%",maxWidth:400,marginBottom:14,padding:"13px 0",borderRadius:12,fontSize:14,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",background:ready?"linear-gradient(180deg, #3ad9f2 0%, #1CC7E6 20%, #12A0BE 62%, #0B7E98 100%)":"linear-gradient(180deg,#20313f,#132030)",color:ready?"#052029":"#A9BCC9",border:`1px solid ${ready?"#3ad9f2":"#26394b"}`,boxShadow:ready?"inset 0 2px 0 rgba(255,255,255,0.5), 0 3px 0 #064e60":"inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 0 rgba(0,0,0,0.4)" }}>{ready?"✅":"⚡"} {L(lang,"readyToPlay")}</button>
+    {ready && <div style={{ fontSize:10,color:"#5fd8ee",fontFamily:mono,marginBottom:14,textAlign:"center" }}>{L(lang,"readyHint")}</div>}
+    {invites.filter(inv=>inv.status==="pending").map(invite=>(<div key={invite.id} style={{ width:"100%",maxWidth:400,marginBottom:8,padding:"12px 16px",background:"linear-gradient(180deg, rgba(20,34,48,0.85), rgba(10,20,30,0.9))",border:"1px solid rgba(28,199,230,0.4)",borderRadius:12 }}>
+      <div style={{ fontSize:12,color:"#5fd8ee",fontWeight:700,fontFamily:warrior,letterSpacing:2,marginBottom:6,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={14} color="#5fd8ee"/> {L(lang,"duelInvite")}</div>
+      <div style={{ fontSize:13,color:"#dfe9f0",marginBottom:8 }}><span style={{ fontWeight:700 }}>{invite.fromName}</span><span style={{ color:"#f0d79a",fontSize:10,marginLeft:8 }}>💰 {invite.fromGold||0}</span></div>
       <div style={{ display:"flex",gap:8 }}>
-        <button onClick={()=>acceptInvite(invite)} style={{ flex:1,padding:"8px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:6,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif" }}>{L(lang,"accept")}</button>
-        <button onClick={()=>rejectInvite(invite)} style={{ flex:1,padding:"8px 0",background:"transparent",color:t.hit,border:`1px solid ${t.hit}`,borderRadius:6,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif" }}>{L(lang,"reject")}</button>
+        <button onClick={()=>acceptInvite(invite)} style={{ flex:1,padding:"9px 0",background:"linear-gradient(180deg,#1CC7E6,#0B7E98)",color:"#052029",border:"none",borderRadius:8,fontSize:12,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.4)" }}>{L(lang,"accept")}</button>
+        <button onClick={()=>rejectInvite(invite)} style={{ flex:1,padding:"9px 0",background:"linear-gradient(180deg,#20313f,#132030)",color:"#A9BCC9",border:"1px solid #26394b",borderRadius:8,fontSize:12,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(lang,"reject")}</button>
       </div>
     </div>))}
-    {sentInvite&&(<div style={{ width:"100%",maxWidth:400,marginBottom:8,padding:"12px 16px",background:"rgba(251,191,36,0.08)",border:`1px solid ${t.gold}`,borderRadius:10 }}>
-      <div style={{ fontSize:11,color:t.gold,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:2,marginBottom:4 }}>{L(lang,"inviteSent")}</div>
-      <div style={{ fontSize:13,color:t.text,marginBottom:8 }}><span style={{ fontWeight:700 }}>{sentInvite.targetName}</span> {L(lang,"inviteWaiting")}<span style={{ display:"inline-block",marginLeft:6,animation:"pulse 1.5s infinite" }}>⏳</span></div>
-      <button onClick={cancelInvite} style={{ padding:"6px 16px",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:6,fontSize:10,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1 }}>{L(lang,"cancelBtn")}</button>
+    {sentInvite&&(<div style={{ width:"100%",maxWidth:400,marginBottom:8,padding:"12px 16px",background:"linear-gradient(180deg, rgba(20,34,48,0.85), rgba(10,20,30,0.9))",border:"1px solid rgba(201,161,94,0.4)",borderRadius:12 }}>
+      <div style={{ fontSize:11,color:"#f0d79a",fontFamily:warrior,letterSpacing:2,marginBottom:4 }}>{L(lang,"inviteSent")}</div>
+      <div style={{ fontSize:13,color:"#dfe9f0",marginBottom:8 }}><span style={{ fontWeight:700 }}>{sentInvite.targetName}</span> {L(lang,"inviteWaiting")}<span style={{ display:"inline-block",marginLeft:6 }}>⏳</span></div>
+      <button onClick={cancelInvite} style={{ padding:"6px 16px",background:"transparent",color:"#7A8FA0",border:"1px solid #26394b",borderRadius:8,fontSize:10,cursor:"pointer",fontFamily:warrior,letterSpacing:1 }}>{L(lang,"cancelBtn")}</button>
     </div>)}
-    {players.length===0?(<div style={{ width:"100%",maxWidth:400,padding:"30px 20px",textAlign:"center",background:t.surface,border:`1px solid ${t.border}`,borderRadius:10,marginTop:8 }}><div style={{ fontSize:24,marginBottom:8 }}>🌊</div><div style={{ fontSize:12,color:t.textDim }}>{L(lang,"noSailors")}</div><div style={{ fontSize:10,color:t.textDim,marginTop:4 }}>{L(lang,"noSailorsHint")}</div></div>):(
-      <div style={{ width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:4 }}>
-        <div style={{ fontSize:9,color:t.textDim,letterSpacing:2,marginBottom:4 }}>{players.length} {L(lang,"sailorsActive")}</div>
-        {players.map(p=>{const rank=getRankInfo(typeof p.honor==="number"?p.honor:((p.wins||0)*8+(p.losses||0)*3),lang);const alreadySent=sentInvite?.targetUid===p.uid;return(<div key={p.uid} style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:t.surface,border:`1px solid ${t.border}`,borderRadius:8 }}>
-          <div style={{ width:8,height:8,borderRadius:"50%",background:"#34d399",boxShadow:"0 0 6px rgba(52,211,153,0.5)" }} />
-          <div style={{ flex:1,minWidth:0 }}><div style={{ display:"flex",alignItems:"center",gap:6 }}><span style={{ fontSize:13,fontWeight:700,color:t.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.displayName}</span><span style={{ fontSize:9,color:rank.color,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1 }}>{rank.icon} {rank.title}</span>{p.ready && <span style={{ fontSize:8,fontWeight:900,color:"#04231a",background:"#34d399",padding:"2px 6px",borderRadius:5,letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif" }}>{L(lang,"ready")}</span>}</div><div style={{ fontSize:9,color:t.textDim,marginTop:1 }}>💰 {p.gold||0} • {p.wins||0}G/{p.losses||0}M</div></div>
-          <button onClick={()=>sendInvite(p.uid,p.displayName)} disabled={!!sentInvite} style={{ padding:"6px 14px",background:alreadySent?t.surfaceLight:`linear-gradient(135deg,${t.hit},#dc2626)`,color:alreadySent?t.textDim:"#fff",border:"none",borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:sentInvite?"default":"pointer",fontFamily:"'Barlow Condensed',sans-serif",opacity:sentInvite&&!alreadySent?0.4:1 }}>{alreadySent?L(lang,"waitingBadge"):L(lang,"duel")}</button>
+    {players.length===0?(<div style={{ width:"100%",maxWidth:400,padding:"30px 20px",textAlign:"center",background:"linear-gradient(180deg, rgba(20,34,48,0.6), rgba(10,20,30,0.6))",border:"1px solid #26394b",borderRadius:12,marginTop:8 }}><div style={{ fontSize:24,marginBottom:8,opacity:0.7 }}>🌊</div><div style={{ fontSize:12,color:"#7A8FA0" }}>{L(lang,"noSailors")}</div><div style={{ fontSize:10,color:"#54697a",marginTop:4 }}>{L(lang,"noSailorsHint")}</div></div>):(
+      <div style={{ width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:6 }}>
+        <div style={{ fontSize:9,color:"#54697a",letterSpacing:2,marginBottom:4 }}>{players.length} {L(lang,"sailorsActive")}</div>
+        {players.map(p=>{const rank=getRankInfo(typeof p.honor==="number"?p.honor:((p.wins||0)*8+(p.losses||0)*3),lang);const alreadySent=sentInvite?.targetUid===p.uid;return(<div key={p.uid} style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"linear-gradient(180deg,#20313f,#132030)",border:"1px solid #26394b",borderRadius:10,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.05)" }}>
+          <div style={{ width:8,height:8,borderRadius:"50%",background:"#5fd8ee" }} />
+          <div style={{ flex:1,minWidth:0 }}><div style={{ display:"flex",alignItems:"center",gap:6 }}><span style={{ fontSize:13,fontWeight:700,color:"#dfe9f0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.displayName}</span><span style={{ fontSize:9,color:rank.color,fontFamily:warrior,letterSpacing:1 }}>{rank.icon} {rank.title}</span>{p.ready && <span style={{ fontSize:8,fontWeight:900,color:"#052029",background:"#1CC7E6",padding:"2px 6px",borderRadius:5,letterSpacing:1,fontFamily:warrior }}>{L(lang,"ready")}</span>}</div><div style={{ fontSize:9,color:"#7A8FA0",marginTop:1 }}>💰 {p.gold||0} • {p.wins||0}G/{p.losses||0}M</div></div>
+          <button onClick={()=>sendInvite(p.uid,p.displayName)} disabled={!!sentInvite} style={{ padding:"7px 14px",background:alreadySent?"linear-gradient(180deg,#20313f,#132030)":"linear-gradient(180deg,#1CC7E6,#0B7E98)",color:alreadySent?"#54697a":"#052029",border:alreadySent?"1px solid #26394b":"none",borderRadius:8,fontSize:10,fontWeight:800,letterSpacing:1,cursor:sentInvite?"default":"pointer",fontFamily:warrior,opacity:sentInvite&&!alreadySent?0.4:1 }}>{alreadySent?L(lang,"waitingBadge"):L(lang,"duel")}</button>
         </div>);})}
       </div>
     )}
-    <button onClick={onBack} style={{ marginTop:20,padding:"12px 32px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:8,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",textTransform:"uppercase" }}>{L(lang,"backBtn")}</button>
+    <button onClick={onBack} style={{ marginTop:20,padding:"12px 32px",background:"linear-gradient(180deg,#20313f,#132030)",color:"#A9BCC9",border:"1px solid #26394b",borderRadius:12,fontSize:13,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 0 rgba(0,0,0,0.4)" }}>{L(lang,"backBtn")}</button>
   </div>);
 }
 
@@ -5673,13 +5675,14 @@ export default function Game() {
         const rm = revengeMult(ls);
         if (rm <= 1) return null;
         return (
-          <div style={{ width:"100%",maxWidth:400,marginBottom:10,zIndex:1,position:"relative",overflow:"hidden",background:"linear-gradient(135deg, rgba(200,30,30,0.16), rgba(255,140,0,0.10))",border:"2px solid rgba(255,80,60,0.55)",borderRadius:12,padding:"11px 14px",display:"flex",alignItems:"center",gap:10,animation:"pulse 1.8s ease-in-out infinite",boxShadow:"0 0 22px rgba(255,60,40,0.25)" }}>
-            <span style={{ fontSize:22,filter:"drop-shadow(0 0 8px rgba(255,90,50,0.9))" }}>⚔</span>
+          <div style={{ width:"100%",maxWidth:400,marginBottom:10,zIndex:1,position:"relative",overflow:"hidden",background:"linear-gradient(180deg, rgba(20,34,48,0.8), rgba(10,20,30,0.85))",border:"1px solid rgba(201,161,94,0.4)",borderRadius:12,padding:"11px 14px",display:"flex",alignItems:"center",gap:11,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.05)" }}>
+            <span style={{ position:"absolute",left:0,top:0,bottom:0,width:2,background:BRONZE }} />
+            <span style={{ fontSize:20,opacity:0.9 }}>⚔</span>
             <div style={{ flex:1 }}>
-              <div style={{ fontSize:12,fontWeight:900,color:"#ff9a76",fontFamily:warrior,letterSpacing:2,textShadow:"0 0 12px rgba(255,90,50,0.6)" }}>{L(appLang,"revengeActive")(rm)}</div>
-              <div style={{ fontSize:9,fontWeight:700,color:"rgba(255,180,150,0.7)",fontFamily:mono,letterSpacing:1,marginTop:2,fontStyle:"italic" }}>{L(appLang,"revengeSub")}</div>
+              <div style={{ fontSize:12,fontWeight:800,color:"#f0d79a",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"revengeActive")(rm)}</div>
+              <div style={{ fontSize:9,fontWeight:600,color:"#7A8FA0",fontFamily:mono,letterSpacing:1,marginTop:2,fontStyle:"italic" }}>{L(appLang,"revengeSub")}</div>
             </div>
-            <span style={{ fontSize:20,fontWeight:900,color:"#ffd700",fontFamily:warrior,textShadow:"0 0 14px rgba(255,215,0,0.8)" }}>×{rm}</span>
+            <span style={{ fontSize:20,fontWeight:900,color:"#f0d79a",fontFamily:warrior }}>×{rm}</span>
           </div>
         );
       })()}
