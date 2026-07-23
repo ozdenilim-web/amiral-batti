@@ -2621,6 +2621,118 @@ function BoardReview({ defenseBoard, shipColorMap, defenseOverlay, attackOverlay
   </div>);
 }
 
+// === KUŞATMA ONLINE — oda tarayıcı (Faz 1): oda kur / açık odalara katıl, host 1 dk geri sayım, dolunca bot dolgu + başlat ===
+function SiegeLobby({ myUid, myName, myAvatar, onBack, onStart, lang = "tr" }) {
+  const [rooms, setRooms] = useState([]);
+  const [myRoom, setMyRoom] = useState(null); // { id, seatIdx }
+  const [now, setNow] = useState(Date.now());
+  const startedRef = useRef(false);
+  const en = lang === "en";
+  useEffect(() => { const iv = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(iv); }, []);
+  // Açık odaları listele
+  useEffect(() => {
+    const u = onValue(ref(db, "siege_rooms"), snap => {
+      const list = [];
+      snap.forEach(c => { const r = c.val() || {}; if (r.status === "gathering" && (Date.now() - (r.created || 0) < 180000)) list.push({ id: c.key, ...r }); });
+      list.sort((a, b) => (a.startAt || 0) - (b.startAt || 0));
+      setRooms(list);
+    });
+    return () => u();
+  }, []);
+  const seatCount = (r) => [0, 1, 2].filter(i => r.seats && r.seats[String(i)]).length;
+  // Kendi odamı izle: status "playing" olunca ya da (host isem) süre/doluluk → başlat
+  useEffect(() => {
+    if (!myRoom) return;
+    const u = onValue(ref(db, `siege_rooms/${myRoom.id}`), snap => {
+      const r = snap.val();
+      if (!r) { // oda kapandı (host düştü) → tarayıcıya dön
+        setMyRoom(null); return;
+      }
+      if (r.status === "playing" && !startedRef.current) { startedRef.current = true; onStart({ roomId: myRoom.id, seats: r.seats || {}, hostUid: r.hostUid, myUid }); return; }
+      // Host: süre dolunca ya da 3 dolunca başlat (boş koltuklar bota döner)
+      const isHost = r.hostUid === myUid;
+      const full = seatCount(r) >= 3;
+      if (isHost && r.status === "gathering" && (full || Date.now() >= (r.startAt || 0))) {
+        update(ref(db, `siege_rooms/${myRoom.id}`), { status: "playing", startedAt: Date.now() }).catch(() => {});
+      }
+    });
+    return () => u();
+  }, [myRoom, myUid, onStart]);
+  const createRoom = async () => {
+    const id = "S" + Math.random().toString(36).substring(2, 7).toUpperCase();
+    const room = { hostUid: myUid, hostName: myName, hostAvatar: myAvatar || "⚓", seats: { 0: { uid: myUid, name: myName, avatar: myAvatar || "⚓" } }, status: "gathering", startAt: Date.now() + 60000, created: Date.now() };
+    try { await set(ref(db, `siege_rooms/${id}`), room); onDisconnect(ref(db, `siege_rooms/${id}`)).remove(); setMyRoom({ id, seatIdx: 0 }); startedRef.current = false; } catch (e) { console.error(e); }
+  };
+  const joinRoom = async (id) => {
+    try {
+      const res = await runTransaction(ref(db, `siege_rooms/${id}`), (r) => {
+        if (!r || r.status !== "gathering") return r;
+        const seats = r.seats || {};
+        if ([0, 1, 2].some(i => seats[String(i)]?.uid === myUid)) return r;
+        let idx = null; for (let i = 1; i < 3; i++) { if (!seats[String(i)]) { idx = i; break; } }
+        if (idx === null) return r; // dolu
+        seats[String(idx)] = { uid: myUid, name: myName, avatar: myAvatar || "⚓" };
+        r.seats = seats; return r;
+      });
+      if (res.committed) {
+        const r = res.snapshot.val();
+        const idx = [0, 1, 2].find(i => r.seats[String(i)]?.uid === myUid);
+        if (idx != null && idx > 0) { onDisconnect(ref(db, `siege_rooms/${id}/seats/${idx}`)).remove(); setMyRoom({ id, seatIdx: idx }); startedRef.current = false; }
+      }
+    } catch (e) { console.error(e); }
+  };
+  const leaveRoom = async () => {
+    if (!myRoom) return; const { id, seatIdx } = myRoom;
+    try { if (seatIdx === 0) await remove(ref(db, `siege_rooms/${id}`)); else await remove(ref(db, `siege_rooms/${id}/seats/${seatIdx}`)); } catch (e) {}
+    setMyRoom(null); startedRef.current = false;
+  };
+  const btnN = { background: "linear-gradient(180deg,#20313f,#132030)", color: "#A9BCC9", border: "1px solid #26394b", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 0 rgba(0,0,0,0.4)" };
+  const wrap = { display: "flex", flexDirection: "column", alignItems: "center", minHeight: "100vh", minHeight: "100dvh", background: "linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)", padding: "22px 14px", fontFamily: mono, color: "#dfe9f0" };
+
+  // Bekleme odası görünümü (bir odadayım)
+  if (myRoom) {
+    const r = rooms.find(x => x.id === myRoom.id) || {};
+    const secs = Math.max(0, Math.ceil(((r.startAt || 0) - now) / 1000));
+    const filled = seatCount(r);
+    return (<div style={wrap}><style>{ANIMS}</style>
+      <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: 4, color: "#f0d79a", fontFamily: warrior, marginBottom: 4 }}>⚔ {en ? "SIEGE ROOM" : "KUŞATMA ODASI"}</div>
+      <div style={{ fontSize: 12, color: "#7A8FA0", fontFamily: mono, marginBottom: 16 }}>{en ? "Starts in" : "Başlıyor"} <b style={{ color: secs <= 10 ? "#e0958f" : "#5fd8ee" }}>{formatTime(secs)}</b> · {filled}/3</div>
+      <div style={{ width: "100%", maxWidth: 400, display: "flex", flexDirection: "column", gap: 10 }}>
+        {[0, 1, 2].map(i => { const s = r.seats && r.seats[String(i)]; return (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 12, background: "linear-gradient(180deg,#20313f,#132030)", border: `1px solid ${s ? "#26394b" : "rgba(201,161,94,0.3)"}` }}>
+            <span style={{ width: 34, height: 34, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, background: s ? "rgba(28,199,230,0.12)" : "rgba(255,255,255,0.04)", border: "1px solid #26394b" }}>{s ? s.avatar : "＋"}</span>
+            <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: s ? "#dfe9f0" : "#54697a", fontFamily: warrior, letterSpacing: 1 }}>{s ? s.name : (en ? "waiting… (bot if empty)" : "bekleniyor… (boşsa bot)")}</span>
+            {s && s.uid === r.hostUid && <span style={{ fontSize: 9, fontWeight: 800, color: "#f0d79a", letterSpacing: 1 }}>HOST</span>}
+          </div>
+        ); })}
+      </div>
+      {myRoom.seatIdx === 0 && <button onClick={() => update(ref(db, `siege_rooms/${myRoom.id}`), { status: "playing", startedAt: Date.now() }).catch(() => {})} style={{ ...btnN, marginTop: 18, padding: "13px 34px", borderRadius: 12, fontSize: 14, fontWeight: 800, letterSpacing: 3, cursor: "pointer", fontFamily: warrior, textTransform: "uppercase", color: "#5fd8ee" }}>{en ? "START NOW" : "HEMEN BAŞLAT"}</button>}
+      <button onClick={leaveRoom} style={{ ...btnN, marginTop: 10, padding: "11px 30px", borderRadius: 12, fontSize: 12, fontWeight: 800, letterSpacing: 2, cursor: "pointer", fontFamily: warrior }}>{en ? "LEAVE" : "AYRIL"}</button>
+    </div>);
+  }
+
+  // Tarayıcı görünümü
+  return (<div style={wrap}><style>{ANIMS}</style>
+    <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: 5, color: "#f0d79a", fontFamily: warrior, marginBottom: 4 }}>⚔ {en ? "SIEGE — ONLINE" : "KUŞATMA — ONLINE"}</div>
+    <div style={{ fontSize: 11, color: "#7A8FA0", fontFamily: mono, marginBottom: 16, textAlign: "center", maxWidth: 360, lineHeight: 1.5 }}>{en ? "Join an open table or create one. Empty seats fill with bots when the timer ends." : "Açık bir masaya katıl ya da oda kur. Süre dolunca boş koltuklar botla dolar."}</div>
+    <button onClick={createRoom} style={{ width: "100%", maxWidth: 400, padding: "15px 0", borderRadius: 12, background: "linear-gradient(180deg, #3ad9f2 0%, #1CC7E6 20%, #12A0BE 62%, #0B7E98 100%)", color: "#052029", border: "1px solid #3ad9f2", fontSize: 17, fontWeight: 900, letterSpacing: 3, cursor: "pointer", fontFamily: warrior, textTransform: "uppercase", boxShadow: "inset 0 2px 0 rgba(255,255,255,0.5), 0 3px 0 #064e60", marginBottom: 16 }}>⚓ {en ? "CREATE ROOM" : "ODA KUR"}</button>
+    <div style={{ width: "100%", maxWidth: 400, display: "flex", flexDirection: "column", gap: 10 }}>
+      {rooms.length === 0 && <div style={{ textAlign: "center", padding: "24px", color: "#54697a", fontFamily: mono, fontSize: 12, border: "1px solid #26394b", borderRadius: 12, background: "rgba(20,34,48,0.5)" }}>{en ? "No open tables. Create one!" : "Açık masa yok. Sen kur!"}</div>}
+      {rooms.map(r => { const secs = Math.max(0, Math.ceil(((r.startAt || 0) - now) / 1000)); const filled = seatCount(r); return (
+        <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 12, background: "linear-gradient(180deg,#20313f,#132030)", border: "1px solid #26394b", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)" }}>
+          <span style={{ width: 40, height: 40, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, background: "rgba(255,255,255,0.04)", border: "1px solid #26394b" }}>{r.hostAvatar || "⚓"}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#A9BCC9", fontFamily: warrior, letterSpacing: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.hostName}</div>
+            <div style={{ fontSize: 10, color: "#7A8FA0", fontFamily: mono, marginTop: 2 }}>{filled}/3 · {en ? "starts" : "başlıyor"} <b style={{ color: secs <= 10 ? "#e0958f" : "#f0d79a" }}>{formatTime(secs)}</b></div>
+          </div>
+          <button onClick={() => joinRoom(r.id)} disabled={filled >= 3} style={{ padding: "9px 16px", borderRadius: 9, fontSize: 12, fontWeight: 800, letterSpacing: 1, cursor: filled >= 3 ? "default" : "pointer", fontFamily: warrior, opacity: filled >= 3 ? 0.4 : 1, background: "linear-gradient(180deg,#1CC7E6,#0B7E98)", color: "#052029", border: "none" }}>{filled >= 3 ? (en ? "FULL" : "DOLU") : (en ? "JOIN" : "KATIL")}</button>
+        </div>
+      ); })}
+    </div>
+    <button onClick={onBack} style={{ ...btnN, marginTop: 22, padding: "12px 34px", borderRadius: 12, fontSize: 13, fontWeight: 800, letterSpacing: 2, cursor: "pointer", fontFamily: warrior, textTransform: "uppercase" }}>{L(lang, "backBtn")}</button>
+  </div>);
+}
+
 function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack, ready, onToggleReady, lang }) {
   const [players,setPlayers]=useState([]);const [invites,setInvites]=useState([]);const [sentInvite,setSentInvite]=useState(null);
   useEffect(()=>{const unsub=onValue(ref(db,"online_players"),snap=>{if(!snap.exists()){setPlayers([]);return;}const list=[];snap.forEach(child=>{const d=child.val();if(child.key!==myUid&&d.status==="idle")list.push({uid:child.key,...d});});list.sort((a,b)=>(b.gold||0)-(a.gold||0));setPlayers(list);});return()=>unsub();},[myUid]);
@@ -2911,6 +3023,7 @@ export default function Game() {
   const lastQuickMatchArenaRef = useRef(null);
   const quickMatchCancelledRef = useRef(false);
   const [readyToPlay, setReadyToPlay] = useState(false);
+  const [showSiegeLobby, setShowSiegeLobby] = useState(false); // KUŞATMA online oda tarayıcı (Faz 1)
   const [incomingInvite, setIncomingInvite] = useState(null);
   const [selectedArena, setSelectedArena] = useState(null);
   const [showArenaSelect, setShowArenaSelect] = useState(false);
@@ -5778,8 +5891,9 @@ export default function Game() {
   }
   if (showAchievements) return <><style>{ANIMS}</style><AchievementsScreen profile={myProfile} onClose={() => setShowAchievements(false)} onClaim={claimAchievementSet} lang={appLang} /></>;
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} lang={appLang} /></>;
-  if (showDifferentWaters) return <><style>{ANIMS}</style><DifferentWaters onBack={() => setShowDifferentWaters(false)} onPlaySalvo={() => { setShowDifferentWaters(false); startSalvoOnline(); }} onPlayKusatma={() => { setShowDifferentWaters(false); startSiegeBotGame(); }} onPlayTersane={() => { setShowDifferentWaters(false); startTersaneBotGame(); }} lang={appLang} /></>;
+  if (showDifferentWaters) return <><style>{ANIMS}</style><DifferentWaters onBack={() => setShowDifferentWaters(false)} onPlaySalvo={() => { setShowDifferentWaters(false); startSalvoOnline(); }} onPlayKusatma={() => { setShowDifferentWaters(false); setShowSiegeLobby(true); }} onPlayTersane={() => { setShowDifferentWaters(false); startTersaneBotGame(); }} lang={appLang} /></>;
   if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => { setSelectedArena(arena); setShowArenaSelect(false); startQuickMatch(arena); }} lang={appLang} /></>;
+  if (showSiegeLobby) return <><style>{ANIMS}</style><SiegeLobby myUid={authUid} myName={playerName} myAvatar={myProfile?.avatar} onBack={() => setShowSiegeLobby(false)} onStart={() => { setShowSiegeLobby(false); startSiegeBotGame(); }} lang={appLang} /></>;
   if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myGold={myProfile?.gold} onBack={() => setShowOnlineLobby(false)} onChallenge={handleOnlineChallenge} ready={readyToPlay} onToggleReady={()=>setReadyToPlay(v=>!v)} lang={appLang} /></>;
 
   if (phase === "gameover") {

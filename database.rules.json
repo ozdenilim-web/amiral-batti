@@ -85,6 +85,12 @@
         ".read": "auth != null",
         ".write": "auth != null"
       }
+    },
+    "siege_rooms": {
+      ".read": "auth != null",
+      "$roomId": {
+        ".write": "auth != null"
+      }
     }
   }
 }
