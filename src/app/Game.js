@@ -288,6 +288,18 @@ const t = {
 };
 const warrior = "var(--font-warrior), 'Barlow Condensed', sans-serif";
 const mono = "var(--font-mono), 'Space Mono', monospace";
+// ANA EKRANDAKİ "OYNA" ile aynı camsı 3D kahraman butonu — sadece renk değişir. Ortalanır.
+const heroBtnStyle = (g1, g2, g3, g4, textColor = "#04252f") => ({
+  position: "relative", overflow: "hidden", width: "100%", maxWidth: 340, padding: "16px 0",
+  background: `linear-gradient(180deg, ${g1} 0%, ${g2} 18%, ${g3} 62%, ${g4} 100%)`,
+  color: textColor, border: "none", borderRadius: 16,
+  fontSize: 22, fontWeight: 900, fontFamily: warrior, textTransform: "uppercase", letterSpacing: 6,
+  cursor: "pointer",
+  boxShadow: "inset 0 2px 0 rgba(255,255,255,0.7), inset 0 -3px 8px rgba(0,0,0,0.28)",
+  textShadow: "0 1px 0 rgba(255,255,255,0.35), 0 2px 4px rgba(0,0,0,0.3)",
+  display: "flex", alignItems: "center", justifyContent: "center",
+});
+const HeroSheen = () => (<span style={{ position:"absolute",top:0,left:0,right:0,height:"46%",background:"linear-gradient(180deg, rgba(255,255,255,0.42), rgba(255,255,255,0))",borderRadius:"16px 16px 50% 50%",pointerEvents:"none" }} />);
 
 // Ask the browser/WebView for immersive fullscreen (hides Android system nav bar in the TWA).
 // Must be called from within a user-gesture handler; safe no-op everywhere else (desktop, iOS Safari, etc).
@@ -1691,7 +1703,7 @@ function AnchorHeroLogo() {
   return (<img src="/img/anchor-logo.png" alt="Amiral Battı" draggable={false} style={{ width:"100%",height:"100%",objectFit:"contain",userSelect:"none",pointerEvents:"none" }} />);
 }
 
-function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, onCellPointerDown, overlay, hoverCells, isDefense, shipColors, disabled, blinkCells, manualMarks, showShipStatus, onboardingHint, turnGlow, revealSweepMs, xOnHit }) {
+function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, onCellPointerDown, overlay, hoverCells, isDefense, shipColors, disabled, blinkCells, manualMarks, showShipStatus, onboardingHint, turnGlow, revealSweepMs, flatHit, flashCells }) {
   const longPressRef = useRef(null);
   const [rippleCell, setRippleCell] = useState(null);
   const handleClick = (r,c) => { if(disabled)return; sfx.init(); setRippleCell(`${r},${c}`); setTimeout(()=>setRippleCell(null),400); onClick?.(r,c); };
@@ -1703,7 +1715,7 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, on
     <div style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize,...labelGlowStyle }} />{board[0]?.map((_,i) => <div key={i} style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:cellSize>30?13:11,fontWeight:900,color:t.text,fontFamily:warrior,letterSpacing:1,textShadow:"0 1px 2px rgba(0,0,0,0.6)",...labelGlowStyle }}>{COL_LABELS[i]||""}</div>)}</div>
     {board.map((row,r) => { const rowDelayMs = revealSweepMs ? Math.round((r/(board.length||1))*revealSweepMs) : 0; return (<div key={r} style={{ display:"flex" }}><div style={{ width:cellSize,height:cellSize,display:"flex",alignItems:"center",justifyContent:"center",fontSize:cellSize>30?13:11,fontWeight:900,color:t.text,fontFamily:warrior,textShadow:"0 1px 2px rgba(0,0,0,0.6)",...labelGlowStyle }}>{r+1}</div>
       {row.map((val,c) => {
-        const ovr=overlay?.[r]?.[c], isHov=hoverCells?.some(([hr,hc])=>hr===r&&hc===c), shipColor=shipColors?.[r]?.[c], isBlink=blinkCells?.some(([br,bc])=>br===r&&bc===c), isManual=manualMarks?.[r]?.[c], isRipple=rippleCell===`${r},${c}`;
+        const ovr=overlay?.[r]?.[c], isHov=hoverCells?.some(([hr,hc])=>hr===r&&hc===c), shipColor=shipColors?.[r]?.[c], isBlink=blinkCells?.some(([br,bc])=>br===r&&bc===c), isManual=manualMarks?.[r]?.[c], isRipple=rippleCell===`${r},${c}`, isFlash=flashCells?.some(([fr,fc])=>fr===r&&fc===c);
         let bg=t.water,content="",shadow="none",clr=t.textDim;
         if(isDefense){
           if(val>0&&shipColor)bg=shipColor;else if(val>0)bg=t.shipCell;
@@ -1715,10 +1727,17 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, on
           // showShipStatus: savaş haritasında vurulan gemi hücreleri farklı gösterilir
           else if(showShipStatus&&val>0&&shipColor){bg=shipColor;content="■";clr="rgba(255,255,255,0.6)";}
         }
+        else if(flatHit){
+          // KUŞATMA tarzı sade gösterim: isabet SADECE turuncu; batan gemi turuncu + ✕
+          if(ovr==="hit"){bg="#ff8c2a";clr="#fff";shadow="inset 0 0 10px rgba(255,120,20,0.55), inset 0 1px 0 rgba(255,255,255,0.25)";}
+          else if(ovr==="miss"){bg=t.miss;content="•";}
+          else if(ovr==="sunk"){bg="#b8501a";clr="#fff";content="✕";shadow="inset 0 0 12px rgba(180,70,10,0.7)";}
+          else if(ovr==="selected"){bg="rgba(6,182,212,0.45)";content="◎";shadow=`inset 0 0 12px ${t.accentGlow}`;clr=t.accent;}
+          if(!ovr&&isManual){bg="rgba(251,191,36,0.15)";content="⚑";clr=t.gold;}
+        }
         else{if(ovr==="hit"){bg="#1a0505";content=(<span style={{position:"absolute",inset:0,display:"block",pointerEvents:"none"}}>
           {revealSweepMs && <span style={{position:"absolute",inset:"-40%",borderRadius:"50%",border:"2px solid rgba(255,150,30,0.85)",animation:`explodeWave 0.6s ease-out ${rowDelayMs}ms both`}} />}
           <span style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 50%, rgba(255,235,120,0.95) 0%, rgba(255,150,30,0.9) 22%, rgba(220,50,10,0.85) 45%, rgba(80,10,5,0.9) 70%, rgba(10,2,2,0.95) 100%)",animation:`explodeCore 1.1s ease-in-out ${rowDelayMs}ms 3`}} />
-          {xOnHit && <span style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",fontSize:"0.95em",fontWeight:900,color:"#fff",textShadow:"0 0 8px rgba(0,0,0,1), 0 0 4px rgba(0,0,0,1)"}}>✕</span>}
           </span>);shadow="inset 0 0 14px rgba(255,90,20,0.6)";clr="#fff";}else if(ovr==="miss"){bg=t.miss;content="•";}else if(ovr==="sunk"){bg="#0d0303";content=(<span style={{position:"absolute",inset:0,display:"block",pointerEvents:"none"}}>
           {revealSweepMs && <span style={{position:"absolute",inset:"-40%",borderRadius:"50%",border:"2px solid rgba(255,190,80,0.85)",animation:`explodeWave 0.7s ease-out ${rowDelayMs}ms both`}} />}
           <span style={{position:"absolute",inset:0,background:"radial-gradient(circle at 50% 55%, rgba(255,190,80,0.85) 0%, rgba(230,90,15,0.85) 28%, rgba(140,25,8,0.9) 55%, rgba(30,5,3,0.96) 85%)",animation:`explodeCore 1.5s ease-in-out ${rowDelayMs}ms 3`}} />
@@ -1729,7 +1748,7 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, on
         if(isHint){bg="rgba(255,215,0,0.25)";shadow=`inset 0 0 12px ${t.goldGlow}, 0 0 8px ${t.goldGlow}`;content="◆";clr=t.gold;}
         // Gemi hücrelerinde ANA SAYFA'daki OYNA tuşuyla AYNI cam parlaması — üstte parlak, aşağı doğru eriyen bir cam yüzeyi hissi.
         const isPlainShipCell = isDefense && val>0 && shipColor && !ovr && !showShipStatus;
-        return <div key={c} data-cell="1" data-r={r} data-c={c} className={disabled?"":"ab-cell"} onClick={()=>handleClick(r,c)} onMouseEnter={()=>onHover?.(r,c)} onContextMenu={e=>{e.preventDefault();onRightClick?.(r,c);}} onMouseDown={disabled?undefined:(e)=>onCellPointerDown?.(r,c,e)} onTouchStart={disabled?undefined:(e)=>{ if(onCellPointerDown){ onCellPointerDown(r,c,e); } else { handleTouchStart(r,c); } }} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={{ position:"relative",overflow:"hidden",width:cellSize,height:cellSize,border:"1px solid rgba(0,229,255,0.22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:ovr==="sunk"?13:11,fontWeight:900,cursor:disabled?"default":"pointer",background:bg,boxShadow:isPlainShipCell?`${shadow==="none"?"":shadow+", "}inset 0 -3px 5px rgba(0,0,0,0.28)`:shadow,color:clr,boxSizing:"border-box",transition:"background 0.15s ease, box-shadow 0.15s ease",animation:isBlink?"blink3s 0.5s ease-in-out 6":isRipple?"popIn 0.3s ease-out":"none",borderRadius:1,touchAction:onCellPointerDown?"none":"auto" }}>{content}{isPlainShipCell && <span style={{ position:"absolute",top:0,left:0,right:0,height:"46%",background:"linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0))",borderRadius:"1px 1px 50% 50%",pointerEvents:"none" }} />}</div>;
+        return <div key={c} data-cell="1" data-r={r} data-c={c} className={disabled?"":"ab-cell"} onClick={()=>handleClick(r,c)} onMouseEnter={()=>onHover?.(r,c)} onContextMenu={e=>{e.preventDefault();onRightClick?.(r,c);}} onMouseDown={disabled?undefined:(e)=>onCellPointerDown?.(r,c,e)} onTouchStart={disabled?undefined:(e)=>{ if(onCellPointerDown){ onCellPointerDown(r,c,e); } else { handleTouchStart(r,c); } }} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={{ position:"relative",overflow:"hidden",width:cellSize,height:cellSize,border:"1px solid rgba(0,229,255,0.22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:ovr==="sunk"?13:11,fontWeight:900,cursor:disabled?"default":"pointer",background:bg,boxShadow:isPlainShipCell?`${shadow==="none"?"":shadow+", "}inset 0 -3px 5px rgba(0,0,0,0.28)`:shadow,color:clr,boxSizing:"border-box",transition:"background 0.15s ease, box-shadow 0.15s ease",animation:isFlash?"blink3s 0.5s ease-in-out 3":isBlink?"blink3s 0.5s ease-in-out 6":isRipple?"popIn 0.3s ease-out":"none",borderRadius:1,touchAction:onCellPointerDown?"none":"auto" }}>{content}{isPlainShipCell && <span style={{ position:"absolute",top:0,left:0,right:0,height:"46%",background:"linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0))",borderRadius:"1px 1px 50% 50%",pointerEvents:"none" }} />}</div>;
       })}</div>); })}
   </div>);
 }
@@ -2826,6 +2845,8 @@ export default function Game() {
   const [siegeMarks, setSiegeMarks] = useState(() => Array.from({ length: ROWS }, () => Array(COLS).fill(false)));
   const [siegeMarkMode, setSiegeMarkMode] = useState(false);
   const siegeMyHitsRef = useRef(0); // insanın toplam isabeti (sonuç ekranı için)
+  const [siegeFlash, setSiegeFlash] = useState([]); // az önce ateş edilen hücreler — 1.5 sn yanıp söner
+  const siegeFlashTimerRef = useRef(null);
   const [siegeIntroCount, setSiegeIntroCount] = useState(0); // 0..3 — kaç oyuncu tanıtımda göründü
   const [siegeIntroDone, setSiegeIntroDone] = useState(false);
   const siegeIntroTimerRef = useRef(null);
@@ -3874,11 +3895,10 @@ export default function Game() {
   // Splash'ten oyun bitene kadar tüm ekranlarda sabit duran müzik + ayarlar barı
   const renderTopBar = () => (
     <>
-      <div style={{ position:"fixed",top:"calc(10px + env(safe-area-inset-top, 0px))",right:14,zIndex:9500,display:"flex",alignItems:"center",gap:8 }}>
-        {phase === "lobby" && <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowLeaderboard(true); }} title={L(appLang,"leaderboardTitle")} style={{ width:30,height:30,borderRadius:8,background:"rgba(255,215,0,0.10)",border:"1px solid rgba(255,215,0,0.4)",fontSize:14,cursor:"pointer",color:t.gold,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>🏆</button>}
-        {phase === "siege" && <button onClick={()=>{ sfx.init(); sfx.play('click'); resetGame(); }} title={L(appLang,"leaveGame")} style={{ width:30,height:30,borderRadius:8,background:"rgba(255,71,87,0.12)",border:`1px solid ${t.hit}`,fontSize:14,cursor:"pointer",color:t.hit,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>⚑</button>}
-        <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowSettings(true); setSettingsView(null); }} title={L(appLang,"settingsTooltip")} style={{ width:30,height:30,borderRadius:8,background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,fontSize:14,cursor:"pointer",color:t.textDim,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>⚙️</button>
-        <button onClick={toggleMusic} title={L(appLang,"musicTooltip")} style={{ width:30,height:30,borderRadius:8,background:musicOn?"rgba(255,255,255,0.06)":"rgba(255,71,87,0.14)",border:`1px solid ${musicOn?t.border:t.hit}`,fontSize:14,cursor:"pointer",color:musicOn?t.textDim:t.hit,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>{musicOn?"🔊":"🔇"}</button>
+      <div style={{ position:"fixed",top:"calc(10px + env(safe-area-inset-top, 0px))",right:14,zIndex:9500,display:"flex",alignItems:"center",gap:6 }}>
+        {phase === "lobby" && <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowLeaderboard(true); }} title={L(appLang,"leaderboardTitle")} style={{ width:26,height:26,borderRadius:7,background:"rgba(255,215,0,0.10)",border:"1px solid rgba(255,215,0,0.4)",fontSize:12,cursor:"pointer",color:t.gold,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>🏆</button>}
+        {phase === "siege" && <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowSurrenderConfirm(true); }} title={L(appLang,"leaveGame")} style={{ width:26,height:26,borderRadius:7,background:"rgba(255,71,87,0.12)",border:`1px solid ${t.hit}`,fontSize:12,cursor:"pointer",color:t.hit,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>⚑</button>}
+        <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowSettings(true); setSettingsView(null); }} title={L(appLang,"settingsTooltip")} style={{ width:26,height:26,borderRadius:7,background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,fontSize:12,cursor:"pointer",color:t.textDim,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>⚙️</button>
       </div>
       {/* Mini profil — TEK SALVO bahis akışında (yerleştirme/işaretleme/sonuç) altın bakiyesi her an görünsün, oyuncu devam/bırak kararını buna göre versin */}
       {salvoMode && ["placing","salvo"].includes(phase) && (
@@ -4211,6 +4231,7 @@ export default function Game() {
     setSiegeElapsed(0);
     setSiegeMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setSiegeMarkMode(false);
     siegeMyHitsRef.current = 0;
+    if (siegeFlashTimerRef.current) clearTimeout(siegeFlashTimerRef.current); setSiegeFlash([]);
     setGameStartTime(Date.now());
     setPhase("placing");
     sfx.init(); sfx.playPlacementMusic();
@@ -4369,6 +4390,10 @@ export default function Game() {
     const res = resolveSiegeShot(0, defender, cells);
     siegeMyHitsRef.current += (res?.hits || 0);
     setSiegeSelected([]); siegeSelectedRef.current = [];
+    // Rakibin platformunda 3 atış 1,5 saniye yanıp sönsün
+    setSiegeFlash(cells.map(([r, c]) => [r, c]));
+    if (siegeFlashTimerRef.current) clearTimeout(siegeFlashTimerRef.current);
+    siegeFlashTimerRef.current = setTimeout(() => setSiegeFlash([]), 1500);
     // Sonuç (vurulan gemiler) 5 saniye ekranda kalsın, sonra sıra geçer.
     if (!siegeGameOverRef.current) setTimeout(() => runSiegeEngineStep(0), 5000);
   };
@@ -5644,9 +5669,9 @@ export default function Game() {
           <div style={{ animation:"floatShadow 3s ease-in-out infinite",borderRadius:14,overflow:"hidden",border:`2px solid ${t.accent}`,boxShadow:`0 10px 40px rgba(0,0,0,0.5), 0 0 20px ${t.accentGlow}` }}>
             <Grid board={defenseBoard} cellSize={placeCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled />
           </div>
-          <div style={{ display:"flex",gap:10,marginTop:16,justifyContent:"center" }}>
-            <button onClick={()=>setPlacementPreview(false)} style={{ padding:"12px 24px",background:"transparent",color:t.textDim,border:`2px solid ${t.border}`,borderRadius:10,fontSize:13,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"editBtn")}</button>
-            <button onClick={confirmPlacement} style={{ padding:"12px 32px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:14,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 20px ${t.accentGlow}`,animation:"borderGlow 1.5s infinite" }}>{L(appLang,"confirmStartBattleBtn")}</button>
+          <div style={{ display:"flex",flexDirection:"column",gap:10,marginTop:16,alignItems:"center",width:"100%" }}>
+            <button onClick={confirmPlacement} style={{ ...heroBtnStyle("#ffb38a","#ff7a4d","#e23b2e","#a02015","#2a0806"),animation:"btnBreath 1.8s ease-in-out infinite" }}><HeroSheen />⚔ {L(appLang,"startBattleBtn")}</button>
+            <button onClick={()=>setPlacementPreview(false)} style={heroBtnStyle("#6ff0ff","#22d8ff","#06b6d4","#0284a8")}><HeroSheen />{L(appLang,"editBtn")}</button>
           </div>
         </div>
       </div>);
@@ -5700,8 +5725,8 @@ export default function Game() {
         </div>
         {selectedShip && <div style={{ fontSize:10,color:t.textDim,fontFamily:mono,marginBottom:6,textAlign:"center" }}>{L(appLang,"placeHint")}</div>}
       </>)}
-      {allPlaced && !placementConfirmed && <div style={{ textAlign:"center",marginBottom:12 }}>
-        <button style={{ ...btnStyle,animation:"borderGlow 1.5s infinite",padding:"14px 36px",fontSize:16,fontWeight:800,letterSpacing:4,borderRadius:12 }} onClick={confirmPlacement}>{L(appLang,"confirmShipsBtn")}</button>
+      {allPlaced && !placementConfirmed && <div style={{ display:"flex",flexDirection:"column",alignItems:"center",marginBottom:12,width:"100%" }}>
+        <button style={{ ...heroBtnStyle("#ffb38a","#ff7a4d","#e23b2e","#a02015","#2a0806"),animation:"btnBreath 1.8s ease-in-out infinite" }} onClick={confirmPlacement}><HeroSheen />⚔ {L(appLang,"confirmShipsBtn")}</button>
         <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginTop:8,letterSpacing:1 }}>{L(appLang,"confirmShipsHint")}</div>
       </div>}
       {placementConfirmed && <div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.9), rgba(8,14,30,0.95))",border:`2px solid rgba(0,229,255,0.2)`,borderRadius:12,padding:"16px 24px",marginBottom:8,fontSize:14,fontWeight:700,color:t.accent,textAlign:"center",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"shipsReadyMsg")}<div style={{ marginTop:10 }}><div style={{ width:14,height:14,borderRadius:"50%",background:t.accent,margin:"0 auto",animation:"pulse 1.5s infinite" }} /></div></div>}
@@ -5876,12 +5901,19 @@ export default function Game() {
     const emptyOverlay = emptyGrid().map(r=>r.map(()=>null));
     const idleOverlay = siegeReceived[idleIdx] || emptyOverlay;
     const hitCount = overlayGrid.flat().filter(v=>v==="hit"||v==="sunk").length;
-    // Tek büyük tahta (saldıran/hedef) + ortada bekleme + altta filo paneli. Genişlik VE yükseklikten en büyük hücreyi seç.
-    const bigCell = Math.max(14, Math.min(40, Math.floor(Math.min((viewport.w - gutter - 8) / 10, (viewport.h - 366) / 10))));
+    // Tek büyük tahta (11x11 + etiket satır/sütun = 12 birim) + ortada bekleme + altta 2 sıralı filo paneli.
+    // Bölen 12 ve geniş dikey pay: taşma/kırpılma olmadan alttaki filo tamamen görünsün.
+    const bigCell = Math.max(11, Math.min(32, Math.floor(Math.min((viewport.w - gutter - 8) / 12, (viewport.h - 384) / 12))));
     const miniCell = Math.max(5, Math.min(9, Math.floor(viewport.w / 60)));
     const boardFor = (idx, overlayG, clickable, cellSize) => idx === 0
-      ? <Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={overlayG} disabled={!clickable} onClick={clickable?siegeToggleCell:undefined} xOnHit />
-      : <Grid board={emptyGrid()} cellSize={cellSize} overlay={overlayG} disabled={!clickable} onClick={clickable?siegeToggleCell:undefined} xOnHit />;
+      ? <Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={overlayG} disabled={!clickable} onClick={clickable?siegeToggleCell:undefined} />
+      : <Grid board={emptyGrid()} cellSize={cellSize} overlay={overlayG} disabled={!clickable} onClick={clickable?siegeToggleCell:undefined} flatHit />;
+    // Batan gemileri işaretle: tüm hücreleri vurulmuş gemiler "sunk" olur (üzerine ✕ gelir). Kopya üzerinde çalışır (state'i bozma).
+    const markSunkCells = (grid, ships) => {
+      const list = ships ? (Array.isArray(ships) ? ships : Object.values(ships)) : [];
+      list.forEach(s => { const cells = s.cells || []; if (cells.length > 0 && cells.every(([r, c]) => grid[r]?.[c] === "hit" || grid[r]?.[c] === "sunk")) cells.forEach(([r, c]) => { if (grid[r]) grid[r][c] = "sunk"; }); });
+      return grid;
+    };
     // Alt filo paneli için savunanın gemileri + isabet haritası (sadece "hit"/"sunk" doğru sayılsın; "miss" değil).
     const siegeDefenderShips = activeDefender === 0
       ? (placedShips && placedShips.length ? placedShips : null)
@@ -5912,6 +5944,9 @@ export default function Game() {
 
     // Saldırı narasyonu: "İlim → Hayreddin Paşa sularına saldırıyor"
     const atkName = nameFor(activeAttacker), defName = nameFor(activeDefender);
+    // Gösterim tahtası: batan gemiler ✕ ile işaretlenir (state kopyası üzerinde).
+    const siegeDefShips = activeDefender === 0 ? placedShips : siegeBotShips[activeDefender];
+    const displayGrid = markSunkCells(overlayGrid.map(row => [...row]), siegeDefShips);
     return (<div style={{ ...appStyle, height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingTop:"calc(8px + env(safe-area-inset-top, 0px))", paddingBottom:8 }}><style>{ANIMS}</style>
       {/* Başlık + kronometre — GERİ butonu YOK; oyundan ayrıl (⚑) üst bardaki ayarların yanında */}
       <div style={{ display:"flex",alignItems:"center",gap:9,marginBottom:4 }}>
@@ -5945,8 +5980,8 @@ export default function Game() {
       <div key={`board-${activeAttacker}-${activeDefender}`} style={{ width:"100%",maxWidth:420,display:"flex",justifyContent:"center",animation:"siegeRiseUp 0.45s cubic-bezier(0.22,1,0.36,1) both" }}>
         <div style={{ position:"relative",display:"inline-block" }}>
           {boardMode === "target"
-            ? <Grid board={emptyGrid()} cellSize={bigCell} overlay={overlayGrid} disabled={false} onClick={siegeMarkMode?siegeToggleMark:siegeToggleCell} onRightClick={siegeToggleMark} onLongPress={siegeToggleMark} manualMarks={siegeMarks} xOnHit />
-            : boardFor(activeDefender, overlayGrid, false, bigCell)}
+            ? <Grid board={emptyGrid()} cellSize={bigCell} overlay={displayGrid} disabled={false} onClick={siegeMarkMode?siegeToggleMark:siegeToggleCell} onRightClick={siegeToggleMark} onLongPress={siegeToggleMark} manualMarks={siegeMarks} flatHit flashCells={siegeFlash} />
+            : boardFor(activeDefender, activeDefender===0 ? overlayGrid : displayGrid, false, bigCell)}
           {boardMode === "target" && (
             <button onClick={()=>setSiegeMarkMode(v=>!v)} title={siegeMarkMode?L(appLang,"markModeOn"):L(appLang,"markMode")}
               style={{ position:"absolute",top:6,left:6,zIndex:6,width:24,height:24,borderRadius:"50%",background:siegeMarkMode?t.gold:"rgba(10,14,23,0.95)",color:siegeMarkMode?t.bg:t.gold,border:`2px solid ${t.gold}`,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,boxShadow:siegeMarkMode?`0 0 10px ${t.goldGlow}`:"0 2px 8px rgba(0,0,0,0.5)" }}>⚑</button>
@@ -5958,15 +5993,30 @@ export default function Game() {
         <button onClick={siegeFire} disabled={siegeSelected.length===0} style={{ width:"100%",maxWidth:420,padding:"11px 0",background:siegeSelected.length===0?t.surfaceLight:`linear-gradient(135deg,${t.hit},#dc2626)`,color:siegeSelected.length===0?t.textDim:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:900,letterSpacing:3,cursor:siegeSelected.length===0?"default":"pointer",fontFamily:warrior,boxShadow:siegeSelected.length===0?"none":`0 0 20px ${t.hitGlow}` }}>{L(appLang,"fire")} 🔥 ({siegeSelected.length}/{SIEGE_SHOTS_PER_TURN})</button>
       )}
 
-      {/* ORTA — BEKLEME ODASI: sırası olmayan 3. oyuncu */}
-      <div key={`idle-${idleIdx}`} style={{ width:"100%",maxWidth:420,marginTop:8,display:"flex",alignItems:"center",gap:8,padding:"5px 11px",borderRadius:10,background:"rgba(255,255,255,0.03)",border:`1px solid ${t.border}`,opacity:0.8,animation:"siegeShrinkToMini 0.5s ease-out both" }}>
-        <span style={{ fontSize:8,color:t.textDim,fontFamily:mono,letterSpacing:1,textTransform:"uppercase",flexShrink:0 }}>{appLang==="en"?"waiting room":"bekleme odası"}</span>
-        <span style={{ fontSize:9,color:t.textDim,fontFamily:mono,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{siegeAlive[idleIdx]?nameFor(idleIdx):"☠ "+nameFor(idleIdx)}</span>
+      {/* ORTA — PUSUDA: sırasını bekleyen 3. filo (deniz savaşı konsepti) */}
+      <div key={`idle-${idleIdx}`} style={{ width:"100%",maxWidth:420,marginTop:8,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,padding:"8px 14px",borderRadius:12,background:"linear-gradient(145deg, rgba(34,22,54,0.6), rgba(12,10,26,0.72))",border:"1px solid rgba(192,132,252,0.35)",opacity:siegeAlive[idleIdx]?1:0.5,animation:"siegeShrinkToMini 0.5s ease-out both" }}>
+        <div style={{ flex:1,minWidth:0 }}>
+          <div style={{ fontSize:22,fontWeight:900,fontFamily:warrior,letterSpacing:4,background:"linear-gradient(180deg,#e9d5ff 0%,#c084fc 55%,#7c3aed 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text",filter:"drop-shadow(0 0 12px rgba(192,132,252,0.55))",animation:"pulse 2.2s ease-in-out infinite" }}>{appLang==="en"?"LURKING":"PUSUDA"}</div>
+          <div style={{ fontSize:11,fontWeight:800,color:"#c084fc",fontFamily:warrior,letterSpacing:1,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{siegeAlive[idleIdx]?"":"☠ "}{nameFor(idleIdx)} <span style={{ color:t.textDim,fontWeight:600,fontSize:9 }}>· {appLang==="en"?"awaits the strike":"sırasını bekliyor"}</span></div>
+        </div>
         {boardFor(idleIdx, idleOverlay, false, miniCell)}
       </div>
 
       {/* ALT — SAVUNANIN FİLOSU: "{isim} GEMİLERİ" — batan gemiler burada görünür */}
       <FleetBar title={`${defName.toUpperCase()} ${appLang==="en"?"FLEET":"GEMİLERİ"}`} ships={siegeDefenderShips} hitCells={siegeDefenderHitMap} color={activeDefender===0?t.accent:t.hit} lang={appLang} />
+
+      {/* OYUNDAN AYRIL onayı — diğer leave'lerle aynı */}
+      {showSurrenderConfirm && <div style={{ position:"fixed",inset:0,overflow:"hidden",background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(4px)" }}>
+        <div style={{ background:"linear-gradient(145deg,rgba(12,21,41,0.99),rgba(8,14,30,0.99))",border:`2px solid ${t.hit}`,borderRadius:16,padding:"28px 32px",textAlign:"center",maxWidth:300,width:"90%",boxShadow:`0 0 60px ${t.hitGlow}`,animation:"scaleUp 0.3s ease-out" }}>
+          <div style={{ fontSize:32,marginBottom:10 }}>⚠️</div>
+          <div style={{ fontSize:16,fontWeight:800,color:t.hit,fontFamily:warrior,letterSpacing:3,marginBottom:8 }}>{L(appLang,"leaveConfirmTitle")}</div>
+          <div style={{ fontSize:12,color:t.textDim,fontFamily:mono,marginBottom:20 }}>{L(appLang,"leaveConfirmBody")}</div>
+          <div style={{ display:"flex",gap:10 }}>
+            <button onClick={()=>setShowSurrenderConfirm(false)} style={{ flex:1,padding:"12px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:13,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"stay")}</button>
+            <button onClick={()=>{ setShowSurrenderConfirm(false); resetGame(); }} style={{ flex:1,padding:"12px 0",background:"transparent",color:t.hit,border:`2px solid ${t.hit}`,borderRadius:10,fontSize:13,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"exit")}</button>
+          </div>
+        </div>
+      </div>}
     </div>);
   }
 
