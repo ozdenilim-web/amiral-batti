@@ -3164,6 +3164,15 @@ export default function Game() {
   const siegeGameOverRef = useRef(null);
   // siegeStopRef: MOTORU tamamen durdurur (sadece tek filo kalınca). İnsan erken elenirse motor durmaz, botlar savaşmaya devam eder.
   const siegeStopRef = useRef(false);
+  // === KUŞATMA ONLINE ===
+  const siegeOnlineRef = useRef(false);
+  const siegeGameRoomRef = useRef(null);
+  const mySeatRef = useRef(0);
+  const siegeHostRef = useRef(false);
+  const seatBotRef = useRef([false, false, false]);
+  const siegeAbsNamesRef = useRef({});
+  const siegeHostBoardsRef = useRef({}); // host tarafında bot koltuklarının tahtaları
+  const siegeGameUnsubRef = useRef(null);
   const [siegeConcluded, setSiegeConcluded] = useState(false); // tüm oyun bitti mi (tek filo kaldı) — savaş haritası kapısı
   // Kuşatma sayaçları — her oyuncuya 5 dk (bardan azalır) + toplam kronometre
   const [siegeClocks, setSiegeClocks] = useState([CLOCK_SECONDS, CLOCK_SECONDS, CLOCK_SECONDS]);
@@ -4106,6 +4115,15 @@ export default function Game() {
       }, 1000);
       return;
     }
+    if (siegeModeRef.current && siegeOnlineRef.current) {
+      // ONLINE KUŞATMA: gemileri odaya yayınla; host hepsini toplayınca game'i başlatır, mirror savaşa geçirir.
+      siegeMyShipCellsRef.current = placedShips.flatMap(s => s.cells);
+      setPlacementConfirmed(true); setPlacementPreview(false);
+      if (placementTimerRef.current) clearInterval(placementTimerRef.current);
+      update(ref(db, `siege_rooms/${siegeGameRoomRef.current}/ships/${mySeatRef.current}`), shipData).catch(() => {});
+      sfx.init(); sfx.play('click');
+      return;
+    }
     if (isBotGame && siegeModeRef.current) {
       // İnsanın gemi hücreleri artık sabit — motor bundan sonra buna bakacak (state'e değil, ref'e; kapanış bayatlamasın diye)
       siegeMyShipCellsRef.current = placedShips.flatMap(s => s.cells);
@@ -4169,6 +4187,10 @@ export default function Game() {
     salvoModeRef.current = false; salvoSelectedRef.current = []; salvoBotShotsRef.current = []; salvoSubmittedRef.current = false;
     setTersaneMode(false); tersaneModeRef.current = false;
     setSalvoMode(false); setSalvoSelected([]); setSalvoSubmitted(false); setSalvoResult(null); setSalvoTimer(SALVO_SECONDS);
+    // ONLINE KUŞATMA temizliği — host ayrılırsa oda kapanır (maç iptal), katılan ayrılırsa present düşer
+    if (siegeGameUnsubRef.current) { siegeGameUnsubRef.current(); siegeGameUnsubRef.current = null; }
+    if (siegeOnlineRef.current && siegeGameRoomRef.current) { if (siegeHostRef.current) remove(ref(db, `siege_rooms/${siegeGameRoomRef.current}`)).catch(() => {}); else if (authUid) remove(ref(db, `siege_rooms/${siegeGameRoomRef.current}/present/${authUid}`)).catch(() => {}); }
+    siegeOnlineRef.current = false; siegeGameRoomRef.current = null; siegeHostRef.current = false;
     // KUŞATMA temizliği — bekleyen bot-turu/izleyici zamanlayıcıları siegeModeRef=false görünce no-op olur
     siegeModeRef.current = false; siegeAliveRef.current = [true, true, true]; siegeTargetOfRef.current = [1, 2, 0]; siegeTurnIdxRef.current = 0;
     siegeBotBoardsRef.current = {}; siegeBotShipsRef.current = {}; siegeMyShipCellsRef.current = []; siegeReceivedRef.current = {}; siegeSelectedRef.current = []; siegeGameOverRef.current = null; siegeStopRef.current = false;
@@ -4880,6 +4902,7 @@ export default function Game() {
   // Sırayı ilerletir: ışık (spotlight) az önce ateş edene geri sıçrar (A→B, C→A, B→C, A→B...).
   // İnsana gelirse motor durur (UI bekler), bota gelirse otomatik oynar.
   const runSiegeEngineStep = (lastAttacker) => {
+    if (siegeOnlineRef.current) return; // ONLINE: motor host'ta Faz 2b'de çalışacak
     if (!siegeModeRef.current || siegeStopRef.current) return;
     const next = siegeNextAttacker(lastAttacker, siegeTargetOfRef.current, siegeAliveRef.current);
     siegeTurnIdxRef.current = next; setSiegeTurnIdx(next);
@@ -4945,6 +4968,7 @@ export default function Game() {
     });
   };
   const siegeFire = () => {
+    if (siegeOnlineRef.current) return; // ONLINE: ateş/sıra döngüsü Faz 2b'de host üzerinden bağlanacak
     if (siegeTurnIdxRef.current !== 0 || siegeGameOverRef.current) return;
     const cells = siegeSelectedRef.current;
     if (cells.length === 0) return;
@@ -4977,6 +5001,102 @@ export default function Game() {
 
   // Sonuç ekranından ana sayfaya uğramadan doğrudan yeni bir Kuşatma maçı başlatır.
   const replaySiege = () => { resetGame(); startSiegeBotGame(); };
+
+  // ============================================================
+  // === KUŞATMA ONLINE (Faz 2) — host-otoriteli + rotation mirror
+  // Host motoru mutlak koltuklarda çalıştırıp `game`i odaya yazar; her istemci kendini koltuk 0 kabul edip
+  // döndürerek (rotation) aynı masayı gösterir. (2a: kurulum + yerleştirme senkronu + host init + mirror.)
+  // ============================================================
+  const rotL = (i, mySeat) => (i - mySeat + 3) % 3;   // mutlak → yerel
+  const rotA = (k, mySeat) => (k + mySeat) % 3;        // yerel → mutlak
+
+  const startSiegeOnline = (payload) => {
+    const { roomId, seats, hostUid } = payload;
+    const mySeat = [0, 1, 2].find(i => seats[String(i)]?.uid === authUid) ?? 0;
+    const isHost = hostUid === authUid;
+    const seatBot = [0, 1, 2].map(i => !seats[String(i)]);
+    siegeOnlineRef.current = true; siegeGameRoomRef.current = roomId; mySeatRef.current = mySeat; siegeHostRef.current = isHost; seatBotRef.current = seatBot;
+    // mutlak koltuk isim/avatarları
+    const absNames = {}; const usedBotNames = [];
+    [0, 1, 2].forEach(i => { const s = seats[String(i)]; if (s) absNames[i] = s.name; else { let n = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)]; while (usedBotNames.includes(n)) n = BOT_NAMES[(BOT_NAMES.indexOf(n) + 1) % BOT_NAMES.length]; usedBotNames.push(n); absNames[i] = n; } });
+    siegeAbsNamesRef.current = absNames;
+    setIsBotGame(false); isBotGameRef.current = false;
+    setSiegeMode(true); siegeModeRef.current = true;
+    siegeAliveRef.current = [true, true, true]; setSiegeAlive([true, true, true]);
+    siegeGameOverRef.current = null; setSiegeGameOver(null);
+    siegeStopRef.current = false; setSiegeConcluded(false);
+    setSiegeSpectator(null);
+    setSiegeElapsed(0);
+    setSiegeMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setSiegeMarkMode(false);
+    siegeMyHitsRef.current = 0;
+    setSiegeSelected([]); siegeSelectedRef.current = [];
+    setGameStartTime(Date.now());
+    setPlacementConfirmed(false); setPlacementPreview(false); setPlacedShips([]);
+    setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null)));
+    setPhase("placing");
+    listenToSiegeGame(roomId, mySeat, isHost);
+    // Kopma tespiti — koltuk sahibi düşerse present düşer
+    if (authUid) { update(ref(db, `siege_rooms/${roomId}/present/${authUid}`), Date.now()).catch(() => {}); onDisconnect(ref(db, `siege_rooms/${roomId}/present/${authUid}`)).remove(); }
+    sfx.init(); sfx.playPlacementMusic();
+  };
+
+  // Yayınlanan mutlak `game`i yerel state'e döndürerek yansıt (render seat0=ben varsayımıyla çalışır)
+  const mirrorSiegeGame = (game, mySeat) => {
+    const emptyG = () => emptyGrid().map(r => r.map(() => null));
+    const absAlive = game.alive || [true, true, true];
+    const absTarget = game.targetOf || [1, 2, 0];
+    const absReceived = game.received || {};
+    const absClocks = game.clocks || [CLOCK_SECONDS, CLOCK_SECONDS, CLOCK_SECONDS];
+    const absShips = game.ships || {};
+    const absNames = game.names || siegeAbsNamesRef.current || {};
+    const localAlive = [0, 1, 2].map(k => !!absAlive[rotA(k, mySeat)]);
+    const localTarget = [0, 1, 2].map(k => rotL(absTarget[rotA(k, mySeat)] ?? ((rotA(k, mySeat) + 1) % 3), mySeat));
+    const localReceived = {}; [0, 1, 2].forEach(k => { const g = absReceived[rotA(k, mySeat)]; localReceived[k] = g ? g.map(row => row.map(v => v || null)) : emptyG(); });
+    const localClocks = [0, 1, 2].map(k => absClocks[rotA(k, mySeat)] ?? CLOCK_SECONDS);
+    const localNames = { 0: absNames[mySeat] || "SEN", 1: absNames[rotA(1, mySeat)] || "?", 2: absNames[rotA(2, mySeat)] || "?" };
+    const localBotShips = { 1: absShips[rotA(1, mySeat)] || {}, 2: absShips[rotA(2, mySeat)] || {} };
+    const myShips = absShips[mySeat] || {};
+    siegeAliveRef.current = localAlive; setSiegeAlive(localAlive);
+    siegeTargetOfRef.current = localTarget; setSiegeTargetOf(localTarget);
+    siegeReceivedRef.current = localReceived; setSiegeReceived(localReceived);
+    siegeClocksRef.current = localClocks; setSiegeClocks(localClocks);
+    setSiegeNames(localNames);
+    siegeBotShipsRef.current = localBotShips; setSiegeBotShips(localBotShips);
+    siegeMyShipCellsRef.current = Object.values(myShips).flatMap(s => s.cells || []);
+    const localTurn = rotL(game.turnIdx ?? 0, mySeat);
+    siegeTurnIdxRef.current = localTurn; setSiegeTurnIdx(localTurn);
+  };
+
+  const listenToSiegeGame = (rid, mySeat, isHost) => {
+    if (siegeGameUnsubRef.current) siegeGameUnsubRef.current();
+    siegeGameUnsubRef.current = onValue(ref(db, `siege_rooms/${rid}`), (snap) => {
+      const room = snap.val();
+      if (!room) { // host/oda düştü → iptal
+        if (siegeOnlineRef.current && !siegeGameOverRef.current) { setMessage(appLang === "en" ? "Host left — match ended." : "Host ayrıldı — maç bitti."); resetGame(); }
+        return;
+      }
+      // HOST: tüm insan koltukları gemi yazdıysa ve game yoksa → başlat (boş koltuklara bot filosu)
+      if (isHost && !room.game) {
+        const humansReady = [0, 1, 2].every(i => seatBotRef.current[i] || (room.ships && room.ships[String(i)]));
+        if (humansReady) {
+          const ships = {}; const boards = {};
+          [0, 1, 2].forEach(i => {
+            if (seatBotRef.current[i]) { const bp = botPlaceShips(); const sd = {}; bp.ships.forEach((s, k) => sd[k] = { id: s.id, cells: s.cells }); ships[i] = sd; boards[i] = bp.board; }
+            else { ships[i] = room.ships[String(i)]; }
+          });
+          const received = { 0: emptyGrid().map(r => r.map(() => null)), 1: emptyGrid().map(r => r.map(() => null)), 2: emptyGrid().map(r => r.map(() => null)) };
+          siegeHostBoardsRef.current = boards; // bot tahtaları (host çözümü için)
+          const game = { alive: [true, true, true], targetOf: [1, 2, 0], turnIdx: 0, received, clocks: [CLOCK_SECONDS, CLOCK_SECONDS, CLOCK_SECONDS], names: siegeAbsNamesRef.current, ships, seatBot: seatBotRef.current, seq: 0 };
+          update(ref(db, `siege_rooms/${rid}`), { game }).catch(() => {});
+        }
+      }
+      // HERKES: game varsa yansıt + savaşa geç
+      if (room.game) {
+        mirrorSiegeGame(room.game, mySeat);
+        if (phaseRef.current !== "siege" && phaseRef.current !== "siegeover") { setPhase("siege"); sfx.init(); sfx.playBattleMusic(false); startSiegeIntro(); }
+      }
+    });
+  };
 
   // Açılış tanıtımı: 3 oyuncu sırayla (1sn arayla) büyüyerek sahneye çıkar, hepsi görününce savaş ekranı açılır.
   const startSiegeIntro = () => {
@@ -5893,7 +6013,7 @@ export default function Game() {
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} lang={appLang} /></>;
   if (showDifferentWaters) return <><style>{ANIMS}</style><DifferentWaters onBack={() => setShowDifferentWaters(false)} onPlaySalvo={() => { setShowDifferentWaters(false); startSalvoOnline(); }} onPlayKusatma={() => { setShowDifferentWaters(false); setShowSiegeLobby(true); }} onPlayTersane={() => { setShowDifferentWaters(false); startTersaneBotGame(); }} lang={appLang} /></>;
   if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => { setSelectedArena(arena); setShowArenaSelect(false); startQuickMatch(arena); }} lang={appLang} /></>;
-  if (showSiegeLobby) return <><style>{ANIMS}</style><SiegeLobby myUid={authUid} myName={playerName} myAvatar={myProfile?.avatar} onBack={() => setShowSiegeLobby(false)} onStart={() => { setShowSiegeLobby(false); startSiegeBotGame(); }} lang={appLang} /></>;
+  if (showSiegeLobby) return <><style>{ANIMS}</style><SiegeLobby myUid={authUid} myName={playerName} myAvatar={myProfile?.avatar} onBack={() => setShowSiegeLobby(false)} onStart={(payload) => { setShowSiegeLobby(false); startSiegeOnline(payload); }} lang={appLang} /></>;
   if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myGold={myProfile?.gold} onBack={() => setShowOnlineLobby(false)} onChallenge={handleOnlineChallenge} ready={readyToPlay} onToggleReady={()=>setReadyToPlay(v=>!v)} lang={appLang} /></>;
 
   if (phase === "gameover") {
