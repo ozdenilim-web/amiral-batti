@@ -3173,6 +3173,14 @@ export default function Game() {
   const siegeAbsNamesRef = useRef({});
   const siegeHostBoardsRef = useRef({}); // host tarafında bot koltuklarının tahtaları
   const siegeGameUnsubRef = useRef(null);
+  const siegeSeatUidsRef = useRef({});   // {0:uid,1:uid,2:uid} — bot koltuklarında undefined
+  const hostGameRef = useRef(null);      // host otoritesindeki mutlak oyun durumu
+  const hostTurnStartRef = useRef(0);    // aktif turun başlangıç zamanı (AFK için)
+  const hostTickRef = useRef(null);      // host saniye tik'i
+  const hostInputSeqRef = useRef(0);     // işlenmiş son input seq
+  const hostLoopStartedRef = useRef(false);
+  const siegeResultDoneRef = useRef(false); // sonuç bir kez uygulansın
+  const [siegeAbortNotice, setSiegeAbortNotice] = useState(null); // "host ayrıldı" gibi tam ekran uyarı
   const [siegeConcluded, setSiegeConcluded] = useState(false); // tüm oyun bitti mi (tek filo kaldı) — savaş haritası kapısı
   // Kuşatma sayaçları — her oyuncuya 5 dk (bardan azalır) + toplam kronometre
   const [siegeClocks, setSiegeClocks] = useState([CLOCK_SECONDS, CLOCK_SECONDS, CLOCK_SECONDS]);
@@ -4189,8 +4197,10 @@ export default function Game() {
     setSalvoMode(false); setSalvoSelected([]); setSalvoSubmitted(false); setSalvoResult(null); setSalvoTimer(SALVO_SECONDS);
     // ONLINE KUŞATMA temizliği — host ayrılırsa oda kapanır (maç iptal), katılan ayrılırsa present düşer
     if (siegeGameUnsubRef.current) { siegeGameUnsubRef.current(); siegeGameUnsubRef.current = null; }
+    if (hostTickRef.current) { clearInterval(hostTickRef.current); hostTickRef.current = null; }
     if (siegeOnlineRef.current && siegeGameRoomRef.current) { if (siegeHostRef.current) remove(ref(db, `siege_rooms/${siegeGameRoomRef.current}`)).catch(() => {}); else if (authUid) remove(ref(db, `siege_rooms/${siegeGameRoomRef.current}/present/${authUid}`)).catch(() => {}); }
     siegeOnlineRef.current = false; siegeGameRoomRef.current = null; siegeHostRef.current = false;
+    hostGameRef.current = null; hostLoopStartedRef.current = false; hostInputSeqRef.current = 0; siegeResultDoneRef.current = false;
     // KUŞATMA temizliği — bekleyen bot-turu/izleyici zamanlayıcıları siegeModeRef=false görünce no-op olur
     siegeModeRef.current = false; siegeAliveRef.current = [true, true, true]; siegeTargetOfRef.current = [1, 2, 0]; siegeTurnIdxRef.current = 0;
     siegeBotBoardsRef.current = {}; siegeBotShipsRef.current = {}; siegeMyShipCellsRef.current = []; siegeReceivedRef.current = {}; siegeSelectedRef.current = []; siegeGameOverRef.current = null; siegeStopRef.current = false;
@@ -4872,7 +4882,7 @@ export default function Game() {
     else { setTimeout(() => sfx.playDefeatMusic?.(), 500); }
     if (authUid && myProfile) {
       const rMult = revengeMult(safeAch(myProfile?.ach).lossStreak);
-      const gold = won ? Math.round(50 * rMult) : 0;
+      const gold = (won && !siegeOnlineRef.current) ? Math.round(50 * rMult) : 0; // online Kuşatma: ekonomi kapalı
       const xp = won ? XP_BOT_WIN * rMult : XP_BOT_LOSS;
       const honor = won ? HONOR_WIN_BOT : HONOR_LOSS_BOT;
       if (won && rMult > 1) setRevengeResult({ mult: rMult });
@@ -4968,7 +4978,7 @@ export default function Game() {
     });
   };
   const siegeFire = () => {
-    if (siegeOnlineRef.current) return; // ONLINE: ateş/sıra döngüsü Faz 2b'de host üzerinden bağlanacak
+    if (siegeOnlineRef.current) { submitSiegeOnline(); return; } // ONLINE: atışı odaya yaz, host uygular
     if (siegeTurnIdxRef.current !== 0 || siegeGameOverRef.current) return;
     const cells = siegeSelectedRef.current;
     if (cells.length === 0) return;
@@ -4992,6 +5002,7 @@ export default function Game() {
 
   // Süre bitti: insan elenirse oyun biter (kayıp); bot elenirse (nadir) elenme çözülür.
   const siegeHandleTimeout = (idx) => {
+    if (siegeOnlineRef.current) return; // ONLINE: saat/AFK host'ta yönetilir
     if (siegeGameOverRef.current) return;
     if (idx === 0) { finishSiegeGame(false); return; }
     const attacker = siegeTargetOfRef.current.findIndex((tg, i) => i !== idx && siegeAliveRef.current[i] && tg === idx);
@@ -5015,6 +5026,8 @@ export default function Game() {
     const mySeat = [0, 1, 2].find(i => seats[String(i)]?.uid === authUid) ?? 0;
     const isHost = hostUid === authUid;
     const seatBot = [0, 1, 2].map(i => !seats[String(i)]);
+    siegeSeatUidsRef.current = { 0: seats["0"]?.uid, 1: seats["1"]?.uid, 2: seats["2"]?.uid };
+    hostGameRef.current = null; hostLoopStartedRef.current = false; hostInputSeqRef.current = 0; siegeResultDoneRef.current = false; setSiegeAbortNotice(null);
     siegeOnlineRef.current = true; siegeGameRoomRef.current = roomId; mySeatRef.current = mySeat; siegeHostRef.current = isHost; seatBotRef.current = seatBot;
     // mutlak koltuk isim/avatarları
     const absNames = {}; const usedBotNames = [];
@@ -5067,33 +5080,133 @@ export default function Game() {
     siegeTurnIdxRef.current = localTurn; setSiegeTurnIdx(localTurn);
   };
 
+  // ── HOST DÖNGÜSÜ (2b) — mutlak koltuklarda motor ──
+  const hostWriteGame = () => { if (siegeGameRoomRef.current && hostGameRef.current) set(ref(db, `siege_rooms/${siegeGameRoomRef.current}/game`), hostGameRef.current).catch(() => {}); };
+  const hostBotCells = (g, atk) => {
+    const defender = g.targetOf[atk];
+    const already = new Set(); (g.received[defender] || []).forEach((row, r) => row.forEach((v, c) => { if (v) already.add(r + "," + c); }));
+    const opts = []; for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (!already.has(r + "," + c)) opts.push({ r, c });
+    const cells = []; for (let i = 0; i < SIEGE_SHOTS_PER_TURN && opts.length; i++) cells.push(opts.splice(Math.floor(Math.random() * opts.length), 1)[0]);
+    return cells;
+  };
+  const hostAdvance = (lastAtk) => {
+    const g = hostGameRef.current; if (!g || g.gameOver) return;
+    g.turnIdx = siegeNextAttacker(lastAtk, g.targetOf, g.alive); g.seq = (g.seq || 0) + 1;
+    hostGameRef.current = g; hostWriteGame(); hostStepRef.current();
+  };
+  const hostResolveShot = (attacker, cells) => {
+    const g = hostGameRef.current; if (!g || g.gameOver) return;
+    const defender = g.targetOf[attacker];
+    const defCells = Object.values(g.ships[defender] || {}).flatMap(s => s.cells || []);
+    const ov = (g.received[defender] || emptyGrid().map(r => r.map(() => null))).map(row => [...row]);
+    (cells || []).forEach(({ r, c }) => { if (r == null || c == null) return; const hit = defCells.some(([sr, sc]) => sr === r && sc === c); ov[r][c] = hit ? "hit" : "miss"; });
+    g.received[defender] = ov;
+    const total = defCells.length, hitCount = ov.flat().filter(v => v === "hit").length;
+    if (total > 0 && hitCount >= total) { g.alive[defender] = false; g.targetOf[attacker] = g.targetOf[defender]; }
+    g.seq = (g.seq || 0) + 1;
+    if (g.alive.filter(Boolean).length <= 1) g.gameOver = { winnerSeat: g.alive.findIndex(Boolean) };
+    hostGameRef.current = g; hostWriteGame();
+    if (g.gameOver) { if (hostTickRef.current) { clearInterval(hostTickRef.current); hostTickRef.current = null; } return; }
+    setTimeout(() => hostAdvance(attacker), 2200);
+  };
+  const hostEliminate = (seat) => {
+    const g = hostGameRef.current; if (!g || g.gameOver || !g.alive[seat]) return;
+    g.alive[seat] = false;
+    const attacker = g.targetOf.findIndex((t, i) => i !== seat && g.alive[i] && t === seat);
+    if (attacker >= 0) g.targetOf[attacker] = g.targetOf[seat];
+    g.seq = (g.seq || 0) + 1;
+    if (g.alive.filter(Boolean).length <= 1) g.gameOver = { winnerSeat: g.alive.findIndex(Boolean) };
+    hostGameRef.current = g; hostWriteGame();
+    if (g.gameOver) { if (hostTickRef.current) { clearInterval(hostTickRef.current); hostTickRef.current = null; } return; }
+    hostAdvance(seat);
+  };
+  const hostStepRef = useRef(() => {});
+  hostStepRef.current = () => {
+    const g = hostGameRef.current; if (!g || g.gameOver) return;
+    const atk = g.turnIdx;
+    if (!g.alive[atk]) { hostAdvance(atk); return; }
+    hostTurnStartRef.current = Date.now();
+    if (seatBotRef.current[atk]) {
+      setTimeout(() => { const g2 = hostGameRef.current; if (!siegeOnlineRef.current || !g2 || g2.gameOver || g2.turnIdx !== atk) return; hostResolveShot(atk, hostBotCells(g2, atk)); }, 1300 + Math.random() * 600);
+    }
+    // insan koltuğu → input / AFK bekler
+  };
+  const hostStartLoop = () => {
+    if (hostLoopStartedRef.current) return; hostLoopStartedRef.current = true;
+    if (hostTickRef.current) clearInterval(hostTickRef.current);
+    hostTickRef.current = setInterval(() => {
+      const g = hostGameRef.current; if (!g || g.gameOver) return;
+      const atk = g.turnIdx;
+      g.clocks[atk] = Math.max(0, (g.clocks[atk] ?? CLOCK_SECONDS) - 1);
+      const elapsed = Date.now() - (hostTurnStartRef.current || Date.now());
+      if (!seatBotRef.current[atk] && (elapsed >= 30000 || g.clocks[atk] <= 0)) { hostEliminate(atk); return; }
+      if (g.clocks[atk] % 3 === 0) hostWriteGame();
+    }, 1000);
+    hostStepRef.current();
+  };
+
+  // İnsan atışını odaya yazar (host uygular)
+  const submitSiegeOnline = () => {
+    const cells = siegeSelectedRef.current; if (!cells.length) return;
+    if (siegeTurnIdxRef.current !== 0) return; // yerel koltuk 0 = ben; sıram değilse çık
+    const shots = cells.map(([r, c]) => ({ r, c }));
+    set(ref(db, `siege_rooms/${siegeGameRoomRef.current}/input`), { seat: mySeatRef.current, shots, seq: Date.now() }).catch(() => {});
+    setSiegeSelected([]); siegeSelectedRef.current = [];
+    setSiegeFlash(cells.map(([r, c]) => [r, c]));
+    if (siegeFlashTimerRef.current) clearTimeout(siegeFlashTimerRef.current);
+    siegeFlashTimerRef.current = setTimeout(() => setSiegeFlash([]), 1500);
+    sfx.init(); sfx.play('click');
+  };
+
+  // Online Kuşatma'dan ayrılma: host → oda kapanır (herkese iptal); değilse → present düşer (host eler). Ayrılan bozgun.
+  const siegeLeaveOnline = () => {
+    if (siegeHostRef.current) { if (siegeGameRoomRef.current) remove(ref(db, `siege_rooms/${siegeGameRoomRef.current}`)).catch(() => {}); }
+    else if (authUid && siegeGameRoomRef.current) remove(ref(db, `siege_rooms/${siegeGameRoomRef.current}/present/${authUid}`)).catch(() => {});
+    if (authUid && myProfile) { const p = myProfile; const patch = { totalGames: (p.totalGames || 0) + 1, losses: (p.losses || 0) + 1, recentResults: pushRecent(p.recentResults, false), lastGameAt: Date.now() }; update(ref(db, `profiles/${authUid}`), patch).catch(() => {}); setMyProfile(prev => prev ? { ...prev, ...patch } : prev); bumpAch(a => { a.winStreak = 0; a.lossStreak = (a.lossStreak || 0) + 1; }); bumpDaily(d => { d.gamesPlayed += 1; }); }
+    resetGame();
+  };
+
   const listenToSiegeGame = (rid, mySeat, isHost) => {
     if (siegeGameUnsubRef.current) siegeGameUnsubRef.current();
     siegeGameUnsubRef.current = onValue(ref(db, `siege_rooms/${rid}`), (snap) => {
       const room = snap.val();
-      if (!room) { // host/oda düştü → iptal
-        if (siegeOnlineRef.current && !siegeGameOverRef.current) { setMessage(appLang === "en" ? "Host left — match ended." : "Host ayrıldı — maç bitti."); resetGame(); }
+      if (!room) { // host/oda düştü → tam ekran iptal uyarısı
+        if (siegeOnlineRef.current && !siegeResultDoneRef.current) { siegeResultDoneRef.current = true; if (hostTickRef.current) { clearInterval(hostTickRef.current); hostTickRef.current = null; } setSiegeAbortNotice(appLang === "en" ? "The host left — match ended. No rewards." : "Host oyundan ayrıldı — maç bitti. Ödül yok."); }
         return;
       }
-      // HOST: tüm insan koltukları gemi yazdıysa ve game yoksa → başlat (boş koltuklara bot filosu)
-      if (isHost && !room.game) {
+      // HOST: tüm insan koltukları gemi yazdıysa game'i kur + döngüyü başlat
+      if (isHost && !room.game && !hostGameRef.current) {
         const humansReady = [0, 1, 2].every(i => seatBotRef.current[i] || (room.ships && room.ships[String(i)]));
         if (humansReady) {
-          const ships = {}; const boards = {};
-          [0, 1, 2].forEach(i => {
-            if (seatBotRef.current[i]) { const bp = botPlaceShips(); const sd = {}; bp.ships.forEach((s, k) => sd[k] = { id: s.id, cells: s.cells }); ships[i] = sd; boards[i] = bp.board; }
-            else { ships[i] = room.ships[String(i)]; }
-          });
+          const ships = {};
+          [0, 1, 2].forEach(i => { if (seatBotRef.current[i]) { const bp = botPlaceShips(); const sd = {}; bp.ships.forEach((s, k) => sd[k] = { id: s.id, cells: s.cells }); ships[i] = sd; } else ships[i] = room.ships[String(i)]; });
           const received = { 0: emptyGrid().map(r => r.map(() => null)), 1: emptyGrid().map(r => r.map(() => null)), 2: emptyGrid().map(r => r.map(() => null)) };
-          siegeHostBoardsRef.current = boards; // bot tahtaları (host çözümü için)
           const game = { alive: [true, true, true], targetOf: [1, 2, 0], turnIdx: 0, received, clocks: [CLOCK_SECONDS, CLOCK_SECONDS, CLOCK_SECONDS], names: siegeAbsNamesRef.current, ships, seatBot: seatBotRef.current, seq: 0 };
-          update(ref(db, `siege_rooms/${rid}`), { game }).catch(() => {});
+          hostGameRef.current = game; set(ref(db, `siege_rooms/${rid}/game`), game).catch(() => {}); hostStartLoop();
         }
+        return;
       }
-      // HERKES: game varsa yansıt + savaşa geç
+      // HOST: input + kopma işle
+      if (isHost && room.game && hostGameRef.current && !hostGameRef.current.gameOver) {
+        const inp = room.input;
+        if (inp && inp.seq > hostInputSeqRef.current) {
+          hostInputSeqRef.current = inp.seq; remove(ref(db, `siege_rooms/${rid}/input`)).catch(() => {});
+          const g = hostGameRef.current;
+          if (g && !seatBotRef.current[inp.seat] && inp.seat === g.turnIdx && g.alive[inp.seat]) hostResolveShot(inp.seat, inp.shots || []);
+        }
+        const present = room.present || {}; const g = hostGameRef.current;
+        if (g && !g.gameOver) [0, 1, 2].forEach(i => { if (!seatBotRef.current[i] && g.alive[i] && siegeSeatUidsRef.current[i] && !present[siegeSeatUidsRef.current[i]]) hostEliminate(i); });
+      }
+      // HERKES: yansıt + savaşa geç + sonuç
       if (room.game) {
         mirrorSiegeGame(room.game, mySeat);
         if (phaseRef.current !== "siege" && phaseRef.current !== "siegeover") { setPhase("siege"); sfx.init(); sfx.playBattleMusic(false); startSiegeIntro(); }
+        if (room.game.gameOver && !siegeResultDoneRef.current) {
+          siegeResultDoneRef.current = true;
+          if (hostTickRef.current) { clearInterval(hostTickRef.current); hostTickRef.current = null; }
+          finishSiegeGame(room.game.gameOver.winnerSeat === mySeat);
+          if (isHost) setTimeout(() => remove(ref(db, `siege_rooms/${rid}`)).catch(() => {}), 60000);
+        }
       }
     });
   };
@@ -6697,7 +6810,7 @@ export default function Game() {
           <div style={{ fontSize:12,color:t.textDim,fontFamily:mono,marginBottom:20 }}>{L(appLang,"leaveConfirmBody")}</div>
           <div style={{ display:"flex",gap:10 }}>
             <button onClick={()=>setShowSurrenderConfirm(false)} style={{ flex:1,padding:"12px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:13,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"stay")}</button>
-            <button onClick={()=>{ setShowSurrenderConfirm(false); finishSiegeGame(false); }} style={{ flex:1,padding:"12px 0",background:"transparent",color:t.hit,border:`2px solid ${t.hit}`,borderRadius:10,fontSize:13,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"exit")}</button>
+            <button onClick={()=>{ setShowSurrenderConfirm(false); if (siegeOnlineRef.current) siegeLeaveOnline(); else finishSiegeGame(false); }} style={{ flex:1,padding:"12px 0",background:"transparent",color:t.hit,border:`2px solid ${t.hit}`,borderRadius:10,fontSize:13,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"exit")}</button>
           </div>
         </div>
       </div>}
@@ -6867,5 +6980,13 @@ export default function Game() {
   return null;
   })();
 
-  return (<>{content}{renderTopBar()}{renderLogoutModal()}</>);
+  return (<>{content}{renderTopBar()}{renderLogoutModal()}
+    {siegeAbortNotice && <div style={{ position:"fixed",inset:0,zIndex:10050,background:"rgba(2,6,16,0.9)",backdropFilter:"blur(5px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}>
+      <div style={{ maxWidth:320,width:"90%",textAlign:"center",background:"linear-gradient(180deg,#0F2434,#081118)",border:`2px solid ${t.hit}`,borderRadius:16,padding:"28px 26px",boxShadow:`0 0 50px ${t.hitGlow}` }}>
+        <div style={{ fontSize:34,marginBottom:10 }}>⚠️</div>
+        <div style={{ fontSize:13,color:"#dfe9f0",fontFamily:mono,lineHeight:1.5,marginBottom:20 }}>{siegeAbortNotice}</div>
+        <button onClick={()=>{ setSiegeAbortNotice(null); resetGame(); }} style={{ width:"100%",padding:"12px 0",background:"linear-gradient(180deg,#20313f,#132030)",border:"1px solid #26394b",borderRadius:10,color:"#A9BCC9",fontFamily:warrior,fontWeight:800,letterSpacing:2,cursor:"pointer" }}>🏠 {L(appLang,"homeBtn")}</button>
+      </div>
+    </div>}
+  </>);
 }
