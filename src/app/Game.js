@@ -5116,14 +5116,21 @@ export default function Game() {
   };
   const hostEliminate = (seat) => {
     const g = hostGameRef.current; if (!g || g.gameOver || !g.alive[seat]) return;
+    const wasActive = g.turnIdx === seat;
     g.alive[seat] = false;
     const attacker = g.targetOf.findIndex((t, i) => i !== seat && g.alive[i] && t === seat);
-    if (attacker >= 0) g.targetOf[attacker] = g.targetOf[seat];
+    if (attacker >= 0) g.targetOf[attacker] = g.targetOf[seat]; // saldıranı, elenenin hedefini devralır → 2 kişi düelloya döner
     g.seq = (g.seq || 0) + 1;
-    if (g.alive.filter(Boolean).length <= 1) g.gameOver = { winnerSeat: g.alive.findIndex(Boolean) };
-    hostGameRef.current = g; hostWriteGame();
-    if (g.gameOver) { if (hostTickRef.current) { clearInterval(hostTickRef.current); hostTickRef.current = null; } return; }
-    hostAdvance(seat);
+    if (g.alive.filter(Boolean).length <= 1) { g.gameOver = { winnerSeat: g.alive.findIndex(Boolean) }; hostGameRef.current = g; hostWriteGame(); if (hostTickRef.current) { clearInterval(hostTickRef.current); hostTickRef.current = null; } return; }
+    if (wasActive) {
+      // Elenen o an sıradaysa → sıra geçer (ölü koltuğa takılmasın)
+      const next = (attacker >= 0 && g.alive[attacker]) ? attacker : g.alive.findIndex((a, i) => a && i !== seat);
+      g.turnIdx = next; hostGameRef.current = g; hostWriteGame(); hostStepRef.current();
+    } else {
+      // Elenen sırada değil → mevcut sıra AYNEN devam eder, sadece durumu yayınla
+      if (!g.alive[g.turnIdx]) g.turnIdx = g.alive.findIndex(Boolean);
+      hostGameRef.current = g; hostWriteGame();
+    }
   };
   const hostStepRef = useRef(() => {});
   hostStepRef.current = () => {
@@ -6798,14 +6805,14 @@ export default function Game() {
         <button onClick={siegeFire} disabled={siegeSelected.length===0} style={{ width:"100%",maxWidth:420,padding:"11px 0",background:siegeSelected.length===0?t.surfaceLight:`linear-gradient(135deg,${t.hit},#dc2626)`,color:siegeSelected.length===0?t.textDim:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:900,letterSpacing:3,cursor:siegeSelected.length===0?"default":"pointer",fontFamily:warrior,boxShadow:siegeSelected.length===0?"none":`0 0 20px ${t.hitGlow}` }}>{L(appLang,"fire")} 🔥 ({siegeSelected.length}/{SIEGE_SHOTS_PER_TURN})</button>
       )}
 
-      {/* ORTA — PUSUDA: sırasını bekleyen 3. filo (deniz savaşı konsepti) */}
-      <div key={`idle-${idleIdx}`} style={{ width:"100%",maxWidth:420,marginTop:8,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,padding:"8px 14px",borderRadius:12,background:"linear-gradient(145deg, rgba(34,22,54,0.6), rgba(12,10,26,0.72))",border:"1px solid rgba(192,132,252,0.35)",opacity:siegeAlive[idleIdx]?1:0.5,animation:"siegeShrinkToMini 0.5s ease-out both" }}>
+      {/* ORTA — PUSUDA: sırasını bekleyen 3. filo. Elenince kart yok olur → 2 kişilik düello görünümü. */}
+      {siegeAlive[idleIdx] && (<div key={`idle-${idleIdx}`} style={{ width:"100%",maxWidth:420,marginTop:8,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,padding:"8px 14px",borderRadius:12,background:"linear-gradient(145deg, rgba(34,22,54,0.6), rgba(12,10,26,0.72))",border:"1px solid rgba(192,132,252,0.35)",animation:"siegeShrinkToMini 0.5s ease-out both" }}>
         <div style={{ flex:1,minWidth:0 }}>
           <div style={{ fontSize:22,fontWeight:900,fontFamily:warrior,letterSpacing:4,background:"linear-gradient(180deg,#e9d5ff 0%,#c084fc 55%,#7c3aed 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text",filter:"drop-shadow(0 0 12px rgba(192,132,252,0.55))",animation:"pulse 2.2s ease-in-out infinite" }}>{appLang==="en"?"LURKING":"PUSUDA"}</div>
           <div style={{ fontSize:11,fontWeight:800,color:"#c084fc",fontFamily:warrior,letterSpacing:1,marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{siegeAlive[idleIdx]?"":"☠ "}{nameFor(idleIdx)} <span style={{ color:t.textDim,fontWeight:600,fontSize:9 }}>· {appLang==="en"?"awaits the strike":"sırasını bekliyor"}</span></div>
         </div>
         {boardFor(idleIdx, idleOverlay, false, miniCell)}
-      </div>
+      </div>)}
 
       {/* ALT — SAVUNANIN FİLOSU: "{isim} GEMİLERİ" — batan gemiler burada görünür */}
       <FleetBar title={`${defName.toUpperCase()} ${appLang==="en"?"FLEET":"GEMİLERİ"}`} ships={siegeDefenderShips} hitCells={siegeDefenderHitMap} color={activeDefender===0?t.accent:t.hit} lang={appLang} />
