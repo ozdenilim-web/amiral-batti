@@ -394,17 +394,18 @@ const t = {
 const warrior = "var(--font-warrior), 'Barlow Condensed', sans-serif";
 const mono = "var(--font-mono), 'Space Mono', monospace";
 // ANA EKRANDAKİ "OYNA" ile aynı camsı 3D kahraman butonu — sadece renk değişir. Ortalanır.
-const heroBtnStyle = (g1, g2, g3, g4, textColor = "#04252f") => ({
-  position: "relative", overflow: "hidden", width: "100%", maxWidth: 340, padding: "16px 0",
-  background: `linear-gradient(180deg, ${g1} 0%, ${g2} 18%, ${g3} 62%, ${g4} 100%)`,
-  color: textColor, border: "none", borderRadius: 16,
-  fontSize: 22, fontWeight: 900, fontFamily: warrior, textTransform: "uppercase", letterSpacing: 6,
+// Rafine kahraman butonu — ana ekrandaki OYNA diliyle aynı: kenar ışığı + fiziksel taban, şeker parlaklığı yok.
+const heroBtnStyle = (g1, g2, g3, g4, textColor = "#052029") => ({
+  position: "relative", overflow: "hidden", width: "100%", maxWidth: 340, padding: "15px 0",
+  background: `linear-gradient(180deg, ${g1} 0%, ${g2} 20%, ${g3} 62%, ${g4} 100%)`,
+  color: textColor, border: `1px solid ${g1}`, borderRadius: 12,
+  fontSize: 20, fontWeight: 900, fontFamily: warrior, textTransform: "uppercase", letterSpacing: 5,
   cursor: "pointer",
-  boxShadow: "inset 0 2px 0 rgba(255,255,255,0.7), inset 0 -3px 8px rgba(0,0,0,0.28)",
-  textShadow: "0 1px 0 rgba(255,255,255,0.35), 0 2px 4px rgba(0,0,0,0.3)",
+  boxShadow: `inset 0 2px 0 rgba(255,255,255,0.4), inset 0 -3px 8px rgba(0,0,0,0.3), 0 3px 0 ${g4}, 0 10px 22px rgba(0,0,0,0.35)`,
+  textShadow: "0 1px 0 rgba(255,255,255,0.28)",
   display: "flex", alignItems: "center", justifyContent: "center",
 });
-const HeroSheen = () => (<span style={{ position:"absolute",top:0,left:0,right:0,height:"46%",background:"linear-gradient(180deg, rgba(255,255,255,0.42), rgba(255,255,255,0))",borderRadius:"16px 16px 50% 50%",pointerEvents:"none" }} />);
+const HeroSheen = () => (<span style={{ position:"absolute",top:0,left:0,right:0,height:"44%",background:"linear-gradient(180deg, rgba(255,255,255,0.26), rgba(255,255,255,0))",borderRadius:"12px 12px 50% 50%",pointerEvents:"none" }} />);
 
 // Ask the browser/WebView for immersive fullscreen (hides Android system nav bar in the TWA).
 // Must be called from within a user-gesture handler; safe no-op everywhere else (desktop, iOS Safari, etc).
@@ -5909,7 +5910,7 @@ export default function Game() {
       <div style={{ display:"flex",justifyContent:"center",marginBottom:10 }}>
         <Grid board={defenseBoard} cellSize={tCell} isDefense shipColors={liveColors} overlay={emptyGrid().map(r=>r.map(()=>null))} onClick={tersaneToggleCell} />
       </div>
-      <button onClick={confirmTersane} disabled={!valid} style={valid?{ ...heroBtnStyle("#ffd08a","#f59e0b","#d97706","#92400e","#2a1602"),animation:"btnBreath 1.8s ease-in-out infinite" }:{ ...heroBtnStyle("#3a4256","#2b3040","#222634","#191c26","#6b7280"),cursor:"default",opacity:0.6 }}><HeroSheen />⚔ {L(appLang,"startBattleBtn")}</button>
+      <button onClick={confirmTersane} disabled={!valid} style={valid?heroBtnStyle("#3ad9f2","#1CC7E6","#12A0BE","#0B7E98","#052029"):{ ...heroBtnStyle("#2a3d4f","#20313f","#182634","#0e1620","#6b7c8a"),cursor:"default",opacity:0.6 }}><HeroSheen />⚔ {L(appLang,"startBattleBtn")}</button>
       {count>0 && <button onClick={()=>{ setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({length:ROWS},()=>Array(COLS).fill(null))); }} style={{ marginTop:8,padding:"8px 22px",background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:10,fontSize:11,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{appLang==="en"?"CLEAR":"TEMİZLE"}</button>}
     </div>);
   }
@@ -5928,8 +5929,8 @@ export default function Game() {
             <Grid board={defenseBoard} cellSize={placeCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled />
           </div>
           <div style={{ display:"flex",flexDirection:"column",gap:10,marginTop:16,alignItems:"center",width:"100%" }}>
-            <button onClick={confirmPlacement} style={{ ...heroBtnStyle("#ffb38a","#ff7a4d","#e23b2e","#a02015","#2a0806"),animation:"btnBreath 1.8s ease-in-out infinite" }}><HeroSheen />⚔ {L(appLang,"startBattleBtn")}</button>
-            <button onClick={()=>setPlacementPreview(false)} style={heroBtnStyle("#6ff0ff","#22d8ff","#06b6d4","#0284a8")}><HeroSheen />{L(appLang,"editBtn")}</button>
+            <button onClick={confirmPlacement} style={heroBtnStyle("#3ad9f2","#1CC7E6","#12A0BE","#0B7E98","#052029")}><HeroSheen />⚔ {L(appLang,"startBattleBtn")}</button>
+            <button onClick={()=>setPlacementPreview(false)} style={heroBtnStyle("#2a3d4f","#20313f","#182634","#0e1620","#A9BCC9")}><HeroSheen />{L(appLang,"editBtn")}</button>
           </div>
         </div>
       </div>);
@@ -5984,7 +5985,7 @@ export default function Game() {
         {selectedShip && <div style={{ fontSize:10,color:t.textDim,fontFamily:mono,marginBottom:6,textAlign:"center" }}>{L(appLang,"placeHint")}</div>}
       </>)}
       {allPlaced && !placementConfirmed && <div style={{ display:"flex",flexDirection:"column",alignItems:"center",marginBottom:12,width:"100%" }}>
-        <button style={{ ...heroBtnStyle("#ffb38a","#ff7a4d","#e23b2e","#a02015","#2a0806"),animation:"btnBreath 1.8s ease-in-out infinite" }} onClick={confirmPlacement}><HeroSheen />⚔ {L(appLang,"confirmShipsBtn")}</button>
+        <button style={heroBtnStyle("#3ad9f2","#1CC7E6","#12A0BE","#0B7E98","#052029")} onClick={confirmPlacement}><HeroSheen />⚔ {L(appLang,"confirmShipsBtn")}</button>
         <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginTop:8,letterSpacing:1 }}>{L(appLang,"confirmShipsHint")}</div>
       </div>}
       {placementConfirmed && <div style={{ background:"linear-gradient(180deg, rgba(22,36,50,0.6), rgba(12,22,32,0.6))",border:"1px solid #26394b",borderRadius:12,padding:"16px 24px",marginBottom:8,fontSize:14,fontWeight:700,color:"#5fd8ee",textAlign:"center",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"shipsReadyMsg")}<div style={{ marginTop:10 }}><div style={{ width:14,height:14,borderRadius:"50%",background:"#5fd8ee",margin:"0 auto",animation:"pulse 1.5s infinite" }} /></div></div>}
