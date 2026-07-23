@@ -5889,10 +5889,10 @@ export default function Game() {
     const placeCell = measuredPlace || Math.max(13, Math.min(24, Math.floor((viewport.w - gutter - 14) / 12)));
     // Placement preview overlay
     if (placementPreview && allPlaced) {
-      return (<div style={{ ...appStyle, justifyContent:"center" }}><style>{ANIMS}</style>
+      return (<div style={{ ...appStyle, background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)", justifyContent:"center" }}><style>{ANIMS}</style>
         <div style={{ animation:"previewZoom 0.8s ease-out forwards",textAlign:"center",width:"100%",maxWidth:400 }}>
-          <div style={{ fontSize:16,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:4,marginBottom:12,textShadow:`0 0 15px ${t.accentGlow}` }}>{L(appLang,"fleetReady")}</div>
-          <div style={{ animation:"floatShadow 3s ease-in-out infinite",borderRadius:14,overflow:"hidden",border:`2px solid ${t.accent}`,boxShadow:`0 10px 40px rgba(0,0,0,0.5), 0 0 20px ${t.accentGlow}` }}>
+          <div style={{ fontSize:16,fontWeight:800,color:"#5fd8ee",fontFamily:warrior,letterSpacing:4,marginBottom:12,textShadow:"0 0 15px rgba(28,199,230,0.3)" }}>{L(appLang,"fleetReady")}</div>
+          <div style={{ animation:"floatShadow 3s ease-in-out infinite",borderRadius:14,overflow:"hidden",border:"1px solid #26394b",boxShadow:"0 10px 40px rgba(0,0,0,0.5)" }}>
             <Grid board={defenseBoard} cellSize={placeCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled />
           </div>
           <div style={{ display:"flex",flexDirection:"column",gap:10,marginTop:16,alignItems:"center",width:"100%" }}>
@@ -5904,23 +5904,23 @@ export default function Game() {
     }
     // SABİT YERLEŞTİRME EKRANI — kaydırma yok. Kontroller sığmazsa hücre küçülür.
     // Üst blok: geri 40 + başlık 26 + süre 30 + sayaç 22 + ipucu 34 + gemi butonları ~96 + rastgele 44 + döndür/geri al 50
-    return (<div style={{ ...appStyle, height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingBottom: 10 }}><style>{ANIMS}</style>
+    return (<div style={{ ...appStyle, background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)", height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingBottom: 10 }}><style>{ANIMS}</style>
       {/* GERİ DÖN — bot maçından/hazırlıktan vazgeçip ana ekrana dönüş */}
       <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-start",marginBottom:4 }}>
         <button onClick={() => { sfx.init(); sfx.play('click'); if (isBotGame) resetGame(); else setShowSurrenderConfirm(true); }}
-          style={{ padding:"7px 14px",minHeight:32,background:"rgba(255,255,255,0.05)",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:9,fontSize:11,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",gap:5 }}>← {L(appLang,"backBtn")}</button>
+          style={{ padding:"7px 14px",minHeight:32,background:"linear-gradient(180deg,#20313f,#132030)",color:"#A9BCC9",border:"1px solid #26394b",borderRadius:9,fontSize:11,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",gap:5,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.1)" }}>← {L(appLang,"backBtn")}</button>
       </div>
-      <div style={{ fontSize:17,fontWeight:800,letterSpacing:4,color:t.accent,marginBottom:2,fontFamily:warrior,textShadow:`0 0 15px ${t.accentGlow}` }}>{L(appLang,"placeShipScreenTitle")}</div>
+      <div style={{ fontSize:17,fontWeight:800,letterSpacing:4,color:"#5fd8ee",marginBottom:2,fontFamily:warrior,textShadow:"0 0 15px rgba(28,199,230,0.3)" }}>{L(appLang,"placeShipScreenTitle")}</div>
       <div style={{ fontSize:20,fontWeight:800,marginBottom:3,color:timerLow?t.hit:t.accent,animation:timerLow?"blink3s 0.5s infinite":"none",fontFamily:warrior,textShadow:timerLow?`0 0 20px ${t.hitGlow}`:"none" }}>{formatTime(placementTimer)}</div>
       {/* Extra time button */}
       {placementTimer <= 15 && !extraTimeUsed && !placementConfirmed && (
-        <button onClick={buyExtraTime} style={{ marginBottom:8,padding:"8px 18px",background:"linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,215,0,0.05))",color:t.gold,border:`2px solid rgba(255,215,0,0.3)`,borderRadius:10,fontSize:12,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior,animation:"borderGlow 1s infinite",boxShadow:`0 0 15px ${t.goldGlow}` }}>{L(appLang,"extraTimeBtn")}</button>
+        <button onClick={buyExtraTime} style={{ marginBottom:8,padding:"8px 18px",background:"linear-gradient(180deg,rgba(90,61,34,0.5),rgba(40,28,15,0.5))",color:"#f0d79a",border:"1px solid rgba(201,161,94,0.5)",borderRadius:10,fontSize:12,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.08)" }}>{L(appLang,"extraTimeBtn")}</button>
       )}
       {extraTimeUsed && <div style={{ fontSize:10,color:t.gold,fontFamily:warrior,marginBottom:6,letterSpacing:2 }}>{L(appLang,"extraTimeUsedMsg")}</div>}
       <div style={{ fontSize:11,fontWeight:700,color:t.text,marginBottom:5,fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"shipsPlacedLabel")(placedShips.length, SHIPS.length)}</div>
       {entryFeeDeducted && <div style={{ fontSize:11,fontWeight:700,color:t.gold,fontFamily:warrior,marginBottom:6,letterSpacing:2 }}>{L(appLang,"entryFeeShort")(entryFeeDeducted)}</div>}
       {!allPlaced && !placementConfirmed && (<>
-        <div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.9), rgba(8,14,30,0.95))",border:`2px solid rgba(0,229,255,0.15)`,borderRadius:10,padding:"10px",marginBottom:8,fontSize:13,textAlign:"center",width:"100%",maxWidth:400,fontFamily:warrior,fontWeight:700,letterSpacing:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><span style={{ color:t.accent,fontWeight:800 }}>▾</span> <span>{selectedShip?L(appLang,"tapMapHint"):L(appLang,"pickShipHint")}</span></div>
+        <div style={{ background:"linear-gradient(180deg, rgba(22,36,50,0.5), rgba(12,22,32,0.5))",border:"1px solid #26394b",borderRadius:10,padding:"10px",marginBottom:8,fontSize:13,textAlign:"center",width:"100%",maxWidth:400,fontFamily:warrior,fontWeight:700,letterSpacing:1,color:"#A9BCC9",display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><span style={{ color:"#5fd8ee",fontWeight:800 }}>▾</span> <span>{selectedShip?L(appLang,"tapMapHint"):L(appLang,"pickShipHint")}</span></div>
         <div style={{ display:"flex",flexWrap:"wrap",gap:6,justifyContent:"center",marginBottom:6,maxWidth:400,width:"100%" }}>
           {SHIPS.map(ship=>{
             const placed=placedShips.some(p=>p.id===ship.id);
@@ -5928,7 +5928,7 @@ export default function Game() {
             const maxR=Math.max(...ship.shape.map(([r])=>r)), maxC=Math.max(...ship.shape.map(([,c])=>c));
             const S2=8, G2=1.5;
             const bw=(maxC+1)*S2+maxC*G2, bh=(maxR+1)*S2+maxR*G2;
-            return(<button key={ship.id} onClick={()=>{if(!placed){setSelectedShip(sel?null:ship.id);setRotation(0);}}} style={{ padding:"9px 10px",display:"flex",flexDirection:"column",alignItems:"center",gap:5,background:placed?"rgba(22,32,64,0.4)":sel?t.accent:"rgba(12,21,41,0.8)",color:placed?t.textDim:sel?t.bg:t.text,border:`2px solid ${placed?"rgba(30,58,95,0.3)":sel?t.accent:ship.color+"66"}`,borderRadius:8,fontSize:10,cursor:placed?"default":"pointer",fontFamily:warrior,fontWeight:800,opacity:placed?0.35:1,textDecoration:placed?"line-through":"none",letterSpacing:0.4,whiteSpace:"nowrap",animation:!placed&&!sel&&ship.id===nextShip?.id?"borderGlow 2s infinite":"none",transition:"all 0.15s ease" }}>
+            return(<button key={ship.id} onClick={()=>{if(!placed){setSelectedShip(sel?null:ship.id);setRotation(0);}}} style={{ padding:"9px 10px",display:"flex",flexDirection:"column",alignItems:"center",gap:5,background:placed?"rgba(22,32,64,0.4)":sel?"rgba(28,199,230,0.18)":"linear-gradient(180deg,#20313f,#132030)",color:placed?"#54697a":sel?"#5fd8ee":"#A9BCC9",border:`1px solid ${placed?"#26394b":sel?"#3ad9f2":ship.color+"66"}`,borderRadius:8,fontSize:10,cursor:placed?"default":"pointer",fontFamily:warrior,fontWeight:800,opacity:placed?0.35:1,textDecoration:placed?"line-through":"none",letterSpacing:0.4,whiteSpace:"nowrap",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.06)",transition:"all 0.15s ease" }}>
               <span>{appLang==="en"?ship.nameEn:ship.name}</span>
               <div style={{ position:"relative",width:bw,height:bh }}>
                 {ship.shape.map(([r,c],idx)=>(
@@ -5939,15 +5939,15 @@ export default function Game() {
           })}
         </div>
         {/* Rastgele yerleştir */}
-        {!placementConfirmed && <button onClick={autoPlaceShips} style={{ width:"100%",maxWidth:400,padding:"9px 0",marginBottom:6,background:"linear-gradient(135deg, rgba(167,139,250,0.15), rgba(167,139,250,0.05))",color:"#a78bfa",border:"2px solid rgba(167,139,250,0.4)",borderRadius:12,fontSize:15,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:3,display:"flex",alignItems:"center",justifyContent:"center",gap:10,boxShadow:"0 0 16px rgba(167,139,250,0.15)" }}>
-          {L(appLang,"randomPlaceBtn")}
+        {!placementConfirmed && <button onClick={autoPlaceShips} style={{ width:"100%",maxWidth:400,padding:"11px 0",marginBottom:6,background:"linear-gradient(180deg,#20313f,#132030)",color:"#A9BCC9",border:"1px solid #26394b",borderRadius:12,fontSize:15,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:3,display:"flex",alignItems:"center",justifyContent:"center",gap:10,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 0 rgba(0,0,0,0.4)" }}>
+          🎲 {L(appLang,"randomPlaceBtn")}
         </button>}
         {/* Mobile-friendly rotate and undo buttons - large touch targets */}
         <div style={{ display:"flex",gap:10,marginBottom:6,width:"100%",maxWidth:400,justifyContent:"center" }}>
-          {selectedShip && <button onClick={() => setRotation((rotation + 1) % 4)} style={{ flex:1,maxWidth:180,padding:"9px 0",background:"linear-gradient(135deg, rgba(0,229,255,0.12), rgba(0,229,255,0.04))",color:t.accent,border:`2px solid rgba(0,229,255,0.3)`,borderRadius:12,fontSize:20,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:2,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}>
-            <span style={{ fontSize:24,display:"inline-block",transform:`rotate(${rotation*90}deg)`,transition:"transform 0.3s ease" }}>↻</span> {L(appLang,"rotateLabel")}
+          {selectedShip && <button onClick={() => setRotation((rotation + 1) % 4)} style={{ flex:1,maxWidth:180,padding:"11px 0",background:"linear-gradient(180deg,#20313f,#132030)",color:"#5fd8ee",border:"1px solid #26394b",borderRadius:12,fontSize:18,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:2,display:"flex",alignItems:"center",justifyContent:"center",gap:8,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.1)" }}>
+            <span style={{ fontSize:22,display:"inline-block",transform:`rotate(${rotation*90}deg)`,transition:"transform 0.3s ease" }}>↻</span> {L(appLang,"rotateLabel")}
           </button>}
-          {placedShips.length > 0 && <button onClick={undoLastShip} style={{ flex:1,maxWidth:180,padding:"9px 0",background:"rgba(255,71,87,0.08)",color:t.hit,border:`2px solid rgba(255,71,87,0.3)`,borderRadius:12,fontSize:14,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"undoBtn")}</button>}
+          {placedShips.length > 0 && <button onClick={undoLastShip} style={{ flex:1,maxWidth:180,padding:"11px 0",background:"linear-gradient(180deg,#20313f,#132030)",color:"#e0958f",border:"1px solid #26394b",borderRadius:12,fontSize:14,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:2,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.1)" }}>{L(appLang,"undoBtn")}</button>}
         </div>
         {selectedShip && <div style={{ fontSize:10,color:t.textDim,fontFamily:mono,marginBottom:6,textAlign:"center" }}>{L(appLang,"placeHint")}</div>}
       </>)}
@@ -5955,7 +5955,7 @@ export default function Game() {
         <button style={{ ...heroBtnStyle("#ffb38a","#ff7a4d","#e23b2e","#a02015","#2a0806"),animation:"btnBreath 1.8s ease-in-out infinite" }} onClick={confirmPlacement}><HeroSheen />⚔ {L(appLang,"confirmShipsBtn")}</button>
         <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginTop:8,letterSpacing:1 }}>{L(appLang,"confirmShipsHint")}</div>
       </div>}
-      {placementConfirmed && <div style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.9), rgba(8,14,30,0.95))",border:`2px solid rgba(0,229,255,0.2)`,borderRadius:12,padding:"16px 24px",marginBottom:8,fontSize:14,fontWeight:700,color:t.accent,textAlign:"center",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"shipsReadyMsg")}<div style={{ marginTop:10 }}><div style={{ width:14,height:14,borderRadius:"50%",background:t.accent,margin:"0 auto",animation:"pulse 1.5s infinite" }} /></div></div>}
+      {placementConfirmed && <div style={{ background:"linear-gradient(180deg, rgba(22,36,50,0.6), rgba(12,22,32,0.6))",border:"1px solid #26394b",borderRadius:12,padding:"16px 24px",marginBottom:8,fontSize:14,fontWeight:700,color:"#5fd8ee",textAlign:"center",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"shipsReadyMsg")}<div style={{ marginTop:10 }}><div style={{ width:14,height:14,borderRadius:"50%",background:"#5fd8ee",margin:"0 auto",animation:"pulse 1.5s infinite" }} /></div></div>}
       <div ref={boardBoxRef} style={{ flex:1,minHeight:0,width:"100%",maxWidth:400,display:"flex",alignItems:"center",justifyContent:"flex-start",paddingTop:10,overflow:"hidden" }}>
       <div onMouseLeave={() => { if(!dragRef.current) setHoverCells([]); }}><Grid board={defenseBoard} cellSize={placeCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} hoverCells={hoverCells} onClick={handleDefenseClick} onHover={handleDefenseHover} onCellPointerDown={handleShipPointerDown} disabled={placementConfirmed} /></div>
       </div>
@@ -6292,18 +6292,16 @@ export default function Game() {
     const gridSize = miniGrid ? Math.min(38, Math.floor((Math.min(viewport.w - 24, 320)) / 8)) : playCell;
     const flyEmoji = emojiToast || myEmojiToast;
     return (<div style={{ ...appStyle, height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingTop:"calc(6px + env(safe-area-inset-top, 0px))", paddingBottom: "calc(126px + env(safe-area-inset-bottom, 0px))", background:`
-      radial-gradient(ellipse at 15% 10%, rgba(0,229,255,0.14) 0%, transparent 50%),
-      radial-gradient(ellipse at 85% 90%, rgba(255,71,87,0.12) 0%, transparent 50%),
-      repeating-linear-gradient(0deg, transparent 0px, transparent 39px, rgba(0,229,255,0.07) 39px, rgba(0,229,255,0.07) 40px),
-      repeating-linear-gradient(90deg, transparent 0px, transparent 39px, rgba(0,229,255,0.07) 39px, rgba(0,229,255,0.07) 40px),
-      ${t.bg}`, position:"relative" }}><style>{ANIMS}</style>
-      {/* HUD tarama çizgisi */}
-      <div className="gpu" style={{ position:"fixed",top:0,left:0,right:0,height:2,background:"linear-gradient(90deg, transparent, rgba(0,229,255,0.25), transparent)",animation:"scanline 7s linear infinite",pointerEvents:"none",zIndex:1 }} />
-      {/* Köşe braketleri */}
-      <div style={{ position:"fixed",top:8,left:8,width:26,height:26,borderTop:"2px solid rgba(0,229,255,0.35)",borderLeft:"2px solid rgba(0,229,255,0.35)",pointerEvents:"none",zIndex:1 }} />
-      <div style={{ position:"fixed",top:8,right:8,width:26,height:26,borderTop:"2px solid rgba(0,229,255,0.35)",borderRight:"2px solid rgba(0,229,255,0.35)",pointerEvents:"none",zIndex:1 }} />
-      <div style={{ position:"fixed",bottom:8,left:8,width:26,height:26,borderBottom:"2px solid rgba(0,229,255,0.35)",borderLeft:"2px solid rgba(0,229,255,0.35)",pointerEvents:"none",zIndex:1 }} />
-      <div style={{ position:"fixed",bottom:8,right:8,width:26,height:26,borderBottom:"2px solid rgba(0,229,255,0.35)",borderRight:"2px solid rgba(0,229,255,0.35)",pointerEvents:"none",zIndex:1 }} />
+      repeating-linear-gradient(0deg, transparent 0px, transparent 43px, rgba(120,180,205,0.045) 43px, rgba(120,180,205,0.05) 44px),
+      repeating-linear-gradient(90deg, transparent 0px, transparent 43px, rgba(120,180,205,0.045) 43px, rgba(120,180,205,0.05) 44px),
+      linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)`, position:"relative" }}><style>{ANIMS}</style>
+      {/* HUD tarama çizgisi — soluk nötr */}
+      <div className="gpu" style={{ position:"fixed",top:0,left:0,right:0,height:2,background:"linear-gradient(90deg, transparent, rgba(122,143,160,0.2), transparent)",animation:"scanline 7s linear infinite",pointerEvents:"none",zIndex:1 }} />
+      {/* Köşe braketleri — bronz aksan */}
+      <div style={{ position:"fixed",top:8,left:8,width:26,height:26,borderTop:"2px solid rgba(201,161,94,0.3)",borderLeft:"2px solid rgba(201,161,94,0.3)",pointerEvents:"none",zIndex:1 }} />
+      <div style={{ position:"fixed",top:8,right:8,width:26,height:26,borderTop:"2px solid rgba(201,161,94,0.3)",borderRight:"2px solid rgba(201,161,94,0.3)",pointerEvents:"none",zIndex:1 }} />
+      <div style={{ position:"fixed",bottom:8,left:8,width:26,height:26,borderBottom:"2px solid rgba(201,161,94,0.3)",borderLeft:"2px solid rgba(201,161,94,0.3)",pointerEvents:"none",zIndex:1 }} />
+      <div style={{ position:"fixed",bottom:8,right:8,width:26,height:26,borderBottom:"2px solid rgba(201,161,94,0.3)",borderRight:"2px solid rgba(201,161,94,0.3)",pointerEvents:"none",zIndex:1 }} />
       {/* Uçan 3D emoji */}
       {flyEmoji && <div key={flyEmoji.emoji + (flyEmoji.label||"")} style={{ position:"fixed",top:"42%",left:"50%",zIndex:10002,pointerEvents:"none",textAlign:"center",animation:"emojiFly3d 2.8s cubic-bezier(0.18,1.2,0.4,1) forwards",transformStyle:"preserve-3d" }}>
         <div style={{ fontSize:84,filter:"drop-shadow(0 12px 24px rgba(0,0,0,0.7)) drop-shadow(0 0 40px rgba(0,229,255,0.35)) saturate(1.4)" }}>{flyEmoji.emoji}</div>
@@ -6314,7 +6312,7 @@ export default function Game() {
       {/* AYRIL — ayar ve ses butonlarının hemen soluna, aynı üçlünün parçası olarak.
           Aynı ölçü (30×30), aynı köşe, aynı nötr renk. Sağdan konum: 14 + 30 + 8 + 30 + 8 = 90px */}
       <button onClick={() => { sfx.init(); sfx.play('click'); setShowSurrenderConfirm(true); }} title={L(appLang,"leaveGame")}
-        style={{ position:"fixed",top:"calc(10px + env(safe-area-inset-top, 0px))",right:90,zIndex:9500,width:30,height:30,borderRadius:8,background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,color:t.textDim,fontSize:14,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,transition:"all 0.15s ease" }}>⚑</button>
+        style={{ position:"fixed",top:"calc(10px + env(safe-area-inset-top, 0px))",right:90,zIndex:9500,width:30,height:30,borderRadius:8,background:"linear-gradient(180deg,#20313f,#132030)",border:"1px solid #26394b",color:"#A9BCC9",fontSize:14,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.1)" }}>⚑</button>
       <div style={{ height:48 }} />
       {/* Surrender confirm modal */}
       {showSurrenderConfirm && <div style={{ position:"fixed",inset:0,overflow:"hidden",background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(4px)" }}>
@@ -6359,7 +6357,7 @@ export default function Game() {
       {damageReport && <div style={{ background:"rgba(239,68,68,0.1)",border:`1px solid ${t.hit}`,borderRadius:8,padding:"6px 14px",marginBottom:6,fontSize:11,color:t.hit,fontWeight:700,textAlign:"center",width:"100%",maxWidth:400,animation:"slideIn 0.3s ease-out",fontFamily:warrior,letterSpacing:1 }}>⚠ {damageReport}</div>}
       {!isOnboarding && <>
       <div style={{ display:"flex",gap:0,marginBottom:6,width:"100%",maxWidth:400 }}>
-        <button onClick={()=>{setActiveBoard("attack");setMarkMode(false);}} style={{ flex:1,padding:"8px 0",fontSize:13,fontWeight:800,fontFamily:warrior,cursor:"pointer",background:isAttack?`linear-gradient(135deg,${t.accent},#0891b2)`:t.surfaceLight,color:isAttack?t.bg:t.textDim,border:`2px solid ${isAttack?t.accent:t.border}`,borderRadius:"10px 0 0 10px",letterSpacing:4,animation:myTurn&&isAttack?"borderGlow 2s infinite":"none",display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={16} color={isAttack?t.bg:t.textDim}/> {L(appLang,"attack")}</button>
+        <button onClick={()=>{setActiveBoard("attack");setMarkMode(false);}} style={{ flex:1,padding:"8px 0",fontSize:13,fontWeight:800,fontFamily:warrior,cursor:"pointer",background:isAttack?`linear-gradient(135deg,${t.accent},#0891b2)`:t.surfaceLight,color:isAttack?t.bg:t.textDim,border:`2px solid ${isAttack?t.accent:t.border}`,borderRadius:"10px 0 0 10px",letterSpacing:4,animation:"none",display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={16} color={isAttack?t.bg:t.textDim}/> {L(appLang,"attack")}</button>
         <button onClick={()=>{setActiveBoard("defense");setMarkMode(false);}} style={{ flex:1,padding:"8px 0",fontSize:13,fontWeight:800,fontFamily:warrior,cursor:"pointer",background:!isAttack?`linear-gradient(135deg,${t.accent},#0891b2)`:t.surfaceLight,color:!isAttack?t.bg:t.textDim,border:`2px solid ${!isAttack?t.accent:t.border}`,borderRadius:"0 10px 10px 0",letterSpacing:4 }}>🛡 {L(appLang,"defense")}</button>
       </div>
       </>}
