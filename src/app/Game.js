@@ -2404,6 +2404,78 @@ function RewardModal({ rewards: rawRewards, dailyMissions, missionProgress, newA
   );
 }
 
+// === KUŞATMA SAVAŞ HARİTASI yardımcıları ===
+function siegeMarkSunkOverlay(overlay, ships) {
+  const g = (overlay || emptyGrid().map(r => r.map(() => null))).map(r => [...r]);
+  const list = ships ? (Array.isArray(ships) ? ships : Object.values(ships)) : [];
+  list.forEach(s => { const c = s.cells || []; if (c.length && c.every(([r, cc]) => g[r]?.[cc] === "hit" || g[r]?.[cc] === "sunk")) c.forEach(([r, cc]) => { if (g[r]) g[r][cc] = "sunk"; }); });
+  return g;
+}
+function siegeShipColorGrid(ships) {
+  const g = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+  const list = ships ? (Array.isArray(ships) ? ships : Object.values(ships)) : [];
+  list.forEach(s => { const sd = SHIPS.find(x => x.id === s.id); (s.cells || []).forEach(([r, c]) => { if (g[r]) g[r][c] = sd?.color || t.shipCell; }); });
+  return g;
+}
+function siegeShipBoardGrid(ships) {
+  const g = emptyGrid();
+  const list = ships ? (Array.isArray(ships) ? ships : Object.values(ships)) : [];
+  list.forEach(s => (s.cells || []).forEach(([r, c]) => { if (g[r]) g[r][c] = 1; }));
+  return g;
+}
+
+// === KUŞATMA SAVAŞ HARİTASI — 3 oyuncu; her birinde SALDIRI + SAVUNMA. Tıklayınca büyür. ===
+function SiegeReview({ players, showAll, concluded, cellSize, lang = "tr", onBack }) {
+  const [focus, setFocus] = useState(null); // { i, mode }
+  const visible = showAll ? [0, 1, 2] : [0];
+  const thumb = 10;
+  const bigC = Math.max(20, Math.min(30, cellSize || 26));
+  return (
+    <div style={{ minHeight:"100vh",minHeight:"100dvh",background:t.bg,color:t.text,fontFamily:mono,display:"flex",flexDirection:"column",alignItems:"center",padding:"18px 12px 30px",boxSizing:"border-box",overflowY:"auto" }}>
+      <style>{ANIMS}</style>
+      <div style={{ fontSize:18,fontWeight:900,letterSpacing:4,color:t.accent,fontFamily:warrior,textShadow:`0 0 15px ${t.accentGlow}`,marginBottom:14,textTransform:"uppercase" }}>{L(lang,"battleMap")}</div>
+      <div style={{ width:"100%",maxWidth:420,display:"flex",flexDirection:"column",gap:12 }}>
+        {visible.map(i => { const p = players[i]; if (!p) return null; return (
+          <div key={i} style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))",border:`2px solid ${p.me?t.accent:(p.alive?"rgba(255,255,255,0.12)":t.hit)}`,borderRadius:14,padding:"12px 12px 14px" }}>
+            <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:10 }}>
+              <span style={{ width:26,height:26,borderRadius:"50%",background:p.alive?`${t.accent}22`:"rgba(255,71,87,0.12)",border:`2px solid ${p.alive?t.accent:t.hit}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13 }}>{p.alive?p.avatar:"☠"}</span>
+              <span style={{ fontSize:14,fontWeight:900,color:p.me?t.accent:t.text,fontFamily:warrior,letterSpacing:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.name}{p.me?(lang==="en"?" (YOU)":" (SEN)"):""}</span>
+            </div>
+            <div style={{ display:"flex",gap:12,justifyContent:"center" }}>
+              {[{mode:"attack",label:L(lang,"attack"),clr:t.hit},{mode:"defense",label:L(lang,"defense"),clr:t.accent}].map(tab => (
+                <button key={tab.mode} onClick={()=>setFocus({ i, mode:tab.mode })} style={{ background:"none",border:"none",padding:0,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:5 }}>
+                  <div style={{ pointerEvents:"none",borderRadius:8,overflow:"hidden",border:`1px solid ${tab.clr}66` }}>
+                    {tab.mode==="attack"
+                      ? <Grid board={emptyGrid()} cellSize={thumb} overlay={p.atkOverlay} disabled />
+                      : <Grid board={p.defBoard} cellSize={thumb} isDefense shipColors={p.defColors} overlay={p.defOverlay} disabled />}
+                  </div>
+                  <span style={{ fontSize:10,fontWeight:800,color:tab.clr,fontFamily:warrior,letterSpacing:2 }}>{tab.label} 🔍</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        );})}
+      </div>
+      {!showAll && <div style={{ marginTop:14,maxWidth:360,textAlign:"center",fontSize:11,color:t.gold,fontFamily:warrior,letterSpacing:1,lineHeight:1.5,background:"rgba(255,215,0,0.06)",border:"1px solid rgba(255,215,0,0.25)",borderRadius:10,padding:"10px 14px",animation:"pulse 2.2s ease-in-out infinite" }}>{lang==="en"?"Wait for the battle to end to see the other fleets' maps.":"Diğer filoların haritalarını görmek için savaşın bitmesini bekle."}{!concluded && <div style={{ fontSize:10,color:t.textDim,fontWeight:600,marginTop:5,letterSpacing:1 }}>⚔ {lang==="en"?"battle continues...":"savaş sürüyor..."}</div>}</div>}
+      <button onClick={onBack} style={{ marginTop:20,padding:"12px 34px",background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:10,fontSize:13,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(lang,"backBtn")}</button>
+
+      {focus && (() => { const p = players[focus.i]; if (!p) return null; return (
+        <div onClick={()=>setFocus(null)} style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",backdropFilter:"blur(4px)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:10000,padding:16 }}>
+          <div onClick={e=>e.stopPropagation()} style={{ background:"linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))",border:`2px solid ${focus.mode==="attack"?t.hit:t.accent}`,borderRadius:16,padding:16,animation:"scaleUp 0.3s ease-out",maxWidth:"96vw" }}>
+            <div style={{ fontSize:14,fontWeight:900,color:focus.mode==="attack"?t.hit:t.accent,fontFamily:warrior,letterSpacing:2,textAlign:"center",marginBottom:10 }}>{p.name} — {focus.mode==="attack"?L(lang,"attack"):L(lang,"defense")}</div>
+            <div style={{ display:"flex",justifyContent:"center" }}>
+              {focus.mode==="attack"
+                ? <Grid board={emptyGrid()} cellSize={bigC} overlay={p.atkOverlay} disabled />
+                : <Grid board={p.defBoard} cellSize={bigC} isDefense shipColors={p.defColors} overlay={p.defOverlay} disabled />}
+            </div>
+            <button onClick={()=>setFocus(null)} style={{ marginTop:12,width:"100%",padding:"10px 0",background:"rgba(255,255,255,0.05)",border:`1px solid ${t.border}`,borderRadius:10,color:t.textDim,fontFamily:warrior,fontWeight:800,letterSpacing:2,cursor:"pointer" }}>{L(lang,"close")}</button>
+          </div>
+        </div>
+      ); })()}
+    </div>
+  );
+}
+
 function BoardReview({ defenseBoard, shipColorMap, defenseOverlay, attackOverlay, oppShipsData, myShipsData, defHitMap, atkHitMap, cellSize, onBack, lang = "tr" }) {
   const [view,setView] = useState("attack");
   const oppBoard=emptyGrid(), oppColors=Array.from({length:ROWS},()=>Array(COLS).fill(null));
@@ -2835,8 +2907,11 @@ export default function Game() {
   const [siegeSelected, setSiegeSelected] = useState([]);
   const siegeSelectedRef = useRef([]);
   const [siegeSpectator, setSiegeSpectator] = useState(null); // { attacker, defender, cells, revealed }
-  const [siegeGameOver, setSiegeGameOver] = useState(null); // { won }
+  const [siegeGameOver, setSiegeGameOver] = useState(null); // { won } — İNSANIN sonucu (ekranı açar)
   const siegeGameOverRef = useRef(null);
+  // siegeStopRef: MOTORU tamamen durdurur (sadece tek filo kalınca). İnsan erken elenirse motor durmaz, botlar savaşmaya devam eder.
+  const siegeStopRef = useRef(false);
+  const [siegeConcluded, setSiegeConcluded] = useState(false); // tüm oyun bitti mi (tek filo kaldı) — savaş haritası kapısı
   // Kuşatma sayaçları — her oyuncuya 5 dk (bardan azalır) + toplam kronometre
   const [siegeClocks, setSiegeClocks] = useState([CLOCK_SECONDS, CLOCK_SECONDS, CLOCK_SECONDS]);
   const siegeClocksRef = useRef([CLOCK_SECONDS, CLOCK_SECONDS, CLOCK_SECONDS]);
@@ -3837,7 +3912,7 @@ export default function Game() {
     setSalvoMode(false); setSalvoSelected([]); setSalvoSubmitted(false); setSalvoResult(null); setSalvoTimer(SALVO_SECONDS);
     // KUŞATMA temizliği — bekleyen bot-turu/izleyici zamanlayıcıları siegeModeRef=false görünce no-op olur
     siegeModeRef.current = false; siegeAliveRef.current = [true, true, true]; siegeTargetOfRef.current = [1, 2, 0]; siegeTurnIdxRef.current = 0;
-    siegeBotBoardsRef.current = {}; siegeBotShipsRef.current = {}; siegeMyShipCellsRef.current = []; siegeReceivedRef.current = {}; siegeSelectedRef.current = []; siegeGameOverRef.current = null;
+    siegeBotBoardsRef.current = {}; siegeBotShipsRef.current = {}; siegeMyShipCellsRef.current = []; siegeReceivedRef.current = {}; siegeSelectedRef.current = []; siegeGameOverRef.current = null; siegeStopRef.current = false;
     setSiegeMode(false); setSiegeAlive([true, true, true]); setSiegeTargetOf([1, 2, 0]); setSiegeTurnIdx(0); setSiegeBotBoards({}); setSiegeBotShips({}); setSiegeNames({}); setSiegeReceived({}); setSiegeSelected([]); setSiegeSpectator(null); setSiegeGameOver(null);
     if (siegeIntroTimerRef.current) { clearInterval(siegeIntroTimerRef.current); siegeIntroTimerRef.current = null; }
     setSiegeIntroCount(0); setSiegeIntroDone(false);
@@ -4227,6 +4302,7 @@ export default function Game() {
     siegeSelectedRef.current = []; setSiegeSelected([]);
     setSiegeSpectator(null);
     siegeGameOverRef.current = null; setSiegeGameOver(null);
+    siegeStopRef.current = false; setSiegeConcluded(false);
     siegeClocksRef.current = [CLOCK_SECONDS, CLOCK_SECONDS, CLOCK_SECONDS]; setSiegeClocks([CLOCK_SECONDS, CLOCK_SECONDS, CLOCK_SECONDS]);
     setSiegeElapsed(0);
     setSiegeMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setSiegeMarkMode(false);
@@ -4262,9 +4338,15 @@ export default function Game() {
     const nextTargets = [...siegeTargetOfRef.current];
     nextTargets[attacker] = nextTargets[defender];
     siegeTargetOfRef.current = nextTargets; setSiegeTargetOf(nextTargets);
-    if (defender === 0) { finishSiegeGame(false); return; }
     const aliveCount = nextAlive.filter(Boolean).length;
-    if (aliveCount === 1 && nextAlive[0]) { finishSiegeGame(true); return; }
+    if (aliveCount <= 1) {
+      // Tüm oyun bitti — tek filo kaldı. Savaş haritası artık herkese açık.
+      siegeStopRef.current = true; setSiegeConcluded(true);
+      if (nextAlive[0] && !siegeGameOverRef.current) finishSiegeGame(true); // insan kazandı
+      return;
+    }
+    // İnsan elendi ama 2 bot hâlâ savaşıyor: BOZGUN göster, motoru DURDURMA (insan isterse sonunu bekleyip hepsini görebilir).
+    if (defender === 0 && !siegeGameOverRef.current) finishSiegeGame(false);
   };
 
   const finishSiegeGame = (won) => {
@@ -4320,17 +4402,19 @@ export default function Game() {
   // Sırayı ilerletir: ışık (spotlight) az önce ateş edene geri sıçrar (A→B, C→A, B→C, A→B...).
   // İnsana gelirse motor durur (UI bekler), bota gelirse otomatik oynar.
   const runSiegeEngineStep = (lastAttacker) => {
-    if (!siegeModeRef.current || siegeGameOverRef.current) return;
+    if (!siegeModeRef.current || siegeStopRef.current) return;
     const next = siegeNextAttacker(lastAttacker, siegeTargetOfRef.current, siegeAliveRef.current);
     siegeTurnIdxRef.current = next; setSiegeTurnIdx(next);
     if (next === 0) return;
-    setTimeout(() => runSiegeBotTurn(next), 1100 + Math.random() * 500);
+    // İnsan elenmişse (siegeGameOverRef set) botlar arka planda HIZLI bitirsin — insan haritayı beklemesin.
+    const fast = !!siegeGameOverRef.current;
+    setTimeout(() => runSiegeBotTurn(next), fast ? 40 : 1100 + Math.random() * 500);
   };
 
   // Bir botun turu: hedefine rastgele (henüz denenmemiş) hücrelerden ateş eder.
   // Hedef insan ise doğrudan uygulanır (insan kendi tahtasında görür). Hedef bot ise, insan üçüncü taraf olduğu için izleyici baloncuğu açılır.
   const runSiegeBotTurn = (attacker) => {
-    if (!siegeModeRef.current || siegeGameOverRef.current || !siegeAliveRef.current[attacker]) return;
+    if (!siegeModeRef.current || siegeStopRef.current || !siegeAliveRef.current[attacker]) return;
     const defender = siegeTargetOfRef.current[attacker];
     const receivedOverlay = siegeReceivedRef.current[defender] || emptyGrid().map(r => r.map(() => null));
     const already = new Set();
@@ -4341,7 +4425,7 @@ export default function Game() {
     for (let i = 0; i < SIEGE_SHOTS_PER_TURN && options.length; i++) { const idx = Math.floor(Math.random() * options.length); cells.push(options.splice(idx, 1)[0]); }
     if (cells.length === 0) { runSiegeEngineStep(attacker); return; }
     const isSpectator = attacker !== 0 && defender !== 0;
-    if (isSpectator) {
+    if (isSpectator && !siegeGameOverRef.current) {
       setSiegeSpectator({ attacker, defender, cells, revealed: 0 });
       sfx.init();
       cells.forEach((_, i) => { setTimeout(() => { if (siegeModeRef.current) { sfx.play('click'); setSiegeSpectator(prev => prev ? { ...prev, revealed: i + 1 } : prev); } }, 500 + i * 480); });
@@ -4352,20 +4436,21 @@ export default function Game() {
         setTimeout(() => {
           if (!siegeModeRef.current) return;
           setSiegeSpectator(null);
-          if (!siegeGameOverRef.current) runSiegeEngineStep(attacker);
+          if (!siegeStopRef.current) runSiegeEngineStep(attacker);
         }, 5000);
       }, 700 + cells.length * 480);
     } else {
+      const fast = !!siegeGameOverRef.current; // insan elenmiş: arka planda hızlı çöz
       setTimeout(() => {
         if (!siegeModeRef.current) return;
-        sfx.init(); sfx.play('click');
+        if (!fast) { sfx.init(); sfx.play('click'); }
         resolveSiegeShot(attacker, defender, cells);
-        // Sonuç 5 saniye ekranda kalsın, sonra sıra geçer.
+        // Sonuç 5 saniye ekranda kalsın (insan oynuyorsa), sonra sıra geçer.
         setTimeout(() => {
           if (!siegeModeRef.current) return;
-          if (!siegeGameOverRef.current) runSiegeEngineStep(attacker);
-        }, 5000);
-      }, 900);
+          if (!siegeStopRef.current) runSiegeEngineStep(attacker);
+        }, fast ? 40 : 5000);
+      }, fast ? 30 : 900);
     }
   };
 
@@ -4395,7 +4480,7 @@ export default function Game() {
     if (siegeFlashTimerRef.current) clearTimeout(siegeFlashTimerRef.current);
     siegeFlashTimerRef.current = setTimeout(() => setSiegeFlash([]), 1500);
     // Sonuç (vurulan gemiler) 5 saniye ekranda kalsın, sonra sıra geçer.
-    if (!siegeGameOverRef.current) setTimeout(() => runSiegeEngineStep(0), 5000);
+    if (!siegeStopRef.current) setTimeout(() => runSiegeEngineStep(0), 5000);
   };
 
   // İşaretleme (standart oyundaki gibi): hedef tahtada şüpheli hücreyi işaretle/kaldır.
@@ -4409,7 +4494,7 @@ export default function Game() {
     if (idx === 0) { finishSiegeGame(false); return; }
     const attacker = siegeTargetOfRef.current.findIndex((tg, i) => i !== idx && siegeAliveRef.current[i] && tg === idx);
     handleSiegeElimination(attacker >= 0 ? attacker : 0, idx);
-    if (!siegeGameOverRef.current) runSiegeEngineStep(idx);
+    if (!siegeStopRef.current) runSiegeEngineStep(idx);
   };
 
   // Sonuç ekranından ana sayfaya uğramadan doğrudan yeni bir Kuşatma maçı başlatır.
@@ -5907,7 +5992,7 @@ export default function Game() {
     const miniCell = Math.max(5, Math.min(9, Math.floor(viewport.w / 60)));
     const boardFor = (idx, overlayG, clickable, cellSize) => idx === 0
       ? <Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={overlayG} disabled={!clickable} onClick={clickable?siegeToggleCell:undefined} />
-      : <Grid board={emptyGrid()} cellSize={cellSize} overlay={overlayG} disabled={!clickable} onClick={clickable?siegeToggleCell:undefined} flatHit />;
+      : <Grid board={emptyGrid()} cellSize={cellSize} overlay={overlayG} disabled={!clickable} onClick={clickable?siegeToggleCell:undefined} />;
     // Batan gemileri işaretle: tüm hücreleri vurulmuş gemiler "sunk" olur (üzerine ✕ gelir). Kopya üzerinde çalışır (state'i bozma).
     const markSunkCells = (grid, ships) => {
       const list = ships ? (Array.isArray(ships) ? ships : Object.values(ships)) : [];
@@ -5980,7 +6065,7 @@ export default function Game() {
       <div key={`board-${activeAttacker}-${activeDefender}`} style={{ width:"100%",maxWidth:420,display:"flex",justifyContent:"center",animation:"siegeRiseUp 0.45s cubic-bezier(0.22,1,0.36,1) both" }}>
         <div style={{ position:"relative",display:"inline-block" }}>
           {boardMode === "target"
-            ? <Grid board={emptyGrid()} cellSize={bigCell} overlay={displayGrid} disabled={false} onClick={siegeMarkMode?siegeToggleMark:siegeToggleCell} onRightClick={siegeToggleMark} onLongPress={siegeToggleMark} manualMarks={siegeMarks} flatHit flashCells={siegeFlash} />
+            ? <Grid board={emptyGrid()} cellSize={bigCell} overlay={displayGrid} disabled={false} onClick={siegeMarkMode?siegeToggleMark:siegeToggleCell} onRightClick={siegeToggleMark} onLongPress={siegeToggleMark} manualMarks={siegeMarks} flashCells={siegeFlash} />
             : boardFor(activeDefender, activeDefender===0 ? overlayGrid : displayGrid, false, bigCell)}
           {boardMode === "target" && (
             <button onClick={()=>setSiegeMarkMode(v=>!v)} title={siegeMarkMode?L(appLang,"markModeOn"):L(appLang,"markMode")}
@@ -6013,7 +6098,7 @@ export default function Game() {
           <div style={{ fontSize:12,color:t.textDim,fontFamily:mono,marginBottom:20 }}>{L(appLang,"leaveConfirmBody")}</div>
           <div style={{ display:"flex",gap:10 }}>
             <button onClick={()=>setShowSurrenderConfirm(false)} style={{ flex:1,padding:"12px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:13,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"stay")}</button>
-            <button onClick={()=>{ setShowSurrenderConfirm(false); resetGame(); }} style={{ flex:1,padding:"12px 0",background:"transparent",color:t.hit,border:`2px solid ${t.hit}`,borderRadius:10,fontSize:13,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"exit")}</button>
+            <button onClick={()=>{ setShowSurrenderConfirm(false); finishSiegeGame(false); }} style={{ flex:1,padding:"12px 0",background:"transparent",color:t.hit,border:`2px solid ${t.hit}`,borderRadius:10,fontSize:13,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"exit")}</button>
           </div>
         </div>
       </div>}
@@ -6022,7 +6107,23 @@ export default function Game() {
 
   // === KUŞATMA — sonuç ekranı: standart GAMEOVER arayüzü (ganimet raporu, ana sayfa, altın değişimi) ===
   if (phase === "siegeover") {
-    if (showReview) return <BoardReview defenseBoard={defenseBoard} shipColorMap={shipColorMap} defenseOverlay={defenseOverlay} attackOverlay={attackOverlay} oppShipsData={oppShipsData} myShipsData={myShipsData} defHitMap={defHitMap} atkHitMap={atkHitMap} cellSize={cellSize} onBack={() => setShowReview(false)} lang={appLang} />;
+    if (showReview) {
+      const shipsOf = (i) => i === 0 ? (() => { const o = {}; placedShips.forEach((s, k) => o[k] = { id: s.id, cells: s.cells }); return o; })() : (siegeBotShips[i] || {});
+      const siegePlayers = [0, 1, 2].map(i => {
+        const defShips = shipsOf(i);
+        const tgt = (i + 1) % 3; // sabit üçgen: i, (i+1)%3'e saldırır
+        return {
+          name: i === 0 ? (playerName || (appLang === "en" ? "YOU" : "SEN")) : (siegeNames[i] || "?"),
+          avatar: i === 0 ? (myProfile?.avatar || "⚓") : "🤖",
+          alive: !!siegeAlive[i], me: i === 0,
+          defBoard: i === 0 ? defenseBoard : siegeShipBoardGrid(defShips),
+          defColors: i === 0 ? shipColorMap : siegeShipColorGrid(defShips),
+          defOverlay: siegeReceived[i], // ham (isDefense "sunk" render etmez; hit=patlama gemi üstünde)
+          atkOverlay: siegeMarkSunkOverlay(siegeReceived[tgt], shipsOf(tgt)), // batan ✕ ile
+        };
+      });
+      return <SiegeReview players={siegePlayers} showAll={siegeConcluded || isWin} concluded={siegeConcluded} cellSize={cellSize} lang={appLang} onBack={() => setShowReview(false)} />;
+    }
     const chestProgressPct = Math.round((Object.keys(missionProgress).length / (dailyMissions.length || 3)) * 100);
     const myEloDiff = eloChange ? eloChange.myNew - eloChange.myOld : null;
     return (<><style>{ANIMS}</style>
