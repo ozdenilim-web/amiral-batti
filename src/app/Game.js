@@ -3181,6 +3181,8 @@ export default function Game() {
   const hostLoopStartedRef = useRef(false);
   const siegeResultDoneRef = useRef(false); // sonuç bir kez uygulansın
   const [siegeAbortNotice, setSiegeAbortNotice] = useState(null); // "host ayrıldı" gibi tam ekran uyarı
+  const [siegeToast, setSiegeToast] = useState(null); // "X ayrıldı — elendi" gibi kısa masa bildirimi
+  const siegeNoticeSeqRef = useRef(0);
   const [siegeConcluded, setSiegeConcluded] = useState(false); // tüm oyun bitti mi (tek filo kaldı) — savaş haritası kapısı
   // Kuşatma sayaçları — her oyuncuya 5 dk (bardan azalır) + toplam kronometre
   const [siegeClocks, setSiegeClocks] = useState([CLOCK_SECONDS, CLOCK_SECONDS, CLOCK_SECONDS]);
@@ -4799,6 +4801,7 @@ export default function Game() {
     if (nameB === nameA) nameB = BOT_NAMES[(BOT_NAMES.indexOf(nameA) + 1) % BOT_NAMES.length];
     setIsBotGame(true); isBotGameRef.current = true;
     setSiegeMode(true); siegeModeRef.current = true;
+    siegeOnlineRef.current = false; // yerel bot maçı — online bayrağı kapalı
     const shipsA = {}; botA.ships.forEach((s, i) => { shipsA[i] = { id: s.id, cells: s.cells }; });
     const shipsB = {}; botB.ships.forEach((s, i) => { shipsB[i] = { id: s.id, cells: s.cells }; });
     siegeBotBoardsRef.current = { 1: botA.board, 2: botB.board }; setSiegeBotBoards(siegeBotBoardsRef.current);
@@ -5064,7 +5067,7 @@ export default function Game() {
     const absNames = game.names || siegeAbsNamesRef.current || {};
     const localAlive = [0, 1, 2].map(k => !!absAlive[rotA(k, mySeat)]);
     const localTarget = [0, 1, 2].map(k => rotL(absTarget[rotA(k, mySeat)] ?? ((rotA(k, mySeat) + 1) % 3), mySeat));
-    const localReceived = {}; [0, 1, 2].forEach(k => { const g = absReceived[rotA(k, mySeat)]; localReceived[k] = g ? g.map(row => row.map(v => v || null)) : emptyG(); });
+    const localReceived = {}; [0, 1, 2].forEach(k => { const m = absReceived[rotA(k, mySeat)] || {}; const grid = emptyG(); Object.keys(m).forEach(key => { const p = key.split("_"); const r = +p[0], c = +p[1]; if (grid[r]) grid[r][c] = m[key]; }); localReceived[k] = grid; });
     const localClocks = [0, 1, 2].map(k => absClocks[rotA(k, mySeat)] ?? CLOCK_SECONDS);
     const localNames = { 0: absNames[mySeat] || "SEN", 1: absNames[rotA(1, mySeat)] || "?", 2: absNames[rotA(2, mySeat)] || "?" };
     const localBotShips = { 1: absShips[rotA(1, mySeat)] || {}, 2: absShips[rotA(2, mySeat)] || {} };
@@ -5084,7 +5087,7 @@ export default function Game() {
   const hostWriteGame = () => { if (siegeGameRoomRef.current && hostGameRef.current) set(ref(db, `siege_rooms/${siegeGameRoomRef.current}/game`), hostGameRef.current).catch(() => {}); };
   const hostBotCells = (g, atk) => {
     const defender = g.targetOf[atk];
-    const already = new Set(); (g.received[defender] || []).forEach((row, r) => row.forEach((v, c) => { if (v) already.add(r + "," + c); }));
+    const already = new Set(); Object.keys(g.received[defender] || {}).forEach(k => { const p = k.split("_"); already.add(p[0] + "," + p[1]); });
     const opts = []; for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (!already.has(r + "," + c)) opts.push({ r, c });
     const cells = []; for (let i = 0; i < SIEGE_SHOTS_PER_TURN && opts.length; i++) cells.push(opts.splice(Math.floor(Math.random() * opts.length), 1)[0]);
     return cells;
@@ -5098,10 +5101,10 @@ export default function Game() {
     const g = hostGameRef.current; if (!g || g.gameOver) return;
     const defender = g.targetOf[attacker];
     const defCells = Object.values(g.ships[defender] || {}).flatMap(s => s.cells || []);
-    const ov = (g.received[defender] || emptyGrid().map(r => r.map(() => null))).map(row => [...row]);
-    (cells || []).forEach(({ r, c }) => { if (r == null || c == null) return; const hit = defCells.some(([sr, sc]) => sr === r && sc === c); ov[r][c] = hit ? "hit" : "miss"; });
-    g.received[defender] = ov;
-    const total = defCells.length, hitCount = ov.flat().filter(v => v === "hit").length;
+    const rec = { ...(g.received[defender] || {}) };
+    (cells || []).forEach(({ r, c }) => { if (r == null || c == null) return; const hit = defCells.some(([sr, sc]) => sr === r && sc === c); rec[`${r}_${c}`] = hit ? "hit" : "miss"; });
+    g.received[defender] = rec;
+    const total = defCells.length, hitCount = Object.values(rec).filter(v => v === "hit").length;
     if (total > 0 && hitCount >= total) { g.alive[defender] = false; g.targetOf[attacker] = g.targetOf[defender]; }
     g.seq = (g.seq || 0) + 1;
     if (g.alive.filter(Boolean).length <= 1) g.gameOver = { winnerSeat: g.alive.findIndex(Boolean) };
@@ -5180,7 +5183,7 @@ export default function Game() {
         if (humansReady) {
           const ships = {};
           [0, 1, 2].forEach(i => { if (seatBotRef.current[i]) { const bp = botPlaceShips(); const sd = {}; bp.ships.forEach((s, k) => sd[k] = { id: s.id, cells: s.cells }); ships[i] = sd; } else ships[i] = room.ships[String(i)]; });
-          const received = { 0: emptyGrid().map(r => r.map(() => null)), 1: emptyGrid().map(r => r.map(() => null)), 2: emptyGrid().map(r => r.map(() => null)) };
+          const received = { 0: {}, 1: {}, 2: {} }; // seyrek harita: "r_c" -> hit/miss (Firebase-güvenli, null dizi yok)
           const game = { alive: [true, true, true], targetOf: [1, 2, 0], turnIdx: 0, received, clocks: [CLOCK_SECONDS, CLOCK_SECONDS, CLOCK_SECONDS], names: siegeAbsNamesRef.current, ships, seatBot: seatBotRef.current, seq: 0 };
           hostGameRef.current = game; set(ref(db, `siege_rooms/${rid}/game`), game).catch(() => {}); hostStartLoop();
         }
@@ -5195,12 +5198,13 @@ export default function Game() {
           if (g && !seatBotRef.current[inp.seat] && inp.seat === g.turnIdx && g.alive[inp.seat]) hostResolveShot(inp.seat, inp.shots || []);
         }
         const present = room.present || {}; const g = hostGameRef.current;
-        if (g && !g.gameOver) [0, 1, 2].forEach(i => { if (!seatBotRef.current[i] && g.alive[i] && siegeSeatUidsRef.current[i] && !present[siegeSeatUidsRef.current[i]]) hostEliminate(i); });
+        if (g && !g.gameOver) [0, 1, 2].forEach(i => { if (!seatBotRef.current[i] && g.alive[i] && siegeSeatUidsRef.current[i] && !present[siegeSeatUidsRef.current[i]]) { g.notice = { name: siegeAbsNamesRef.current[i] || "?", seq: Date.now() }; hostEliminate(i); } });
       }
       // HERKES: yansıt + savaşa geç + sonuç
       if (room.game) {
         mirrorSiegeGame(room.game, mySeat);
         if (phaseRef.current !== "siege" && phaseRef.current !== "siegeover") { setPhase("siege"); sfx.init(); sfx.playBattleMusic(false); startSiegeIntro(); }
+        if (room.game.notice && room.game.notice.seq !== siegeNoticeSeqRef.current) { siegeNoticeSeqRef.current = room.game.notice.seq; setSiegeToast(appLang === "en" ? `${room.game.notice.name} left — eliminated` : `${room.game.notice.name} ayrıldı — elendi`); setTimeout(() => setSiegeToast(null), 4500); }
         if (room.game.gameOver && !siegeResultDoneRef.current) {
           siegeResultDoneRef.current = true;
           if (hostTickRef.current) { clearInterval(hostTickRef.current); hostTickRef.current = null; }
@@ -6126,7 +6130,7 @@ export default function Game() {
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} lang={appLang} /></>;
   if (showDifferentWaters) return <><style>{ANIMS}</style><DifferentWaters onBack={() => setShowDifferentWaters(false)} onPlaySalvo={() => { setShowDifferentWaters(false); startSalvoOnline(); }} onPlayKusatma={() => { setShowDifferentWaters(false); setShowSiegeLobby(true); }} onPlayTersane={() => { setShowDifferentWaters(false); startTersaneBotGame(); }} lang={appLang} /></>;
   if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => { setSelectedArena(arena); setShowArenaSelect(false); startQuickMatch(arena); }} lang={appLang} /></>;
-  if (showSiegeLobby) return <><style>{ANIMS}</style><SiegeLobby myUid={authUid} myName={playerName} myAvatar={myProfile?.avatar} onBack={() => setShowSiegeLobby(false)} onStart={(payload) => { setShowSiegeLobby(false); startSiegeOnline(payload); }} lang={appLang} /></>;
+  if (showSiegeLobby) return <><style>{ANIMS}</style><SiegeLobby myUid={authUid} myName={playerName} myAvatar={myProfile?.avatar} onBack={() => setShowSiegeLobby(false)} onStart={(payload) => { setShowSiegeLobby(false); const humans = [0,1,2].filter(i => payload.seats && payload.seats[String(i)]).length; if (humans >= 2) startSiegeOnline(payload); else { if (payload.roomId) remove(ref(db, `siege_rooms/${payload.roomId}`)).catch(() => {}); startSiegeBotGame(); } }} lang={appLang} /></>;
   if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myGold={myProfile?.gold} onBack={() => setShowOnlineLobby(false)} onChallenge={handleOnlineChallenge} ready={readyToPlay} onToggleReady={()=>setReadyToPlay(v=>!v)} lang={appLang} /></>;
 
   if (phase === "gameover") {
@@ -6981,6 +6985,9 @@ export default function Game() {
   })();
 
   return (<>{content}{renderTopBar()}{renderLogoutModal()}
+    {siegeToast && <div style={{ position:"fixed",top:"calc(60px + env(safe-area-inset-top,0px))",left:0,right:0,zIndex:10040,display:"flex",justifyContent:"center",pointerEvents:"none" }}>
+      <div style={{ background:"linear-gradient(180deg,rgba(20,34,48,0.97),rgba(10,20,30,0.98))",border:`1px solid ${t.hit}`,borderRadius:10,padding:"9px 18px",fontSize:12,fontWeight:800,color:"#e0958f",fontFamily:warrior,letterSpacing:1,boxShadow:"0 6px 20px rgba(0,0,0,0.5)",animation:"fadeUp 0.3s ease-out" }}>⚑ {siegeToast}</div>
+    </div>}
     {siegeAbortNotice && <div style={{ position:"fixed",inset:0,zIndex:10050,background:"rgba(2,6,16,0.9)",backdropFilter:"blur(5px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}>
       <div style={{ maxWidth:320,width:"90%",textAlign:"center",background:"linear-gradient(180deg,#0F2434,#081118)",border:`2px solid ${t.hit}`,borderRadius:16,padding:"28px 26px",boxShadow:`0 0 50px ${t.hitGlow}` }}>
         <div style={{ fontSize:34,marginBottom:10 }}>⚠️</div>
