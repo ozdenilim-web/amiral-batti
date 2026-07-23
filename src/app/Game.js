@@ -54,6 +54,28 @@ function isValidPlacement(cells, board) {
   return cells.every(([r, c]) => r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] === 0);
 }
 function emptyGrid() { return Array.from({ length: ROWS }, () => Array(COLS).fill(0)); }
+// === TERSANE — 20 kutu, 5 gemi, serbest şekil ===
+const TERSANE_CELLS = 20;
+const TERSANE_SHIPS = 5;
+const TERSANE_PAINT = "#22d3ee";                                   // yerleştirmede tek parlak renk
+const TERSANE_PALETTE = ["#22d3ee", "#f472b6", "#a78bfa", "#34d399", "#fbbf24"]; // savaşta gemi renkleri
+function boardCellCount(board) { let n = 0; for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (board[r][c] > 0) n++; return n; }
+// 4-yönlü bağlı bileşenler = gemiler. Köşe teması gemi birleştirmez.
+function tersaneComponents(board) {
+  const seen = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
+  const comps = [];
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    if (board[r][c] > 0 && !seen[r][c]) {
+      const stack = [[r, c]]; seen[r][c] = true; const cells = [];
+      while (stack.length) {
+        const [cr, cc] = stack.pop(); cells.push([cr, cc]);
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dr, dc]) => { const nr = cr + dr, nc = cc + dc; if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && board[nr][nc] > 0 && !seen[nr][nc]) { seen[nr][nc] = true; stack.push([nr, nc]); } });
+      }
+      comps.push(cells);
+    }
+  }
+  return comps;
+}
 function coordStr(r, c) { return `${r + 1}${COL_LABELS[c]}`; }
 function formatTime(sec) { const s = Math.max(0, sec); return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`; }
 
@@ -1218,14 +1240,14 @@ const WATER_MODES = [
   { id:"manevra", name:"MANEVRA", nameEn:"MANEUVER", icon:"🧭", color:"#4ade80", desc:"Savaş sürerken kalan gemilerini yeniden konumlandır.", descEn:"Reposition your remaining ships mid-battle." },
   { id:"ateskes", name:"ATEŞKES", nameEn:"CEASEFIRE", icon:"🕊️", color:"#94a3b8", desc:"5 dakika sonunda en AZ vuran kazanır.", descEn:"After 5 minutes, whoever hits the LEAST wins." },
 ];
-function DifferentWaters({ onBack, onPlaySalvo, onPlayKusatma, lang = "tr" }) {
+function DifferentWaters({ onBack, onPlaySalvo, onPlayKusatma, onPlayTersane, lang = "tr" }) {
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:`linear-gradient(180deg, ${t.bg} 0%, #071428 100%)`,padding:"24px 14px",fontFamily:mono,color:t.text }}>
     <div style={{ fontSize:26,fontWeight:800,letterSpacing:6,color:t.accent,marginBottom:6,fontFamily:warrior,textShadow:`0 0 25px ${t.accentGlow}`,textAlign:"center" }}>{lang==="en"?"DIFFERENT WATERS":"FARKLI SULAR"}</div>
     <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,textAlign:"center",marginBottom:18,maxWidth:400,lineHeight:1.6,padding:"0 8px" }}>{lang==="en"?"New rules, new maps, new fleets — coming soon.":"Farklı kurallar, farklı haritalar, farklı filolar — çok yakında."}</div>
     <div style={{ width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:10 }}>
       {WATER_MODES.map(mode => {
-        const playable = mode.id === "teksalvo" || mode.id === "kusatma";
-        const onPlay = mode.id === "teksalvo" ? onPlaySalvo : mode.id === "kusatma" ? onPlayKusatma : undefined;
+        const playable = mode.id === "teksalvo" || mode.id === "kusatma" || mode.id === "tersane";
+        const onPlay = mode.id === "teksalvo" ? onPlaySalvo : mode.id === "kusatma" ? onPlayKusatma : mode.id === "tersane" ? onPlayTersane : undefined;
         return (
         <div key={mode.id} onClick={playable ? onPlay : undefined} style={{ display:"flex",alignItems:"center",gap:16,padding:"16px 18px",background:`linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))`,border:`2px solid ${mode.color}${playable?"":"55"}`,borderRadius:14,cursor:playable?"pointer":"default",boxShadow:playable?`0 0 18px ${mode.color}33`:"none",animation:playable?"borderGlow 2.4s infinite":"none" }}>
           <div style={{ fontSize:26,width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",background:`${mode.color}15`,borderRadius:12,border:`1px solid ${mode.color}33`,flexShrink:0 }}>{mode.icon}</div>
@@ -1776,19 +1798,31 @@ function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
             <div key={gi} style={{ display:"flex",gap:9,flexWrap:"nowrap" }}>
               {grp.map((ship, i) => {
           const cells = ship.cells || [];
-          const hits = cells.filter(([r, c]) => hitCells?.[r]?.[c]).length;
-          const sunk = cells.length > 0 && hits === cells.length;
           const sd = SHIPS.find(x => x.id === ship.id);
-          const base = sd?.color || t.accent;
-          const isAdmiral = ship.id === "amiral";
-          const S = 13, G = 2.5; // TÜM kutucuklar aynı boyut (13px), aralarında 2.5px — bir tık büyütüldü
-          // Amiral gerçek şekliyle çizilir: üstte 3, altta ortada 1 (T formu).
-          // Diğer gemiler tek sıra. Hasar sırayla dolar (rakibin konumunu sızdırmaz).
-          const layout = isAdmiral
-            ? [{ r:0, c:0 }, { r:0, c:1 }, { r:0, c:2 }, { r:1, c:1 }]
-            : cells.map((_, j) => ({ r:0, c:j }));
-          const gw = (isAdmiral ? 3 : cells.length) * S + ((isAdmiral ? 3 : cells.length) - 1) * G;
-          const gh = (isAdmiral ? 2 : 1) * S + (isAdmiral ? G : 0);
+          const custom = ship.custom || !sd; // TERSANE: özel şekil
+          const cellHit = cells.map(([r, c]) => !!hitCells?.[r]?.[c]);
+          const hits = cellHit.filter(Boolean).length;
+          const sunk = cells.length > 0 && hits === cells.length;
+          const base = custom ? (ship.color || t.accent) : (sd?.color || t.accent);
+          const isAdmiral = !custom && ship.id === "amiral";
+          const S = 13, G = 2.5; // TÜM kutucuklar aynı boyut (13px), aralarında 2.5px
+          // TERSANE gemisi GERÇEK şekliyle çizilir (kendi filon), hasar da gerçek konumda.
+          // Standart gemiler: amiral T formu, diğerleri tek sıra; hasar sırayla dolar (konum sızdırmaz).
+          let layout, gw, gh, hitFor;
+          if (custom) {
+            const minR = Math.min(...cells.map(([r]) => r)), minC = Math.min(...cells.map(([, c]) => c));
+            layout = cells.map(([r, c]) => ({ r: r - minR, c: c - minC }));
+            const maxR = Math.max(...layout.map(p => p.r)), maxC = Math.max(...layout.map(p => p.c));
+            gw = (maxC + 1) * S + maxC * G; gh = (maxR + 1) * S + maxR * G;
+            hitFor = cellHit;
+          } else {
+            layout = isAdmiral
+              ? [{ r:0, c:0 }, { r:0, c:1 }, { r:0, c:2 }, { r:1, c:1 }]
+              : cells.map((_, j) => ({ r:0, c:j }));
+            gw = (isAdmiral ? 3 : cells.length) * S + ((isAdmiral ? 3 : cells.length) - 1) * G;
+            gh = (isAdmiral ? 2 : 1) * S + (isAdmiral ? G : 0);
+            hitFor = layout.map((_, j) => j < hits);
+          }
           // 3D kabartma kutucuk: üstten gelen ışık, iç parlaklık, alt gölge ve dış düşen gölge.
           // Vurulunca kararır ve üzerine İNCE çarpı gelir (çetele çizgisi kaldırıldı).
           const Block = ({ hit }) => (
@@ -1810,15 +1844,15 @@ function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
               )}
             </span>
           );
-          const shipLabel = (lang==="en"?sd?.nameEn:sd?.name)||"";
+          const shipLabel = custom ? (lang==="en"?(ship.nameEn||ship.name||""):(ship.name||"")) : ((lang==="en"?sd?.nameEn:sd?.name)||"");
           return (
             <div key={i} title={shipLabel}
               style={{ display:"flex",flexDirection:"column",alignItems:"center",flexShrink:0,
-                marginTop:isAdmiral?0:S+G, opacity:sunk?0.55:1,transition:"opacity 0.3s" }}>
+                marginTop:(isAdmiral||custom)?0:S+G, opacity:sunk?0.55:1,transition:"opacity 0.3s" }}>
               <div style={{ position:"relative",width:gw,height:gh }}>
                 {layout.map((pos, j) => (
                   <span key={j} style={{ position:"absolute",left:pos.c*(S+G),top:pos.r*(S+G),lineHeight:0 }}>
-                    <Block hit={j < hits} />
+                    <Block hit={hitFor[j]} />
                   </span>
                 ))}
               </div>
@@ -1845,7 +1879,7 @@ function ShipStatusPanel({ title, ships, hitCells, color, lang = "tr", compact =
       <div style={{ fontSize:12,fontWeight:800,color:sunkCount>0?t.sunk:t.textDim,fontFamily:mono,background:"rgba(255,255,255,0.04)",padding:"2px 8px",borderRadius:6 }}>{sunkCount}/{totalShips}</div>
     </div>
     <div style={{ display:"flex",flexWrap:"wrap",gap:8 }}>
-      {shipList.map((ship,idx)=>{const shipDef=SHIPS.find(s=>s.id===ship.id);const cells=ship.cells||[];const hits=cells.filter(([r,c])=>hitCells?.[r]?.[c]).length;const sunk=hits===cells.length&&cells.length>0;return(<div key={idx} style={{ display:"flex",alignItems:"center",gap:6,padding:"4px 8px",background:sunk?"rgba(255,140,66,0.08)":"transparent",borderRadius:6,border:`1px solid ${sunk?"rgba(255,140,66,0.2)":"transparent"}` }}><span style={{ fontSize:13,fontWeight:900,color:sunk?t.sunk:t.text,textDecoration:sunk?"line-through":"none",fontFamily:warrior,letterSpacing:1 }}>{(lang==="en"?shipDef?.nameEn:shipDef?.name)||"?"}</span><div style={{ display:"flex",gap:2 }}>{cells.map((_,i)=><div key={i} style={{ width:10,height:10,borderRadius:3,background:i<hits?(sunk?t.sunk:t.hit):color||t.accent,opacity:i<hits?1:0.25,boxShadow:i<hits&&sunk?`0 0 4px ${t.sunk}`:i<hits?`0 0 4px ${t.hit}`:"none" }} />)}</div></div>);})}
+      {shipList.map((ship,idx)=>{const shipDef=SHIPS.find(s=>s.id===ship.id);const cells=ship.cells||[];const hits=cells.filter(([r,c])=>hitCells?.[r]?.[c]).length;const sunk=hits===cells.length&&cells.length>0;return(<div key={idx} style={{ display:"flex",alignItems:"center",gap:6,padding:"4px 8px",background:sunk?"rgba(255,140,66,0.08)":"transparent",borderRadius:6,border:`1px solid ${sunk?"rgba(255,140,66,0.2)":"transparent"}` }}><span style={{ fontSize:13,fontWeight:900,color:sunk?t.sunk:t.text,textDecoration:sunk?"line-through":"none",fontFamily:warrior,letterSpacing:1 }}>{(lang==="en"?(shipDef?.nameEn||ship.nameEn):(shipDef?.name||ship.name))||"?"}</span><div style={{ display:"flex",gap:2 }}>{cells.map((_,i)=><div key={i} style={{ width:10,height:10,borderRadius:3,background:i<hits?(sunk?t.sunk:t.hit):color||t.accent,opacity:i<hits?1:0.25,boxShadow:i<hits&&sunk?`0 0 4px ${t.sunk}`:i<hits?`0 0 4px ${t.hit}`:"none" }} />)}</div></div>);})}
     </div>
   </div>);
 }
@@ -2864,6 +2898,8 @@ export default function Game() {
   // === TEK SALVO modu ===
   const [salvoMode, setSalvoMode] = useState(false);
   const salvoModeRef = useRef(false);
+  const [tersaneMode, setTersaneMode] = useState(false);
+  const tersaneModeRef = useRef(false);
   const [salvoSelected, setSalvoSelected] = useState([]); // [[r,c],...] max 20
   const salvoSelectedRef = useRef([]); // setInterval kapanışında güncel kalsın diye state'in aynası
   const [salvoTimer, setSalvoTimer] = useState(SALVO_SECONDS);
@@ -3909,6 +3945,7 @@ export default function Game() {
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
     if (salvoTimerRef.current) { clearInterval(salvoTimerRef.current); salvoTimerRef.current = null; }
     salvoModeRef.current = false; salvoSelectedRef.current = []; salvoBotShotsRef.current = []; salvoSubmittedRef.current = false;
+    setTersaneMode(false); tersaneModeRef.current = false;
     setSalvoMode(false); setSalvoSelected([]); setSalvoSubmitted(false); setSalvoResult(null); setSalvoTimer(SALVO_SECONDS);
     // KUŞATMA temizliği — bekleyen bot-turu/izleyici zamanlayıcıları siegeModeRef=false görünce no-op olur
     siegeModeRef.current = false; siegeAliveRef.current = [true, true, true]; siegeTargetOfRef.current = [1, 2, 0]; siegeTurnIdxRef.current = 0;
@@ -4150,6 +4187,52 @@ export default function Game() {
       )}
     </>
   );
+
+  // === TERSANE — serbest yerleştirme (20 kutu boya, 5 gemi), sonra normal bot savaşı ===
+  const startTersaneBotGame = () => {
+    track("game_start", { mode: "tersane" });
+    if (!playerName.trim()) { setMessage(L(appLang,"msgTypeName")); return; }
+    const bot = botPlaceShips(); // rakip standart filo (20 hücre) — sağlam
+    const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+    setIsBotGame(true); isBotGameRef.current = true;
+    setTersaneMode(true); tersaneModeRef.current = true;
+    setBotBoard(bot.board);
+    setGameStartTime(Date.now());
+    const shipData = {}; bot.ships.forEach((s, i) => { shipData[i] = { id: s.id, cells: s.cells }; });
+    setBotShips(shipData); setOppShipsData(shipData);
+    setBotAttackOverlay(emptyGrid().map(r => r.map(() => null)));
+    setBotName(name); setOpponentName(name);
+    setMyTurn(true); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS);
+    // Temiz boyama tahtası
+    setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null)));
+    setPlacedShips([]); setPlacementConfirmed(false); setPlacementPreview(false);
+    setPhase("placing");
+    sfx.init(); sfx.playPlacementMusic();
+  };
+  // Boyama: bir kutuyu doldur/boşalt (en fazla 20 kutu).
+  const tersaneToggleCell = (r, c) => {
+    if (phase !== "placing" || placementConfirmed) return;
+    const filled = defenseBoard[r][c] > 0;
+    if (!filled && boardCellCount(defenseBoard) >= TERSANE_CELLS) return;
+    sfx.init(); sfx.play('click');
+    const nb = defenseBoard.map(row => [...row]); nb[r][c] = filled ? 0 : 1; setDefenseBoard(nb);
+    const nc = shipColorMap.map(row => [...row]); nc[r][c] = filled ? null : TERSANE_PAINT; setShipColorMap(nc);
+  };
+  // Onay: 20 kutu ve tam 5 bağlı grup şart. Her grup bir gemi olur, ayrı renk alır.
+  const confirmTersane = () => {
+    const comps = tersaneComponents(defenseBoard);
+    if (boardCellCount(defenseBoard) !== TERSANE_CELLS || comps.length !== TERSANE_SHIPS) return;
+    const ships = comps.map((cells, i) => ({ id: `ters${i}`, custom: true, name: `Gemi ${i + 1}`, nameEn: `Ship ${i + 1}`, color: TERSANE_PALETTE[i % TERSANE_PALETTE.length], cells }));
+    const nc = shipColorMap.map(row => [...row]);
+    ships.forEach(s => s.cells.forEach(([r, c]) => { nc[r][c] = s.color; }));
+    setShipColorMap(nc); setPlacedShips(ships);
+    const shipData = {}; ships.forEach((s, i) => { shipData[i] = { id: s.id, cells: s.cells, color: s.color, name: s.name, nameEn: s.nameEn, custom: true }; });
+    setMyShipsData(shipData);
+    setPlacementConfirmed(true);
+    if (placementTimerRef.current) clearInterval(placementTimerRef.current);
+    setPhase("playing"); setMyTurn(true); setActiveBoard("attack");
+    sfx.init(); sfx.play('click'); sfx.playBattleMusic(false);
+  };
 
   const startBotGame = () => {
     track("game_start", { mode: "bot" });
@@ -5409,7 +5492,7 @@ export default function Game() {
   }
   if (showAchievements) return <><style>{ANIMS}</style><AchievementsScreen profile={myProfile} onClose={() => setShowAchievements(false)} onClaim={claimAchievementSet} lang={appLang} /></>;
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} lang={appLang} /></>;
-  if (showDifferentWaters) return <><style>{ANIMS}</style><DifferentWaters onBack={() => setShowDifferentWaters(false)} onPlaySalvo={() => { setShowDifferentWaters(false); startSalvoBotGame(); }} onPlayKusatma={() => { setShowDifferentWaters(false); startSiegeBotGame(); }} lang={appLang} /></>;
+  if (showDifferentWaters) return <><style>{ANIMS}</style><DifferentWaters onBack={() => setShowDifferentWaters(false)} onPlaySalvo={() => { setShowDifferentWaters(false); startSalvoBotGame(); }} onPlayKusatma={() => { setShowDifferentWaters(false); startSiegeBotGame(); }} onPlayTersane={() => { setShowDifferentWaters(false); startTersaneBotGame(); }} lang={appLang} /></>;
   if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => { setSelectedArena(arena); setShowArenaSelect(false); startQuickMatch(arena); }} lang={appLang} /></>;
   if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myGold={myProfile?.gold} onBack={() => setShowOnlineLobby(false)} onChallenge={handleOnlineChallenge} ready={readyToPlay} onToggleReady={()=>setReadyToPlay(v=>!v)} lang={appLang} /></>;
 
@@ -5740,6 +5823,36 @@ export default function Game() {
     </div>);
   }
 
+  if (phase === "placing" && tersaneMode) {
+    // === TERSANE YERLEŞTİRME — 20 kutu boya, tam 5 gemi ===
+    const count = boardCellCount(defenseBoard);
+    const comps = tersaneComponents(defenseBoard);
+    const shipsCount = comps.length;
+    const valid = count === TERSANE_CELLS && shipsCount === TERSANE_SHIPS;
+    const tCell = Math.max(16, Math.min(30, Math.floor(Math.min((viewport.w - gutter - 8) / 12, (viewport.h - 320) / 12))));
+    const liveColors = shipColorMap.map(row => [...row]);
+    comps.forEach((cells, i) => { const col = shipsCount === TERSANE_SHIPS ? TERSANE_PALETTE[i % TERSANE_PALETTE.length] : TERSANE_PAINT; cells.forEach(([r, c]) => { liveColors[r][c] = col; }); });
+    return (<div style={{ ...appStyle, height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingTop:"calc(8px + env(safe-area-inset-top,0px))", paddingBottom:8 }}><style>{ANIMS}</style>
+      <div style={{ width:"100%",maxWidth:420,display:"flex",justifyContent:"flex-start",marginBottom:4 }}>
+        <button onClick={()=>{ sfx.init(); sfx.play('click'); resetGame(); }} style={{ padding:"7px 14px",minHeight:32,background:"rgba(255,255,255,0.05)",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:9,fontSize:11,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",gap:5 }}>← {L(appLang,"backBtn")}</button>
+      </div>
+      <div style={{ fontSize:16,fontWeight:800,letterSpacing:4,color:"#f59e0b",fontFamily:warrior,textShadow:"0 0 15px rgba(245,158,11,0.5)",marginBottom:2 }}>⚒️ TERSANE</div>
+      <div style={{ fontSize:18,fontWeight:800,marginBottom:3,color:placementTimer<=15?t.hit:"#f59e0b",animation:placementTimer<=15?"blink3s 0.5s infinite":"none",fontFamily:warrior }}>{formatTime(placementTimer)}</div>
+      <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,marginBottom:6,textAlign:"center",maxWidth:360,lineHeight:1.4 }}>{appLang==="en"?"Paint 20 cells forming exactly 5 ships. A ship's cells must share edges — corners don't count.":"20 kutu boya, TAM 5 gemi oluştur. Bir geminin kutuları kenardan bitişik olmalı — köşe sayılmaz."}</div>
+      <div style={{ display:"flex",flexWrap:"wrap",gap:3,justifyContent:"center",maxWidth:300,marginBottom:6 }}>
+        {Array.from({length:TERSANE_CELLS}).map((_,i)=>(<span key={i} style={{ width:11,height:11,borderRadius:3,background:i<count?TERSANE_PAINT:"rgba(255,255,255,0.08)",boxShadow:i<count?`0 0 6px ${TERSANE_PAINT}`:"none",transition:"all 0.15s" }} />))}
+      </div>
+      <div style={{ display:"flex",gap:14,marginBottom:8 }}>
+        <div style={{ fontSize:13,fontWeight:900,fontFamily:mono,color:count===TERSANE_CELLS?"#34d399":t.textDim }}>{appLang==="en"?"CELLS":"KUTU"}: {count}/{TERSANE_CELLS}</div>
+        <div style={{ fontSize:13,fontWeight:900,fontFamily:mono,color:shipsCount===TERSANE_SHIPS?"#34d399":(shipsCount>TERSANE_SHIPS?t.hit:t.textDim) }}>{appLang==="en"?"SHIPS":"GEMİ"}: {shipsCount}/{TERSANE_SHIPS}</div>
+      </div>
+      <div style={{ display:"flex",justifyContent:"center",marginBottom:10 }}>
+        <Grid board={defenseBoard} cellSize={tCell} isDefense shipColors={liveColors} overlay={emptyGrid().map(r=>r.map(()=>null))} onClick={tersaneToggleCell} />
+      </div>
+      <button onClick={confirmTersane} disabled={!valid} style={valid?{ ...heroBtnStyle("#ffd08a","#f59e0b","#d97706","#92400e","#2a1602"),animation:"btnBreath 1.8s ease-in-out infinite" }:{ ...heroBtnStyle("#3a4256","#2b3040","#222634","#191c26","#6b7280"),cursor:"default",opacity:0.6 }}><HeroSheen />⚔ {L(appLang,"startBattleBtn")}</button>
+      {count>0 && <button onClick={()=>{ setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({length:ROWS},()=>Array(COLS).fill(null))); }} style={{ marginTop:8,padding:"8px 22px",background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:10,fontSize:11,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{appLang==="en"?"CLEAR":"TEMİZLE"}</button>}
+    </div>);
+  }
   if (phase === "placing") {
     const allPlaced = placedShips.length === SHIPS.length, timerLow = placementTimer <= 15, nextShip = SHIPS.find(s => !placedShips.some(p => p.id === s.id));
     // Tahta hücre boyutu — ölçülen boş alandan. ÖNEMLİ: önizleme ekranı da bunu kullandığı
