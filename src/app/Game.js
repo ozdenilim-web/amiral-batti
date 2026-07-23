@@ -3183,6 +3183,7 @@ export default function Game() {
   const [siegeAbortNotice, setSiegeAbortNotice] = useState(null); // "host ayrıldı" gibi tam ekran uyarı
   const [siegeToast, setSiegeToast] = useState(null); // "X ayrıldı — elendi" gibi kısa masa bildirimi
   const siegeNoticeSeqRef = useRef(0);
+  const siegePresentSeenRef = useRef({}); // en az bir kez present görülen uid'ler — yarış/geç-yazımda yanlış eleme olmasın
   const [siegeConcluded, setSiegeConcluded] = useState(false); // tüm oyun bitti mi (tek filo kaldı) — savaş haritası kapısı
   // Kuşatma sayaçları — her oyuncuya 5 dk (bardan azalır) + toplam kronometre
   const [siegeClocks, setSiegeClocks] = useState([CLOCK_SECONDS, CLOCK_SECONDS, CLOCK_SECONDS]);
@@ -5051,8 +5052,9 @@ export default function Game() {
     setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null)));
     setPhase("placing");
     listenToSiegeGame(roomId, mySeat, isHost);
-    // Kopma tespiti — koltuk sahibi düşerse present düşer
-    if (authUid) { update(ref(db, `siege_rooms/${roomId}/present/${authUid}`), Date.now()).catch(() => {}); onDisconnect(ref(db, `siege_rooms/${roomId}/present/${authUid}`)).remove(); }
+    // Kopma tespiti — koltuk sahibi düşerse present düşer. (set: update düz sayı kabul etmez!)
+    if (authUid) { set(ref(db, `siege_rooms/${roomId}/present/${authUid}`), Date.now()).catch(() => {}); onDisconnect(ref(db, `siege_rooms/${roomId}/present/${authUid}`)).remove(); }
+    siegePresentSeenRef.current = {};
     sfx.init(); sfx.playPlacementMusic();
   };
 
@@ -5198,7 +5200,9 @@ export default function Game() {
           if (g && !seatBotRef.current[inp.seat] && inp.seat === g.turnIdx && g.alive[inp.seat]) hostResolveShot(inp.seat, inp.shots || []);
         }
         const present = room.present || {}; const g = hostGameRef.current;
-        if (g && !g.gameOver) [0, 1, 2].forEach(i => { if (!seatBotRef.current[i] && g.alive[i] && siegeSeatUidsRef.current[i] && !present[siegeSeatUidsRef.current[i]]) { g.notice = { name: siegeAbsNamesRef.current[i] || "?", seq: Date.now() }; hostEliminate(i); } });
+        Object.keys(present).forEach(u => { siegePresentSeenRef.current[u] = true; }); // görülenleri işaretle
+        // Sadece DAHA ÖNCE present görülmüş bir koltuk düşerse ele (yeni yazılmamış olanı yanlışlıkla eleme).
+        if (g && !g.gameOver) [0, 1, 2].forEach(i => { const uid = siegeSeatUidsRef.current[i]; if (!seatBotRef.current[i] && g.alive[i] && uid && siegePresentSeenRef.current[uid] && !present[uid]) { g.notice = { name: siegeAbsNamesRef.current[i] || "?", seq: Date.now() }; hostEliminate(i); } });
       }
       // HERKES: yansıt + savaşa geç + sonuç
       if (room.game) {
