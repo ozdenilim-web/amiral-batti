@@ -131,6 +131,36 @@ function tersaneBotPlace() {
 }
 function coordStr(r, c) { return `${r + 1}${COL_LABELS[c]}`; }
 function formatTime(sec) { const s = Math.max(0, sec); return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`; }
+// === MOD AMBİYANSLARI — tek değişken seti: üst/orta/alt renk, vinyet, atmosfer opaklığı, hareket ===
+// Ambiyans YALNIZCA zemin katmanında yaşar (ızgaranın altında). Hücre durum renklerine dokunmaz.
+// Yeni mod için sadece 7 değer tanımla; yeni ekran yazma.
+const MODE_AMBIANCE = {
+  tatbikat: { top: "#13293b", mid: "#182a39", bot: "#11212d", vig: 0.22, atmo: 0.10, motion: 0,  type: "calm" },     // Tatbikat Suları — sakin, düz, gündüz
+  teksalvo: { top: "#12506a", mid: "#0f3048", bot: "#071a2a", vig: 0.28, atmo: 0.28, motion: 0,  type: "noon" },     // Açık Deniz, Öğle — sert ışık
+  kusatma:  { top: "#1b2536", mid: "#101a2a", bot: "#070c15", vig: 0.62, atmo: 0.14, motion: 0,  type: "twilight" }, // Alacakaranlık — güçlü vinyet
+  tersane:  { top: "#0b141d", mid: "#080f16", bot: "#04080d", vig: 0.55, atmo: 0.55, motion: 0,  type: "harbor" },   // Liman, Gece — noktasal bronz ışıklar
+  girdap:   { top: "#27332f", mid: "#182630", bot: "#0b131a", vig: 0.45, atmo: 0.30, motion: 26, type: "storm" },   // Fırtına, gri deniz
+  manevra:  { top: "#2b3843", mid: "#1d2b35", bot: "#121d26", vig: 0.32, atmo: 0.42, motion: 34, type: "fog" },     // Sabah Sisi — düşük görüş
+  ateskes:  { top: "#182634", mid: "#111f2d", bot: "#0b1420", vig: 0.20, atmo: 0.12, motion: 0,  type: "dawn" },    // Şafak, durgun su
+  default:  { top: "#0A1520", mid: "#0F2434", bot: "#081118", vig: 0.28, atmo: 0.10, motion: 0,  type: "calm" },
+};
+function ambianceStyle(key) {
+  const a = MODE_AMBIANCE[key] || MODE_AMBIANCE.default;
+  const o = a.atmo;
+  const base = `linear-gradient(180deg, ${a.top} 0%, ${a.mid} 52%, ${a.bot} 100%)`;
+  const vig = `radial-gradient(ellipse at 50% 42%, rgba(0,0,0,0) 46%, rgba(3,8,14,${a.vig}) 100%)`;
+  let atmo;
+  switch (a.type) {
+    case "noon": atmo = `radial-gradient(ellipse 130% 65% at 50% -12%, rgba(150,235,255,${o}) 0%, rgba(150,235,255,0) 55%)`; break;
+    case "twilight": atmo = `linear-gradient(0deg, rgba(200,120,60,0) 34%, rgba(200,120,60,${o}) 60%, rgba(200,120,60,0) 74%)`; break;
+    case "harbor": atmo = `radial-gradient(circle at 18% 80%, rgba(201,161,94,${o}) 0%, transparent 5%), radial-gradient(circle at 70% 84%, rgba(201,161,94,${o * 0.8}) 0%, transparent 4%), radial-gradient(circle at 88% 76%, rgba(201,161,94,${o * 0.55}) 0%, transparent 3.5%), linear-gradient(0deg, rgba(3,7,11,0.55) 0%, rgba(3,7,11,0) 14%)`; break;
+    case "storm": atmo = `linear-gradient(180deg, rgba(9,14,18,${o}) 0%, rgba(9,14,18,0) 42%), repeating-linear-gradient(118deg, rgba(120,140,150,0) 0 46px, rgba(120,140,150,0.045) 46px 92px)`; break;
+    case "fog": atmo = `radial-gradient(ellipse 150% 85% at 50% 18%, rgba(205,218,228,${o}) 0%, rgba(205,218,228,0) 62%)`; break;
+    case "dawn": atmo = `radial-gradient(ellipse 130% 42% at 50% 98%, rgba(201,161,94,${o}) 0%, rgba(201,161,94,0) 55%)`; break;
+    default: atmo = `linear-gradient(0deg, rgba(201,161,94,0) 47%, rgba(201,161,94,${o * 0.5}) 55%, rgba(201,161,94,0) 63%)`; // calm — ince bronz ufuk damgası
+  }
+  return { background: `${atmo}, ${vig}, ${base}` };
+}
 
 function isTestMode() {
   if (typeof window === "undefined") return false;
@@ -1383,14 +1413,14 @@ function EmojiDisplay({ emoji, label }) {
 }
 
 // === AYARLAR PANELİ — stil yardımcıları ve alt bileşenler ===
-const rowBtnStyle = { display:"flex",alignItems:"center",gap:12,width:"100%",padding:"14px 14px",background:"rgba(255,255,255,0.04)",border:`1px solid ${t.border}`,borderRadius:12,marginBottom:10,cursor:"pointer",textAlign:"left",color:t.text };
+const rowBtnStyle = { display:"flex",alignItems:"center",gap:12,width:"100%",padding:"14px 14px",background:"linear-gradient(180deg,rgba(22,36,50,0.55),rgba(12,22,32,0.55))",border:"1px solid #26394b",borderRadius:12,marginBottom:10,cursor:"pointer",textAlign:"left",color:"#dfe9f0",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.05)" };
 const rowIconStyle = { fontSize:20,width:28,textAlign:"center",flexShrink:0 };
-const rowTitleStyle = { fontSize:14,fontWeight:800,color:t.text,fontFamily:warrior,letterSpacing:0.5 };
-const rowSubStyle = { fontSize:11,color:t.textDim,fontFamily:mono,marginTop:2 };
-const chevronStyle = { fontSize:20,color:t.textDim,flexShrink:0 };
-const sectionCardStyle = { padding:"14px 14px",background:"rgba(255,255,255,0.04)",border:`1px solid ${t.border}`,borderRadius:12,marginBottom:10 };
-const sliderStyle = { width:"100%",accentColor:t.accent,cursor:"pointer" };
-const langBtnStyle = (active) => ({ flex:1,padding:"10px 0",borderRadius:9,border:`1px solid ${active?t.accent:t.border}`,background:active?"rgba(0,229,255,0.14)":"rgba(255,255,255,0.03)",color:active?t.accent:t.textDim,fontFamily:warrior,fontWeight:800,fontSize:12,cursor:"pointer" });
+const rowTitleStyle = { fontSize:14,fontWeight:800,color:"#dfe9f0",fontFamily:warrior,letterSpacing:0.5 };
+const rowSubStyle = { fontSize:11,color:"#7A8FA0",fontFamily:mono,marginTop:2 };
+const chevronStyle = { fontSize:20,color:"#54697a",flexShrink:0 };
+const sectionCardStyle = { padding:"14px 14px",background:"linear-gradient(180deg,rgba(22,36,50,0.55),rgba(12,22,32,0.55))",border:"1px solid #26394b",borderRadius:12,marginBottom:10,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.05)" };
+const sliderStyle = { width:"100%",accentColor:"#1CC7E6",cursor:"pointer" };
+const langBtnStyle = (active) => ({ flex:1,padding:"10px 0",borderRadius:9,border:`1px solid ${active?"#3ad9f2":"#26394b"}`,background:active?"rgba(28,199,230,0.16)":"linear-gradient(180deg,#20313f,#132030)",color:active?"#5fd8ee":"#A9BCC9",fontFamily:warrior,fontWeight:800,fontSize:12,cursor:"pointer" });
 
 function ToggleRow({ icon, title, sub, value, onChange }) {
   return (<div style={sectionCardStyle}>
@@ -1604,15 +1634,15 @@ function Leaderboard({ onBack, myUid, lang = "tr" }) {
     { key:'gold', label:L(lang,"tabGold"), icon:'🪙' },
     { key:'wins', label:L(lang,"tabWins"), icon:'🏆' },
   ];
-  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:`linear-gradient(180deg, ${t.bg} 0%, #071428 50%, rgba(255,215,0,0.02) 100%)`,padding:"20px 12px",fontFamily:mono,color:t.text }}>
-    <div style={{ fontSize:30,fontWeight:900,letterSpacing:8,color:t.gold,marginBottom:2,fontFamily:warrior,textShadow:`0 0 30px ${t.goldGlow}`,animation:"fadeUp 0.4s ease-out" }}>{L(lang,"leaderboardTitle")}</div>
-    {!loading && myIdx >= 0 && <div style={{ padding:"6px 18px",background:"rgba(0,229,255,0.06)",border:`1px solid rgba(0,229,255,0.15)`,borderRadius:10,marginBottom:10,animation:"fadeUp 0.6s ease-out" }}>
-      <div style={{ fontSize:12,fontWeight:800,color:t.accent,fontFamily:warrior,letterSpacing:2,textAlign:"center" }}>{getMotivation()}</div>
+  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)",padding:"20px 12px",fontFamily:mono,color:"#dfe9f0" }}>
+    <div style={{ fontSize:28,fontWeight:900,letterSpacing:6,color:"#f0d79a",marginBottom:2,fontFamily:warrior,animation:"fadeUp 0.4s ease-out" }}>{L(lang,"leaderboardTitle")}</div>
+    {!loading && myIdx >= 0 && <div style={{ padding:"6px 18px",background:"linear-gradient(180deg, rgba(22,36,50,0.6), rgba(12,22,32,0.6))",border:"1px solid #26394b",borderRadius:10,marginBottom:10,animation:"fadeUp 0.6s ease-out" }}>
+      <div style={{ fontSize:12,fontWeight:800,color:"#5fd8ee",fontFamily:warrior,letterSpacing:2,textAlign:"center" }}>{getMotivation()}</div>
     </div>}
     {/* Sort tabs */}
-    <div style={{ display:"flex",gap:4,marginBottom:14,background:t.surface,borderRadius:12,padding:4,border:`1px solid ${t.border}` }}>
+    <div style={{ display:"flex",gap:4,marginBottom:14,background:"#132030",borderRadius:12,padding:4,border:"1px solid #26394b" }}>
       {tabs.map(tab => (
-        <button key={tab.key} onClick={()=>setSortBy(tab.key)} style={{ padding:"8px 14px",background:sortBy===tab.key?`linear-gradient(135deg,${t.accent},#0891b2)`:"transparent",color:sortBy===tab.key?t.bg:t.textDim,border:"none",borderRadius:8,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:2,transition:"all 0.2s" }}>{tab.icon} {tab.label}</button>
+        <button key={tab.key} onClick={()=>setSortBy(tab.key)} style={{ padding:"8px 14px",background:sortBy===tab.key?"linear-gradient(180deg,#1CC7E6,#0B7E98)":"transparent",color:sortBy===tab.key?"#052029":"#7A8FA0",border:"none",borderRadius:8,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:2,transition:"all 0.2s" }}>{tab.icon} {tab.label}</button>
       ))}
     </div>
     {loading ? <div style={{ color:t.textDim,fontSize:14,marginTop:40,fontFamily:warrior,letterSpacing:3,animation:"pulse 1.5s infinite" }}>{L(lang,"loadingText")}</div> : players.length===0 ? <div style={{ color:t.textDim,fontSize:14,marginTop:40,fontFamily:warrior }}>{L(lang,"noPlayersYet")}</div> : (
@@ -1623,32 +1653,32 @@ function Leaderboard({ onBack, myUid, lang = "tr" }) {
           const winRate = p.totalGames>0?Math.round((p.wins/p.totalGames)*100):0;
           const medalColors = [["#ffd700","rgba(255,215,0,0.18)","rgba(255,215,0,0.4)"],["#c0c0c0","rgba(192,192,192,0.12)","rgba(192,192,192,0.3)"],["#cd7f32","rgba(205,127,50,0.12)","rgba(205,127,50,0.3)"]];
           const isMedal = i < 3;
-          return (<div key={p.uid} style={{ display:"flex",alignItems:"center",gap:10,padding:isMedal?"12px 14px":"10px 12px",background:isMe?"rgba(0,229,255,0.1)":isMedal?medalColors[i][1]:"rgba(12,21,41,0.8)",border:`2px solid ${isMe?"rgba(0,229,255,0.4)":isMedal?medalColors[i][2]:"rgba(30,58,95,0.3)"}`,borderRadius:12,animation:`arSlideIn 0.4s ease-out ${i*0.06}s both` }}>
+          return (<div key={p.uid} style={{ display:"flex",alignItems:"center",gap:10,padding:isMedal?"12px 14px":"10px 12px",background:isMe?"linear-gradient(180deg, rgba(28,199,230,0.12), rgba(10,20,30,0.85))":isMedal?medalColors[i][1]:"linear-gradient(180deg,#20313f,#132030)",border:`1px solid ${isMe?"rgba(28,199,230,0.4)":isMedal?medalColors[i][2]:"#26394b"}`,borderRadius:12,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.05)",animation:`arSlideIn 0.4s ease-out ${i*0.06}s both` }}>
             {/* Rank badge */}
-            <div style={{ width:36,height:36,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:isMedal?20:13,fontWeight:800,background:isMedal?medalColors[i][1]:"rgba(255,255,255,0.04)",color:isMedal?medalColors[i][0]:t.textDim,fontFamily:warrior,border:`2px solid ${isMedal?medalColors[i][2]:"rgba(255,255,255,0.06)"}`,flexShrink:0 }}>{i<3?["🥇","🥈","🥉"][i]:i+1}</div>
+            <div style={{ width:36,height:36,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:isMedal?20:13,fontWeight:800,background:isMedal?medalColors[i][1]:"rgba(255,255,255,0.04)",color:isMedal?medalColors[i][0]:"#7A8FA0",fontFamily:warrior,border:`1px solid ${isMedal?medalColors[i][2]:"#26394b"}`,flexShrink:0 }}>{i<3?["🥇","🥈","🥉"][i]:i+1}</div>
             {/* Name + rank */}
             <div style={{ flex:1,minWidth:0 }}>
               <div style={{ display:"flex",alignItems:"center",gap:5 }}>
-                <span style={{ fontSize:14,fontWeight:800,color:isMe?t.accent:t.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontFamily:warrior,letterSpacing:1 }}>{p.displayName}</span>
+                <span style={{ fontSize:14,fontWeight:800,color:isMe?"#5fd8ee":"#dfe9f0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontFamily:warrior,letterSpacing:1 }}>{p.displayName}</span>
                 <span style={{ fontSize:9,fontWeight:800,color:rank.color,fontFamily:warrior }}>{rank.icon} {rank.title}</span>
               </div>
-              <div style={{ fontSize:9,color:t.textDim,marginTop:2,fontFamily:mono,display:"flex",gap:8 }}>
-                <span style={{ color:"#4ade80" }}>⚓ {p.wins||0}G</span>
-                <span style={{ color:t.hit }}>✕ {p.losses||0}M</span>
+              <div style={{ fontSize:9,color:"#54697a",marginTop:2,fontFamily:mono,display:"flex",gap:8 }}>
+                <span style={{ color:"#c9a15e" }}>⚓ {p.wins||0}G</span>
+                <span style={{ color:"#e0958f" }}>✕ {p.losses||0}M</span>
                 <span>%{winRate}</span>
-                <span style={{ color:t.gold }}>🪙 {p.gold||0}</span>
+                <span style={{ color:"#f0d79a" }}>🪙 {p.gold||0}</span>
               </div>
             </div>
             {/* Primary sort value */}
             <div style={{ textAlign:"right",flexShrink:0 }}>
-              {sortBy==='wins' && <><div style={{ fontSize:22,fontWeight:900,color:"#4ade80",fontFamily:warrior }}>{p.wins||0}</div><div style={{ fontSize:8,color:t.textDim,letterSpacing:2,fontWeight:700 }}>{L(lang,"tabWins")}</div></>}
-              {sortBy==='gold' && <><div style={{ fontSize:22,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}` }}>{p.gold||0}</div><div style={{ fontSize:8,color:t.textDim,letterSpacing:2,fontWeight:700 }}>{L(lang,"tabGold")}</div></>}
+              {sortBy==='wins' && <><div style={{ fontSize:22,fontWeight:900,color:"#A9BCC9",fontFamily:warrior }}>{p.wins||0}</div><div style={{ fontSize:8,color:"#54697a",letterSpacing:2,fontWeight:700 }}>{L(lang,"tabWins")}</div></>}
+              {sortBy==='gold' && <><div style={{ fontSize:22,fontWeight:900,color:"#f0d79a",fontFamily:warrior }}>{p.gold||0}</div><div style={{ fontSize:8,color:"#54697a",letterSpacing:2,fontWeight:700 }}>{L(lang,"tabGold")}</div></>}
             </div>
           </div>);
         })}
       </div>
     )}
-    <button onClick={onBack} style={{ marginTop:20,padding:"14px 40px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:15,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 20px ${t.accentGlow}` }}>{L(lang,"backBtn")}</button>
+    <button onClick={onBack} style={{ marginTop:20,padding:"14px 40px",background:"linear-gradient(180deg,#20313f,#132030)",color:"#A9BCC9",border:"1px solid #26394b",borderRadius:12,fontSize:15,fontWeight:800,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 0 rgba(0,0,0,0.4)" }}>{L(lang,"backBtn")}</button>
   </div>);
 }
 
@@ -4086,7 +4116,7 @@ export default function Game() {
       )}
       {showSettings && (
         <div style={{ position:"fixed",inset:0,overflowX:"hidden",zIndex:9600,background:"rgba(0,0,0,0.62)",backdropFilter:"blur(4px)",display:"flex",alignItems:"flex-end",justifyContent:"center",animation:"settingsFadeIn 0.2s ease-out" }} onClick={()=>{ setShowSettings(false); setSettingsView(null); }}>
-          <div onClick={e=>e.stopPropagation()} style={{ width:"100%",maxWidth:400,maxHeight:"86vh",overflowY:"auto",background:"linear-gradient(180deg, rgba(14,20,40,0.99), rgba(7,11,24,0.99))",border:`1px solid ${t.border}`,borderBottom:"none",borderRadius:"20px 20px 0 0",padding:"14px 20px 30px",animation:"sheetSlideUp 0.3s cubic-bezier(0.22,1,0.36,1)",boxShadow:"0 -10px 50px rgba(0,0,0,0.5)" }}>
+          <div onClick={e=>e.stopPropagation()} style={{ width:"100%",maxWidth:400,maxHeight:"86vh",overflowY:"auto",background:"linear-gradient(180deg,#0F2434 0%,#081118 100%)",border:"1px solid #26394b",borderBottom:"none",borderRadius:"20px 20px 0 0",padding:"14px 20px 30px",animation:"sheetSlideUp 0.3s cubic-bezier(0.22,1,0.36,1)",boxShadow:"0 -10px 50px rgba(0,0,0,0.5)" }}>
             <div style={{ width:40,height:4,borderRadius:2,background:"rgba(255,255,255,0.2)",margin:"0 auto 16px" }} />
 
             {settingsView === null && (<>
@@ -4149,7 +4179,7 @@ export default function Game() {
                 <span style={{ ...chevronStyle,color:t.hit }}>›</span>
               </button>
 
-              <button onClick={()=>{ setShowSettings(false); setSettingsView(null); }} style={{ marginTop:6,width:"100%",padding:"12px 0",background:"rgba(255,255,255,0.05)",border:`1px solid ${t.border}`,borderRadius:10,color:t.textDim,fontFamily:warrior,fontWeight:800,letterSpacing:2,cursor:"pointer" }}>{L(appLang,"close")}</button>
+              <button onClick={()=>{ setShowSettings(false); setSettingsView(null); }} style={{ marginTop:6,width:"100%",padding:"12px 0",background:"linear-gradient(180deg,#20313f,#132030)",border:"1px solid #26394b",borderRadius:10,color:"#A9BCC9",fontFamily:warrior,fontWeight:800,letterSpacing:2,cursor:"pointer",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.1)" }}>{L(appLang,"close")}</button>
             </>)}
 
             {settingsView === "profile" && myProfile && (() => {
@@ -5043,6 +5073,8 @@ export default function Game() {
 
   // Tek kaynaklı ölçü sistemi: her ekranda aynı kenar boşluğu ve aynı içerik genişliği.
   const appStyle = { minHeight: "100vh", minHeight: "100dvh", width: "100%", maxWidth: "100%", background: t.bg, color: t.text, fontFamily: mono, display: "flex", flexDirection: "column", alignItems: "center", padding: "12px clamp(10px, 4vw, 16px) 24px", boxSizing: "border-box", overflowX: "hidden" };
+  // Aktif oyun modu → ambiyans anahtarı (yerleştirme/savaş ekranlarının zemini bununla sürülür)
+  const modeKey = (siegeMode || siegeModeRef.current) ? "kusatma" : salvoMode ? "teksalvo" : tersaneMode ? "tersane" : isBotGame ? "tatbikat" : "default";
   const btnStyle = { padding: "12px 28px", background: `linear-gradient(135deg, ${t.accent}, #0891b2)`, color: t.bg, border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", cursor: "pointer", fontFamily: warrior, boxShadow: `0 0 15px ${t.accentGlow}` };
   const btnSecStyle = { padding: "8px 16px", background: "transparent", color: t.accent, border: `1px solid ${t.accent}`, borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: 1, cursor: "pointer", fontFamily: warrior };
   const inputStyle = { padding: "12px 16px", background: t.surface, color: t.text, border: `1px solid ${t.border}`, borderRadius: 8, fontSize: 15, fontFamily: mono, outline: "none", textAlign: "center", width: "100%", maxWidth: 260, boxSizing: "border-box" };
@@ -5859,7 +5891,7 @@ export default function Game() {
     const tCell = Math.max(16, Math.min(30, Math.floor(Math.min((viewport.w - gutter - 8) / 12, (viewport.h - 320) / 12))));
     const liveColors = shipColorMap.map(row => [...row]);
     comps.forEach((cells, i) => { const col = shipsCount === TERSANE_SHIPS ? TERSANE_PALETTE[i % TERSANE_PALETTE.length] : TERSANE_PAINT; cells.forEach(([r, c]) => { liveColors[r][c] = col; }); });
-    return (<div style={{ ...appStyle, height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingTop:"calc(8px + env(safe-area-inset-top,0px))", paddingBottom:8 }}><style>{ANIMS}</style>
+    return (<div style={{ ...appStyle, ...ambianceStyle(modeKey), height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingTop:"calc(8px + env(safe-area-inset-top,0px))", paddingBottom:8 }}><style>{ANIMS}</style>
       <div style={{ width:"100%",maxWidth:420,display:"flex",justifyContent:"flex-start",marginBottom:4 }}>
         <button onClick={()=>{ sfx.init(); sfx.play('click'); resetGame(); }} style={{ padding:"7px 14px",minHeight:32,background:"rgba(255,255,255,0.05)",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:9,fontSize:11,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",gap:5 }}>← {L(appLang,"backBtn")}</button>
       </div>
@@ -5889,7 +5921,7 @@ export default function Game() {
     const placeCell = measuredPlace || Math.max(13, Math.min(24, Math.floor((viewport.w - gutter - 14) / 12)));
     // Placement preview overlay
     if (placementPreview && allPlaced) {
-      return (<div style={{ ...appStyle, background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)", justifyContent:"center" }}><style>{ANIMS}</style>
+      return (<div style={{ ...appStyle, ...ambianceStyle(modeKey), justifyContent:"center" }}><style>{ANIMS}</style>
         <div style={{ animation:"previewZoom 0.8s ease-out forwards",textAlign:"center",width:"100%",maxWidth:400 }}>
           <div style={{ fontSize:16,fontWeight:800,color:"#5fd8ee",fontFamily:warrior,letterSpacing:4,marginBottom:12,textShadow:"0 0 15px rgba(28,199,230,0.3)" }}>{L(appLang,"fleetReady")}</div>
           <div style={{ animation:"floatShadow 3s ease-in-out infinite",borderRadius:14,overflow:"hidden",border:"1px solid #26394b",boxShadow:"0 10px 40px rgba(0,0,0,0.5)" }}>
@@ -5904,7 +5936,7 @@ export default function Game() {
     }
     // SABİT YERLEŞTİRME EKRANI — kaydırma yok. Kontroller sığmazsa hücre küçülür.
     // Üst blok: geri 40 + başlık 26 + süre 30 + sayaç 22 + ipucu 34 + gemi butonları ~96 + rastgele 44 + döndür/geri al 50
-    return (<div style={{ ...appStyle, background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)", height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingBottom: 10 }}><style>{ANIMS}</style>
+    return (<div style={{ ...appStyle, ...ambianceStyle(modeKey), height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingBottom: 10 }}><style>{ANIMS}</style>
       {/* GERİ DÖN — bot maçından/hazırlıktan vazgeçip ana ekrana dönüş */}
       <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-start",marginBottom:4 }}>
         <button onClick={() => { sfx.init(); sfx.play('click'); if (isBotGame) resetGame(); else setShowSurrenderConfirm(true); }}
@@ -6173,7 +6205,7 @@ export default function Game() {
     // Gösterim tahtası: batan gemiler ✕ ile işaretlenir (state kopyası üzerinde).
     const siegeDefShips = activeDefender === 0 ? placedShips : siegeBotShips[activeDefender];
     const displayGrid = markSunkCells(overlayGrid.map(row => [...row]), siegeDefShips);
-    return (<div style={{ ...appStyle, height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingTop:"calc(8px + env(safe-area-inset-top, 0px))", paddingBottom:8 }}><style>{ANIMS}</style>
+    return (<div style={{ ...appStyle, ...ambianceStyle(modeKey), height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingTop:"calc(8px + env(safe-area-inset-top, 0px))", paddingBottom:8 }}><style>{ANIMS}</style>
       {/* Başlık + kronometre — GERİ butonu YOK; oyundan ayrıl (⚑) üst bardaki ayarların yanında */}
       <div style={{ display:"flex",alignItems:"center",gap:9,marginBottom:4 }}>
         <span style={{ fontSize:14,fontWeight:800,letterSpacing:4,color:t.accent,fontFamily:warrior,textShadow:`0 0 15px ${t.accentGlow}` }}>KUŞATMA</span>
@@ -6291,10 +6323,7 @@ export default function Game() {
     const playCell = measured || Math.max(13, Math.min(26, Math.floor((viewport.w - gutter - 14) / 12)));
     const gridSize = miniGrid ? Math.min(38, Math.floor((Math.min(viewport.w - 24, 320)) / 8)) : playCell;
     const flyEmoji = emojiToast || myEmojiToast;
-    return (<div style={{ ...appStyle, height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingTop:"calc(6px + env(safe-area-inset-top, 0px))", paddingBottom: "calc(126px + env(safe-area-inset-bottom, 0px))", background:`
-      repeating-linear-gradient(0deg, transparent 0px, transparent 43px, rgba(120,180,205,0.045) 43px, rgba(120,180,205,0.05) 44px),
-      repeating-linear-gradient(90deg, transparent 0px, transparent 43px, rgba(120,180,205,0.045) 43px, rgba(120,180,205,0.05) 44px),
-      linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)`, position:"relative" }}><style>{ANIMS}</style>
+    return (<div style={{ ...appStyle, ...ambianceStyle(modeKey), height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingTop:"calc(6px + env(safe-area-inset-top, 0px))", paddingBottom: "calc(126px + env(safe-area-inset-bottom, 0px))", position:"relative" }}><style>{ANIMS}</style>
       {/* HUD tarama çizgisi — soluk nötr */}
       <div className="gpu" style={{ position:"fixed",top:0,left:0,right:0,height:2,background:"linear-gradient(90deg, transparent, rgba(122,143,160,0.2), transparent)",animation:"scanline 7s linear infinite",pointerEvents:"none",zIndex:1 }} />
       {/* Köşe braketleri — bronz aksan */}
