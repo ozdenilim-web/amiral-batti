@@ -2700,8 +2700,8 @@ function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack, ready, onTogg
   </div>);
 }
 
-function findMatch(myUid, myName, myGold, arenaId, timeoutMs = 60000) {
-  const queuePath = arenaId ? `matchmaking_arena/${arenaId}` : "matchmaking";
+function findMatch(myUid, myName, myGold, arenaId, timeoutMs = 60000, mode = null) {
+  const queuePath = mode === "salvo" ? "matchmaking_salvo" : (arenaId ? `matchmaking_arena/${arenaId}` : "matchmaking");
   let cancelled = false, creating = false, resolved = false;
   let unsubQueue = null, unsubMatch = null, timeoutId = null;
 
@@ -2771,7 +2771,7 @@ function findMatch(myUid, myName, myGold, arenaId, timeoutMs = 60000) {
         if (!oppCheck.exists()) { releasePairLock(myUid, opponent.uid); creating = false; return; }
 
         const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-        await set(ref(db, `rooms/${roomId}`), { p1_name: myName, p1_uid: myUid, p2_name: opponent.displayName, p2_uid: opponent.uid, phase: "placing", p1_board: null, p2_board: null, p1_ships: null, p2_ships: null, attacks: null, turn: 1, clocks: { p1: CLOCK_SECONDS, p2: CLOCK_SECONDS }, winner: null, winReason: null, eloProcessed: false, arena: arenaId || null, created: Date.now() });
+        await set(ref(db, `rooms/${roomId}`), { p1_name: myName, p1_uid: myUid, p2_name: opponent.displayName, p2_uid: opponent.uid, phase: "placing", mode: mode || null, p1_board: null, p2_board: null, p1_ships: null, p2_ships: null, attacks: null, turn: 1, clocks: { p1: CLOCK_SECONDS, p2: CLOCK_SECONDS }, winner: null, winReason: null, eloProcessed: false, arena: arenaId || null, created: Date.now() });
 
         // İki tarafın match_found'unu paralel yaz — rakip anında haberdar olur
         await Promise.all([
@@ -3005,6 +3005,13 @@ export default function Game() {
   const [botStats, setBotStats] = useState({ level: 1, honor: 50, gold: 300 });
   // Bahis anında (ante kesilmeden önce) sahip olunan altın — sonuç ekranındaki sayaç buradan başlar
   const salvoGoldBeforeAnteRef = useRef(0);
+  // === ONLINE SALVO ===
+  const salvoOnlineRef = useRef(false);   // bu salvo maçı online mı (bot değil)
+  const salvoRoomRef = useRef(null);       // online salvo oda kimliği
+  const salvoPNumRef = useRef(1);          // 1 = çözücü
+  const salvoResolvedRef = useRef(false);  // sonuç bir kez uygulansın
+  const salvoUnsubRef = useRef(null);      // online salvo oda dinleyici aboneliği
+  const salvoTimeoutRef = useRef(null);    // no-show güvenlik zamanlayıcısı
   // Sonuç ekranı: radar taraması ile senkron slot-makinesi sayaç
   const salvoRevealActive = phase === "salvoreveal" && !!salvoResult;
   const salvoMyHitsAnim = useCountUp(salvoResult?.myHits ?? 0, salvoRevealActive, 2200);
@@ -3999,7 +4006,7 @@ export default function Game() {
     const pNum = playerNumRef.current, myKey = pNum === 1 ? "p1" : "p2", oppKey = pNum === 1 ? "p2" : "p1";
     await update(ref(db, `rooms/${roomIdRef.current}`), { [`${myKey}_board`]: defenseBoard, [`${myKey}_ships`]: shipData });
     const snapshot = await get(ref(db, `rooms/${roomIdRef.current}`));
-    if (snapshot.val()?.[`${oppKey}_board`]) await update(ref(db, `rooms/${roomIdRef.current}`), { phase: "playing" });
+    if (snapshot.val()?.[`${oppKey}_board`]) await update(ref(db, `rooms/${roomIdRef.current}`), { phase: salvoModeRef.current ? "salvo" : "playing" });
   };
   const handleAttackClick = (r, c) => { if (!myTurn || phase !== "playing") return; if (markMode) { handleAttackMark(r, c); return; } if (attackOverlay[r][c]) return; if (manualMarks[r][c]) return; const existing = currentShots.findIndex(([sr, sc]) => sr === r && sc === c); if (existing !== -1) { setCurrentShots(currentShots.filter((_, i) => i !== existing)); return; } if (currentShots.length >= SHOTS_PER_TURN) return; setCurrentShots([...currentShots, [r, c]]); };
   const handleAttackRightClick = (r, c) => { handleAttackMark(r, c); };
@@ -4037,6 +4044,11 @@ export default function Game() {
     if (roomCleanupRef.current) { clearTimeout(roomCleanupRef.current); roomCleanupRef.current = null; }
     if (unsubRef.current) unsubRef.current(); if (clockIntervalRef.current) clearInterval(clockIntervalRef.current); if (placementTimerRef.current) clearInterval(placementTimerRef.current);
     if (salvoTimerRef.current) { clearInterval(salvoTimerRef.current); salvoTimerRef.current = null; }
+    // ONLINE SALVO — çözülmemiş maçtan ayrılıyorsak rakip takılmasın diye maçı iptal et (altın kesilmedi)
+    if (salvoOnlineRef.current && !salvoResolvedRef.current && salvoRoomRef.current) { update(ref(db, `rooms/${salvoRoomRef.current}`), { salvoResult: { void: true, at: Date.now() } }).catch(() => {}); }
+    if (salvoUnsubRef.current) { salvoUnsubRef.current(); salvoUnsubRef.current = null; }
+    if (salvoTimeoutRef.current) { clearTimeout(salvoTimeoutRef.current); salvoTimeoutRef.current = null; }
+    salvoOnlineRef.current = false; salvoRoomRef.current = null; salvoResolvedRef.current = false;
     salvoModeRef.current = false; salvoSelectedRef.current = []; salvoBotShotsRef.current = []; salvoSubmittedRef.current = false;
     setTersaneMode(false); tersaneModeRef.current = false;
     setSalvoMode(false); setSalvoSelected([]); setSalvoSubmitted(false); setSalvoResult(null); setSalvoTimer(SALVO_SECONDS);
@@ -4452,6 +4464,179 @@ export default function Game() {
 
   // Sonuç ekranından ana sayfaya hiç uğramadan doğrudan yeni bir Tek Salvo maçı başlatır.
   const replaySalvo = () => { resetGame(); startSalvoBotGame(); };
+
+  // ============================================================
+  // === ONLINE TEK SALVO (Formül 1) ============================
+  // Kural: ante altını GİRİŞTE değil, iki taraf da atışını gönderip sonuç çıkınca kesilir.
+  // Herhangi bir kopma/no-show → maç İPTAL, altın kaybı = 0. Kimse mağdur olmaz.
+  // ============================================================
+  const salvoAbort = (msg) => {
+    salvoResolvedRef.current = true;
+    if (salvoUnsubRef.current) { salvoUnsubRef.current(); salvoUnsubRef.current = null; }
+    if (salvoTimeoutRef.current) { clearTimeout(salvoTimeoutRef.current); salvoTimeoutRef.current = null; }
+    if (salvoTimerRef.current) { clearInterval(salvoTimerRef.current); salvoTimerRef.current = null; }
+    if (msg) setMessage(msg);
+    resetGame();
+  };
+
+  // Tek Salvo'ya basınca: DOĞRUDAN online arama; 7 sn'de rakip yoksa bota düş.
+  const startSalvoOnline = async () => {
+    track("game_start", { mode: "salvo_online" });
+    if (!playerName.trim()) { setMessage(L(appLang, "msgTypeName")); return; }
+    if (!authUid) { setMessage(L(appLang, "msgConnecting")); return; }
+    if (safeGold(myProfile?.gold) < SALVO_ANTE) { setMessage(L(appLang, "msgNotEnoughGold")); return; }
+    // Salvo aramasında standart "HAZIRIM" eşleşmesine kapılma — sadece salvo kuyruğuyla eşleş
+    setReadyToPlay(false);
+    if (authUid) update(ref(db, `online_players/${authUid}`), { ready: false }).catch(() => {});
+    quickMatchCancelledRef.current = false;
+    setMessage(""); setMatchmaking(true); setQuickMatchOpponent(null); setQuickMatchCandidate(null);
+    sfx.init(); sfx.play('click');
+    setQuickMatchPhase("searching");
+    const searchSec = 7; setQuickMatchSecondsLeft(searchSec);
+    let pool = [];
+    try { const snap = await get(ref(db, "online_players")); if (snap.exists()) snap.forEach(c => { if (c.key !== authUid) pool.push({ name: c.val().displayName || "Denizci", gold: safeGold(c.val().gold) }); }); } catch (e) {}
+    if (pool.length < 3) BOT_NAMES.forEach(n => pool.push({ name: n, gold: 200 + Math.floor(Math.random() * 4000) }));
+    if (quickMatchCarouselRef.current) clearInterval(quickMatchCarouselRef.current);
+    quickMatchCarouselRef.current = setInterval(() => { const p = pool[Math.floor(Math.random() * pool.length)]; setQuickMatchCandidate({ name: p.name, gold: p.gold, avatar: QM_AVATARS[Math.floor(Math.random() * QM_AVATARS.length)], key: Math.random() }); }, 120);
+    if (quickMatchCountdownRef.current) clearInterval(quickMatchCountdownRef.current);
+    const t0 = Date.now();
+    quickMatchCountdownRef.current = setInterval(() => setQuickMatchSecondsLeft(Math.max(0, searchSec - Math.floor((Date.now() - t0) / 1000))), 250);
+    const mp = findMatch(authUid, playerName.trim(), myProfile?.gold ?? STARTING_GOLD, null, searchSec * 1000, "salvo");
+    setMatchCancelFn(() => mp._cancel);
+    mp.then(async (data) => {
+      if (quickMatchCarouselRef.current) { clearInterval(quickMatchCarouselRef.current); quickMatchCarouselRef.current = null; }
+      if (quickMatchCountdownRef.current) { clearInterval(quickMatchCountdownRef.current); quickMatchCountdownRef.current = null; }
+      if (quickMatchCancelledRef.current) return;
+      if (data && data.roomId) {
+        let opp = { name: data.oppName || "Rakip", avatar: "⚓", gold: null, level: null };
+        try { const rs = await get(ref(db, `rooms/${data.roomId}`)); const room = rs.val(); const ou = room ? (data.playerNum === 1 ? room.p2_uid : room.p1_uid) : null; if (ou) { const ps = await get(ref(db, `profiles/${ou}`)); if (ps.exists()) { const p = ps.val(); opp = { name: p.displayName || opp.name, avatar: p.avatar || "⚓", gold: safeGold(p.gold), level: p.level || 0 }; } } } catch (e) {}
+        finalizeSalvoMatch(data.roomId, data.playerNum, opp);
+      } else {
+        // 7 sn'de insan yok → bot
+        setMatchmaking(false); setMatchCancelFn(null); setQuickMatchPhase(null); setQuickMatchOpponent(null); setQuickMatchCandidate(null);
+        startSalvoBotGame();
+      }
+    });
+  };
+
+  const finalizeSalvoMatch = (roomId, playerNum, opp) => {
+    setQuickMatchOpponent({ name: opp.name, avatar: opp.avatar, gold: opp.gold, level: opp.level });
+    setQuickMatchPhase("found");
+    sfx.init(); sfx.play('gold');
+    setTimeout(() => {
+      if (quickMatchCancelledRef.current) return;
+      setMatchmaking(false); setMatchCancelFn(null); setQuickMatchPhase(null); setQuickMatchOpponent(null);
+      setSalvoMode(true); salvoModeRef.current = true;
+      salvoOnlineRef.current = true; salvoRoomRef.current = roomId; salvoPNumRef.current = playerNum; salvoResolvedRef.current = false;
+      roomIdRef.current = roomId; setRoomId(roomId); setPlayerNum(playerNum); playerNumRef.current = playerNum;
+      setOpponentName(opp.name); if (opp.avatar) setOppAvatar(opp.avatar);
+      setIsBotGame(false); isBotGameRef.current = false;
+      salvoSelectedRef.current = []; salvoSubmittedRef.current = false; setSalvoSelected([]); setSalvoSubmitted(false); setSalvoResult(null); setSalvoTimer(SALVO_SECONDS);
+      salvoGoldBeforeAnteRef.current = safeGold(myProfile?.gold);
+      setPhase("placing");
+      listenToSalvoRoom(roomId, playerNum);
+      sfx.playPlacementMusic();
+      if (authUid) remove(ref(db, `online_players/${authUid}`)).catch(() => {});
+    }, 1700);
+  };
+
+  const listenToSalvoRoom = (rid, pNum) => {
+    if (salvoUnsubRef.current) salvoUnsubRef.current();
+    const oppKey = pNum === 1 ? "p2" : "p1";
+    salvoUnsubRef.current = onValue(ref(db, `rooms/${rid}`), (snap) => {
+      const game = snap.val();
+      if (!game) {
+        if (!salvoResolvedRef.current && (phaseRef.current === "placing" || phaseRef.current === "salvo")) salvoAbort(appLang === "en" ? "Opponent left — match voided, no gold spent." : "Rakip ayrıldı — maç iptal, altın kesilmedi.");
+        return;
+      }
+      if (game[`${oppKey}_name`]) setOpponentName(game[`${oppKey}_name`]);
+      if (game[`${oppKey}_ships`]) setOppShipsData(game[`${oppKey}_ships`]);
+      // Sonuç geldi mi?
+      if (game.salvoResult && !salvoResolvedRef.current) { applySalvoResult(game, pNum); return; }
+      // İki tahta da hazır → salvo fazına gir (confirmPlacement phase'i "salvo" yapmış olur)
+      if (game.phase === "salvo" && phaseRef.current === "placing") startOnlineSalvoPhase(game, pNum);
+      // Çözücü (p1): iki salvo da geldiyse çöz
+      if (pNum === 1 && !game.salvoResult && game.salvo_p1 && game.salvo_p2) resolveOnlineSalvo(game);
+    });
+  };
+
+  const startOnlineSalvoPhase = (game, pNum) => {
+    if (phaseRef.current === "salvo") return;
+    setPhase("salvo"); sfx.init(); sfx.playBattleMusic(false);
+    salvoSubmittedRef.current = false; setSalvoSubmitted(false); salvoSelectedRef.current = []; setSalvoSelected([]); setSalvoTimer(SALVO_SECONDS);
+    if (salvoTimerRef.current) clearInterval(salvoTimerRef.current);
+    salvoTimerRef.current = setInterval(() => {
+      setSalvoTimer(prev => { if (prev <= 1) { clearInterval(salvoTimerRef.current); salvoTimerRef.current = null; submitSalvoOnline(); return 0; } return prev - 1; });
+    }, 1000);
+    // No-show güvenliği (İKİ taraf da): 78 sn içinde iki salvo da gelmezse maçı iptal et. Kimse altın kaybetmez, kimse takılı kalmaz.
+    if (salvoTimeoutRef.current) clearTimeout(salvoTimeoutRef.current);
+    salvoTimeoutRef.current = setTimeout(async () => {
+      try { const rs = await get(ref(db, `rooms/${salvoRoomRef.current}`)); const g = rs.val(); if (!g || g.salvoResult) return; if (!(g.salvo_p1 && g.salvo_p2)) update(ref(db, `rooms/${salvoRoomRef.current}`), { salvoResult: { void: true, at: Date.now() } }).catch(() => {}); } catch (e) {}
+    }, 78000);
+  };
+
+  const submitSalvoOnline = () => {
+    if (salvoSubmittedRef.current) return;
+    salvoSubmittedRef.current = true; setSalvoSubmitted(true);
+    if (salvoTimerRef.current) { clearInterval(salvoTimerRef.current); salvoTimerRef.current = null; }
+    const myKey = salvoPNumRef.current === 1 ? "p1" : "p2";
+    const shots = salvoSelectedRef.current.map(([r, c]) => ({ r, c }));
+    update(ref(db, `rooms/${salvoRoomRef.current}`), { [`salvo_${myKey}`]: { shots, time: Date.now() } }).catch(() => {});
+    sfx.init(); sfx.play('click');
+  };
+
+  const resolveOnlineSalvo = (game) => {
+    const p1shots = (game.salvo_p1?.shots || []).map(s => [s.r, s.c]);
+    const p2shots = (game.salvo_p2?.shots || []).map(s => [s.r, s.c]);
+    const p1ships = Object.values(game.p1_ships || {}).flatMap(s => s.cells);
+    const p2ships = Object.values(game.p2_ships || {}).flatMap(s => s.cells);
+    const p1Hits = p1shots.filter(([r, c]) => p2ships.some(([sr, sc]) => sr === r && sc === c)).length;
+    const p2Hits = p2shots.filter(([r, c]) => p1ships.some(([sr, sc]) => sr === r && sc === c)).length;
+    const winner = p1Hits > p2Hits ? 1 : (p2Hits > p1Hits ? 2 : 0);
+    update(ref(db, `rooms/${salvoRoomRef.current}`), { salvoResult: { p1Hits, p2Hits, winner, at: Date.now() }, winner: winner || null, winReason: "salvo" }).catch(() => {});
+  };
+
+  const applySalvoResult = (game, pNum) => {
+    if (salvoResolvedRef.current) return;
+    salvoResolvedRef.current = true;
+    if (salvoTimeoutRef.current) { clearTimeout(salvoTimeoutRef.current); salvoTimeoutRef.current = null; }
+    if (salvoTimerRef.current) { clearInterval(salvoTimerRef.current); salvoTimerRef.current = null; }
+    const res = game.salvoResult;
+    if (res.void) { salvoAbort(appLang === "en" ? "Match voided — no gold spent." : "Maç iptal — altın kesilmedi."); return; }
+    const myKey = pNum === 1 ? "p1" : "p2", oppKey = pNum === 1 ? "p2" : "p1";
+    const myHits = pNum === 1 ? res.p1Hits : res.p2Hits;
+    const oppHits = pNum === 1 ? res.p2Hits : res.p1Hits;
+    const won = res.winner === pNum, draw = res.winner === 0;
+    const myShots = (game[`salvo_${myKey}`]?.shots || []).map(s => [s.r, s.c]);
+    const oppShots = (game[`salvo_${oppKey}`]?.shots || []).map(s => [s.r, s.c]);
+    const oppShipCells = Object.values(game[`${oppKey}_ships`] || {}).flatMap(s => s.cells);
+    const myShipCells = Object.values(game[`${myKey}_ships`] || {}).flatMap(s => s.cells);
+    const myOverlay = emptyGrid().map(r => r.map(() => null));
+    myShots.forEach(([r, c]) => { myOverlay[r][c] = oppShipCells.some(([sr, sc]) => sr === r && sc === c) ? "hit" : "miss"; });
+    const oppOverlay = emptyGrid().map(r => r.map(() => null));
+    oppShots.forEach(([r, c]) => { oppOverlay[r][c] = myShipCells.some(([sr, sc]) => sr === r && sc === c) ? "hit" : "miss"; });
+    // EKONOMİ — sadece burada, ilk ve tek kez. Net: kazanan +25, kaybeden -25, berabere 0.
+    if (authUid) {
+      get(ref(db, `profiles/${authUid}`)).then(snap => {
+        if (!snap.exists()) return; const p = snap.val();
+        const patch = { totalGames: (p.totalGames || 0) + 1, lastGameAt: Date.now() };
+        if (won) { patch.gold = safeGold(p.gold) + (SALVO_WIN_GOLD - SALVO_ANTE); patch.wins = (p.wins || 0) + 1; patch.recentResults = pushRecent(p.recentResults, true); }
+        else if (!draw) { patch.gold = Math.max(0, safeGold(p.gold) - SALVO_ANTE); patch.losses = (p.losses || 0) + 1; patch.recentResults = pushRecent(p.recentResults, false); }
+        update(ref(db, `profiles/${authUid}`), patch).catch(() => {});
+        setMyProfile(prev => prev ? { ...prev, ...patch } : prev);
+        if (won) { setGoldChange({ amount: SALVO_WIN_GOLD - SALVO_ANTE, refund: false }); setGoldAnim({ amount: SALVO_WIN_GOLD - SALVO_ANTE }); sfx.play('gold'); }
+      }).catch(() => {});
+      bumpDaily(d => { d.gamesPlayed += 1; d.totalHits += myHits; if (won) d.wins += 1; });
+      bumpAch(a => { a.hits += myHits; if (won) { a.onlineWins += 1; a.goldEarned += (SALVO_WIN_GOLD - SALVO_ANTE); a.winStreak += 1; a.bestWinStreak = Math.max(a.bestWinStreak, a.winStreak); a.lossStreak = 0; } else if (!draw) { a.winStreak = 0; a.lossStreak = (a.lossStreak || 0) + 1; } });
+      bumpGlobalStats(1, 0); bumpVoyageMatch();
+    }
+    sfx.init(); sfx.play(won ? 'win' : draw ? 'click' : 'lose');
+    setSalvoResult({ myHits, oppHits, myOverlay, oppOverlay, won, draw });
+    setPhase("salvoreveal");
+    if (salvoUnsubRef.current) { salvoUnsubRef.current(); salvoUnsubRef.current = null; }
+    if (pNum === 1) deleteRoomSoon(salvoRoomRef.current, 45000);
+    track("game_end", { mode: "salvo_online", result: won ? "win" : draw ? "draw" : "loss" });
+  };
 
   // === KUŞATMA (3 kişilik) — bot-only tur motoru ===
   // Koltuk sırası: 0=insan, 1=bot A, 2=bot B. Sabit üçgen: 0→1, 1→2, 2→0.
@@ -5063,9 +5248,11 @@ export default function Game() {
   // HAZIRIM diyen oyuncu ana ekrandayken de yakalanabilsin — global match_found dinleyicisi
   useEffect(() => {
     if (phase !== "lobby" || !authUid || !readyToPlay) return;
-    const unsub = onValue(ref(db, `match_found/${authUid}`), snap => {
+    const unsub = onValue(ref(db, `match_found/${authUid}`), async snap => {
       if (!snap.exists()) return;
       const d = snap.val(); if (!d.roomId) return;
+      // Salvo maçları startSalvoOnline tarafından yönetilir — global akış karışmasın
+      try { const rs = await get(ref(db, `rooms/${d.roomId}`)); if (rs.val()?.mode === "salvo") return; } catch (e) {}
       remove(ref(db, `match_found/${authUid}`)).catch(() => {});
       handleOnlineChallenge(d.roomId, d.playerNum || 2);
     });
@@ -5587,7 +5774,7 @@ export default function Game() {
   }
   if (showAchievements) return <><style>{ANIMS}</style><AchievementsScreen profile={myProfile} onClose={() => setShowAchievements(false)} onClaim={claimAchievementSet} lang={appLang} /></>;
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} lang={appLang} /></>;
-  if (showDifferentWaters) return <><style>{ANIMS}</style><DifferentWaters onBack={() => setShowDifferentWaters(false)} onPlaySalvo={() => { setShowDifferentWaters(false); startSalvoBotGame(); }} onPlayKusatma={() => { setShowDifferentWaters(false); startSiegeBotGame(); }} onPlayTersane={() => { setShowDifferentWaters(false); startTersaneBotGame(); }} lang={appLang} /></>;
+  if (showDifferentWaters) return <><style>{ANIMS}</style><DifferentWaters onBack={() => setShowDifferentWaters(false)} onPlaySalvo={() => { setShowDifferentWaters(false); startSalvoOnline(); }} onPlayKusatma={() => { setShowDifferentWaters(false); startSiegeBotGame(); }} onPlayTersane={() => { setShowDifferentWaters(false); startTersaneBotGame(); }} lang={appLang} /></>;
   if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => { setSelectedArena(arena); setShowArenaSelect(false); startQuickMatch(arena); }} lang={appLang} /></>;
   if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myGold={myProfile?.gold} onBack={() => setShowOnlineLobby(false)} onChallenge={handleOnlineChallenge} ready={readyToPlay} onToggleReady={()=>setReadyToPlay(v=>!v)} lang={appLang} /></>;
 
@@ -6037,7 +6224,7 @@ export default function Game() {
         <span style={{ fontSize:26,fontWeight:900,fontFamily:warrior,color:t.gold,textShadow:`0 0 14px ${t.goldGlow}` }}>{salvoSelected.length}</span>
         <span style={{ fontSize:13,fontWeight:700,color:t.textDim,fontFamily:warrior,letterSpacing:1 }}>/{SALVO_SHOTS} {appLang==="en"?"MARKED":"İŞARETLENDİ"}</span>
       </div>
-      <button onClick={()=>submitSalvo()} disabled={salvoSubmitted} style={{ width:"100%",maxWidth:400,marginTop:6,padding:"14px 0",background:salvoSubmitted?t.surfaceLight:`linear-gradient(135deg,${t.gold},#d97706)`,color:salvoSubmitted?t.textDim:t.bg,border:"none",borderRadius:12,fontSize:16,fontWeight:900,letterSpacing:3,cursor:salvoSubmitted?"default":"pointer",fontFamily:warrior,boxShadow:salvoSubmitted?"none":`0 0 20px ${t.goldGlow}` }}>{salvoSubmitted?(appLang==="en"?"RESOLVING...":"SONUÇLANIYOR..."):(appLang==="en"?"FIRE SALVO":"SALVOYU GÖNDER")}</button>
+      <button onClick={()=>salvoOnlineRef.current?submitSalvoOnline():submitSalvo()} disabled={salvoSubmitted} style={{ width:"100%",maxWidth:400,marginTop:6,padding:"14px 0",background:salvoSubmitted?t.surfaceLight:`linear-gradient(135deg,${t.gold},#d97706)`,color:salvoSubmitted?t.textDim:t.bg,border:"none",borderRadius:12,fontSize:16,fontWeight:900,letterSpacing:3,cursor:salvoSubmitted?"default":"pointer",fontFamily:warrior,boxShadow:salvoSubmitted?"none":`0 0 20px ${t.goldGlow}` }}>{salvoSubmitted?(salvoOnlineRef.current?(appLang==="en"?"WAITING FOR RIVAL...":"RAKİP BEKLENİYOR..."):(appLang==="en"?"RESOLVING...":"SONUÇLANIYOR...")):(appLang==="en"?"FIRE SALVO":"SALVOYU GÖNDER")}</button>
     </div>);
   }
 
