@@ -4269,15 +4269,23 @@ export default function Game() {
       setTimeout(() => {
         if (!siegeModeRef.current) return;
         resolveSiegeShot(attacker, defender, cells);
-        setSiegeSpectator(null);
-        if (!siegeGameOverRef.current) runSiegeEngineStep(attacker);
+        // Sonuç 5 saniye ekranda kalsın (savunma platformu vurulan gemileri gösterir), sonra sıra geçer.
+        setTimeout(() => {
+          if (!siegeModeRef.current) return;
+          setSiegeSpectator(null);
+          if (!siegeGameOverRef.current) runSiegeEngineStep(attacker);
+        }, 5000);
       }, 700 + cells.length * 480);
     } else {
       setTimeout(() => {
         if (!siegeModeRef.current) return;
         sfx.init(); sfx.play('click');
         resolveSiegeShot(attacker, defender, cells);
-        if (!siegeGameOverRef.current) runSiegeEngineStep(attacker);
+        // Sonuç 5 saniye ekranda kalsın, sonra sıra geçer.
+        setTimeout(() => {
+          if (!siegeModeRef.current) return;
+          if (!siegeGameOverRef.current) runSiegeEngineStep(attacker);
+        }, 5000);
       }, 900);
     }
   };
@@ -4302,7 +4310,8 @@ export default function Game() {
     const defender = siegeTargetOfRef.current[0];
     resolveSiegeShot(0, defender, cells);
     setSiegeSelected([]); siegeSelectedRef.current = [];
-    if (!siegeGameOverRef.current) setTimeout(() => runSiegeEngineStep(0), 1300);
+    // Sonuç (vurulan gemiler) 5 saniye ekranda kalsın, sonra sıra geçer.
+    if (!siegeGameOverRef.current) setTimeout(() => runSiegeEngineStep(0), 5000);
   };
 
   // Sonuç ekranından ana sayfaya uğramadan doğrudan yeni bir Kuşatma maçı başlatır.
@@ -5795,8 +5804,8 @@ export default function Game() {
     const attackerOverlay = siegeReceived[activeAttacker] || emptyOverlay;
     const idleOverlay = siegeReceived[idleIdx] || emptyOverlay;
     const hitCount = overlayGrid.flat().filter(v=>v==="hit"||v==="sunk").length;
-    const bigCell = Math.max(8, Math.min(15, Math.floor((viewport.h - 340) / 24)));
-    const miniCell = Math.max(4, Math.min(7, Math.floor(viewport.w / 66)));
+    const bigCell = Math.max(7, Math.min(14, Math.floor((viewport.h - 430) / 24)));
+    const miniCell = Math.max(4, Math.min(7, Math.floor(viewport.w / 70)));
     const boardFor = (idx, overlayG, clickable, cellSize) => idx === 0
       ? <Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={overlayG} disabled={!clickable} onClick={clickable?siegeToggleCell:undefined} />
       : <Grid board={emptyGrid()} cellSize={cellSize} overlay={overlayG} disabled={!clickable} onClick={clickable?siegeToggleCell:undefined} />;
@@ -5829,11 +5838,6 @@ export default function Game() {
         <div style={{ fontSize:13,fontWeight:800,letterSpacing:3,color:t.accent,fontFamily:warrior,textShadow:`0 0 15px ${t.accentGlow}` }}>KUŞATMA</div>
         <div style={{ width:32 }} />
       </div>
-      {/* Bekleyen 3. oyuncu — köşede minyatür tahtasıyla */}
-      <div key={`idle-${idleIdx}`} style={{ position:"fixed",top:"calc(50px + env(safe-area-inset-top, 0px))",right:8,zIndex:50,display:"flex",flexDirection:"column",alignItems:"center",gap:3,opacity:0.8,animation:"siegeShrinkToMini 0.5s ease-out both",background:"rgba(10,14,26,0.6)",border:`1px solid ${t.border}`,borderRadius:10,padding:"5px 6px" }}>
-        <span style={{ fontSize:7,color:t.textDim,fontFamily:mono,maxWidth:52,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{siegeAlive[idleIdx]?nameFor(idleIdx):"☠ "+nameFor(idleIdx)}</span>
-        {boardFor(idleIdx, idleOverlay, false, miniCell)}
-      </div>
       {isSpectating && <div style={{ fontSize:10,fontWeight:800,color:"#c084fc",marginBottom:4,fontFamily:warrior,letterSpacing:2,textAlign:"center",textTransform:"uppercase" }}>👁 {appLang==="en"?"WATCHING":"İZLİYORSUN"}</div>}
       {/* SALDIRAN — üstte büyük */}
       <div key={`att-${activeAttacker}`} style={{ width:"100%",maxWidth:400,animation:"siegeRiseUp 0.5s cubic-bezier(0.22,1,0.36,1) both" }}>
@@ -5860,6 +5864,12 @@ export default function Game() {
       {boardMode !== "target" && (
         <div style={{ marginTop:10,textAlign:"center",fontSize:10,color:t.textDim,fontFamily:warrior,letterSpacing:1,animation:"blink3s 1.2s infinite" }}>{boardMode==="own" ? (appLang==="en"?"Bracing for impact...":"Darbeye hazırlanıyor...") : (appLang==="en"?"Battle in progress...":"Çatışma sürüyor...")}</div>
       )}
+      {/* BEKLEME ODASI — sırası olmayan 3. oyuncu, en altta minik */}
+      <div key={`idle-${idleIdx}`} style={{ width:"100%",maxWidth:400,marginTop:10,display:"flex",alignItems:"center",gap:8,padding:"5px 10px",borderRadius:10,background:"rgba(255,255,255,0.03)",border:`1px solid ${t.border}`,opacity:0.75,animation:"siegeShrinkToMini 0.5s ease-out both" }}>
+        <span style={{ fontSize:8,color:t.textDim,fontFamily:mono,letterSpacing:1,textTransform:"uppercase",flexShrink:0 }}>{appLang==="en"?"waiting":"bekliyor"}</span>
+        <span style={{ fontSize:9,color:t.textDim,fontFamily:mono,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{siegeAlive[idleIdx]?nameFor(idleIdx):"☠ "+nameFor(idleIdx)}</span>
+        {boardFor(idleIdx, idleOverlay, false, miniCell)}
+      </div>
     </div>);
   }
 
