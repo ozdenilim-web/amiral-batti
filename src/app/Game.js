@@ -1007,12 +1007,12 @@ function launchExplosion(canvasId, x, y, duration=1200) {
 }
 
 // === GOLD COİN ANİMASYONU ===
-function GoldCoinAnim({ amount, onDone }) {
+function GoldCoinAnim({ amount, onDone, bottomPct }) {
   const [coins] = useState(() => Array.from({length: Math.min(amount > 100 ? 14 : amount > 20 ? 9 : 6, 16)}, (_,i) => ({
     id: i, delay: i*70, x: (Math.random()-0.5)*80, endY: -90-Math.random()*50, rotation: (Math.random()-0.5)*60
   })));
   useEffect(() => { const timer = setTimeout(()=>onDone?.(), coins.length*70+1400); return ()=>clearTimeout(timer); }, []);
-  return (<div style={{ position:'fixed',bottom:100,left:'50%',transform:'translateX(-50%)',zIndex:10000,pointerEvents:'none' }}>
+  return (<div style={{ position:'fixed',bottom: bottomPct!=null?`${bottomPct}%`:100,left:'50%',transform:'translateX(-50%)',zIndex:10000,pointerEvents:'none' }}>
     {coins.map(c => (
       <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, fontSize:32, animation:`coinFly 1.1s cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards`, opacity:0, transform:`rotate(${c.rotation}deg)` }}>🪙</div>
     ))}
@@ -2171,22 +2171,23 @@ function ReadyScreen({ onStart, opponentName, myName, myAvatar, oppAvatar, lang 
   </div>);
 }
 
-function useCountUp(target, active, duration = 1300) {
-  const [value, setValue] = useState(0);
+function useCountUp(target, active, duration = 1300, from = 0) {
+  const [value, setValue] = useState(from);
   useEffect(() => {
-    if (!active) { setValue(0); return; }
+    if (!active) { setValue(from); return; }
     let raf, startTime;
     const tgt = Math.round(target || 0);
+    const base = Math.round(from || 0);
     const step = (ts) => {
       if (!startTime) startTime = ts;
       const progress = Math.min(1, (ts - startTime) / duration);
       const eased = 1 - Math.pow(1 - progress, 3);
-      setValue(Math.round(tgt * eased));
+      setValue(Math.round(base + (tgt - base) * eased));
       if (progress < 1) raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
     return () => raf && cancelAnimationFrame(raf);
-  }, [target, active, duration]);
+  }, [target, active, duration, from]);
   return value;
 }
 
@@ -2763,10 +2764,21 @@ export default function Game() {
   const [salvoResult, setSalvoResult] = useState(null); // { myHits, oppHits, myOverlay, oppOverlay, won }
   const salvoTimerRef = useRef(null);
   const salvoBotShotsRef = useRef([]);
+  // Rakip botun uydurma seviye/şeref/altın bilgisi — sadece görsel, gerçek profil değil
+  const [botStats, setBotStats] = useState({ level: 1, honor: 50, gold: 300 });
+  // Bahis anında (ante kesilmeden önce) sahip olunan altın — sonuç ekranındaki sayaç buradan başlar
+  const salvoGoldBeforeAnteRef = useRef(0);
   // Sonuç ekranı: radar taraması ile senkron slot-makinesi sayaç
   const salvoRevealActive = phase === "salvoreveal" && !!salvoResult;
   const salvoMyHitsAnim = useCountUp(salvoResult?.myHits ?? 0, salvoRevealActive, 2200);
   const salvoOppHitsAnim = useCountUp(salvoResult?.oppHits ?? 0, salvoRevealActive, 2200);
+  // Poker masası gibi: kazanan/kaybedenin altın yığını gözle görülür şekilde değişsin
+  const salvoGoldStart = Math.max(0, salvoGoldBeforeAnteRef.current - SALVO_ANTE);
+  const salvoGoldEnd = salvoGoldStart + (salvoResult ? (salvoResult.won ? SALVO_WIN_GOLD : salvoResult.draw ? SALVO_ANTE : 0) : 0);
+  const salvoMyGoldAnim = useCountUp(salvoGoldEnd, salvoRevealActive, 900, salvoGoldStart);
+  const botGoldStart = botStats.gold;
+  const botGoldEnd = botGoldStart + (salvoResult ? (salvoResult.won ? -SALVO_ANTE : salvoResult.draw ? 0 : SALVO_ANTE) : 0);
+  const salvoBotGoldAnim = useCountUp(botGoldEnd, salvoRevealActive, 900, botGoldStart);
   const [dailyMissions, setDailyMissions] = useState(() => pickDailyMissions(Date.now()));
   const [missionProgress, setMissionProgress] = useState({});
   const [chestReward, setChestReward] = useState(null);
@@ -3781,12 +3793,12 @@ export default function Game() {
   const renderTopBar = () => (
     <>
       <div style={{ position:"fixed",top:"calc(10px + env(safe-area-inset-top, 0px))",right:14,zIndex:9500,display:"flex",alignItems:"center",gap:8 }}>
-        <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowLeaderboard(true); }} title={L(appLang,"leaderboardTitle")} style={{ width:30,height:30,borderRadius:8,background:"rgba(255,215,0,0.10)",border:"1px solid rgba(255,215,0,0.4)",fontSize:14,cursor:"pointer",color:t.gold,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>🏆</button>
+        {phase === "lobby" && <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowLeaderboard(true); }} title={L(appLang,"leaderboardTitle")} style={{ width:30,height:30,borderRadius:8,background:"rgba(255,215,0,0.10)",border:"1px solid rgba(255,215,0,0.4)",fontSize:14,cursor:"pointer",color:t.gold,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>🏆</button>}
         <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowSettings(true); setSettingsView(null); }} title={L(appLang,"settingsTooltip")} style={{ width:30,height:30,borderRadius:8,background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,fontSize:14,cursor:"pointer",color:t.textDim,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>⚙️</button>
         <button onClick={toggleMusic} title={L(appLang,"musicTooltip")} style={{ width:30,height:30,borderRadius:8,background:musicOn?"rgba(255,255,255,0.06)":"rgba(255,71,87,0.14)",border:`1px solid ${musicOn?t.border:t.hit}`,fontSize:14,cursor:"pointer",color:musicOn?t.textDim:t.hit,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>{musicOn?"🔊":"🔇"}</button>
       </div>
       {/* Mini profil — TEK SALVO bahis akışında (yerleştirme/işaretleme/sonuç) altın bakiyesi her an görünsün, oyuncu devam/bırak kararını buna göre versin */}
-      {salvoMode && ["placing","salvo","salvoreveal"].includes(phase) && (
+      {salvoMode && ["placing","salvo"].includes(phase) && (
         <div style={{ position:"fixed",top:"calc(10px + env(safe-area-inset-top, 0px))",left:14,zIndex:9500,display:"flex",alignItems:"center",gap:7,background:"linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))",border:`1px solid ${t.border}`,borderRadius:20,padding:"4px 12px 4px 4px",boxShadow:"0 4px 14px rgba(0,0,0,0.4)" }}>
           <span style={{ width:22,height:22,borderRadius:"50%",background:`${t.accent}22`,border:`1.5px solid ${t.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,flexShrink:0 }}>{myProfile?.avatar || "⚓"}</span>
           <span style={{ fontSize:10,fontWeight:800,color:t.accent,fontFamily:mono,whiteSpace:"nowrap" }}>Lv{myProfile?.level || 0}</span>
@@ -3990,9 +4002,17 @@ export default function Game() {
     if (!playerName.trim()) { setMessage(L(appLang,"msgTypeName")); return; }
     // Arena tarzı bahis: ortaya 25 altın konur, yetersiz altınla girilemez.
     if (safeGold(myProfile?.gold) < SALVO_ANTE) { setMessage(L(appLang,"msgNotEnoughGold")); return; }
+    salvoGoldBeforeAnteRef.current = safeGold(myProfile?.gold); // sonuç ekranındaki sayaç buradan başlayacak
     const anteGold = safeGold(myProfile?.gold) - SALVO_ANTE;
     setMyProfile(prev => prev ? { ...prev, gold: anteGold } : prev);
     if (authUid) update(ref(db, `profiles/${authUid}`), { gold: anteGold }).catch(()=>{});
+    // Rakip botun uydurma seviye/şeref/altını — sadece görsel karşılaştırma için
+    const myLvl = myProfile?.level || 1;
+    setBotStats({
+      level: Math.max(1, Math.min(60, myLvl + Math.floor(Math.random()*9) - 4)),
+      honor: 30 + Math.floor(Math.random()*2400),
+      gold: 200 + Math.floor(Math.random()*4800),
+    });
     const bot = botPlaceShips();
     const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
     setIsBotGame(true); isBotGameRef.current = true;
@@ -5443,11 +5463,11 @@ export default function Game() {
     const sweepColor = won ? t.gold : draw ? "#67e8f9" : t.hit;
     const panelBorder = won ? "rgba(255,215,0,0.35)" : draw ? "rgba(103,232,249,0.35)" : "rgba(255,71,87,0.35)";
     return (<div style={{ ...appStyle, justifyContent:"flex-start", paddingTop:"calc(10px + env(safe-area-inset-top, 0px))" }}><style>{ANIMS}</style>
-      {/* Harf harf çöken destansı başlık — mevcut oyun sonu ekranıyla AYNI stil */}
-      <div style={{ position:"relative",marginBottom:8,marginTop:4 }}>
-        <div style={{ display:"flex",justifyContent:"center",gap:"clamp(2px, 1.2vw, 6px)",perspective:"500px",maxWidth:"100%" }}>
+      {/* AR patlamalı, harf harf çöken destansı başlık — mevcut oyun sonu ekranıyla AYNI teknik, biraz büyütülmüş */}
+      <div style={{ position:"relative",marginBottom:12,marginTop:6,animation:"arSlideIn 0.7s cubic-bezier(0.22,1,0.36,1) both",transformStyle:"preserve-3d" }}>
+        <div style={{ display:"flex",justifyContent:"center",gap:"clamp(2px, 1.4vw, 7px)",perspective:"500px",maxWidth:"100%" }}>
           {titleText.split("").map((ch,i) => (
-            <span key={i} style={{ fontSize:"clamp(30px, 10vw, 48px)",fontWeight:900,fontFamily:warrior,lineHeight:1,display:"inline-block",textTransform:"uppercase",
+            <span key={i} style={{ fontSize:"clamp(36px, 12vw, 60px)",fontWeight:900,fontFamily:warrior,lineHeight:1,display:"inline-block",textTransform:"uppercase",
               animation:`goLetter 0.55s cubic-bezier(0.34,1.56,0.64,1) ${0.15+i*0.08}s both${won?`, goFloat 2.6s ease-in-out ${1+i*0.15}s infinite`:""}`,
               ...(won
                 ? { background:"linear-gradient(180deg,#fffbe0 0%,#ffe066 26%,#ffd700 50%,#b45309 72%,#ffe066 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 4px 0 rgba(110,55,0,0.6)) drop-shadow(0 0 28px rgba(255,215,0,0.7)) drop-shadow(0 12px 24px rgba(0,0,0,0.8))" }
@@ -5457,35 +5477,49 @@ export default function Game() {
             }}>{ch}</span>
           ))}
         </div>
-        <div style={{ height:2,margin:"8px auto 0",width:"min(180px, 60%)",background:won?"linear-gradient(90deg,transparent,#ffd700,transparent)":draw?"linear-gradient(90deg,transparent,#67e8f9,transparent)":"linear-gradient(90deg,transparent,#ff4757,transparent)",boxShadow:won?`0 0 16px ${t.goldGlow}`:draw?"0 0 16px rgba(103,232,249,0.5)":`0 0 16px ${t.hitGlow}`,animation:"goLine 1s ease-out 0.7s both" }} />
+        <div style={{ height:2,margin:"10px auto 0",width:"min(200px, 62%)",background:won?"linear-gradient(90deg,transparent,#ffd700,transparent)":draw?"linear-gradient(90deg,transparent,#67e8f9,transparent)":"linear-gradient(90deg,transparent,#ff4757,transparent)",boxShadow:won?`0 0 16px ${t.goldGlow}`:draw?"0 0 16px rgba(103,232,249,0.5)":`0 0 16px ${t.hitGlow}`,animation:"goLine 1s ease-out 0.7s both" }} />
       </div>
-      {/* Skor — iki tarafın da avatarıyla birlikte */}
-      <div style={{ display:"flex",gap:26,marginBottom:18,alignItems:"flex-start",justifyContent:"center" }}>
-        <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:5 }}>
-          <div style={{ width:44,height:44,borderRadius:"50%",background:`${t.accent}22`,border:`2px solid ${t.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,boxShadow:`0 0 14px ${t.accentGlow}` }}>{myProfile?.avatar || "⚓"}</div>
-          <div style={{ fontSize:32,fontWeight:900,color:t.accent,fontFamily:mono,minWidth:38,textAlign:"center" }}>{salvoMyHitsAnim}</div>
+      {/* Skorbord — sade, sadece isabet sayıları */}
+      <div style={{ display:"flex",gap:22,marginBottom:16,alignItems:"center",justifyContent:"center" }}>
+        <div style={{ textAlign:"center" }}>
+          <div style={{ fontSize:32,fontWeight:900,color:t.accent,fontFamily:mono,minWidth:38 }}>{salvoMyHitsAnim}</div>
           <div style={{ fontSize:10,color:t.textDim,letterSpacing:2,fontFamily:warrior }}>{appLang==="en"?"YOUR HITS":"SENİN İSABETİN"}</div>
         </div>
-        <div style={{ fontSize:20,color:t.textDim,alignSelf:"center",marginTop:12 }}>—</div>
-        <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:5 }}>
-          <div style={{ width:44,height:44,borderRadius:"50%",background:`${t.hit}22`,border:`2px solid ${t.hit}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,boxShadow:`0 0 14px ${t.hitGlow}` }}>🤖</div>
-          <div style={{ fontSize:32,fontWeight:900,color:t.hit,fontFamily:mono,minWidth:38,textAlign:"center" }}>{salvoOppHitsAnim}</div>
+        <div style={{ fontSize:20,color:t.textDim }}>—</div>
+        <div style={{ textAlign:"center" }}>
+          <div style={{ fontSize:32,fontWeight:900,color:t.hit,fontFamily:mono,minWidth:38 }}>{salvoOppHitsAnim}</div>
           <div style={{ fontSize:10,color:t.textDim,letterSpacing:2,fontFamily:warrior }}>{(opponentName||"").toUpperCase()}</div>
         </div>
       </div>
-      {/* Tek birleşik taktik harita paneli — iki filo aynı okyanusta, radar taramasıyla açığa çıkıyor */}
+      {/* Tek birleşik taktik harita paneli — her tahtanın yanında oyuncunun kendi kimlik/istatistik sütunu */}
       <div style={{ position:"relative",width:"100%",maxWidth:400,padding:"14px 12px 16px",borderRadius:16,background:"linear-gradient(180deg, rgba(10,18,36,0.97), rgba(6,11,24,0.99))",border:`2px solid ${panelBorder}`,boxShadow:"0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)",overflow:"hidden" }}>
         <div style={{ position:"absolute",left:0,right:0,height:3,zIndex:5,pointerEvents:"none",background:`linear-gradient(90deg, transparent, ${sweepColor}, transparent)`,boxShadow:`0 0 18px 4px ${sweepColor}`,animation:"radarSweepLine 2.2s linear both" }} />
         <div style={{ animation:"mapReveal 2.2s linear both" }}>
           <div style={{ fontSize:11,fontWeight:800,color:t.accent,marginBottom:6,textAlign:"center",letterSpacing:2,fontFamily:warrior }}>{appLang==="en"?"YOUR SHOTS":"SENİN ATIŞLARIN"}</div>
-          <div style={{ display:"flex",justifyContent:"center" }}><Grid board={emptyGrid()} cellSize={revealCell} overlay={myOverlay} disabled revealSweepMs={2200} /></div>
+          <div style={{ display:"flex",alignItems:"flex-start",justifyContent:"center",gap:10 }}>
+            <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:3,flexShrink:0,width:52,paddingTop:8 }}>
+              <span style={{ width:36,height:36,borderRadius:"50%",background:`${t.accent}22`,border:`2px solid ${t.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,boxShadow:`0 0 12px ${t.accentGlow}` }}>{myProfile?.avatar || "⚓"}</span>
+              <span style={{ fontSize:9,fontWeight:800,color:t.accent,fontFamily:mono }}>Lv{myProfile?.level || 0}</span>
+              <span style={{ fontSize:9,fontWeight:800,color:"#c084fc",fontFamily:mono }}>🎖{migrateHonor(myProfile)}</span>
+              <span style={{ fontSize:10,fontWeight:900,color:t.gold,fontFamily:mono,textShadow:`0 0 6px ${t.goldGlow}` }}>💰{salvoMyGoldAnim}</span>
+            </div>
+            <Grid board={emptyGrid()} cellSize={revealCell} overlay={myOverlay} disabled revealSweepMs={2200} />
+          </div>
           <div style={{ display:"flex",alignItems:"center",gap:10,margin:"14px 0" }}>
             <div style={{ flex:1,height:1,background:`linear-gradient(90deg,transparent,${sweepColor}88)` }} />
             <span style={{ fontSize:12,fontWeight:900,letterSpacing:3,color:sweepColor,fontFamily:warrior,textShadow:`0 0 10px ${sweepColor}` }}>VS</span>
             <div style={{ flex:1,height:1,background:`linear-gradient(270deg,transparent,${sweepColor}88)` }} />
           </div>
           <div style={{ fontSize:11,fontWeight:800,color:t.hit,marginBottom:6,textAlign:"center",letterSpacing:2,fontFamily:warrior }}>{(opponentName||(appLang==="en"?"OPPONENT":"RAKİP")).toUpperCase()} {appLang==="en"?"SHOTS":"ATIŞLARI"}</div>
-          <div style={{ display:"flex",justifyContent:"center" }}><Grid board={emptyGrid()} cellSize={revealCell} overlay={oppOverlay} disabled revealSweepMs={2200} /></div>
+          <div style={{ display:"flex",alignItems:"flex-start",justifyContent:"center",gap:10 }}>
+            <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:3,flexShrink:0,width:52,paddingTop:8 }}>
+              <span style={{ width:36,height:36,borderRadius:"50%",background:`${t.hit}22`,border:`2px solid ${t.hit}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,boxShadow:`0 0 12px ${t.hitGlow}` }}>🤖</span>
+              <span style={{ fontSize:9,fontWeight:800,color:t.hit,fontFamily:mono }}>Lv{botStats.level}</span>
+              <span style={{ fontSize:9,fontWeight:800,color:"#c084fc",fontFamily:mono }}>🎖{botStats.honor}</span>
+              <span style={{ fontSize:10,fontWeight:900,color:t.gold,fontFamily:mono,textShadow:`0 0 6px ${t.goldGlow}` }}>💰{salvoBotGoldAnim}</span>
+            </div>
+            <Grid board={emptyGrid()} cellSize={revealCell} overlay={oppOverlay} disabled revealSweepMs={2200} />
+          </div>
         </div>
       </div>
       {goldChange && (won || draw) && <div style={{ fontSize:14,fontWeight:800,color:t.gold,marginTop:14,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}` }}>{goldChange.refund ? `↩ ${goldChange.amount} 💰 ${appLang==="en"?"REFUNDED":"İADE"}` : `+${goldChange.amount} 💰`}</div>}
@@ -5496,7 +5530,7 @@ export default function Game() {
         <span style={{ fontSize:9,fontWeight:700,letterSpacing:1,opacity:0.75 }}>{appLang==="en"?"Entry":"Giriş"} {SALVO_ANTE} 💰</span>
       </button>
       <button onClick={resetGame} style={{ marginTop:10,marginBottom:24,padding:"10px 28px",background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:10,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"backBtn")}</button>
-      {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
+      {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} bottomPct={58} />}
     </div>);
   }
 
