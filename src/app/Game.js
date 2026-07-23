@@ -10,6 +10,9 @@ const CLOCK_SECONDS = 300;
 const PLACEMENT_SECONDS = 60;
 const SALVO_SECONDS = 60; // TEK SALVO modu: 20 atışını işaretlemek için süre
 const SALVO_SHOTS = 20;
+// KUŞATMA — 3 kişilik, sabit üçgen hedefleme (A→B→C→A). V1: bot-only (2 bot + 1 gerçek oyuncu), online altyapısı sonraki aşama.
+const SIEGE_PLAYERS = 3;
+const SIEGE_SHOTS_PER_TURN = SHOTS_PER_TURN; // "standart oyundaki gibi" — aynı ateş kuralı
 
 const SHIPS = [
   { id: "amiral", name: "Amiral", nameEn: "Leviathan", shape: [[0,0],[0,1],[0,2],[1,1]], size: 4, color: "#e74c3c" },
@@ -206,6 +209,12 @@ function botPlaceShips() {
     }
   }
   return { board, ships: placed };
+}
+// KUŞATMA — sıradaki hayatta kalan oyuncuyu bulur (sabit koltuk sırasına göre, elenenleri atlar)
+function siegeNextAliveIdx(fromIdx, aliveArr) {
+  let idx = fromIdx;
+  for (let i = 0; i < aliveArr.length; i++) { idx = (idx + 1) % aliveArr.length; if (aliveArr[idx]) return idx; }
+  return fromIdx;
 }
 function shiftIntoBounds(cells) {
   let dr = 0, dc = 0;
@@ -1189,21 +1198,22 @@ function ArenaSelect({ myGold, onSelect, onBack, lang = "tr" }) {
 // === FARKLI SULAR — özel oyun modları merkezi. Aynı temel kurallar, değişik harita/gemi/oynanış varyantları. ===
 const WATER_MODES = [
   { id:"teksalvo", name:"TEK SALVO", nameEn:"SINGLE SALVO", icon:"💥", color:"#fbbf24", desc:"20 atışını tek seferde işaretle, en çok vuran kazanır. 💰25 giriş, kazanana 50.", descEn:"Mark all 20 shots at once — most hits wins. 💰25 entry, winner takes 50." },
-  { id:"kusatma", name:"KUŞATMA", nameEn:"SIEGE", icon:"⚔️", color:"#ff4757", desc:"3 kişi serbest, 4 kişi 2'ye 2 — aynı sularda çok filo.", descEn:"3-player free-for-all or 4-player 2v2 — multiple fleets, same waters." },
+  { id:"kusatma", name:"KUŞATMA", nameEn:"SIEGE", icon:"⚔️", color:"#ff4757", desc:"3 filo, sabit üçgen: sen birine ateş edersin, o üçüncüye, o da sana.", descEn:"3 fleets, fixed triangle: you fire at one, they fire at the next, and they fire back at you." },
   { id:"tersane", name:"TERSANE", nameEn:"SHIPYARD", icon:"⚒️", color:"#f59e0b", desc:"20 kutucuk, 5 gemi, istediğin şekli ver.", descEn:"20 cells, 5 ships, any shape you want." },
   { id:"girdap", name:"GİRDAP", nameEn:"WHIRLPOOL", icon:"🌀", color:"#6366f1", desc:"9x9'dan 15x15'e — tahta boyu her seferinde değişir.", descEn:"From 9x9 to 15x15 — board size shifts each time." },
   { id:"manevra", name:"MANEVRA", nameEn:"MANEUVER", icon:"🧭", color:"#4ade80", desc:"Savaş sürerken kalan gemilerini yeniden konumlandır.", descEn:"Reposition your remaining ships mid-battle." },
   { id:"ateskes", name:"ATEŞKES", nameEn:"CEASEFIRE", icon:"🕊️", color:"#94a3b8", desc:"5 dakika sonunda en AZ vuran kazanır.", descEn:"After 5 minutes, whoever hits the LEAST wins." },
 ];
-function DifferentWaters({ onBack, onPlaySalvo, lang = "tr" }) {
+function DifferentWaters({ onBack, onPlaySalvo, onPlayKusatma, lang = "tr" }) {
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:`linear-gradient(180deg, ${t.bg} 0%, #071428 100%)`,padding:"24px 14px",fontFamily:mono,color:t.text }}>
     <div style={{ fontSize:26,fontWeight:800,letterSpacing:6,color:t.accent,marginBottom:6,fontFamily:warrior,textShadow:`0 0 25px ${t.accentGlow}`,textAlign:"center" }}>{lang==="en"?"DIFFERENT WATERS":"FARKLI SULAR"}</div>
     <div style={{ fontSize:11,color:t.textDim,fontFamily:mono,textAlign:"center",marginBottom:18,maxWidth:400,lineHeight:1.6,padding:"0 8px" }}>{lang==="en"?"New rules, new maps, new fleets — coming soon.":"Farklı kurallar, farklı haritalar, farklı filolar — çok yakında."}</div>
     <div style={{ width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:10 }}>
       {WATER_MODES.map(mode => {
-        const playable = mode.id === "teksalvo";
+        const playable = mode.id === "teksalvo" || mode.id === "kusatma";
+        const onPlay = mode.id === "teksalvo" ? onPlaySalvo : mode.id === "kusatma" ? onPlayKusatma : undefined;
         return (
-        <div key={mode.id} onClick={playable ? onPlaySalvo : undefined} style={{ display:"flex",alignItems:"center",gap:16,padding:"16px 18px",background:`linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))`,border:`2px solid ${mode.color}${playable?"":"55"}`,borderRadius:14,cursor:playable?"pointer":"default",boxShadow:playable?`0 0 18px ${mode.color}33`:"none",animation:playable?"borderGlow 2.4s infinite":"none" }}>
+        <div key={mode.id} onClick={playable ? onPlay : undefined} style={{ display:"flex",alignItems:"center",gap:16,padding:"16px 18px",background:`linear-gradient(145deg, rgba(12,21,41,0.95), rgba(8,14,30,0.98))`,border:`2px solid ${mode.color}${playable?"":"55"}`,borderRadius:14,cursor:playable?"pointer":"default",boxShadow:playable?`0 0 18px ${mode.color}33`:"none",animation:playable?"borderGlow 2.4s infinite":"none" }}>
           <div style={{ fontSize:26,width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",background:`${mode.color}15`,borderRadius:12,border:`1px solid ${mode.color}33`,flexShrink:0 }}>{mode.icon}</div>
           <div style={{ flex:1,minWidth:0 }}>
             <div style={{ fontSize:15,fontWeight:800,color:mode.color,fontFamily:warrior,letterSpacing:3 }}>{lang==="en"?mode.nameEn:mode.name}</div>
@@ -2779,6 +2789,28 @@ export default function Game() {
   const botGoldStart = botStats.gold;
   const botGoldEnd = botGoldStart + (salvoResult ? (salvoResult.won ? -SALVO_ANTE : salvoResult.draw ? 0 : SALVO_ANTE) : 0);
   const salvoBotGoldAnim = useCountUp(botGoldEnd, salvoRevealActive, 900, botGoldStart);
+  // === KUŞATMA modu (3 kişilik, sabit üçgen hedefleme) — V1 bot-only ===
+  const [siegeMode, setSiegeMode] = useState(false);
+  const siegeModeRef = useRef(false);
+  const [siegeAlive, setSiegeAlive] = useState([true, true, true]);
+  const siegeAliveRef = useRef([true, true, true]);
+  const [siegeTargetOf, setSiegeTargetOf] = useState([1, 2, 0]); // 0→1→2→0 sabit üçgen
+  const siegeTargetOfRef = useRef([1, 2, 0]);
+  const [siegeTurnIdx, setSiegeTurnIdx] = useState(0);
+  const siegeTurnIdxRef = useRef(0);
+  const [siegeBotBoards, setSiegeBotBoards] = useState({});
+  const siegeBotBoardsRef = useRef({});
+  const [siegeBotShips, setSiegeBotShips] = useState({});
+  const siegeBotShipsRef = useRef({});
+  const [siegeNames, setSiegeNames] = useState({});
+  const siegeMyShipCellsRef = useRef([]); // insanın yerleştirme onaylanınca dondurulan gemi hücreleri
+  const [siegeReceived, setSiegeReceived] = useState({}); // {0:grid,1:grid,2:grid} — o oyuncunun tahtasına isabet eden atışlar
+  const siegeReceivedRef = useRef({});
+  const [siegeSelected, setSiegeSelected] = useState([]);
+  const siegeSelectedRef = useRef([]);
+  const [siegeSpectator, setSiegeSpectator] = useState(null); // { attacker, defender, cells, revealed }
+  const [siegeGameOver, setSiegeGameOver] = useState(null); // { won }
+  const siegeGameOverRef = useRef(null);
   const [dailyMissions, setDailyMissions] = useState(() => pickDailyMissions(Date.now()));
   const [missionProgress, setMissionProgress] = useState({});
   const [chestReward, setChestReward] = useState(null);
@@ -3690,6 +3722,14 @@ export default function Game() {
       }, 1000);
       return;
     }
+    if (isBotGame && siegeModeRef.current) {
+      // İnsanın gemi hücreleri artık sabit — motor bundan sonra buna bakacak (state'e değil, ref'e; kapanış bayatlamasın diye)
+      siegeMyShipCellsRef.current = placedShips.flatMap(s => s.cells);
+      setPhase("siege");
+      sfx.init(); sfx.playBattleMusic(false);
+      // Sıra her zaman insanla (0) başlar — motorun hemen çalışmasına gerek yok, UI bekler.
+      return;
+    }
     if (isBotGame) {
       setPhase("playing"); setMyTurn(true); setActiveBoard("attack");
       sfx.init(); sfx.playBattleMusic(false); // oyun başladı → alçak volume
@@ -3738,6 +3778,10 @@ export default function Game() {
     if (salvoTimerRef.current) { clearInterval(salvoTimerRef.current); salvoTimerRef.current = null; }
     salvoModeRef.current = false; salvoSelectedRef.current = []; salvoBotShotsRef.current = []; salvoSubmittedRef.current = false;
     setSalvoMode(false); setSalvoSelected([]); setSalvoSubmitted(false); setSalvoResult(null); setSalvoTimer(SALVO_SECONDS);
+    // KUŞATMA temizliği — bekleyen bot-turu/izleyici zamanlayıcıları siegeModeRef=false görünce no-op olur
+    siegeModeRef.current = false; siegeAliveRef.current = [true, true, true]; siegeTargetOfRef.current = [1, 2, 0]; siegeTurnIdxRef.current = 0;
+    siegeBotBoardsRef.current = {}; siegeBotShipsRef.current = {}; siegeMyShipCellsRef.current = []; siegeReceivedRef.current = {}; siegeSelectedRef.current = []; siegeGameOverRef.current = null;
+    setSiegeMode(false); setSiegeAlive([true, true, true]); setSiegeTargetOf([1, 2, 0]); setSiegeTurnIdx(0); setSiegeBotBoards({}); setSiegeBotShips({}); setSiegeNames({}); setSiegeReceived({}); setSiegeSelected([]); setSiegeSpectator(null); setSiegeGameOver(null);
     finishDragListeners(); dragRef.current = null;
     setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShowSurrenderConfirm(false); setAfkTimer(null); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; killCountRef.current = 0; firstHitVoiceRef.current = false; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); isBotGameRef.current = false; setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false }); setRevengeResult(null); setMatchRewards(null); setRewardModalOpen(false); setNewAchUnlocks([]);
     // Profili sunucudan tazele — AMA günlük görev ve kazanım sayaçlarında YEREL ilerleme
@@ -4098,6 +4142,158 @@ export default function Game() {
 
   // Sonuç ekranından ana sayfaya hiç uğramadan doğrudan yeni bir Tek Salvo maçı başlatır.
   const replaySalvo = () => { resetGame(); startSalvoBotGame(); };
+
+  // === KUŞATMA (3 kişilik) — bot-only tur motoru ===
+  // Koltuk sırası: 0=insan, 1=bot A, 2=bot B. Sabit üçgen: 0→1, 1→2, 2→0.
+  const startSiegeBotGame = () => {
+    track("game_start", { mode: "siege3" });
+    if (!playerName.trim()) { setMessage(L(appLang,"msgTypeName")); return; }
+    const botA = botPlaceShips();
+    const botB = botPlaceShips();
+    const nameA = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+    let nameB = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+    if (nameB === nameA) nameB = BOT_NAMES[(BOT_NAMES.indexOf(nameA) + 1) % BOT_NAMES.length];
+    setIsBotGame(true); isBotGameRef.current = true;
+    setSiegeMode(true); siegeModeRef.current = true;
+    const shipsA = {}; botA.ships.forEach((s, i) => { shipsA[i] = { id: s.id, cells: s.cells }; });
+    const shipsB = {}; botB.ships.forEach((s, i) => { shipsB[i] = { id: s.id, cells: s.cells }; });
+    siegeBotBoardsRef.current = { 1: botA.board, 2: botB.board }; setSiegeBotBoards(siegeBotBoardsRef.current);
+    siegeBotShipsRef.current = { 1: shipsA, 2: shipsB }; setSiegeBotShips(siegeBotShipsRef.current);
+    setSiegeNames({ 0: playerName.trim(), 1: nameA, 2: nameB });
+    siegeAliveRef.current = [true, true, true]; setSiegeAlive(siegeAliveRef.current);
+    siegeTargetOfRef.current = [1, 2, 0]; setSiegeTargetOf(siegeTargetOfRef.current);
+    siegeTurnIdxRef.current = 0; setSiegeTurnIdx(0);
+    siegeReceivedRef.current = { 0: emptyGrid().map(r => r.map(() => null)), 1: emptyGrid().map(r => r.map(() => null)), 2: emptyGrid().map(r => r.map(() => null)) };
+    setSiegeReceived(siegeReceivedRef.current);
+    siegeSelectedRef.current = []; setSiegeSelected([]);
+    setSiegeSpectator(null);
+    siegeGameOverRef.current = null; setSiegeGameOver(null);
+    setGameStartTime(Date.now());
+    setPhase("placing");
+    sfx.init(); sfx.playPlacementMusic();
+  };
+
+  // Bir atışı çözer: attacker → defender, cells listesi. İsabetleri defender'ın "received" tahtasına işler, elenme kontrolü yapar.
+  const resolveSiegeShot = (attacker, defender, cells) => {
+    const defShipCells = defender === 0
+      ? siegeMyShipCellsRef.current
+      : Object.values(siegeBotShipsRef.current[defender] || {}).flatMap(s => s.cells);
+    const overlay = (siegeReceivedRef.current[defender] || emptyGrid().map(r => r.map(() => null))).map(row => [...row]);
+    let hits = 0;
+    cells.forEach(([r, c]) => { const hit = defShipCells.some(([sr, sc]) => sr === r && sc === c); overlay[r][c] = hit ? "hit" : "miss"; if (hit) hits++; });
+    siegeReceivedRef.current = { ...siegeReceivedRef.current, [defender]: overlay };
+    setSiegeReceived(siegeReceivedRef.current);
+    const totalDefCells = defShipCells.length;
+    const totalHitOnDef = overlay.flat().filter(v => v === "hit").length;
+    const eliminated = totalDefCells > 0 && totalHitOnDef >= totalDefCells;
+    if (eliminated) handleSiegeElimination(attacker, defender);
+    return { hits, eliminated };
+  };
+
+  // Defender elendi: saldırgan, elenenin eski hedefini devralır (üçgen doğal olarak ikiliye küçülür).
+  // İnsan elenirse anında oyun biter (kayıp). Sadece insan hayatta kalırsa oyun biter (galibiyet).
+  const handleSiegeElimination = (attacker, defender) => {
+    const nextAlive = [...siegeAliveRef.current]; nextAlive[defender] = false;
+    siegeAliveRef.current = nextAlive; setSiegeAlive(nextAlive);
+    const nextTargets = [...siegeTargetOfRef.current];
+    nextTargets[attacker] = nextTargets[defender];
+    siegeTargetOfRef.current = nextTargets; setSiegeTargetOf(nextTargets);
+    if (defender === 0) { finishSiegeGame(false); return; }
+    const aliveCount = nextAlive.filter(Boolean).length;
+    if (aliveCount === 1 && nextAlive[0]) { finishSiegeGame(true); return; }
+  };
+
+  const finishSiegeGame = (won) => {
+    siegeGameOverRef.current = { won }; setSiegeGameOver({ won });
+    setPhase("siegeover");
+    sfx.init(); sfx.play(won ? 'win' : 'lose');
+    if (authUid) {
+      bumpDaily(d => { d.gamesPlayed += 1; if (won) { d.wins += 1; d.botWin = true; } });
+      bumpAch(a => { if (won) { a.botWins += 1; a.winStreak += 1; a.bestWinStreak = Math.max(a.bestWinStreak, a.winStreak); a.lossStreak = 0; } else { a.winStreak = 0; a.lossStreak = (a.lossStreak || 0) + 1; } });
+      bumpGlobalStats(1, 0);
+      bumpVoyageMatch();
+      // Sadece ilerleme kaydı — Kuşatma'da bahis/altın YOK (gerçek oyunculara açılınca ayrıca konuşulacak)
+      get(ref(db, `profiles/${authUid}`)).then(snap => {
+        if (!snap.exists()) return;
+        const p = snap.val();
+        const patch = { totalGames: (p.totalGames || 0) + 1, botGames: (p.botGames || 0) + 1, lastGameAt: Date.now() };
+        if (won) { patch.wins = (p.wins || 0) + 1; patch.recentResults = pushRecent(p.recentResults, true); }
+        else { patch.losses = (p.losses || 0) + 1; patch.recentResults = pushRecent(p.recentResults, false); }
+        update(ref(db, `profiles/${authUid}`), patch).catch(() => {});
+        setMyProfile(prev => prev ? { ...prev, ...patch } : prev);
+      }).catch(() => {});
+    }
+    track("game_end", { mode: "siege3", result: won ? "win" : "loss" });
+  };
+
+  // Sırayı bir sonraki hayatta kalana ilerletir. İnsana gelirse motor durur (UI bekler), bota gelirse otomatik oynar.
+  const runSiegeEngineStep = () => {
+    if (!siegeModeRef.current || siegeGameOverRef.current) return;
+    const next = siegeNextAliveIdx(siegeTurnIdxRef.current, siegeAliveRef.current);
+    siegeTurnIdxRef.current = next; setSiegeTurnIdx(next);
+    if (next === 0) return;
+    setTimeout(() => runSiegeBotTurn(next), 1100 + Math.random() * 500);
+  };
+
+  // Bir botun turu: hedefine rastgele (henüz denenmemiş) hücrelerden ateş eder.
+  // Hedef insan ise doğrudan uygulanır (insan kendi tahtasında görür). Hedef bot ise, insan üçüncü taraf olduğu için izleyici baloncuğu açılır.
+  const runSiegeBotTurn = (attacker) => {
+    if (!siegeModeRef.current || siegeGameOverRef.current || !siegeAliveRef.current[attacker]) return;
+    const defender = siegeTargetOfRef.current[attacker];
+    const receivedOverlay = siegeReceivedRef.current[defender] || emptyGrid().map(r => r.map(() => null));
+    const already = new Set();
+    receivedOverlay.forEach((row, r) => row.forEach((v, c) => { if (v) already.add(`${r},${c}`); }));
+    const options = [];
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (!already.has(`${r},${c}`)) options.push([r, c]);
+    const cells = [];
+    for (let i = 0; i < SIEGE_SHOTS_PER_TURN && options.length; i++) { const idx = Math.floor(Math.random() * options.length); cells.push(options.splice(idx, 1)[0]); }
+    if (cells.length === 0) { runSiegeEngineStep(); return; }
+    const isSpectator = attacker !== 0 && defender !== 0;
+    if (isSpectator) {
+      setSiegeSpectator({ attacker, defender, cells, revealed: 0 });
+      sfx.init();
+      cells.forEach((_, i) => { setTimeout(() => { if (siegeModeRef.current) { sfx.play('click'); setSiegeSpectator(prev => prev ? { ...prev, revealed: i + 1 } : prev); } }, 500 + i * 480); });
+      setTimeout(() => {
+        if (!siegeModeRef.current) return;
+        resolveSiegeShot(attacker, defender, cells);
+        setSiegeSpectator(null);
+        if (!siegeGameOverRef.current) runSiegeEngineStep();
+      }, 700 + cells.length * 480);
+    } else {
+      setTimeout(() => {
+        if (!siegeModeRef.current) return;
+        sfx.init(); sfx.play('click');
+        resolveSiegeShot(attacker, defender, cells);
+        if (!siegeGameOverRef.current) runSiegeEngineStep();
+      }, 900);
+    }
+  };
+
+  const siegeToggleCell = (r, c) => {
+    if (siegeTurnIdxRef.current !== 0 || siegeGameOverRef.current) return;
+    sfx.init(); sfx.play('click');
+    setSiegeSelected(prev => {
+      const exists = prev.some(([pr, pc]) => pr === r && pc === c);
+      let next;
+      if (exists) next = prev.filter(([pr, pc]) => !(pr === r && pc === c));
+      else { if (prev.length >= SIEGE_SHOTS_PER_TURN) return prev; next = [...prev, [r, c]]; }
+      siegeSelectedRef.current = next;
+      return next;
+    });
+  };
+  const siegeFire = () => {
+    if (siegeTurnIdxRef.current !== 0 || siegeGameOverRef.current) return;
+    const cells = siegeSelectedRef.current;
+    if (cells.length === 0) return;
+    sfx.init(); sfx.play('click');
+    const defender = siegeTargetOfRef.current[0];
+    resolveSiegeShot(0, defender, cells);
+    setSiegeSelected([]); siegeSelectedRef.current = [];
+    if (!siegeGameOverRef.current) setTimeout(() => runSiegeEngineStep(), 1300);
+  };
+
+  // Sonuç ekranından ana sayfaya uğramadan doğrudan yeni bir Kuşatma maçı başlatır.
+  const replaySiege = () => { resetGame(); startSiegeBotGame(); };
 
   const startOnboarding = () => {
     const MINI = 7;
@@ -4991,7 +5187,7 @@ export default function Game() {
   }
   if (showAchievements) return <><style>{ANIMS}</style><AchievementsScreen profile={myProfile} onClose={() => setShowAchievements(false)} onClaim={claimAchievementSet} lang={appLang} /></>;
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} lang={appLang} /></>;
-  if (showDifferentWaters) return <><style>{ANIMS}</style><DifferentWaters onBack={() => setShowDifferentWaters(false)} onPlaySalvo={() => { setShowDifferentWaters(false); startSalvoBotGame(); }} lang={appLang} /></>;
+  if (showDifferentWaters) return <><style>{ANIMS}</style><DifferentWaters onBack={() => setShowDifferentWaters(false)} onPlaySalvo={() => { setShowDifferentWaters(false); startSalvoBotGame(); }} onPlayKusatma={() => { setShowDifferentWaters(false); startSiegeBotGame(); }} lang={appLang} /></>;
   if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => { setSelectedArena(arena); setShowArenaSelect(false); startQuickMatch(arena); }} lang={appLang} /></>;
   if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myGold={myProfile?.gold} onBack={() => setShowOnlineLobby(false)} onChallenge={handleOnlineChallenge} ready={readyToPlay} onToggleReady={()=>setReadyToPlay(v=>!v)} lang={appLang} /></>;
 
@@ -5531,6 +5727,109 @@ export default function Game() {
       </button>
       <button onClick={resetGame} style={{ marginTop:10,marginBottom:24,padding:"10px 28px",background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:10,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"backBtn")}</button>
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} bottomPct={58} />}
+    </div>);
+  }
+
+  // === KUŞATMA — savaş ekranı: sıra bendeyse saldırı, bot bana ateş ediyorsa kendi tahtam, iki bot çarpışıyorsa izleyici baloncuğu ===
+  if (phase === "siege") {
+    const myTurn = siegeTurnIdx === 0;
+    const myTargetIdx = siegeTargetOf[0];
+    const attackerOfMe = siegeTargetOf.findIndex((tg, idx) => idx !== 0 && siegeAlive[idx] && tg === 0);
+    const isSpectating = !!siegeSpectator;
+    const measuredSiege = fitCell(10);
+    const siegeCell = measuredSiege || Math.max(13, Math.min(24, Math.floor((viewport.w - gutter - 14) / 12)));
+    const nameFor = (idx) => idx === 0 ? (playerName || (appLang==="en"?"YOU":"SEN")) : (siegeNames[idx] || "?");
+    const avatarFor = (idx) => idx === 0 ? (myProfile?.avatar || "⚓") : "🤖";
+
+    let boardMode = "own", overlayGrid = emptyGrid().map(row => row.map(() => null)), boardTitle = "";
+    if (myTurn) {
+      boardMode = "target";
+      const received = siegeReceived[myTargetIdx] || overlayGrid;
+      received.forEach((row,r) => row.forEach((v,c) => { if (v) overlayGrid[r][c] = v; }));
+      siegeSelected.forEach(([r,c]) => { if (!overlayGrid[r][c]) overlayGrid[r][c] = "selected"; });
+      boardTitle = `${nameFor(myTargetIdx).toUpperCase()} ${appLang==="en"?"WATERS":"SULARI"}`;
+    } else if (isSpectating) {
+      boardMode = "spectate";
+      const base = siegeReceived[siegeSpectator.defender] || overlayGrid;
+      base.forEach((row,r) => row.forEach((v,c) => { if (v) overlayGrid[r][c] = v; }));
+      const defShipCells = siegeSpectator.defender === 0 ? siegeMyShipCellsRef.current : Object.values(siegeBotShips[siegeSpectator.defender] || {}).flatMap(s => s.cells);
+      siegeSpectator.cells.slice(0, siegeSpectator.revealed).forEach(([r,c]) => { overlayGrid[r][c] = defShipCells.some(([sr,sc])=>sr===r&&sc===c) ? "hit" : "miss"; });
+      boardTitle = `${nameFor(siegeSpectator.attacker).toUpperCase()} → ${nameFor(siegeSpectator.defender).toUpperCase()}`;
+    } else {
+      boardMode = "own";
+      overlayGrid = siegeReceived[0] || overlayGrid;
+      boardTitle = appLang==="en" ? "YOUR WATERS — UNDER FIRE" : "SENİN SULARIN — ATEŞ ALTINDA";
+    }
+    const activeAttacker = myTurn ? 0 : isSpectating ? siegeSpectator.attacker : (attackerOfMe >= 0 ? attackerOfMe : 1);
+    const activeDefender = myTurn ? myTargetIdx : isSpectating ? siegeSpectator.defender : 0;
+
+    return (<div style={{ ...appStyle, height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingBottom:10 }}><style>{ANIMS}</style>
+      <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-start",marginBottom:4 }}>
+        <button onClick={resetGame} style={{ padding:"7px 14px",minHeight:32,background:"rgba(255,255,255,0.05)",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:9,fontSize:11,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",gap:5 }}>← {L(appLang,"backBtn")}</button>
+      </div>
+      <div style={{ fontSize:16,fontWeight:800,letterSpacing:4,color:t.accent,marginBottom:6,fontFamily:warrior,textShadow:`0 0 15px ${t.accentGlow}` }}>KUŞATMA</div>
+      {/* Üçgen ilişki şeridi — kim kime saldırıyor tek bakışta görünsün */}
+      <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:5,marginBottom:8 }}>
+        {[0,1,2].map((idx,i) => (
+          <div key={idx} style={{ display:"flex",alignItems:"center",gap:5 }}>
+            <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:2,opacity:siegeAlive[idx]?1:0.35 }}>
+              <span style={{ width:28,height:28,borderRadius:"50%",background:idx===activeAttacker?"rgba(255,215,0,0.18)":idx===activeDefender?"rgba(255,71,87,0.18)":"rgba(255,255,255,0.05)",border:`2px solid ${idx===activeAttacker?t.gold:idx===activeDefender?t.hit:t.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,animation:(idx===activeAttacker||idx===activeDefender)?"pulse 1.1s ease-in-out infinite":"none" }}>{siegeAlive[idx]?avatarFor(idx):"☠"}</span>
+              <span style={{ fontSize:7,color:t.textDim,fontFamily:mono,maxWidth:38,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{nameFor(idx)}</span>
+            </div>
+            {i<2 && <span style={{ fontSize:12,color:t.textDim }}>→</span>}
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize:12,fontWeight:800,color:boardMode==="own"?t.hit:boardMode==="spectate"?"#c084fc":t.accent,marginBottom:6,fontFamily:warrior,letterSpacing:2,textAlign:"center",textTransform:"uppercase" }}>
+        {boardMode==="spectate" && (appLang==="en"?"WATCHING — ":"İZLİYORSUN — ")}{boardTitle}
+      </div>
+      <div ref={boardBoxRef} style={{ flex:1,minHeight:0,width:"100%",maxWidth:400,display:"flex",alignItems:"center",justifyContent:"flex-start",paddingTop:6,overflow:"hidden" }}>
+        {boardMode === "own"
+          ? <Grid board={defenseBoard} cellSize={siegeCell} isDefense shipColors={shipColorMap} overlay={overlayGrid} disabled />
+          : <Grid board={emptyGrid()} cellSize={siegeCell} overlay={overlayGrid} onClick={boardMode==="target"?siegeToggleCell:undefined} disabled={boardMode!=="target"} />}
+      </div>
+      {boardMode === "target" && (
+        <button onClick={siegeFire} disabled={siegeSelected.length===0} style={{ width:"100%",maxWidth:400,marginTop:10,padding:"13px 0",background:siegeSelected.length===0?t.surfaceLight:`linear-gradient(135deg,${t.hit},#dc2626)`,color:siegeSelected.length===0?t.textDim:"#fff",border:"none",borderRadius:12,fontSize:15,fontWeight:900,letterSpacing:3,cursor:siegeSelected.length===0?"default":"pointer",fontFamily:warrior,boxShadow:siegeSelected.length===0?"none":`0 0 20px ${t.hitGlow}` }}>{L(appLang,"fire")} 🔥 ({siegeSelected.length}/{SIEGE_SHOTS_PER_TURN})</button>
+      )}
+      {boardMode !== "target" && (
+        <div style={{ marginTop:10,textAlign:"center",fontSize:11,color:t.textDim,fontFamily:warrior,letterSpacing:1,animation:"blink3s 1.2s infinite" }}>{boardMode==="own" ? (appLang==="en"?"Bracing for impact...":"Darbeye hazırlanıyor...") : (appLang==="en"?"Battle in progress...":"Çatışma sürüyor...")}</div>
+      )}
+    </div>);
+  }
+
+  // === KUŞATMA — sonuç ekranı ===
+  if (phase === "siegeover") {
+    const won = !!siegeGameOver?.won;
+    const titleText = won ? L(appLang,"victory") : L(appLang,"defeat");
+    const nameFor = (idx) => idx === 0 ? (playerName || (appLang==="en"?"YOU":"SEN")) : (siegeNames[idx] || "?");
+    const avatarFor = (idx) => idx === 0 ? (myProfile?.avatar || "⚓") : "🤖";
+    return (<div style={{ ...appStyle, justifyContent:"flex-start", paddingTop:"calc(10px + env(safe-area-inset-top, 0px))" }}><style>{ANIMS}</style>
+      <div style={{ position:"relative",marginBottom:14,marginTop:6,animation:"arSlideIn 0.7s cubic-bezier(0.22,1,0.36,1) both" }}>
+        <div style={{ display:"flex",justifyContent:"center",gap:"clamp(2px, 1.4vw, 7px)",perspective:"500px",maxWidth:"100%" }}>
+          {titleText.split("").map((ch,i) => (
+            <span key={i} style={{ fontSize:"clamp(36px, 12vw, 60px)",fontWeight:900,fontFamily:warrior,lineHeight:1,display:"inline-block",textTransform:"uppercase",
+              animation:`goLetter 0.55s cubic-bezier(0.34,1.56,0.64,1) ${0.15+i*0.08}s both${won?`, goFloat 2.6s ease-in-out ${1+i*0.15}s infinite`:""}`,
+              ...(won
+                ? { background:"linear-gradient(180deg,#fffbe0 0%,#ffe066 26%,#ffd700 50%,#b45309 72%,#ffe066 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 4px 0 rgba(110,55,0,0.6)) drop-shadow(0 0 28px rgba(255,215,0,0.7)) drop-shadow(0 12px 24px rgba(0,0,0,0.8))" }
+                : { color:"#ff4757",textShadow:"0 4px 0 rgba(70,0,0,0.75), 0 0 32px rgba(255,71,87,0.75), 0 12px 26px rgba(0,0,0,0.8)" })
+            }}>{ch}</span>
+          ))}
+        </div>
+        <div style={{ height:2,margin:"10px auto 0",width:"min(200px, 62%)",background:won?"linear-gradient(90deg,transparent,#ffd700,transparent)":"linear-gradient(90deg,transparent,#ff4757,transparent)",boxShadow:won?`0 0 16px ${t.goldGlow}`:`0 0 16px ${t.hitGlow}`,animation:"goLine 1s ease-out 0.7s both" }} />
+      </div>
+      <div style={{ fontSize:13,color:t.textDim,fontFamily:warrior,letterSpacing:1,marginBottom:20,textAlign:"center" }}>
+        {won ? (appLang==="en"?"You're the last fleet standing!":"Ayakta kalan tek filo sensin!") : (appLang==="en"?"Your fleet was wiped out.":"Filon tamamen batırıldı.")}
+      </div>
+      <div style={{ display:"flex",gap:18,marginBottom:24,justifyContent:"center" }}>
+        {[0,1,2].map(idx => (
+          <div key={idx} style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:5,opacity:siegeAlive[idx]?1:0.4 }}>
+            <span style={{ width:40,height:40,borderRadius:"50%",background:siegeAlive[idx]?`${t.accent}22`:"rgba(255,71,87,0.12)",border:`2px solid ${siegeAlive[idx]?t.accent:t.hit}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18 }}>{siegeAlive[idx]?avatarFor(idx):"☠"}</span>
+            <span style={{ fontSize:9,color:t.textDim,fontFamily:mono,maxWidth:56,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{nameFor(idx)}</span>
+          </div>
+        ))}
+      </div>
+      <button onClick={replaySiege} style={{ padding:"13px 40px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:12,fontSize:15,fontWeight:900,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 24px ${t.accentGlow}`,animation:"borderGlow 1.8s infinite" }}>⚔ {appLang==="en"?"NEW GAME":"YENİ OYUN"}</button>
+      <button onClick={resetGame} style={{ marginTop:10,marginBottom:24,padding:"10px 28px",background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:10,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"backBtn")}</button>
     </div>);
   }
 
