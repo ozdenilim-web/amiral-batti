@@ -2701,7 +2701,8 @@ function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack, ready, onTogg
 }
 
 function findMatch(myUid, myName, myGold, arenaId, timeoutMs = 60000, mode = null) {
-  const queuePath = mode === "salvo" ? "matchmaking_salvo" : (arenaId ? `matchmaking_arena/${arenaId}` : "matchmaking");
+  // NOT: salvo kuyruğu, kural dağıtımı gerektirmesin diye zaten izinli olan matchmaking_arena altında "salvo" sözde-arenası olarak tutulur.
+  const queuePath = mode === "salvo" ? "matchmaking_arena/salvo" : (arenaId ? `matchmaking_arena/${arenaId}` : "matchmaking");
   let cancelled = false, creating = false, resolved = false;
   let unsubQueue = null, unsubMatch = null, timeoutId = null;
 
@@ -2719,11 +2720,14 @@ function findMatch(myUid, myName, myGold, arenaId, timeoutMs = 60000, mode = nul
   };
 
   const promise = new Promise(async (resolve) => {
-    // Üzerimdeki bayat kilidi temizle + kuyruğa gir
-    await remove(ref(db, `matchmaking_claims/${myUid}`)).catch(() => {});
-    await set(ref(db, `${queuePath}/${myUid}`), { displayName: myName, gold: myGold || STARTING_GOLD, time: Date.now() });
-    onDisconnect(ref(db, `${queuePath}/${myUid}`)).remove();
-    onDisconnect(ref(db, `matchmaking_claims/${myUid}`)).remove();
+    // Üzerimdeki bayat kilidi temizle + kuyruğa gir. YAZIM HATASINA DÜŞSE BİLE promise asılı kalmasın:
+    // zaman aşımı yine kurulur → arayan null alır → bot'a düşer (kullanıcı asla takılı kalmaz).
+    try {
+      await remove(ref(db, `matchmaking_claims/${myUid}`)).catch(() => {});
+      await set(ref(db, `${queuePath}/${myUid}`), { displayName: myName, gold: myGold || STARTING_GOLD, time: Date.now() });
+      onDisconnect(ref(db, `${queuePath}/${myUid}`)).remove();
+      onDisconnect(ref(db, `matchmaking_claims/${myUid}`)).remove();
+    } catch (e) { console.error("Kuyruğa girilemedi:", e); }
 
     // Zaman aşımı — arayan taraf karar verir (OYNA: kısa + bot garantisi, arena: uzun)
     timeoutId = setTimeout(() => {
