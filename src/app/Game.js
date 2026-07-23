@@ -210,11 +210,13 @@ function botPlaceShips() {
   }
   return { board, ships: placed };
 }
-// KUŞATMA — sıradaki hayatta kalan oyuncuyu bulur (sabit koltuk sırasına göre, elenenleri atlar)
-function siegeNextAliveIdx(fromIdx, aliveArr) {
-  let idx = fromIdx;
-  for (let i = 0; i < aliveArr.length; i++) { idx = (idx + 1) % aliveArr.length; if (aliveArr[idx]) return idx; }
-  return fromIdx;
+// KUŞATMA — sıradaki saldıranı bulur: ışık (spotlight) az önce ateş edene geri sıçrar.
+// Örnek üçgen A→B, B→C, C→A için sıralama: A ateş eder, sonra A'yı hedefleyen (C) ateş eder, sonra C'yi hedefleyen (B) ateş eder, tekrar A'ya döner.
+function siegeNextAttacker(lastAttacker, targetOf, aliveArr) {
+  for (let i = 0; i < targetOf.length; i++) {
+    if (i !== lastAttacker && aliveArr[i] && targetOf[i] === lastAttacker) return i;
+  }
+  return lastAttacker; // güvenlik: normalde buraya düşülmez
 }
 function shiftIntoBounds(cells) {
   let dr = 0, dc = 0;
@@ -1593,6 +1595,10 @@ const ANIMS = `
 @keyframes coinSpinY{0%,100%{transform:rotateY(0deg)}50%{transform:rotateY(180deg)}}
 @keyframes explodeCore{0%,100%{opacity:0.9;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
 @keyframes explodeWave{0%{opacity:0.7;transform:scale(0.6)}70%{opacity:0.15;transform:scale(1.25)}100%{opacity:0;transform:scale(1.4)}}
+@keyframes siegeIntroPop{0%{opacity:0;transform:scale(0.3) translateY(30px)}55%{opacity:1;transform:scale(1.12) translateY(-6px)}100%{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes siegeRiseUp{0%{opacity:0.3;transform:translateY(46px) scale(0.72)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes siegeSlideDown{0%{opacity:0.4;transform:translateY(-40px) scale(1.05)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes siegeShrinkToMini{0%{opacity:0.3;transform:scale(1.5)}100%{opacity:1;transform:scale(1)}}
 @keyframes scanline{0%{transform:translateY(-2px)}100%{transform:translateY(100vh)}}
 @keyframes flameFlicker{0%,100%{transform:scale(1) rotate(-3deg);opacity:0.85}25%{transform:scale(1.15) rotate(4deg);opacity:1}50%{transform:scale(0.92) rotate(-5deg);opacity:0.8}75%{transform:scale(1.08) rotate(3deg);opacity:0.95}}
 @keyframes turnPulse{0%,100%{box-shadow:0 0 12px rgba(0,229,255,0.4), inset 0 0 8px rgba(0,229,255,0.1)}50%{box-shadow:0 0 30px rgba(0,229,255,0.8), inset 0 0 16px rgba(0,229,255,0.25)}}
@@ -2811,6 +2817,9 @@ export default function Game() {
   const [siegeSpectator, setSiegeSpectator] = useState(null); // { attacker, defender, cells, revealed }
   const [siegeGameOver, setSiegeGameOver] = useState(null); // { won }
   const siegeGameOverRef = useRef(null);
+  const [siegeIntroCount, setSiegeIntroCount] = useState(0); // 0..3 — kaç oyuncu tanıtımda göründü
+  const [siegeIntroDone, setSiegeIntroDone] = useState(false);
+  const siegeIntroTimerRef = useRef(null);
   const [dailyMissions, setDailyMissions] = useState(() => pickDailyMissions(Date.now()));
   const [missionProgress, setMissionProgress] = useState({});
   const [chestReward, setChestReward] = useState(null);
@@ -3727,6 +3736,7 @@ export default function Game() {
       siegeMyShipCellsRef.current = placedShips.flatMap(s => s.cells);
       setPhase("siege");
       sfx.init(); sfx.playBattleMusic(false);
+      startSiegeIntro();
       // Sıra her zaman insanla (0) başlar — motorun hemen çalışmasına gerek yok, UI bekler.
       return;
     }
@@ -3782,6 +3792,8 @@ export default function Game() {
     siegeModeRef.current = false; siegeAliveRef.current = [true, true, true]; siegeTargetOfRef.current = [1, 2, 0]; siegeTurnIdxRef.current = 0;
     siegeBotBoardsRef.current = {}; siegeBotShipsRef.current = {}; siegeMyShipCellsRef.current = []; siegeReceivedRef.current = {}; siegeSelectedRef.current = []; siegeGameOverRef.current = null;
     setSiegeMode(false); setSiegeAlive([true, true, true]); setSiegeTargetOf([1, 2, 0]); setSiegeTurnIdx(0); setSiegeBotBoards({}); setSiegeBotShips({}); setSiegeNames({}); setSiegeReceived({}); setSiegeSelected([]); setSiegeSpectator(null); setSiegeGameOver(null);
+    if (siegeIntroTimerRef.current) { clearInterval(siegeIntroTimerRef.current); siegeIntroTimerRef.current = null; }
+    setSiegeIntroCount(0); setSiegeIntroDone(false);
     finishDragListeners(); dragRef.current = null;
     setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShowSurrenderConfirm(false); setAfkTimer(null); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; killCountRef.current = 0; firstHitVoiceRef.current = false; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); isBotGameRef.current = false; setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false }); setRevengeResult(null); setMatchRewards(null); setRewardModalOpen(false); setNewAchUnlocks([]);
     // Profili sunucudan tazele — AMA günlük görev ve kazanım sayaçlarında YEREL ilerleme
@@ -4226,10 +4238,11 @@ export default function Game() {
     track("game_end", { mode: "siege3", result: won ? "win" : "loss" });
   };
 
-  // Sırayı bir sonraki hayatta kalana ilerletir. İnsana gelirse motor durur (UI bekler), bota gelirse otomatik oynar.
-  const runSiegeEngineStep = () => {
+  // Sırayı ilerletir: ışık (spotlight) az önce ateş edene geri sıçrar (A→B, C→A, B→C, A→B...).
+  // İnsana gelirse motor durur (UI bekler), bota gelirse otomatik oynar.
+  const runSiegeEngineStep = (lastAttacker) => {
     if (!siegeModeRef.current || siegeGameOverRef.current) return;
-    const next = siegeNextAliveIdx(siegeTurnIdxRef.current, siegeAliveRef.current);
+    const next = siegeNextAttacker(lastAttacker, siegeTargetOfRef.current, siegeAliveRef.current);
     siegeTurnIdxRef.current = next; setSiegeTurnIdx(next);
     if (next === 0) return;
     setTimeout(() => runSiegeBotTurn(next), 1100 + Math.random() * 500);
@@ -4247,7 +4260,7 @@ export default function Game() {
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (!already.has(`${r},${c}`)) options.push([r, c]);
     const cells = [];
     for (let i = 0; i < SIEGE_SHOTS_PER_TURN && options.length; i++) { const idx = Math.floor(Math.random() * options.length); cells.push(options.splice(idx, 1)[0]); }
-    if (cells.length === 0) { runSiegeEngineStep(); return; }
+    if (cells.length === 0) { runSiegeEngineStep(attacker); return; }
     const isSpectator = attacker !== 0 && defender !== 0;
     if (isSpectator) {
       setSiegeSpectator({ attacker, defender, cells, revealed: 0 });
@@ -4257,14 +4270,14 @@ export default function Game() {
         if (!siegeModeRef.current) return;
         resolveSiegeShot(attacker, defender, cells);
         setSiegeSpectator(null);
-        if (!siegeGameOverRef.current) runSiegeEngineStep();
+        if (!siegeGameOverRef.current) runSiegeEngineStep(attacker);
       }, 700 + cells.length * 480);
     } else {
       setTimeout(() => {
         if (!siegeModeRef.current) return;
         sfx.init(); sfx.play('click');
         resolveSiegeShot(attacker, defender, cells);
-        if (!siegeGameOverRef.current) runSiegeEngineStep();
+        if (!siegeGameOverRef.current) runSiegeEngineStep(attacker);
       }, 900);
     }
   };
@@ -4289,11 +4302,28 @@ export default function Game() {
     const defender = siegeTargetOfRef.current[0];
     resolveSiegeShot(0, defender, cells);
     setSiegeSelected([]); siegeSelectedRef.current = [];
-    if (!siegeGameOverRef.current) setTimeout(() => runSiegeEngineStep(), 1300);
+    if (!siegeGameOverRef.current) setTimeout(() => runSiegeEngineStep(0), 1300);
   };
 
   // Sonuç ekranından ana sayfaya uğramadan doğrudan yeni bir Kuşatma maçı başlatır.
   const replaySiege = () => { resetGame(); startSiegeBotGame(); };
+
+  // Açılış tanıtımı: 3 oyuncu sırayla (1sn arayla) büyüyerek sahneye çıkar, hepsi görününce savaş ekranı açılır.
+  const startSiegeIntro = () => {
+    setSiegeIntroCount(0); setSiegeIntroDone(false);
+    if (siegeIntroTimerRef.current) clearInterval(siegeIntroTimerRef.current);
+    let step = 0;
+    siegeIntroTimerRef.current = setInterval(() => {
+      if (!siegeModeRef.current) { clearInterval(siegeIntroTimerRef.current); siegeIntroTimerRef.current = null; return; }
+      step++;
+      sfx.init(); sfx.play('click');
+      setSiegeIntroCount(step);
+      if (step >= SIEGE_PLAYERS) {
+        clearInterval(siegeIntroTimerRef.current); siegeIntroTimerRef.current = null;
+        setTimeout(() => { if (siegeModeRef.current) setSiegeIntroDone(true); }, 900);
+      }
+    }, 1000);
+  };
 
   const startOnboarding = () => {
     const MINI = 7;
@@ -5736,8 +5766,6 @@ export default function Game() {
     const myTargetIdx = siegeTargetOf[0];
     const attackerOfMe = siegeTargetOf.findIndex((tg, idx) => idx !== 0 && siegeAlive[idx] && tg === 0);
     const isSpectating = !!siegeSpectator;
-    const measuredSiege = fitCell(10);
-    const siegeCell = measuredSiege || Math.max(13, Math.min(24, Math.floor((viewport.w - gutter - 14) / 12)));
     const nameFor = (idx) => idx === 0 ? (playerName || (appLang==="en"?"YOU":"SEN")) : (siegeNames[idx] || "?");
     const avatarFor = (idx) => idx === 0 ? (myProfile?.avatar || "⚓") : "🤖";
 
@@ -5762,37 +5790,75 @@ export default function Game() {
     }
     const activeAttacker = myTurn ? 0 : isSpectating ? siegeSpectator.attacker : (attackerOfMe >= 0 ? attackerOfMe : 1);
     const activeDefender = myTurn ? myTargetIdx : isSpectating ? siegeSpectator.defender : 0;
+    const idleIdx = [0,1,2].find(i => i!==activeAttacker && i!==activeDefender);
+    const emptyOverlay = emptyGrid().map(r=>r.map(()=>null));
+    const attackerOverlay = siegeReceived[activeAttacker] || emptyOverlay;
+    const idleOverlay = siegeReceived[idleIdx] || emptyOverlay;
+    const hitCount = overlayGrid.flat().filter(v=>v==="hit"||v==="sunk").length;
+    const bigCell = Math.max(8, Math.min(15, Math.floor((viewport.h - 340) / 24)));
+    const miniCell = Math.max(4, Math.min(7, Math.floor(viewport.w / 66)));
+    const boardFor = (idx, overlayG, clickable, cellSize) => idx === 0
+      ? <Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={overlayG} disabled={!clickable} onClick={clickable?siegeToggleCell:undefined} />
+      : <Grid board={emptyGrid()} cellSize={cellSize} overlay={overlayG} disabled={!clickable} onClick={clickable?siegeToggleCell:undefined} />;
+
+    // === Açılış tanıtımı — 3 oyuncu sırayla (1sn arayla) büyüyerek sahneye çıkar ===
+    if (!siegeIntroDone) {
+      return (<div style={{ ...appStyle, height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"center", alignItems:"center" }}><style>{ANIMS}</style>
+        <div style={{ fontSize:15,fontWeight:800,letterSpacing:5,color:t.accent,marginBottom:26,fontFamily:warrior,textShadow:`0 0 15px ${t.accentGlow}`,textTransform:"uppercase",textAlign:"center" }}>{appLang==="en"?"THE SIEGE BEGINS":"KUŞATMA BAŞLIYOR"}</div>
+        <div style={{ display:"flex",flexDirection:"column",gap:14,width:"100%",maxWidth:340,alignItems:"center",padding:"0 20px" }}>
+          {[0,1,2].map(idx => siegeIntroCount > idx && (
+            <div key={idx} style={{ display:"flex",alignItems:"center",gap:14,width:"100%",padding:"12px 16px",borderRadius:14,background:"rgba(255,255,255,0.04)",border:`1.5px solid ${idx===0?t.accent:t.border}`,animation:"siegeIntroPop 0.55s cubic-bezier(0.22,1,0.36,1) both",boxShadow:idx===0?`0 0 24px ${t.accentGlow}`:"none" }}>
+              <span style={{ width:52,height:52,borderRadius:"50%",background:idx===0?`${t.accent}22`:"rgba(255,255,255,0.06)",border:`2px solid ${idx===0?t.accent:t.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0 }}>{avatarFor(idx)}</span>
+              <div style={{ flex:1,minWidth:0 }}>
+                <div style={{ fontSize:14,fontWeight:900,color:t.text,fontFamily:warrior,letterSpacing:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{nameFor(idx)}</div>
+                <div style={{ fontSize:9,color:t.textDim,fontFamily:mono,marginTop:2 }}>{idx===0?(appLang==="en"?"Your fleet":"Senin filon"):(appLang==="en"?"Enemy commander":"Düşman komutanı")}</div>
+              </div>
+              <div style={{ display:"flex",alignItems:"center",gap:6,flexShrink:0 }}>
+                <span style={{ fontSize:12,color:t.textDim }}>→</span>
+                <span style={{ fontSize:18 }}>{avatarFor(siegeTargetOf[idx])}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>);
+    }
 
     return (<div style={{ ...appStyle, height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingBottom:10 }}><style>{ANIMS}</style>
-      <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"flex-start",marginBottom:4 }}>
+      <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4 }}>
         <button onClick={resetGame} style={{ padding:"7px 14px",minHeight:32,background:"rgba(255,255,255,0.05)",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:9,fontSize:11,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",gap:5 }}>← {L(appLang,"backBtn")}</button>
+        <div style={{ fontSize:13,fontWeight:800,letterSpacing:3,color:t.accent,fontFamily:warrior,textShadow:`0 0 15px ${t.accentGlow}` }}>KUŞATMA</div>
+        <div style={{ width:32 }} />
       </div>
-      <div style={{ fontSize:16,fontWeight:800,letterSpacing:4,color:t.accent,marginBottom:6,fontFamily:warrior,textShadow:`0 0 15px ${t.accentGlow}` }}>KUŞATMA</div>
-      {/* Üçgen ilişki şeridi — kim kime saldırıyor tek bakışta görünsün */}
-      <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:5,marginBottom:8 }}>
-        {[0,1,2].map((idx,i) => (
-          <div key={idx} style={{ display:"flex",alignItems:"center",gap:5 }}>
-            <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:2,opacity:siegeAlive[idx]?1:0.35 }}>
-              <span style={{ width:28,height:28,borderRadius:"50%",background:idx===activeAttacker?"rgba(255,215,0,0.18)":idx===activeDefender?"rgba(255,71,87,0.18)":"rgba(255,255,255,0.05)",border:`2px solid ${idx===activeAttacker?t.gold:idx===activeDefender?t.hit:t.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,animation:(idx===activeAttacker||idx===activeDefender)?"pulse 1.1s ease-in-out infinite":"none" }}>{siegeAlive[idx]?avatarFor(idx):"☠"}</span>
-              <span style={{ fontSize:7,color:t.textDim,fontFamily:mono,maxWidth:38,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{nameFor(idx)}</span>
-            </div>
-            {i<2 && <span style={{ fontSize:12,color:t.textDim }}>→</span>}
-          </div>
-        ))}
+      {/* Bekleyen 3. oyuncu — köşede minyatür tahtasıyla */}
+      <div key={`idle-${idleIdx}`} style={{ position:"fixed",top:"calc(50px + env(safe-area-inset-top, 0px))",right:8,zIndex:50,display:"flex",flexDirection:"column",alignItems:"center",gap:3,opacity:0.8,animation:"siegeShrinkToMini 0.5s ease-out both",background:"rgba(10,14,26,0.6)",border:`1px solid ${t.border}`,borderRadius:10,padding:"5px 6px" }}>
+        <span style={{ fontSize:7,color:t.textDim,fontFamily:mono,maxWidth:52,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{siegeAlive[idleIdx]?nameFor(idleIdx):"☠ "+nameFor(idleIdx)}</span>
+        {boardFor(idleIdx, idleOverlay, false, miniCell)}
       </div>
-      <div style={{ fontSize:12,fontWeight:800,color:boardMode==="own"?t.hit:boardMode==="spectate"?"#c084fc":t.accent,marginBottom:6,fontFamily:warrior,letterSpacing:2,textAlign:"center",textTransform:"uppercase" }}>
-        {boardMode==="spectate" && (appLang==="en"?"WATCHING — ":"İZLİYORSUN — ")}{boardTitle}
+      {isSpectating && <div style={{ fontSize:10,fontWeight:800,color:"#c084fc",marginBottom:4,fontFamily:warrior,letterSpacing:2,textAlign:"center",textTransform:"uppercase" }}>👁 {appLang==="en"?"WATCHING":"İZLİYORSUN"}</div>}
+      {/* SALDIRAN — üstte büyük */}
+      <div key={`att-${activeAttacker}`} style={{ width:"100%",maxWidth:400,animation:"siegeRiseUp 0.5s cubic-bezier(0.22,1,0.36,1) both" }}>
+        <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:4 }}>
+          <span style={{ width:24,height:24,borderRadius:"50%",background:`${t.gold}22`,border:`2px solid ${t.gold}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,flexShrink:0 }}>{avatarFor(activeAttacker)}</span>
+          <span style={{ fontSize:11,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{nameFor(activeAttacker)}</span>
+          <span style={{ fontSize:8,color:t.textDim,fontFamily:mono,letterSpacing:1,textTransform:"uppercase" }}>{appLang==="en"?"attacking":"saldırıyor"}</span>
+        </div>
+        <div style={{ display:"flex",justifyContent:"center" }}>{boardFor(activeAttacker, attackerOverlay, false, bigCell)}</div>
       </div>
-      <div ref={boardBoxRef} style={{ flex:1,minHeight:0,width:"100%",maxWidth:400,display:"flex",alignItems:"center",justifyContent:"flex-start",paddingTop:6,overflow:"hidden" }}>
-        {boardMode === "own"
-          ? <Grid board={defenseBoard} cellSize={siegeCell} isDefense shipColors={shipColorMap} overlay={overlayGrid} disabled />
-          : <Grid board={emptyGrid()} cellSize={siegeCell} overlay={overlayGrid} onClick={boardMode==="target"?siegeToggleCell:undefined} disabled={boardMode!=="target"} />}
+      <div style={{ fontSize:12,fontWeight:900,color:t.hit,fontFamily:mono,margin:"6px 0" }}>{appLang==="en"?"HITS":"İSABET"}: {hitCount}/20</div>
+      {/* SAVUNAN — altta büyük */}
+      <div key={`def-${activeDefender}`} style={{ width:"100%",maxWidth:400,animation:"siegeSlideDown 0.5s cubic-bezier(0.22,1,0.36,1) both" }}>
+        <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:4 }}>
+          <span style={{ width:24,height:24,borderRadius:"50%",background:"rgba(255,71,87,0.15)",border:`2px solid ${t.hit}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,flexShrink:0 }}>{avatarFor(activeDefender)}</span>
+          <span style={{ fontSize:11,fontWeight:800,color:t.hit,fontFamily:warrior,letterSpacing:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{nameFor(activeDefender)}</span>
+          <span style={{ fontSize:8,color:t.textDim,fontFamily:mono,letterSpacing:1,textTransform:"uppercase" }}>{appLang==="en"?"under fire":"ateş altında"}</span>
+        </div>
+        <div style={{ display:"flex",justifyContent:"center" }}>{boardFor(activeDefender, overlayGrid, boardMode==="target", bigCell)}</div>
       </div>
       {boardMode === "target" && (
-        <button onClick={siegeFire} disabled={siegeSelected.length===0} style={{ width:"100%",maxWidth:400,marginTop:10,padding:"13px 0",background:siegeSelected.length===0?t.surfaceLight:`linear-gradient(135deg,${t.hit},#dc2626)`,color:siegeSelected.length===0?t.textDim:"#fff",border:"none",borderRadius:12,fontSize:15,fontWeight:900,letterSpacing:3,cursor:siegeSelected.length===0?"default":"pointer",fontFamily:warrior,boxShadow:siegeSelected.length===0?"none":`0 0 20px ${t.hitGlow}` }}>{L(appLang,"fire")} 🔥 ({siegeSelected.length}/{SIEGE_SHOTS_PER_TURN})</button>
+        <button onClick={siegeFire} disabled={siegeSelected.length===0} style={{ width:"100%",maxWidth:400,marginTop:10,padding:"12px 0",background:siegeSelected.length===0?t.surfaceLight:`linear-gradient(135deg,${t.hit},#dc2626)`,color:siegeSelected.length===0?t.textDim:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:900,letterSpacing:3,cursor:siegeSelected.length===0?"default":"pointer",fontFamily:warrior,boxShadow:siegeSelected.length===0?"none":`0 0 20px ${t.hitGlow}` }}>{L(appLang,"fire")} 🔥 ({siegeSelected.length}/{SIEGE_SHOTS_PER_TURN})</button>
       )}
       {boardMode !== "target" && (
-        <div style={{ marginTop:10,textAlign:"center",fontSize:11,color:t.textDim,fontFamily:warrior,letterSpacing:1,animation:"blink3s 1.2s infinite" }}>{boardMode==="own" ? (appLang==="en"?"Bracing for impact...":"Darbeye hazırlanıyor...") : (appLang==="en"?"Battle in progress...":"Çatışma sürüyor...")}</div>
+        <div style={{ marginTop:10,textAlign:"center",fontSize:10,color:t.textDim,fontFamily:warrior,letterSpacing:1,animation:"blink3s 1.2s infinite" }}>{boardMode==="own" ? (appLang==="en"?"Bracing for impact...":"Darbeye hazırlanıyor...") : (appLang==="en"?"Battle in progress...":"Çatışma sürüyor...")}</div>
       )}
     </div>);
   }
