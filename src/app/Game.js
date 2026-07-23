@@ -1942,34 +1942,32 @@ function MissionPanel({ missions, missionProgress, onClose, lang = "tr", compact
   const allDone = completed.length === 3;
   const progressPct = Math.round((completed.length / 3) * 100);
   return (<div style={ compact
-    ? { background:`linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))`,padding:"12px 16px 10px",width:"100%" }
-    : { background:`linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))`,border:`2px solid ${allDone?"#fbbf24":"rgba(0,229,255,0.25)"}`,borderRadius:16,padding:"20px 20px 16px",width:"100%",maxWidth:380,marginTop:12,boxShadow:allDone?`0 0 40px ${t.goldGlow}, inset 0 1px 0 rgba(255,215,0,0.1)`:`0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)`,animation:"fadeUp 0.4s ease-out" } }>
+    ? { background:"linear-gradient(180deg, rgba(20,34,48,0.85), rgba(10,20,30,0.9))",padding:"12px 16px 10px",width:"100%" }
+    : { background:"linear-gradient(180deg, rgba(20,34,48,0.8), rgba(10,20,30,0.85))",border:`1px solid ${allDone?"rgba(201,161,94,0.55)":"#26394b"}`,borderRadius:12,padding:"18px 18px 14px",width:"100%",maxWidth:380,marginTop:12,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.05), 0 8px 24px rgba(0,0,0,0.45)",animation:"fadeUp 0.4s ease-out" } }>
     {!compact && <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14 }}>
-      <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-        <div style={{ width:32,height:32,borderRadius:10,background:"rgba(0,229,255,0.1)",border:"1px solid rgba(0,229,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center" }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z" fill="rgba(0,229,255,0.3)" stroke="#00e5ff" strokeWidth="1.5" strokeLinejoin="round"/></svg></div>
+      <div style={{ display:"flex",alignItems:"center",gap:10 }}>
+        <span style={{ fontSize:15,opacity:0.9 }}>🎯</span>
         <div>
-          <div style={{ fontSize:19,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 15px ${t.accentGlow}` }}>{L(lang,"missionsTitle")}</div>
-          <div style={{ fontSize:12,fontWeight:800,color:t.textDim,fontFamily:mono,letterSpacing:1,marginTop:1 }}>{L(lang,"missionsSub")}</div>
+          <div style={{ fontSize:16,fontWeight:800,color:"#A9BCC9",fontFamily:warrior,letterSpacing:2 }}>{L(lang,"missionsTitle")}</div>
+          <div style={{ fontSize:11,fontWeight:600,color:"#54697a",fontFamily:mono,letterSpacing:1,marginTop:1 }}>{L(lang,"missionsSub")}</div>
         </div>
       </div>
-      <div style={{ textAlign:"center",background:allDone?"rgba(255,215,0,0.15)":"rgba(0,229,255,0.08)",padding:"6px 14px",borderRadius:10,border:`1px solid ${allDone?"rgba(255,215,0,0.3)":"rgba(0,229,255,0.2)"}` }}>
-        <div style={{ fontSize:19,fontWeight:900,color:allDone?t.gold:t.accent,fontFamily:mono }}>{completed.length}/3</div>
-      </div>
+      <div style={{ fontFamily:mono,fontSize:16,fontWeight:700,color:allDone?"#f0d79a":"#7A8FA0" }}>{completed.length}/3</div>
     </div>}
-    <div style={{ width:"100%",height:4,background:"rgba(255,255,255,0.06)",borderRadius:2,marginBottom:14,overflow:"hidden" }}>
-      <div style={{ width:`${progressPct}%`,height:"100%",background:allDone?`linear-gradient(90deg,${t.gold},#f59e0b)`:`linear-gradient(90deg,${t.accent},#06b6d4)`,borderRadius:2,transition:"width 0.5s ease",boxShadow:allDone?`0 0 10px ${t.goldGlow}`:`0 0 8px ${t.accentGlow}` }} />
+    <div style={{ width:"100%",height:5,background:"rgba(0,0,0,0.4)",borderRadius:3,marginBottom:14,overflow:"hidden",boxShadow:"inset 0 1px 2px rgba(0,0,0,0.6)" }}>
+      <div style={{ width:`${progressPct}%`,height:"100%",background:"linear-gradient(180deg,#5a3d22 0%,#c9a15e 42%,#f0d79a 52%,#c9a15e 62%,#5a3d22 100%)",borderRadius:3,transition:"width 0.5s ease",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.3)" }} />
     </div>
     {missions.map((m, i) => {
       const done = missionProgress[m.id];
-      return (<div key={m.id} style={{ display:"flex",alignItems:"center",gap:14,padding:"12px 14px",background:done?"linear-gradient(135deg, rgba(74,222,128,0.1), rgba(74,222,128,0.03))":"linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))",borderRadius:12,marginBottom:8,border:`2px solid ${done?"rgba(74,222,128,0.3)":"rgba(30,58,95,0.4)"}`,transition:"all 0.3s ease",boxShadow:done?"0 0 15px rgba(74,222,128,0.08)":"none" }}>
+      return (<div key={m.id} style={{ display:"flex",alignItems:"center",gap:14,padding:"11px 13px",background:done?"linear-gradient(180deg,rgba(90,61,34,0.35),rgba(40,28,15,0.35))":"linear-gradient(180deg,rgba(22,36,50,0.4),rgba(12,22,32,0.4))",borderRadius:10,marginBottom:8,border:`1px solid ${done?"rgba(201,161,94,0.4)":"#26394b"}` }}>
         <div style={{ flex:1,minWidth:0 }}>
-          <div style={{ fontSize:16,fontWeight:900,color:done?"#4ade80":t.text,fontFamily:warrior,letterSpacing:1 }}>{lang==="en"?(m.textEn||m.text).toUpperCase():m.text.toLocaleUpperCase('tr-TR')}</div>
-          <div style={{ fontSize:12,fontWeight:700,color:done?"rgba(74,222,128,0.8)":t.textDim,fontFamily:mono,letterSpacing:1,marginTop:2 }}>{done?L(lang,"missionDone"):L(lang,"missionInProgress")}</div>
+          <div style={{ fontSize:15,fontWeight:800,color:done?"#f0d79a":"#A9BCC9",fontFamily:warrior,letterSpacing:1 }}>{lang==="en"?(m.textEn||m.text).toUpperCase():m.text.toLocaleUpperCase('tr-TR')}</div>
+          <div style={{ fontSize:11,fontWeight:600,color:done?"rgba(201,161,94,0.75)":"#54697a",fontFamily:mono,letterSpacing:1,marginTop:2 }}>{done?L(lang,"missionDone"):L(lang,"missionInProgress")}</div>
         </div>
-        {done ? <div style={{ width:30,height:30,borderRadius:10,background:"rgba(74,222,128,0.15)",display:"flex",alignItems:"center",justifyContent:"center",border:"2px solid rgba(74,222,128,0.3)" }}><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-7" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg></div> : <div style={{ width:30,height:30,borderRadius:10,background:"rgba(255,255,255,0.03)",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(255,255,255,0.06)" }}><div style={{ width:8,height:8,borderRadius:4,border:"2px solid rgba(255,255,255,0.15)" }} /></div>}
+        {done ? <div style={{ width:28,height:28,borderRadius:8,background:"rgba(201,161,94,0.15)",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid rgba(201,161,94,0.4)" }}><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-7" stroke="#f0d79a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg></div> : <div style={{ width:28,height:28,borderRadius:8,background:"rgba(255,255,255,0.03)",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid #26394b" }}><div style={{ width:8,height:8,borderRadius:4,border:"2px solid #54697a" }} /></div>}
       </div>);
     })}
-    {allDone && <div style={{ marginTop:10,padding:"12px 16px",background:"linear-gradient(135deg, rgba(255,215,0,0.12), rgba(255,215,0,0.03))",borderRadius:12,border:"2px solid rgba(255,215,0,0.25)",textAlign:"center" }}><div style={{ fontSize:15,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:4,animation:"pulse 1.5s infinite",textShadow:`0 0 20px ${t.goldGlow}` }}>{L(lang,"chestReadyMsg")}</div><div style={{ fontSize:10,fontWeight:600,color:"rgba(255,215,0,0.7)",fontFamily:mono,marginTop:3 }}>{L(lang,"collectRewardMsg")}</div></div>}
+    {allDone && <div style={{ marginTop:10,padding:"11px 14px",background:"linear-gradient(180deg,rgba(90,61,34,0.4),rgba(40,28,15,0.4))",borderRadius:10,border:"1px solid rgba(201,161,94,0.4)",textAlign:"center" }}><div style={{ fontSize:14,fontWeight:800,color:"#f0d79a",fontFamily:warrior,letterSpacing:3 }}>{L(lang,"chestReadyMsg")}</div><div style={{ fontSize:10,fontWeight:600,color:"rgba(201,161,94,0.7)",fontFamily:mono,marginTop:3 }}>{L(lang,"collectRewardMsg")}</div></div>}
   </div>);
 }
 
@@ -2135,17 +2133,15 @@ function AchievementsScreen({ profile, onClose, onClaim, lang = "tr" }) {
   const claimed = safeClaimed(p.achievClaimed);
   const en = lang === "en";
   return (
-    <div style={{ position:"fixed",inset:0,zIndex:9000,background:"linear-gradient(180deg,#050b18 0%,#071428 55%,#0a1a35 100%)",overflowX:"hidden",overflowY:"auto",WebkitOverflowScrolling:"touch" }}>
+    <div style={{ position:"fixed",inset:0,zIndex:9000,background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)",overflowX:"hidden",overflowY:"auto",WebkitOverflowScrolling:"touch" }}>
       <style>{`
-@keyframes achGlow{0%,100%{box-shadow:0 0 8px rgba(52,211,153,0.45)}50%{box-shadow:0 0 18px rgba(52,211,153,0.85)}}
-@keyframes achBtnPulse{0%,100%{transform:scale(1);box-shadow:0 0 16px rgba(255,215,0,0.4)}50%{transform:scale(1.03);box-shadow:0 0 28px rgba(255,215,0,0.7)}}
 @keyframes achFadeUp{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:translateY(0)}}
       `}</style>
       <div style={{ maxWidth:400,margin:"0 auto",padding:"calc(14px + env(safe-area-inset-top,0px)) clamp(10px,4vw,16px) 44px",width:"100%",display:"flex",flexDirection:"column",alignItems:"center" }}>
         {/* Başlık */}
         <div style={{ width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16 }}>
-          <button onClick={onClose} style={{ width:38,height:38,borderRadius:10,background:"rgba(255,255,255,0.05)",border:`1px solid ${t.border}`,color:t.text,fontSize:18,cursor:"pointer",fontFamily:warrior }}>←</button>
-          <div style={{ fontSize:24,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:6,textShadow:`0 0 24px ${t.goldGlow}` }}>🏅 {L(lang,"achTitle")}</div>
+          <button onClick={onClose} style={{ width:38,height:38,borderRadius:10,background:"linear-gradient(180deg,#20313f,#132030)",border:"1px solid #26394b",color:"#A9BCC9",fontSize:18,cursor:"pointer",fontFamily:warrior,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.1)" }}>←</button>
+          <div style={{ fontSize:22,fontWeight:900,color:"#f0d79a",fontFamily:warrior,letterSpacing:5 }}>🏅 {L(lang,"achTitle")}</div>
           <div style={{ width:38 }} />
         </div>
         {ACH_SETS.map((s, idx) => {
@@ -2156,7 +2152,7 @@ function AchievementsScreen({ profile, onClose, onClaim, lang = "tr" }) {
           const setName = en ? s.nameEn : s.name;
           // ── Kilitli set: silik kart + şartlar ──
           if (!unlocked) return (
-            <div key={s.id} style={{ width:"100%",background:"rgba(255,255,255,0.025)",border:`1px solid rgba(255,255,255,0.07)`,borderRadius:14,padding:"14px 16px",marginBottom:12,opacity:0.65 }}>
+            <div key={s.id} style={{ width:"100%",background:"rgba(255,255,255,0.02)",border:"1px solid #26394b",borderRadius:12,padding:"14px 16px",marginBottom:12,opacity:0.6 }}>
               <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:8 }}>
                 <span style={{ fontSize:16,filter:"grayscale(1)",opacity:0.6 }}>🔒</span>
                 <span style={{ fontSize:15,fontWeight:900,color:t.textDim,fontFamily:warrior,letterSpacing:3 }}>{idx+1}. SET — {setName}</span>
@@ -2164,46 +2160,46 @@ function AchievementsScreen({ profile, onClose, onClaim, lang = "tr" }) {
               </div>
               <div style={{ fontSize:9,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:2,marginBottom:5 }}>{L(lang,"achUnlockReq")}:</div>
               {idx > 0 && !achSetDone(ACH_SETS[idx-1], p) && <div style={{ fontSize:10,color:"rgba(255,71,87,0.7)",fontFamily:mono,marginBottom:3 }}>✗ {L(lang,"achPrevSet")}</div>}
-              {s.gateReq.map((g,gi) => <div key={gi} style={{ fontSize:10,color:g.ok(p)?"rgba(52,211,153,0.8)":t.textDim,fontFamily:mono,marginBottom:3 }}>{g.ok(p)?"✓":"○"} {en?g.en:g.tr}</div>)}
+              {s.gateReq.map((g,gi) => <div key={gi} style={{ fontSize:10,color:g.ok(p)?"#c9a15e":"#54697a",fontFamily:mono,marginBottom:3 }}>{g.ok(p)?"✓":"○"} {en?g.en:g.tr}</div>)}
             </div>
           );
           // ── Açık set: 10 görev dikey liste ──
           return (
-            <div key={s.id} style={{ width:"100%",background:`linear-gradient(145deg, ${t.surface}, ${t.surfaceLight})`,border:`2px solid ${done?(isClaimed?"rgba(52,211,153,0.35)":"rgba(255,215,0,0.55)"):t.border}`,borderRadius:14,padding:"14px 16px",marginBottom:12,animation:"achFadeUp 0.4s ease-out" }}>
-              <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:4 }}>
-                <span style={{ fontSize:15,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 12px ${t.goldGlow}` }}>{idx+1}. SET — {setName}</span>
-                <span style={{ marginLeft:"auto",fontSize:12,fontWeight:900,color:done?"#34d399":t.accent,fontFamily:mono }}>{doneCount}/10</span>
+            <div key={s.id} style={{ width:"100%",background:"linear-gradient(180deg, rgba(20,34,48,0.8), rgba(10,20,30,0.85))",border:`1px solid ${done?"rgba(201,161,94,0.55)":"#26394b"}`,borderRadius:12,padding:"14px 16px",marginBottom:12,animation:"achFadeUp 0.4s ease-out",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.05)" }}>
+              <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:8 }}>
+                <span style={{ fontSize:14,fontWeight:800,color:"#f0d79a",fontFamily:warrior,letterSpacing:2 }}>{idx+1}. SET — {setName}</span>
+                <span style={{ marginLeft:"auto",fontSize:12,fontWeight:700,color:done?"#f0d79a":"#7A8FA0",fontFamily:mono }}>{doneCount}/10</span>
               </div>
-              {/* Set ilerleme çubuğu */}
-              <div style={{ width:"100%",height:5,borderRadius:3,background:"rgba(0,0,0,0.45)",overflow:"hidden",marginBottom:12 }}>
-                <div style={{ width:`${doneCount*10}%`,height:"100%",borderRadius:3,background:done?"linear-gradient(90deg,#34d399,#4ade80)":"linear-gradient(90deg,#00e5ff,#ffd700)",transition:"width 0.5s ease",boxShadow:done?"0 0 8px rgba(52,211,153,0.6)":"none" }} />
+              {/* Set ilerleme çubuğu — bronz */}
+              <div style={{ width:"100%",height:5,borderRadius:3,background:"rgba(0,0,0,0.45)",overflow:"hidden",marginBottom:12,boxShadow:"inset 0 1px 2px rgba(0,0,0,0.6)" }}>
+                <div style={{ width:`${doneCount*10}%`,height:"100%",borderRadius:3,background:"linear-gradient(180deg,#5a3d22 0%,#c9a15e 42%,#f0d79a 52%,#c9a15e 62%,#5a3d22 100%)",transition:"width 0.5s ease",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.3)" }} />
               </div>
               {/* Görevler — dikey ikon listesi */}
               {s.missions.map((m, mi) => {
                 const ok = (() => { try { return m.check(p, a); } catch(e) { return false; } })();
                 return (
                   <div key={mi} style={{ display:"flex",alignItems:"center",gap:12,padding:"6px 0" }}>
-                    <div style={{ width:42,height:42,borderRadius:"50%",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,border:`2px solid ${ok?"#34d399":"rgba(255,255,255,0.10)"}`,background:ok?"rgba(52,211,153,0.10)":"rgba(255,255,255,0.03)",animation:ok?"achGlow 2.2s ease-in-out infinite":"none",filter:ok?"none":"grayscale(1)",opacity:ok?1:0.4,transition:"all 0.3s" }}>{m.icon}</div>
-                    <div style={{ flex:1,fontSize:12,fontWeight:700,color:ok?t.text:t.textDim,fontFamily:mono,opacity:ok?1:0.55,letterSpacing:0.3 }}>{en?m.textEn:m.text}</div>
-                    {ok ? <span style={{ fontSize:16,color:"#34d399",fontWeight:900,textShadow:"0 0 8px rgba(52,211,153,0.7)" }}>✓</span> : <span style={{ fontSize:13,color:"rgba(255,255,255,0.15)" }}>○</span>}
+                    <div style={{ width:40,height:40,borderRadius:"50%",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,border:`1px solid ${ok?"rgba(201,161,94,0.5)":"#26394b"}`,background:ok?"rgba(201,161,94,0.10)":"rgba(255,255,255,0.03)",filter:ok?"none":"grayscale(1)",opacity:ok?1:0.4 }}>{m.icon}</div>
+                    <div style={{ flex:1,fontSize:12,fontWeight:700,color:ok?"#d3e0ea":"#7A8FA0",fontFamily:mono,opacity:ok?1:0.6,letterSpacing:0.3 }}>{en?m.textEn:m.text}</div>
+                    {ok ? <span style={{ fontSize:15,color:"#f0d79a",fontWeight:900 }}>✓</span> : <span style={{ fontSize:13,color:"#54697a" }}>○</span>}
                   </div>
                 );
               })}
               {/* Set ödülü */}
-              <div style={{ marginTop:10,padding:"11px 14px",borderRadius:10,background:done&&!isClaimed?"rgba(255,215,0,0.08)":"rgba(0,0,0,0.25)",border:`1px solid ${done&&!isClaimed?"rgba(255,215,0,0.45)":"rgba(255,255,255,0.07)"}`,display:"flex",alignItems:"center",gap:10 }}>
+              <div style={{ marginTop:10,padding:"11px 14px",borderRadius:10,background:done&&!isClaimed?"linear-gradient(180deg,rgba(90,61,34,0.4),rgba(40,28,15,0.4))":"rgba(0,0,0,0.25)",border:`1px solid ${done&&!isClaimed?"rgba(201,161,94,0.5)":"#26394b"}`,display:"flex",alignItems:"center",gap:10 }}>
                 <div style={{ flex:1 }}>
-                  <div style={{ fontSize:9,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:2,marginBottom:3 }}>{L(lang,"achSetReward")}</div>
+                  <div style={{ fontSize:9,fontWeight:800,color:"#54697a",fontFamily:warrior,letterSpacing:2,marginBottom:3 }}>{L(lang,"achSetReward")}</div>
                   <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-                    <span style={{ fontSize:15,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}` }}>💰 {s.reward}</span>
+                    <span style={{ fontSize:15,fontWeight:800,color:"#f0d79a",fontFamily:warrior }}>💰 {s.reward}</span>
                     <span style={{ fontSize:16 }}>{ACH_AVATARS[s.id]}</span>
-                    <span style={{ fontSize:8,fontWeight:800,color:"#a78bfa",fontFamily:warrior,letterSpacing:1 }}>{L(lang,"achAvatarReward")}</span>
+                    <span style={{ fontSize:8,fontWeight:800,color:"#7A8FA0",fontFamily:warrior,letterSpacing:1 }}>{L(lang,"achAvatarReward")}</span>
                   </div>
                 </div>
                 {isClaimed
-                  ? <span style={{ fontSize:11,fontWeight:900,color:"#34d399",fontFamily:warrior,letterSpacing:2 }}>✓ {L(lang,"achClaimed")}</span>
+                  ? <span style={{ fontSize:11,fontWeight:800,color:"#c9a15e",fontFamily:warrior,letterSpacing:2 }}>✓ {L(lang,"achClaimed")}</span>
                   : done
-                    ? <button onClick={()=>onClaim(s)} style={{ padding:"10px 18px",background:"linear-gradient(135deg,#ffd700,#ff9f43)",color:"#1a1206",border:"none",borderRadius:10,fontSize:12,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior,animation:"achBtnPulse 1.6s ease-in-out infinite" }}>{L(lang,"achClaim")}</button>
-                    : <span style={{ fontSize:11,fontWeight:800,color:t.textDim,fontFamily:mono }}>{doneCount}/10</span>}
+                    ? <button onClick={()=>onClaim(s)} style={{ padding:"10px 18px",background:"linear-gradient(180deg,#5a3d22 0%,#c9a15e 42%,#f0d79a 52%,#c9a15e 62%,#5a3d22 100%)",color:"#2a1c08",border:"none",borderRadius:10,fontSize:12,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.4)" }}>{L(lang,"achClaim")}</button>
+                    : <span style={{ fontSize:11,fontWeight:800,color:"#54697a",fontFamily:mono }}>{doneCount}/10</span>}
               </div>
             </div>
           );
