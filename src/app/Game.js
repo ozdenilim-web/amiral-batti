@@ -1289,9 +1289,9 @@ const WATER_MODES = [
   { id:"teksalvo", name:"TEK SALVO", nameEn:"SINGLE SALVO", icon:"💥", color:"#fbbf24", desc:"20 atışını tek seferde işaretle, en çok vuran kazanır. 💰25 giriş, kazanana 50.", descEn:"Mark all 20 shots at once — most hits wins. 💰25 entry, winner takes 50." },
   { id:"kusatma", name:"KUŞATMA", nameEn:"SIEGE", icon:"⚔️", color:"#ff4757", desc:"3 filo, sabit üçgen: sen birine ateş edersin, o üçüncüye, o da sana.", descEn:"3 fleets, fixed triangle: you fire at one, they fire at the next, and they fire back at you." },
   { id:"tersane", name:"TERSANE", nameEn:"SHIPYARD", icon:"⚒️", color:"#f59e0b", desc:"20 kutucuk, 5 gemi, istediğin şekli ver.", descEn:"20 cells, 5 ships, any shape you want." },
-  { id:"girdap", name:"GİRDAP", nameEn:"WHIRLPOOL", icon:"🌀", color:"#6366f1", desc:"9x9'dan 15x15'e — tahta boyu her seferinde değişir.", descEn:"From 9x9 to 15x15 — board size shifts each time." },
-  { id:"manevra", name:"MANEVRA", nameEn:"MANEUVER", icon:"🧭", color:"#4ade80", desc:"Savaş sürerken kalan gemilerini yeniden konumlandır.", descEn:"Reposition your remaining ships mid-battle." },
-  { id:"ateskes", name:"ATEŞKES", nameEn:"CEASEFIRE", icon:"🕊️", color:"#94a3b8", desc:"5 dakika sonunda en AZ vuran kazanır.", descEn:"After 5 minutes, whoever hits the LEAST wins." },
+  { id:"girdap", name:"GİRDAP", nameEn:"WHIRLPOOL", icon:"🌀", color:"#6366f1", desc:"Sular çekilince göreceksin…", descEn:"You'll see when the tide turns…" },
+  { id:"manevra", name:"MANEVRA", nameEn:"MANEUVER", icon:"🧭", color:"#4ade80", desc:"Sular çekilince göreceksin…", descEn:"You'll see when the tide turns…" },
+  { id:"ateskes", name:"ATEŞKES", nameEn:"CEASEFIRE", icon:"🕊️", color:"#94a3b8", desc:"Sular çekilince göreceksin…", descEn:"You'll see when the tide turns…" },
 ];
 function DifferentWaters({ onBack, onPlaySalvo, onPlayKusatma, onPlayTersane, lang = "tr" }) {
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:`linear-gradient(180deg, ${t.bg} 0%, #071428 100%)`,padding:"24px 14px",fontFamily:mono,color:t.text }}>
@@ -1306,7 +1306,7 @@ function DifferentWaters({ onBack, onPlaySalvo, onPlayKusatma, onPlayTersane, la
           <div style={{ fontSize:26,width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",background:`${mode.color}15`,borderRadius:12,border:`1px solid ${mode.color}33`,flexShrink:0 }}>{mode.icon}</div>
           <div style={{ flex:1,minWidth:0 }}>
             <div style={{ fontSize:15,fontWeight:800,color:mode.color,fontFamily:warrior,letterSpacing:3 }}>{lang==="en"?mode.nameEn:mode.name}</div>
-            <div style={{ fontSize:10,fontWeight:600,color:t.textDim,marginTop:3,fontFamily:mono,lineHeight:1.4 }}>{lang==="en"?mode.descEn:mode.desc}</div>
+            <div style={{ fontSize:10,fontWeight:600,color:t.textDim,marginTop:3,fontFamily:mono,lineHeight:1.4,opacity:playable?1:0.5,fontStyle:playable?"normal":"italic" }}>{lang==="en"?mode.descEn:mode.desc}</div>
           </div>
           <div style={{ fontSize:9,fontWeight:900,color:playable?t.bg:t.textDim,background:playable?mode.color:"rgba(255,255,255,0.06)",padding:"4px 10px",borderRadius:8,letterSpacing:1,flexShrink:0 }}>{playable?(lang==="en"?"PLAY":"OYNA"):(lang==="en"?"SOON":"YAKINDA")}</div>
         </div>
