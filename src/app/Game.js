@@ -1997,6 +1997,17 @@ function ChestPopup({ reward, onClose, lang = "tr" }) {
 
 // === YAŞAYAN UFUK — lobinin altındaki gerçek zamanlı deniz sahnesi ===
 // Gökyüzü saate göre yaşar, limanda rütbene göre GEMİN durur, ufukta denizdeki kaptanlar süzülür.
+// İnce istatistik şeridi — gün batımı banner'ının yerine (sayfa gradyanının devamı)
+function HorizonStrip({ lang = "tr" }) {
+  const [sunk, setSunk] = useState(0);
+  useEffect(() => { const u = onValue(ref(db, "global_stats"), s => { const v = s.val() || {}; setSunk(v.sunkTotal || 0); }); return () => u(); }, []);
+  return (<div style={{ width:"100%",maxWidth:400,marginTop:20,zIndex:1,display:"flex",alignItems:"center",gap:10,padding:"11px 4px 6px",borderTop:"1px solid rgba(201,161,94,0.14)" }}>
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><g stroke="#c9a15e" strokeWidth="1.7" strokeLinecap="round"><circle cx="12" cy="4.4" r="1.9"/><line x1="12" y1="6.3" x2="12" y2="20"/><line x1="8.4" y1="9.2" x2="15.6" y2="9.2"/><path d="M4.5 14.5a7.5 7.5 0 0 0 15 0"/></g></svg>
+    <div style={{ flex:1,fontFamily:mono,fontSize:11,letterSpacing:0.5,color:"#54697a" }}>{lang==="en"?"Total ":"Toplam "}<b style={{ color:"#f0d79a",fontWeight:700 }}>{sunk.toLocaleString(lang==="en"?"en-US":"tr-TR")}</b>{lang==="en"?" ships sunk":" gemi batırıldı"}</div>
+    <svg width="56" height="16" viewBox="0 0 60 18" fill="none"><path d="M4 12h52l-6 4H10z" fill="#26394b"/><path d="M14 12V6h30v6" fill="#1a2a38"/><line x1="30" y1="6" x2="30" y2="1" stroke="#54697a" strokeWidth="1.2"/><path d="M30 2l7 3-7 1z" fill="#54697a"/></svg>
+  </div>);
+}
+
 function LivingHorizon({ profile, lang = "tr" }) {
   const [onlineN, setOnlineN] = useState(0);
   const [gs, setGs] = useState({ battlesTotal: 0, sunkTotal: 0, battlesToday: 0 });
@@ -5594,105 +5605,70 @@ export default function Game() {
     const myLevelPct = Math.max(0, Math.min(1, (myProfile?.levelProgress || 0) / myGamesNeeded));
     const authLoading = !authReady || !authUid;
     const winRate = myProfile && myProfile.totalGames > 0 ? Math.round((myProfile.wins / myProfile.totalGames) * 100) : 0;
-    return (<div style={{ ...appStyle, background:`linear-gradient(180deg, ${t.bg} 0%, #071428 50%, #0a1a35 100%)`,position:"relative",overflow:"hidden" }}><style>{ANIMS}{`
-@keyframes shimmerPass{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(600%,0,0)}}
-@keyframes logoFloat{0%,100%{transform:translateY(0) scale(1);filter:drop-shadow(0 0 40px rgba(0,229,255,0.4))}50%{transform:translateY(-6px) scale(1.02);filter:drop-shadow(0 8px 50px rgba(0,229,255,0.6))}}
-    `}</style>
-      {/* Animated ocean background */}
-      <div style={{ position:"absolute",top:0,left:0,right:0,height:250,opacity:0.05,overflow:"hidden",pointerEvents:"none" }}>
-        <div style={{ position:"absolute",bottom:0,left:"-50%",width:"200%",height:80,borderRadius:"50%",background:"linear-gradient(90deg,transparent,#00e5ff,transparent)",animation:"wave 6s linear infinite" }} />
-        <div style={{ position:"absolute",bottom:30,left:"-50%",width:"200%",height:50,borderRadius:"50%",background:t.accent,opacity:0.6,animation:"wave 10s linear infinite reverse" }} />
-        <div style={{ position:"absolute",bottom:60,left:"-50%",width:"200%",height:30,borderRadius:"50%",background:t.accent,opacity:0.3,animation:"wave 14s linear infinite" }} />
+    const isNewPlayer = !myProfile || (myProfile.totalGames || 0) === 0;
+    const BRONZE = "linear-gradient(180deg,#5a3d22 0%,#c9a15e 42%,#f0d79a 52%,#c9a15e 62%,#5a3d22 100%)";
+    const neutralBtn = (dis) => ({ position:"relative",overflow:"hidden",flex:1,height:56,display:"flex",alignItems:"center",justifyContent:"center",gap:9,background:"linear-gradient(180deg,#20313f,#132030)",color:"#A9BCC9",border:"1px solid #26394b",borderRadius:12,fontSize:16,fontWeight:800,fontFamily:warrior,textTransform:"uppercase",letterSpacing:2,cursor:dis?"not-allowed":"pointer",opacity:dis?0.45:1,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.10), 0 2px 0 rgba(0,0,0,0.45), 0 7px 16px rgba(0,0,0,0.32)" });
+    const btnSub = { fontFamily:mono,fontWeight:400,letterSpacing:1,fontSize:8.5,color:"#7A8FA0",textTransform:"none",marginTop:3 };
+    return (<div style={{ ...appStyle, background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)",position:"relative",overflow:"hidden" }}><style>{ANIMS}{`
+@keyframes sonarSweep{to{transform:translate(-50%,-50%) rotate(360deg)}}
+`}</style>
+      {/* Deniz haritası ızgara dokusu — çok soluk */}
+      <div style={{ position:"absolute",inset:0,zIndex:0,pointerEvents:"none",opacity:0.05,backgroundImage:"repeating-linear-gradient(0deg,transparent 0 43px,rgba(120,180,205,0.5) 43px 44px),repeating-linear-gradient(90deg,transparent 0 43px,rgba(120,180,205,0.5) 43px 44px)" }} />
+      {/* TEK yavaş animasyon: soluk sonar taraması */}
+      <div style={{ position:"absolute",left:"50%",top:"36%",width:"150%",aspectRatio:"1",transform:"translate(-50%,-50%)",zIndex:0,pointerEvents:"none",borderRadius:"50%",background:"conic-gradient(from 0deg,transparent 0deg,rgba(28,199,230,0.055) 26deg,transparent 52deg)",animation:"sonarSweep 7s linear infinite" }} />
+      {/* Başlık — splash dili, nabız yok */}
+      <div style={{ fontSize:"clamp(26px, 9.5vw, 42px)",fontWeight:900,letterSpacing:"clamp(4px, 2.4vw, 11px)",color:"#5fd8ee",textShadow:"0 0 34px rgba(28,199,230,0.35), 0 2px 8px rgba(0,0,0,0.6)",marginBottom:2,marginTop:6,fontFamily:warrior,zIndex:1,width:"100%",textAlign:"center",whiteSpace:"nowrap",overflow:"hidden",paddingLeft:9 }}>AMİRAL BATTI</div>
+      <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:8,zIndex:1,width:"100%",maxWidth:400,justifyContent:"center" }}>
+        <div style={{ flex:"0 1 52px",height:1,background:"linear-gradient(90deg, transparent, rgba(201,161,94,0.6))" }} />
+        <div style={{ fontSize:"clamp(9px, 2.8vw, 11px)",color:"#c9a15e",letterSpacing:"clamp(2px, 1.4vw, 5px)",fontFamily:warrior,fontStyle:"italic",fontWeight:700,textShadow:"0 0 12px rgba(201,161,94,0.3)",whiteSpace:"nowrap",flexShrink:0 }}>{L(appLang,"tagline")}</div>
+        <div style={{ flex:"0 1 52px",height:1,background:"linear-gradient(90deg, rgba(201,161,94,0.6), transparent)" }} />
       </div>
-      {/* Logo */}
-      <div style={{ fontSize:"clamp(26px, 9.5vw, 42px)",fontWeight:900,letterSpacing:"clamp(4px, 2.4vw, 12px)",color:t.accent,textShadow:`0 0 60px ${t.accentGlow}, 0 3px 12px rgba(0,0,0,0.6)`,marginBottom:2,fontFamily:warrior,animation:"logoFloat 4s ease-in-out infinite",zIndex:1,WebkitTextStroke:"0.5px rgba(255,255,255,0.08)",width:"100%",textAlign:"center",whiteSpace:"nowrap",overflow:"hidden" }}>AMİRAL BATTI</div>
-      <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:10,zIndex:1,width:"100%",maxWidth:400,justifyContent:"center" }}>
-        <div style={{ flex:"0 1 52px",height:1,background:"linear-gradient(90deg, transparent, rgba(255,215,0,0.55))" }} />
-        <div style={{ fontSize:"clamp(9px, 2.8vw, 11px)",color:t.gold,letterSpacing:"clamp(2px, 1.4vw, 6px)",fontFamily:warrior,fontStyle:"italic",fontWeight:700,textShadow:`0 0 14px ${t.goldGlow}`,whiteSpace:"nowrap",flexShrink:0 }}>{L(appLang,"tagline")}</div>
-        <div style={{ flex:"0 1 52px",height:1,background:"linear-gradient(90deg, rgba(255,215,0,0.55), transparent)" }} />
-      </div>
-      {myProfile && (<div style={{ width:"100%",maxWidth:400,marginTop:6,marginBottom:10,zIndex:1,animation:"fadeUp 0.25s ease-out" }}>
-        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:5,padding:"0 2px" }}>
-          <span style={{ fontSize:14,fontWeight:900,color:t.gold,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 10px ${t.goldGlow}` }}>{L(appLang,"level")} {myLevel}</span>
-          <span style={{ fontSize:12,fontWeight:800,color:t.textDim,fontFamily:mono,letterSpacing:1 }}>{Math.floor(myLevelPct*100)}%</span>
-        </div>
-        <div style={{ width:"100%",height:7,borderRadius:4,background:"rgba(0,0,0,0.45)",border:"1px solid rgba(255,215,0,0.25)",overflow:"hidden",position:"relative",boxShadow:"inset 0 1px 3px rgba(0,0,0,0.6)" }}>
-          <div style={{ width:`${myLevelPct*100}%`,height:"100%",background:"linear-gradient(180deg, #fff9c4 0%, #ffe066 30%, #ffd700 60%, #d97706 100%)",boxShadow:`0 0 10px ${t.goldGlow}, inset 0 1px 0 rgba(255,255,255,0.5)`,transition:"width 0.7s cubic-bezier(0.34,1.56,0.64,1)",borderRadius:4,position:"relative",overflow:"hidden" }}>
-            <span style={{ position:"absolute",top:0,left:"-100%",width:"50%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent)",animation:"shimmerPass 2.4s ease-in-out infinite" }} />
-          </div>
-        </div>
+      {/* SIFIR DURUMU — ilk maç öncesi kart yerine tek satır karşılama */}
+      {isNewPlayer && (<div style={{ width:"100%",maxWidth:400,marginTop:16,zIndex:1,display:"flex",alignItems:"center",gap:14,padding:"16px 18px",borderRadius:12,position:"relative",overflow:"hidden",background:"linear-gradient(180deg,rgba(24,38,50,0.55),rgba(12,22,32,0.55))",border:"1px solid #26394b",animation:"fadeUp 0.3s ease-out" }}>
+        <span style={{ position:"absolute",left:0,top:0,bottom:0,width:2,background:BRONZE }} />
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" style={{ flexShrink:0 }}><g stroke="#c9a15e" strokeWidth="1.6" strokeLinecap="round"><circle cx="12" cy="4.4" r="1.9"/><line x1="12" y1="6.3" x2="12" y2="20"/><line x1="8.4" y1="9.2" x2="15.6" y2="9.2"/><path d="M4.5 14.5a7.5 7.5 0 0 0 15 0"/><line x1="4.5" y1="14.5" x2="3" y2="13"/><line x1="19.5" y1="14.5" x2="21" y2="13"/></g></svg>
+        <div><div style={{ fontWeight:800,fontSize:16,letterSpacing:0.5,color:"#e8eef3",fontFamily:warrior }}>{appLang==="en"?"Your first battle awaits":"İlk savaşın seni bekliyor"}</div><div style={{ fontSize:11,letterSpacing:1,color:"#7A8FA0",fontFamily:mono,marginTop:2 }}>{appLang==="en"?"Set sail, make your name at sea.":"Denize açıl, sularda adını duyur."}</div></div>
       </div>)}
       {authLoading && <div style={{ background:"rgba(239,68,68,0.12)",border:`1px solid ${t.hit}`,borderRadius:8,padding:"10px 16px",marginBottom:12,fontSize:11,color:t.hit,fontFamily:mono,textAlign:"center",width:"100%",maxWidth:340,animation:"pulse 1.5s infinite" }}>{L(appLang,"connectingToServer")}</div>}
       {isTestMode() && <div style={{ background:"rgba(251,191,36,0.15)",border:`1px solid ${t.gold}`,borderRadius:8,padding:"8px 16px",marginBottom:12,fontSize:11,color:t.gold,fontFamily:warrior,letterSpacing:2,textAlign:"center",width:"100%",maxWidth:340 }}>{L(appLang,"testModeMsg")}</div>}
-      {myProfile && (<div style={{ position:"relative",overflow:"hidden",background:"linear-gradient(150deg, rgba(14,42,64,0.98) 0%, rgba(10,26,44,0.98) 45%, rgba(7,17,32,0.99) 100%)",border:`2px solid ${myLevelPct>=0.999?"#ffd700":"rgba(34,216,255,0.55)"}`,borderRadius:16,padding:"18px 22px",marginBottom:10,width:"100%",maxWidth:400,animation:"fadeUp 0.3s ease-out",boxShadow:"0 0 22px rgba(34,216,255,0.16), 0 6px 22px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.10)",zIndex:1 }}><span style={{ position:"absolute",top:0,left:0,right:0,height:"42%",background:"linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0))",pointerEvents:"none",borderRadius:"16px 16px 40% 40%" }} /><span style={{ position:"absolute",top:0,left:0,width:"32%",height:"100%",background:"linear-gradient(102deg,transparent,rgba(255,255,255,0.09),transparent)",animation:"playSheen 6s ease-in-out infinite",pointerEvents:"none" }} />
-        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:12 }}>
+      {myProfile && !isNewPlayer && (<div style={{ position:"relative",overflow:"hidden",background:"linear-gradient(180deg, rgba(20,34,48,0.8), rgba(10,20,30,0.85))",border:"1px solid #26394b",borderRadius:12,padding:"18px",marginBottom:10,width:"100%",maxWidth:400,animation:"fadeUp 0.3s ease-out",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.05), 0 6px 22px rgba(0,0,0,0.4)",zIndex:1 }}>
+        <span style={{ position:"absolute",left:0,top:0,bottom:0,width:2,background:BRONZE }} />
+        <div style={{ display:"flex",alignItems:"center",gap:13,marginBottom:14 }}>
+          <button onClick={()=>setShowAvatarPick(v=>!v)} title={L(appLang,"pickAvatarTooltip")} style={{ width:52,height:52,borderRadius:"50%",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,cursor:"pointer",padding:0,overflow:"hidden",background:"radial-gradient(circle at 50% 35%,#0f2a38,#08161f)",border:"none",boxShadow:"0 0 0 2px #5a3d22, 0 0 0 3px #c9a15e, 0 0 0 4px #5a3d22, inset 0 2px 6px rgba(0,0,0,0.6)" }}>{(myProfile.avatar||"").startsWith("data:")?<img src={myProfile.avatar} alt="" style={{ width:"100%",height:"100%",objectFit:"cover" }} />:(myProfile.avatar||"⚓")}</button>
           <div style={{ flex:1,minWidth:0 }}>
-            <div style={{ display:"flex",alignItems:"center",gap:10,minWidth:0 }}>
-              <div style={{ position:"relative",width:46,height:46,flexShrink:0 }}>
-                <div style={{ width:"100%",height:"100%",borderRadius:"50%",background:`conic-gradient(#ffd700 ${myLevelPct*360}deg, rgba(255,255,255,0.10) ${myLevelPct*360}deg)`,padding:3,boxShadow:myLevelPct>=0.999?`0 0 16px ${t.goldGlow}, 0 0 30px ${t.goldGlow}`:"none",transition:"box-shadow 0.4s ease" }}>
-                  <button onClick={()=>setShowAvatarPick(v=>!v)} title={L(appLang,"pickAvatarTooltip")} style={{ width:"100%",height:"100%",borderRadius:"50%",background:"rgba(0,229,255,0.10)",border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,cursor:"pointer",padding:0,overflow:"hidden" }}>{(myProfile.avatar||"").startsWith("data:")?<img src={myProfile.avatar} alt="" style={{ width:"100%",height:"100%",objectFit:"cover" }} />:(myProfile.avatar||"⚓")}</button>
-                </div>
-              </div>
-              <div style={{ minWidth:0,flex:1 }}>
-                <div title={myProfile.displayName} style={{ fontSize:19,fontWeight:900,fontFamily:warrior,letterSpacing:1.5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"100%",background:"linear-gradient(180deg, #ffffff 0%, #dff6ff 38%, #7fd9f5 72%, #3aa8cc 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text",filter:"drop-shadow(0 1px 0 rgba(0,0,0,0.55)) drop-shadow(0 0 10px rgba(120,220,255,0.35))" }}>{myProfile.displayName}</div>
-                {(() => { const hn = migrateHonor(myProfile); const rk = getRankInfo(hn, appLang); return (
-                  <div style={{ display:"flex",alignItems:"center",gap:5,marginTop:2,minWidth:0,flexWrap:"nowrap",overflow:"hidden" }}>
-                    <span style={{ fontSize:11 }}>{rk.icon}</span>
-                    <span style={{ fontSize:11,fontWeight:900,color:rk.color,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 10px ${rk.color}55` }}>{rk.title}</span>
-                    <span title={appLang==="en"?"Honor — earned only in battle":"Şeref — sadece savaşarak kazanılır"} style={{ fontSize:9,fontWeight:800,color:"rgba(255,255,255,0.45)",fontFamily:mono,letterSpacing:1,marginLeft:2 }}>⚔ {hn}{rk.next?`/${rk.next}`:""}</span>
-                  </div>
-                ); })()}
-              </div>
-            </div>
-            {showAvatarPick && <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginTop:8,padding:"8px 10px",background:"rgba(0,0,0,0.35)",borderRadius:12,border:`1px solid ${t.border}` }}>
-              <button onClick={()=>avatarFileRef.current?.click()} title={L(appLang,"uploadPhotoTooltip")} style={{ width:36,height:36,borderRadius:"50%",background:"rgba(255,215,0,0.12)",border:`2px dashed ${t.gold}`,fontSize:20,fontWeight:900,color:t.gold,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>+</button>
-              <input ref={avatarFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleAvatarUpload} />
-              {[...["⚓","🦈","🐙","⚔","🌊","🦅","💀","🔱"], ...Object.keys(safeClaimed(myProfile.achievClaimed)).map(k=>ACH_AVATARS[k])].map(av=>(<button key={av} onClick={()=>{ setShowAvatarPick(false); if(authUid){ update(ref(db,`profiles/${authUid}`),{avatar:av}).catch(()=>{}); } setMyProfile(prev=>prev?{...prev,avatar:av}:prev); }} style={{ width:36,height:36,borderRadius:"50%",background:myProfile.avatar===av?"rgba(0,229,255,0.25)":"rgba(255,255,255,0.05)",border:`2px solid ${myProfile.avatar===av?t.accent:"transparent"}`,fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>{av}</button>))}
-            </div>}
-            {canChangeName() && <div style={{ display:"flex",alignItems:"center",gap:6,marginTop:4 }}>
-              <button onClick={()=>{setPhase("splash");}} style={{ fontSize:8,color:t.textDim,background:"transparent",border:`1px solid ${t.border}`,borderRadius:4,padding:"2px 6px",cursor:"pointer",fontFamily:mono }}>✏ {L(appLang,"editName")}</button>
-            </div>}
-          </div>
-          {/* ALTIN HAPI — kompakt ve sabit; uzun isim asla altına giremez */}
-          <div style={{ flexShrink:0,display:"flex",alignItems:"center",gap:5,background:"linear-gradient(160deg, rgba(26,19,4,0.96), rgba(12,9,2,0.98))",borderRadius:999,padding:"5px 12px 5px 6px",border:"1.5px solid rgba(255,215,0,0.5)",boxShadow:"0 0 14px rgba(255,215,0,0.25), inset 0 1px 0 rgba(255,235,140,0.2), 0 3px 8px rgba(0,0,0,0.5)" }}>
-            <img src="/img/coin.png" alt="" style={{ width:22,height:22,flexShrink:0,filter:"drop-shadow(0 0 5px rgba(255,215,0,0.85))" }} />
-            <div style={{ fontSize:19,fontWeight:900,fontFamily:warrior,lineHeight:1,letterSpacing:0.5,color:"#ffd94a",textShadow:"0 0 10px rgba(255,215,0,0.55), 0 1px 2px rgba(0,0,0,0.8)",whiteSpace:"nowrap" }}>{safeGold(myProfile.gold).toLocaleString(appLang==="en"?"en-US":"tr-TR")}</div>
-          </div>
-        </div>
-        {/* Künye satırı + form çizgisi + oran halkası */}
-        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginTop:2 }}>
-          <div style={{ flex:1,minWidth:0 }}>
-            {/* Künye: G / M ayraçlı tek satır */}
-            <div style={{ display:"flex",alignItems:"baseline",gap:10,marginBottom:9 }}>
-              <span style={{ display:"flex",alignItems:"baseline",gap:5 }}>
-                <span style={{ fontSize:20,fontWeight:900,color:"#34d399",fontFamily:warrior,textShadow:"0 0 10px rgba(52,211,153,0.35)" }}>{myProfile.wins||0}</span>
-                <span style={{ fontSize:12,fontWeight:800,color:"rgba(52,211,153,0.8)",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"wins")}</span>
-              </span>
-              <span style={{ width:1,height:14,background:"rgba(255,255,255,0.12)",alignSelf:"center" }} />
-              <span style={{ display:"flex",alignItems:"baseline",gap:5 }}>
-                <span style={{ fontSize:20,fontWeight:900,color:t.hit,fontFamily:warrior,textShadow:"0 0 10px rgba(255,71,87,0.3)" }}>{myProfile.losses||0}</span>
-                <span style={{ fontSize:12,fontWeight:800,color:"rgba(255,71,87,0.75)",fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"losses")}</span>
-              </span>
-            </div>
-            {/* Form çizgisi — son 5 maç */}
-            {(() => { const rec = safeRecent(myProfile.recentResults); return (
-              <div style={{ display:"flex",alignItems:"center",gap:6 }}>
-                {Array.from({length:5}).map((_,i) => {
-                  const idx = i - (5 - rec.length); const v = idx >= 0 ? rec[idx] : null;
-                  return <span key={i} style={{ width:9,height:9,borderRadius:"50%",background:v==="W"?"#34d399":v==="L"?"#ff4757":"rgba(255,255,255,0.08)",border:v?"none":"1px solid rgba(255,255,255,0.10)",boxShadow:v==="W"?"0 0 7px rgba(52,211,153,0.55)":v==="L"?"0 0 7px rgba(255,71,87,0.45)":"none",display:"inline-block" }} />;
-                })}
-                <span style={{ fontSize:8,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:2,marginLeft:4,opacity:0.7 }}>{appLang==="en"?"LAST 5":"SON 5"}</span>
+            <div title={myProfile.displayName} style={{ fontSize:19,fontWeight:800,fontFamily:warrior,letterSpacing:0.6,color:"#eaf1f6",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{myProfile.displayName}</div>
+            {(() => { const hn = migrateHonor(myProfile); const rk = getRankInfo(hn, appLang); return (
+              <div style={{ display:"flex",alignItems:"center",gap:5,marginTop:1,minWidth:0,flexWrap:"nowrap",overflow:"hidden" }}>
+                <span style={{ fontSize:11 }}>{rk.icon}</span>
+                <span style={{ fontSize:11,fontWeight:800,color:"#f0d79a",fontFamily:warrior,letterSpacing:2 }}>{rk.title}</span>
+                <span title={appLang==="en"?"Honor — earned only in battle":"Şeref — sadece savaşarak kazanılır"} style={{ fontSize:10,fontWeight:600,color:"#54697a",fontFamily:mono,letterSpacing:1 }}>· ⚔ {hn}{rk.next?`/${rk.next}`:""}</span>
               </div>
             ); })()}
           </div>
-          {/* Oran halkası */}
-          <div style={{ position:"relative",width:76,height:76,flexShrink:0 }}>
-            <div style={{ position:"absolute",inset:0,borderRadius:"50%",background:`conic-gradient(from -90deg, #00e5ff 0deg, #ffd700 ${Math.max(winRate,0)*3.6}deg, rgba(255,255,255,0.07) ${Math.max(winRate,0)*3.6}deg 360deg)`,boxShadow:winRate>0?`0 0 16px rgba(0,229,255,0.25)`:"none" }} />
-            <div style={{ position:"absolute",inset:6,borderRadius:"50%",background:t.surface,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1 }}>
-              <span style={{ fontSize:18,fontWeight:900,color:t.accent,fontFamily:warrior,lineHeight:1,textShadow:`0 0 12px ${t.accentGlow}` }}>%{winRate}</span>
-              <span style={{ fontSize:7,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"winRate")}</span>
-            </div>
+          <div style={{ flexShrink:0,display:"flex",alignItems:"center",gap:5,background:"linear-gradient(180deg, rgba(26,19,4,0.9), rgba(12,9,2,0.95))",borderRadius:10,padding:"5px 11px 5px 7px",border:"1px solid rgba(201,161,94,0.45)",boxShadow:"inset 0 1px 0 rgba(240,215,154,0.15)" }}>
+            <img src="/img/coin.png" alt="" style={{ width:18,height:18,flexShrink:0 }} />
+            <div style={{ fontSize:16,fontWeight:800,fontFamily:mono,lineHeight:1,color:"#f0d79a",whiteSpace:"nowrap" }}>{safeGold(myProfile.gold).toLocaleString(appLang==="en"?"en-US":"tr-TR")}</div>
           </div>
+        </div>
+        {showAvatarPick && <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginBottom:12,padding:"8px 10px",background:"rgba(0,0,0,0.35)",borderRadius:10,border:"1px solid #26394b" }}>
+          <button onClick={()=>avatarFileRef.current?.click()} title={L(appLang,"uploadPhotoTooltip")} style={{ width:36,height:36,borderRadius:"50%",background:"rgba(201,161,94,0.12)",border:"2px dashed #c9a15e",fontSize:20,fontWeight:900,color:"#f0d79a",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>+</button>
+          <input ref={avatarFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleAvatarUpload} />
+          {[...["⚓","🦈","🐙","⚔","🌊","🦅","💀","🔱"], ...Object.keys(safeClaimed(myProfile.achievClaimed)).map(k=>ACH_AVATARS[k])].map(av=>(<button key={av} onClick={()=>{ setShowAvatarPick(false); if(authUid){ update(ref(db,`profiles/${authUid}`),{avatar:av}).catch(()=>{}); } setMyProfile(prev=>prev?{...prev,avatar:av}:prev); }} style={{ width:36,height:36,borderRadius:"50%",background:myProfile.avatar===av?"rgba(28,199,230,0.22)":"rgba(255,255,255,0.05)",border:`2px solid ${myProfile.avatar===av?"#1CC7E6":"transparent"}`,fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>{av}</button>))}
+          {canChangeName() && <button onClick={()=>{setPhase("splash");}} style={{ fontSize:9,color:"#7A8FA0",background:"transparent",border:"1px solid #26394b",borderRadius:6,padding:"0 8px",cursor:"pointer",fontFamily:mono }}>✏ {L(appLang,"editName")}</button>}
+        </div>}
+        {/* Seviye + XP — bronz metalik dolgu */}
+        <div style={{ height:7,borderRadius:4,background:"rgba(0,0,0,0.45)",overflow:"hidden",boxShadow:"inset 0 1px 3px rgba(0,0,0,0.7)",border:"1px solid rgba(201,161,94,0.18)" }}>
+          <div style={{ height:"100%",width:`${myLevelPct*100}%`,borderRadius:4,background:BRONZE,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.35)",transition:"width 0.7s cubic-bezier(0.34,1.56,0.64,1)" }} />
+        </div>
+        <div style={{ display:"flex",justifyContent:"space-between",marginTop:5,fontFamily:mono,fontSize:9,color:"#54697a",letterSpacing:1 }}><span>{L(appLang,"level").toUpperCase()} {myLevel}</span><span>{myProfile.levelProgress||0} / {myGamesNeeded} XP</span></div>
+        {/* 4 istatistik */}
+        <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:1,marginTop:14,background:"#26394b",border:"1px solid #26394b",borderRadius:9,overflow:"hidden" }}>
+          {[{v:myProfile.totalGames||0,l:appLang==="en"?"Games":"Oyun",g:false},{v:myProfile.wins||0,l:L(appLang,"wins"),g:false},{v:`%${winRate}`,l:L(appLang,"winRate"),g:false},{v:safeGold(myProfile.gold).toLocaleString(appLang==="en"?"en-US":"tr-TR"),l:L(appLang,"goldLabel"),g:true}].map((s,i)=>(
+            <div key={i} style={{ background:"linear-gradient(180deg,#13202e,#0d1926)",padding:"9px 3px",textAlign:"center" }}>
+              <div style={{ fontFamily:mono,fontSize:16,fontWeight:700,color:s.g?"#f0d79a":"#d3e0ea" }}>{s.v}</div>
+              <div style={{ fontSize:8.5,letterSpacing:1,color:"#54697a",textTransform:"uppercase",fontFamily:warrior,fontWeight:700 }}>{s.l}</div>
+            </div>
+          ))}
         </div>
       </div>)}
       {/* İNTİKAM MÜHRÜ — kayıp serisi varsa sonraki zafer katlanır */}
@@ -5711,46 +5687,43 @@ export default function Game() {
           </div>
         );
       })()}
-      {/* ═══ OYNA — yükseltilmiş fiziksel tuş + arkasında nefes alan hale ═══
-           Tuşun altındaki koyu taban kenarı butonu yüzeyden kaldırır; basınca çöker.
-           Arkadaki hale 3 sn'de bir genişleyip sönerek gözü çeker (transform/opacity → bedava). */}
-      <div style={{ position:"relative",width:"100%",maxWidth:400,zIndex:1,animation:"fadeUp 0.5s ease-out",marginTop:2 }}>
-        <style>{`
-@keyframes playHalo{0%,100%{transform:translate(-50%,-50%) scale(0.94);opacity:0.35}50%{transform:translate(-50%,-50%) scale(1.06);opacity:0.7}}
-@keyframes playSheen{0%{transform:translate3d(-120%,0,0)}55%{transform:translate3d(320%,0,0)}100%{transform:translate3d(320%,0,0)}}
-.play-key{transition:transform .08s ease-out, box-shadow .08s ease-out}
-.play-key:active{transform:translateY(2px)!important;box-shadow:inset 0 2px 0 rgba(255,255,255,0.4), inset 0 -3px 8px rgba(0,60,90,0.55)!important}
-        `}</style>
-        {/* Nefes alan hale — butonun ARKASINDA, ona değmez */}
-        {!matchmaking && <span style={{ position:"absolute",top:"50%",left:"50%",width:"86%",height:"150%",borderRadius:"50%",background:"radial-gradient(ellipse, rgba(0,229,255,0.42) 0%, rgba(0,180,255,0.16) 42%, transparent 70%)",animation:"playHalo 3s ease-in-out infinite",pointerEvents:"none",filter:"blur(10px)",zIndex:0 }} />}
-
-        <RippleButton onClick={()=>startQuickMatch(null)} disabled={matchmaking||authLoading} className="play-key"
-          style={{ position:"relative",zIndex:1,width:"100%",padding:"18px 0",overflow:"hidden",
-            background:"linear-gradient(180deg, #6ff0ff 0%, #22d8ff 18%, #06b6d4 62%, #0284a8 100%)",
-            color:"#04252f",border:"none",borderRadius:16,
-            fontSize:30,fontWeight:900,fontFamily:warrior,textTransform:"uppercase",
-            /* letterSpacing son harften sonra da boşluk bırakır → textIndent ile telafi = GERÇEK merkez */
-            letterSpacing:9,
+      {/* OYNA — cyan metalik + köşe braketleri (splash detayı); kenar ışığıyla derinlik, nabız yok */}
+      <div style={{ position:"relative",width:"100%",maxWidth:400,zIndex:1,marginTop:22 }}>
+        <RippleButton onClick={()=>startQuickMatch(null)} disabled={matchmaking||authLoading}
+          style={{ position:"relative",width:"100%",height:70,overflow:"hidden",
+            background:"linear-gradient(180deg, #3ad9f2 0%, #1CC7E6 20%, #12A0BE 62%, #0B7E98 100%)",
+            color:"#052029",border:"1px solid #3ad9f2",borderRadius:12,
+            fontSize:30,fontWeight:900,fontFamily:warrior,textTransform:"uppercase",letterSpacing:10,paddingLeft:10,
             cursor:(matchmaking||authLoading)?"not-allowed":"pointer",opacity:(authLoading||matchmaking)?0.5:1,
-            /* Camsı 3D yüzey — sadece iç gölgeler, dışa taşan/asimetrik gölge yok (üst-alt boşluk eşit) */
-            boxShadow:"inset 0 2px 0 rgba(255,255,255,0.75), inset 0 -3px 8px rgba(0,60,90,0.35)",
-            textShadow:"0 1px 0 rgba(255,255,255,0.5), 0 2px 4px rgba(0,60,90,0.35)",
-            display:"flex",alignItems:"center",justifyContent:"center" }}>
-          {/* Üst yüzey parlaması — cam hissi */}
-          <span style={{ position:"absolute",top:0,left:0,right:0,height:"46%",background:"linear-gradient(180deg, rgba(255,255,255,0.42), rgba(255,255,255,0))",borderRadius:"16px 16px 50% 50%",pointerEvents:"none" }} />
-          {/* Ara sıra geçen ışık süpürmesi */}
-          {!matchmaking && <span style={{ position:"absolute",top:0,left:0,width:"28%",height:"100%",background:"linear-gradient(100deg,transparent,rgba(255,255,255,0.5),transparent)",animation:"playSheen 4.5s ease-in-out infinite",pointerEvents:"none" }} />}
-          <span style={{ position:"relative",zIndex:1,marginRight:-9 }}>{L(appLang,"play")}</span>
+            boxShadow:"inset 0 2px 0 rgba(255,255,255,0.55), inset 0 -3px 8px rgba(4,50,64,0.4), 0 3px 0 #064e60, 0 12px 26px rgba(11,126,152,0.30)",
+            textShadow:"0 1px 0 rgba(255,255,255,0.4)",display:"flex",alignItems:"center",justifyContent:"center" }}>
+          <span style={{ position:"absolute",top:0,left:0,right:0,height:"46%",background:"linear-gradient(180deg, rgba(255,255,255,0.42), rgba(255,255,255,0))",borderRadius:"12px 12px 50% 50%",pointerEvents:"none" }} />
+          {[["t","l",{top:8,left:9}],["t","r",{top:8,right:9}],["b","l",{bottom:8,left:9}],["b","r",{bottom:8,right:9}]].map(([v,h,pos],i)=>(
+            <span key={i} style={{ position:"absolute",width:12,height:12,pointerEvents:"none",...pos,borderTop:v==="t"?"2px solid rgba(4,40,52,0.5)":"none",borderBottom:v==="b"?"2px solid rgba(4,40,52,0.5)":"none",borderLeft:h==="l"?"2px solid rgba(4,40,52,0.5)":"none",borderRight:h==="r"?"2px solid rgba(4,40,52,0.5)":"none" }} />
+          ))}
+          <span style={{ position:"relative",zIndex:1,marginRight:-10 }}>{L(appLang,"play")}</span>
         </RippleButton>
       </div>
       <QuickMatchModal myProfile={myProfile} lang={appLang} phase={quickMatchPhase} candidate={quickMatchCandidate} opponent={quickMatchOpponent} secondsLeft={quickMatchSecondsLeft} onCancel={cancelQuickMatch} onRetry={retryQuickMatch} />
-      <div style={{ display:"flex",gap:8,marginTop:10,width:"100%",maxWidth:400,animation:"fadeUp 0.6s ease-out",zIndex:1 }}>
-        <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowOnlineLobby(true);}} disabled={authLoading} style={{ position:"relative",overflow:"hidden",flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(0,212,255,0.16),rgba(0,212,255,0.05))`,color:t.accent,border:`2px solid rgba(0,212,255,0.45)`,borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1 }}><span style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg,transparent,rgba(255,255,255,0.10),transparent)",animation:"dmShine 3.6s ease-in-out infinite",pointerEvents:"none",borderRadius:10 }} />{L(appLang,"salon")}</RippleButton>
-        <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowArenaSelect(true);}} disabled={authLoading} style={{ position:"relative",overflow:"hidden",flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(167,139,250,0.16),rgba(167,139,250,0.05))`,color:"#a78bfa",border:"2px solid rgba(167,139,250,0.45)",borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:authLoading?"not-allowed":"pointer",fontFamily:warrior,textTransform:"uppercase",opacity:authLoading?0.4:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><span style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg,transparent,rgba(255,255,255,0.10),transparent)",animation:"dmShine 3.6s ease-in-out infinite",pointerEvents:"none",borderRadius:10 }} />{L(appLang,"arena")}</RippleButton>
+      <div style={{ display:"flex",gap:12,marginTop:12,width:"100%",maxWidth:400,zIndex:1 }}>
+        <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowOnlineLobby(true);}} disabled={authLoading} style={neutralBtn(authLoading)}>
+          <span style={{ fontSize:17,filter:"saturate(.55) opacity(.9)" }}>📡</span>
+          <span style={{ display:"flex",flexDirection:"column",alignItems:"flex-start",lineHeight:1 }}>{L(appLang,"salon")}<small style={btnSub}>{appLang==="en"?"find a rival":"oyuncu bul"}</small></span>
+        </RippleButton>
+        <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowArenaSelect(true);}} disabled={authLoading} style={neutralBtn(authLoading)}>
+          <span style={{ fontSize:17,filter:"saturate(.55) opacity(.9)" }}>🎖</span>
+          <span style={{ display:"flex",flexDirection:"column",alignItems:"flex-start",lineHeight:1 }}>{L(appLang,"arena")}<small style={btnSub}>{appLang==="en"?"wagered":"bahisli"}</small></span>
+        </RippleButton>
       </div>
-      <div style={{ display:"flex",gap:8,marginTop:10,width:"100%",maxWidth:400,animation:"fadeUp 0.7s ease-out",zIndex:1 }}>
-        <RippleButton onClick={startBotGame} style={{ position:"relative",overflow:"hidden",flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(52,211,153,0.16),rgba(52,211,153,0.05))`,color:"#34d399",border:"2px solid rgba(52,211,153,0.45)",borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}><span style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg,transparent,rgba(255,255,255,0.10),transparent)",animation:"dmShine 3.6s ease-in-out infinite",pointerEvents:"none",borderRadius:10 }} />{L(appLang,"bot")}</RippleButton>
-        <RippleButton onClick={()=>setShowDifferentWaters(true)} style={{ position:"relative",overflow:"hidden",flex:1,padding:"15px 0",background:`linear-gradient(135deg,rgba(45,212,191,0.16),rgba(45,212,191,0.05))`,color:"#2dd4bf",border:"2px solid rgba(45,212,191,0.45)",borderRadius:10,fontSize:21,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase" }}><span style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg,transparent,rgba(255,255,255,0.10),transparent)",animation:"dmShine 3.6s ease-in-out infinite",pointerEvents:"none",borderRadius:10 }} />{L(appLang,"differentWaters")}</RippleButton>
+      <div style={{ display:"flex",gap:12,marginTop:12,width:"100%",maxWidth:400,zIndex:1 }}>
+        <RippleButton onClick={startBotGame} style={neutralBtn(false)}>
+          <span style={{ fontSize:17,filter:"saturate(.55) opacity(.9)" }}>🤖</span>
+          <span style={{ display:"flex",flexDirection:"column",alignItems:"flex-start",lineHeight:1 }}>{L(appLang,"bot")}<small style={btnSub}>{appLang==="en"?"practice":"alıştırma"}</small></span>
+        </RippleButton>
+        <RippleButton onClick={()=>setShowDifferentWaters(true)} style={neutralBtn(false)}>
+          <span style={{ fontSize:17,filter:"saturate(.55) opacity(.9)" }}>🌊</span>
+          <span style={{ display:"flex",flexDirection:"column",alignItems:"flex-start",lineHeight:1 }}>{L(appLang,"differentWaters")}<small style={btnSub}>{appLang==="en"?"3 modes":"3 mod"}</small></span>
+        </RippleButton>
       </div>
       {/* Kazanımlar */}
       {(() => {
@@ -5759,11 +5732,13 @@ export default function Game() {
         const aDone = aSet && myProfile ? aSet.missions.filter(m => { try { return m.check(myProfile, safeAch(myProfile.ach)); } catch(e) { return false; } }).length : 0;
         const claimable = myProfile ? ACH_SETS.some((s,i) => achSetUnlocked(i, myProfile) && achSetDone(s, myProfile) && !safeClaimed(myProfile.achievClaimed)[s.id]) : false;
         return (
-          <RippleButton onClick={()=>setShowAchievements(true)} style={{ position:"relative",overflow:"hidden",width:"100%",maxWidth:400,marginTop:10,padding:"13px 16px",background:claimable?"linear-gradient(135deg,rgba(255,215,0,0.20),rgba(255,159,67,0.08))":"linear-gradient(135deg,rgba(167,139,250,0.12),rgba(167,139,250,0.03))",color:claimable?t.gold:"#a78bfa",border:`2px solid ${claimable?"rgba(255,215,0,0.6)":"rgba(167,139,250,0.4)"}`,borderRadius:10,fontSize:17,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",display:"flex",alignItems:"center",justifyContent:"center",gap:8,zIndex:1,animation:claimable?"borderGlow 1.6s infinite":"none" }}>
-            <span style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg,transparent,rgba(255,255,255,0.10),transparent)",animation:"dmShine 3.6s ease-in-out infinite",pointerEvents:"none",borderRadius:10 }} />{L(appLang,"achBtn")}
+          <RippleButton onClick={()=>setShowAchievements(true)} style={{ width:"100%",maxWidth:400,marginTop:24,display:"flex",alignItems:"center",gap:11,padding:"10px 14px",borderRadius:12,cursor:"pointer",fontFamily:warrior,zIndex:1,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.05)",background:claimable?"linear-gradient(180deg,rgba(90,61,34,0.5),rgba(40,28,15,0.5))":"linear-gradient(180deg,rgba(22,36,50,0.5),rgba(12,22,32,0.5))",border:`1px solid ${claimable?"rgba(201,161,94,0.5)":"#26394b"}` }}>
+            <span style={{ fontSize:15,opacity:0.9 }}>🏆</span>
+            <span style={{ flex:1,textAlign:"left",fontWeight:700,fontSize:13,letterSpacing:1.5,color:claimable?"#f0d79a":"#A9BCC9",textTransform:"uppercase" }}>{L(appLang,"achBtn")}</span>
             {claimable
-              ? <span style={{ fontSize:10,fontWeight:900,background:"#ffd700",color:"#1a1206",borderRadius:10,padding:"2px 8px",letterSpacing:1 }}>{L(appLang,"achClaim")}!</span>
-              : aSet && <span style={{ fontSize:11,fontWeight:800,fontFamily:mono,opacity:0.8 }}>{aDone}/10</span>}
+              ? <span style={{ fontSize:10,fontWeight:900,color:"#1a1206",background:BRONZE,borderRadius:8,padding:"3px 9px",letterSpacing:1 }}>{L(appLang,"achClaim")}!</span>
+              : aSet && <span style={{ fontSize:11,fontFamily:mono,color:"#54697a" }}>{aDone}/10</span>}
+            <span style={{ color:"#54697a",fontSize:12 }}>›</span>
           </RippleButton>
         );
       })()}
@@ -5781,20 +5756,18 @@ export default function Game() {
 @keyframes dmReady{0%,100%{box-shadow:0 0 14px rgba(255,215,0,0.5)}50%{box-shadow:0 0 30px rgba(255,215,0,0.9)}}
             `}</style>
             <button onClick={() => { if (ready) { const reward = generateChestReward(appLang); setChestReward(reward); } else setDailyOpen(v=>!v); }}
-              style={{ width:"100%",display:"flex",alignItems:"center",gap:10,padding:"13px 15px",borderRadius:ready?12:(dailyOpen?"12px 12px 0 0":12),cursor:"pointer",fontFamily:warrior,position:"relative",overflow:"hidden",transition:"all 0.3s",
-                background: ready ? "linear-gradient(135deg, rgba(255,215,0,0.22), rgba(255,159,67,0.10))" : `linear-gradient(145deg, ${t.surface}, ${t.surfaceLight})`,
-                border: `2px solid ${ready ? "rgba(255,215,0,0.7)" : t.border}`,
-                animation: ready ? "dmReady 1.4s ease-in-out infinite" : "none" }}>
-              <span style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg,transparent,rgba(255,255,255,0.09),transparent)",animation:"dmShine 3.4s ease-in-out infinite",pointerEvents:"none" }} />
-              <span style={{ fontSize:20,display:"inline-block",animation:ready?"dmGift 0.8s ease-in-out infinite":"none",filter:ready?"drop-shadow(0 0 8px rgba(255,215,0,0.8))":"none" }}>🎁</span>
-              <span style={{ fontSize:17,fontWeight:900,color:ready?t.gold:"#fff",letterSpacing:1,textTransform:"uppercase",textShadow:ready?`0 0 12px ${t.goldGlow}`:"0 1px 3px rgba(0,0,0,0.6)" }}>{ready ? L(appLang,"openChestBtn")+"!" : L(appLang,"missionsTitle")}</span>
+              style={{ width:"100%",display:"flex",alignItems:"center",gap:11,padding:"10px 14px",borderRadius:dailyOpen&&!ready?"12px 12px 0 0":12,cursor:"pointer",fontFamily:warrior,position:"relative",overflow:"hidden",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.05)",
+                background: ready ? "linear-gradient(180deg,rgba(90,61,34,0.55),rgba(40,28,15,0.55))" : "linear-gradient(180deg,rgba(22,36,50,0.5),rgba(12,22,32,0.5))",
+                border: `1px solid ${ready ? "rgba(201,161,94,0.6)" : "#26394b"}` }}>
+              <span style={{ fontSize:15,opacity:0.9 }}>🎁</span>
+              <span style={{ fontSize:13,fontWeight:700,color:ready?"#f0d79a":"#A9BCC9",letterSpacing:1.5,textTransform:"uppercase" }}>{ready ? L(appLang,"openChestBtn")+"!" : L(appLang,"missionsTitle")}</span>
               <span style={{ display:"flex",gap:5,marginLeft:"auto",alignItems:"center" }}>
-                {[0,1,2].map(i => <span key={i} style={{ width:10,height:10,borderRadius:"50%",display:"inline-block",background:i<dc?"linear-gradient(160deg,#fff9c4,#ffd700)":"rgba(255,255,255,0.10)",boxShadow:i<dc?`0 0 8px ${t.goldGlow}`:"none",animation:i===dc-1?"dmDotPop 0.4s cubic-bezier(0.34,1.56,0.64,1)":"none" }} />)}
+                {[0,1,2].map(i => <span key={i} style={{ width:8,height:8,borderRadius:"50%",display:"inline-block",background:i<dc?BRONZE:"rgba(255,255,255,0.10)" }} />)}
               </span>
-              <span style={{ fontSize:12,fontWeight:800,color:ready?t.gold:t.textDim,fontFamily:mono }}>{dc}/3</span>
-              {!ready && <span style={{ fontSize:11,color:t.textDim,transform:dailyOpen?"rotate(180deg)":"none",transition:"transform 0.25s" }}>▼</span>}
+              <span style={{ fontSize:11,fontFamily:mono,color:ready?"#f0d79a":"#54697a" }}>{dc}/3</span>
+              {!ready && <span style={{ fontSize:11,color:"#54697a",transform:dailyOpen?"rotate(180deg)":"none",transition:"transform 0.25s" }}>▾</span>}
             </button>
-            {dailyOpen && !ready && <div style={{ border:`2px solid ${t.border}`,borderTop:"none",borderRadius:"0 0 12px 12px",overflow:"hidden",animation:"fadeUp 0.25s ease-out" }}><MissionPanel missions={dailyMissions} missionProgress={missionProgress} lang={appLang} compact /></div>}
+            {dailyOpen && !ready && <div style={{ border:"1px solid #26394b",borderTop:"none",borderRadius:"0 0 12px 12px",overflow:"hidden",animation:"fadeUp 0.25s ease-out" }}><MissionPanel missions={dailyMissions} missionProgress={missionProgress} lang={appLang} compact /></div>}
           </div>
         );
       })()}
@@ -5857,7 +5830,7 @@ export default function Game() {
       {showDailyChest && !dailyChestModalOpen && <DailyChestFab onOpen={() => setDailyChestModalOpen(true)} lang={appLang} />}
       {dailyChestModalOpen && <DailyChestPopup onClaim={claimDailyChest} onClose={() => setDailyChestModalOpen(false)} lang={appLang} />}
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
-      <LivingHorizon profile={myProfile} lang={appLang} />
+      <HorizonStrip lang={appLang} />
     </div>);
   }
 

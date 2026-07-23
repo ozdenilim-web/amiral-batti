@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Amiral Battı — Ana Ekran Yeniden Tasarım</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   PALET & DEĞİŞKENLER  — hepsi burada, kolayca değiştir
+   ============================================================ */
+:root{
+  /* Zemin — splash ile aynı üç duraklı gradyan */
+  --bg-1:#0A1520;  --bg-2:#0F2434;  --bg-3:#081118;
+
+  /* Cyan — SADECE birincil aksiyon (OYNA) */
+  --cyan-hi:#3ad9f2; --cyan:#1CC7E6; --cyan-mid:#12A0BE; --cyan-lo:#0B7E98; --cyan-deep:#064e60;
+
+  /* Bronz/Altın — SADECE para · ödül · başarım (metalik, glow yok) */
+  --bronze-d:#5a3d22; --bronze-m:#c9a15e; --bronze-l:#f0d79a; --bronze-edge:#7a5730;
+  --bronze-grad:linear-gradient(180deg,#5a3d22 0%,#c9a15e 42%,#f0d79a 52%,#c9a15e 62%,#5a3d22 100%);
+
+  /* Nötr soğuk gri-mavi — diğer TÜM butonlar */
+  --n-bg-hi:#20313f; --n-bg:#1A2A38; --n-bg-lo:#132030;
+  --n-txt:#7A8FA0; --n-txt-hi:#A9BCC9; --n-edge:#26394b;
+
+  /* Metin */
+  --ink:#052029;                 /* cyan buton üstü koyu metin */
+  --title:#5fd8ee;               /* başlık — splash cyan */
+  --sub:#c9a15e;                 /* alt başlık — bronz */
+  --dim:#54697a;
+
+  --radius:12px;
+  --gap:24px;
+  --grid-opacity:0.05;           /* ızgara koordinat dokusu — 0 yaparak kapat */
+  --maxw:430px;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:'Barlow Condensed',system-ui,sans-serif;
+  background:var(--bg-3);
+  color:#dfe9f0;
+  display:flex;justify-content:center;
+  overflow-x:hidden;
+}
+.mono{font-family:'Space Mono',monospace}
+
+/* ---- PHONE SHELL ---- */
+.phone{
+  position:relative;
+  width:100%;max-width:var(--maxw);min-height:100vh;
+  background:linear-gradient(180deg,var(--bg-1) 0%,var(--bg-2) 52%,var(--bg-3) 100%);
+  overflow:hidden;
+  padding:22px 20px calc(20px + env(safe-area-inset-bottom));
+  isolation:isolate;
+}
+/* Izgara koordinat dokusu — çok soluk deniz haritası hissi */
+.phone::before{
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;opacity:var(--grid-opacity);
+  background-image:
+    repeating-linear-gradient(0deg,transparent 0 43px,rgba(120,180,205,.5) 43px 44px),
+    repeating-linear-gradient(90deg,transparent 0 43px,rgba(120,180,205,.5) 43px 44px);
+}
+/* TEK yavaş animasyon: soluk sonar taraması */
+.sonar{
+  position:absolute;left:50%;top:38%;width:150%;aspect-ratio:1;translate:-50% -50%;
+  z-index:0;pointer-events:none;border-radius:50%;
+  background:conic-gradient(from 0deg,transparent 0deg,rgba(28,199,230,.055) 26deg,transparent 52deg);
+  animation:sweep 7s linear infinite;
+}
+@keyframes sweep{to{transform:rotate(360deg)}}
+.phone>*{position:relative;z-index:1}
+
+/* ---- durum toggle (prototip kontrolü) ---- */
+.state-toggle{
+  position:absolute;top:14px;right:16px;z-index:9;display:flex;gap:2px;
+  background:var(--n-bg-lo);border:1px solid var(--n-edge);border-radius:9px;padding:2px;
+}
+.state-toggle button{
+  font-family:'Barlow Condensed';font-weight:700;font-size:10px;letter-spacing:.5px;
+  color:var(--n-txt);background:transparent;border:none;border-radius:7px;
+  padding:5px 9px;cursor:pointer;text-transform:uppercase;
+}
+.state-toggle button.on{background:linear-gradient(180deg,#24384a,#182634);color:var(--n-txt-hi);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 1px 2px rgba(0,0,0,.4)}
+
+/* ============================================================
+   BAŞLIK
+   ============================================================ */
+.brand{text-align:center;margin:14px 0 4px}
+.brand h1{
+  font-weight:900;font-size:40px;letter-spacing:9px;color:var(--title);
+  text-shadow:0 0 34px rgba(28,199,230,.35),0 2px 8px rgba(0,0,0,.6);
+  padding-left:9px; /* letter-spacing telafisi → gerçek merkez */
+}
+.brand .rule{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px}
+.brand .rule i{height:1px;width:46px;display:block}
+.brand .rule i.l{background:linear-gradient(90deg,transparent,rgba(201,161,94,.6))}
+.brand .rule i.r{background:linear-gradient(90deg,rgba(201,161,94,.6),transparent)}
+.brand .tag{
+  font-weight:700;font-style:italic;font-size:11px;letter-spacing:5px;color:var(--sub);
+  text-shadow:0 0 12px rgba(201,161,94,.3)
+}
+
+/* ============================================================
+   ÜST BLOK — yeni oyuncu karşılaması  /  deneyimli kart
+   ============================================================ */
+.top-slot{margin-top:22px}
+
+/* --- yeni oyuncu: tek satır bronz çapa karşılaması --- */
+.welcome{
+  display:flex;align-items:center;gap:14px;
+  padding:16px 18px;border-radius:var(--radius);
+  background:linear-gradient(180deg,rgba(24,38,50,.55),rgba(12,22,32,.55));
+  border:1px solid var(--n-edge);
+  position:relative;overflow:hidden;
+}
+.welcome::after{ /* kart kenarındaki ince bronz çizgi */
+  content:"";position:absolute;left:0;top:0;bottom:0;width:2px;
+  background:var(--bronze-grad);
+}
+.welcome .anchor{width:34px;height:34px;flex:0 0 auto}
+.welcome .txt b{display:block;font-weight:800;font-size:16px;letter-spacing:.5px;color:#e8eef3}
+.welcome .txt span{font-size:11px;letter-spacing:1px;color:var(--n-txt);font-family:'Space Mono'}
+
+/* --- deneyimli: istatistik kartı --- */
+.statcard{
+  padding:18px;border-radius:var(--radius);
+  background:linear-gradient(180deg,rgba(20,34,48,.8),rgba(10,20,30,.85));
+  border:1px solid var(--n-edge);position:relative;overflow:hidden;
+}
+.statcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--bronze-grad)}
+.id-row{display:flex;align-items:center;gap:13px;margin-bottom:14px}
+.avatar{
+  width:52px;height:52px;border-radius:50%;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;font-size:24px;
+  background:radial-gradient(circle at 50% 35%,#0f2a38,#08161f);
+  /* bronz metalik çerçeve */
+  box-shadow:0 0 0 2px #5a3d22,0 0 0 3px #c9a15e,0 0 0 4px #5a3d22,inset 0 2px 6px rgba(0,0,0,.6);
+}
+.id-row .who{flex:1;min-width:0}
+.id-row .who .name{font-weight:800;font-size:19px;letter-spacing:.6px;color:#eaf1f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.id-row .who .rank{display:flex;align-items:center;gap:5px;margin-top:1px}
+.id-row .who .rank b{font-size:11px;font-weight:800;letter-spacing:2px;color:var(--bronze-l);font-family:'Barlow Condensed'}
+.id-row .who .rank em{font-style:normal;font-size:10px;color:var(--dim);font-family:'Space Mono'}
+.lvl-chip{
+  text-align:right;flex:0 0 auto;font-family:'Space Mono';
+}
+.lvl-chip b{display:block;font-size:19px;font-weight:700;color:var(--bronze-l)}
+.lvl-chip span{font-size:9px;letter-spacing:1px;color:var(--dim)}
+
+/* XP çubuğu — bronz metalik dolgu */
+.xp{height:7px;border-radius:4px;background:rgba(0,0,0,.45);overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,.7);border:1px solid rgba(201,161,94,.18)}
+.xp>i{display:block;height:100%;width:62%;border-radius:4px;background:var(--bronze-grad);box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
+.xp-meta{display:flex;justify-content:space-between;margin-top:5px;font-family:'Space Mono';font-size:9px;color:var(--dim)}
+
+/* dört istatistik */
+.stats4{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:14px;background:var(--n-edge);border:1px solid var(--n-edge);border-radius:9px;overflow:hidden}
+.stats4 div{background:linear-gradient(180deg,#13202e,#0d1926);padding:9px 4px;text-align:center}
+.stats4 b{display:block;font-family:'Space Mono';font-size:17px;font-weight:700;color:#d3e0ea}
+.stats4 b.g{color:var(--bronze-l)}
+.stats4 span{font-size:8.5px;letter-spacing:1px;color:var(--dim);text-transform:uppercase}
+
+/* ============================================================
+   BUTONLAR — derinlik kenar ışığıyla, glow yok
+   ============================================================ */
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  font-family:'Barlow Condensed';font-weight:800;letter-spacing:3px;text-transform:uppercase;
+  border-radius:var(--radius);cursor:pointer;border:1px solid var(--n-edge);
+  color:var(--n-txt-hi);width:100%;user-select:none;transition:transform .06s ease;
+  background:linear-gradient(180deg,var(--n-bg-hi),var(--n-bg-lo));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 2px 0 rgba(0,0,0,.45),0 7px 16px rgba(0,0,0,.32);
+}
+.btn:active{transform:translateY(2px);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 1px 0 rgba(0,0,0,.4)}
+.btn .ico{font-size:17px;filter:saturate(.55) opacity(.9)}
+.btn .lab{display:flex;flex-direction:column;align-items:flex-start;line-height:1}
+.btn .lab small{font-family:'Space Mono';font-weight:400;letter-spacing:1px;font-size:8.5px;color:var(--n-txt);text-transform:none;margin-top:3px}
+
+/* OYNA — cyan metalik + köşe braketleri (splash detayı) */
+.play{
+  margin-top:var(--gap);height:70px;position:relative;
+  font-size:30px;letter-spacing:10px;padding-left:10px;color:var(--ink);
+  border:1px solid var(--cyan-hi);
+  background:linear-gradient(180deg,var(--cyan-hi) 0%,var(--cyan) 20%,var(--cyan-mid) 62%,var(--cyan-lo) 100%);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.55),inset 0 -3px 8px rgba(4,50,64,.4),0 3px 0 var(--cyan-deep),0 12px 26px rgba(11,126,152,.30);
+  text-shadow:0 1px 0 rgba(255,255,255,.4);
+}
+.play:active{transform:translateY(3px);box-shadow:inset 0 2px 0 rgba(255,255,255,.5),0 1px 0 var(--cyan-deep)}
+.play .brk{position:absolute;width:14px;height:14px;pointer-events:none;opacity:.85}
+.play .brk::before,.play .brk::after{content:"";position:absolute;background:rgba(4,40,52,.55)}
+.play .brk.tl{top:7px;left:8px}.play .brk.tr{top:7px;right:8px}.play .brk.bl{bottom:7px;left:8px}.play .brk.br{bottom:7px;right:8px}
+.play .brk::before{width:14px;height:2px}.play .brk::after{width:2px;height:14px}
+.play .brk.tl::before,.play .brk.tl::after{top:0;left:0}
+.play .brk.tr::before{top:0;right:0}.play .brk.tr::after{top:0;right:0}
+.play .brk.bl::before{bottom:0;left:0}.play .brk.bl::after{bottom:0;left:0}
+.play .brk.br::before{bottom:0;right:0}.play .brk.br::after{bottom:0;right:0}
+
+.btn-row{display:flex;gap:12px;margin-top:12px}
+.btn-row .btn{height:56px;font-size:16px;letter-spacing:2px}
+
+/* ============================================================
+   GÖREV & KAZANIM — ince tek satır
+   ============================================================ */
+.thin-list{margin-top:var(--gap);display:flex;flex-direction:column;gap:10px}
+.thin{
+  display:flex;align-items:center;gap:11px;padding:10px 14px;border-radius:var(--radius);
+  background:linear-gradient(180deg,rgba(22,36,50,.5),rgba(12,22,32,.5));border:1px solid var(--n-edge);cursor:pointer;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+}
+.thin .ti{font-size:15px;flex:0 0 auto;opacity:.9}
+.thin .tn{flex:1;font-weight:700;font-size:13px;letter-spacing:1.5px;color:var(--n-txt-hi);text-transform:uppercase}
+.thin .tbar{width:66px;height:5px;border-radius:3px;background:rgba(0,0,0,.4);overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.6)}
+.thin .tbar>i{display:block;height:100%;background:var(--bronze-grad)}
+.thin .tp{font-family:'Space Mono';font-size:10px;color:var(--dim);min-width:30px;text-align:right}
+.thin .chev{color:var(--dim);font-size:11px}
+
+/* ============================================================
+   ALT İSTATİSTİK ŞERİDİ (banner yerine)
+   ============================================================ */
+.strip{
+  margin-top:22px;display:flex;align-items:center;gap:10px;
+  padding:11px 6px 4px;border-top:1px solid rgba(201,161,94,.14);
+  color:var(--dim);
+}
+.strip .a{width:15px;height:15px;flex:0 0 auto}
+.strip .t{flex:1;font-family:'Space Mono';font-size:11px;letter-spacing:.5px}
+.strip .t b{color:var(--bronze-l);font-weight:700}
+.strip .ship{width:56px;height:16px;opacity:.5}
+
+/* durum görünürlüğü */
+body.state-new  .statcard{display:none}
+body.state-vet  .welcome{display:none}
+</style>
+</head>
+<body class="state-new">
+<div class="phone">
+  <div class="sonar"></div>
+
+  <!-- prototip durum anahtarı -->
+  <div class="state-toggle">
+    <button id="bNew" class="on" onclick="setState('new')">Yeni Oyuncu</button>
+    <button id="bVet" onclick="setState('vet')">Deneyimli</button>
+  </div>
+
+  <!-- BAŞLIK -->
+  <header class="brand">
+    <h1>AMİRAL BATTI</h1>
+    <div class="rule"><i class="l"></i><span class="tag">DERİN SULARIN HÂKİMİ</span><i class="r"></i></div>
+  </header>
+
+  <!-- ÜST BLOK -->
+  <section class="top-slot">
+    <!-- yeni oyuncu -->
+    <div class="welcome">
+      <svg class="anchor" viewBox="0 0 24 24" fill="none">
+        <defs><linearGradient id="brz" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#5a3d22"/><stop offset=".5" stop-color="#f0d79a"/><stop offset="1" stop-color="#5a3d22"/>
+        </linearGradient></defs>
+        <g stroke="url(#brz)" stroke-width="1.6" stroke-linecap="round" fill="none">
+          <circle cx="12" cy="4.4" r="1.9"/><line x1="12" y1="6.3" x2="12" y2="20"/>
+          <line x1="8.4" y1="9.2" x2="15.6" y2="9.2"/>
+          <path d="M4.5 14.5a7.5 7.5 0 0 0 15 0"/>
+          <line x1="4.5" y1="14.5" x2="3" y2="13"/><line x1="19.5" y1="14.5" x2="21" y2="13"/>
+        </g>
+      </svg>
+      <div class="txt">
+        <b>İlk savaşın seni bekliyor</b>
+        <span>Denize açıl, sularda adını duyur.</span>
+      </div>
+    </div>
+
+    <!-- deneyimli -->
+    <div class="statcard">
+      <div class="id-row">
+        <div class="avatar">⚓</div>
+        <div class="who">
+          <div class="name">İlimözden</div>
+          <div class="rank"><b>KAPTAN</b><em>· 840 şeref</em></div>
+        </div>
+        <div class="lvl-chip"><b>17</b><span>SEVİYE</span></div>
+      </div>
+      <div class="xp"><i style="width:62%"></i></div>
+      <div class="xp-meta"><span>SEVİYE 17</span><span>62 / 100 XP</span></div>
+      <div class="stats4">
+        <div><b>128</b><span>Oyun</span></div>
+        <div><b>74</b><span>Galibiyet</span></div>
+        <div><b>%58</b><span>Oran</span></div>
+        <div><b class="g">4 820</b><span>Altın</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- OYNA -->
+  <button class="btn play">
+    <span class="brk tl"></span><span class="brk tr"></span><span class="brk bl"></span><span class="brk br"></span>
+    OYNA
+  </button>
+
+  <div class="btn-row">
+    <button class="btn"><span class="ico">📡</span><span class="lab">Salon<small>oyuncu bul</small></span></button>
+    <button class="btn"><span class="ico">🎖</span><span class="lab">Arena<small>bahisli</small></span></button>
+  </div>
+  <div class="btn-row">
+    <button class="btn"><span class="ico">🤖</span><span class="lab">Bot<small>alıştırma</small></span></button>
+    <button class="btn"><span class="ico">🌊</span><span class="lab">Farklı Sular<small>3 mod</small></span></button>
+  </div>
+
+  <!-- GÖREV & KAZANIM — ince satır -->
+  <div class="thin-list">
+    <div class="thin">
+      <span class="ti">🎯</span><span class="tn">Günlük Görevler</span>
+      <span class="tbar"><i style="width:33%"></i></span><span class="tp">1/3</span><span class="chev">▾</span>
+    </div>
+    <div class="thin">
+      <span class="ti">🏆</span><span class="tn">Kazanımlar</span>
+      <span class="tbar"><i style="width:20%"></i></span><span class="tp">2/10</span><span class="chev">▾</span>
+    </div>
+  </div>
+
+  <!-- ALT ŞERİT -->
+  <div class="strip">
+    <svg class="a" viewBox="0 0 24 24" fill="none"><g stroke="url(#brz)" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="4.4" r="1.9"/><line x1="12" y1="6.3" x2="12" y2="20"/><line x1="8.4" y1="9.2" x2="15.6" y2="9.2"/><path d="M4.5 14.5a7.5 7.5 0 0 0 15 0"/></g></svg>
+    <div class="t">Toplam <b>128 940</b> gemi batırıldı</div>
+    <svg class="ship" viewBox="0 0 60 18" fill="none"><path d="M4 12h52l-6 4H10z" fill="#26394b"/><path d="M14 12V6h30v6" fill="#1a2a38"/><line x1="30" y1="6" x2="30" y2="1" stroke="#54697a" stroke-width="1.2"/><path d="M30 2l7 3-7 1z" fill="#54697a"/></svg>
+  </div>
+</div>
+
+<script>
+function setState(s){
+  document.body.className = 'state-'+s;
+  document.getElementById('bNew').classList.toggle('on', s==='new');
+  document.getElementById('bVet').classList.toggle('on', s==='vet');
+}
+</script>
+</body>
+</html>
