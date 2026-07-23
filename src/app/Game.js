@@ -3850,6 +3850,7 @@ export default function Game() {
     <>
       <div style={{ position:"fixed",top:"calc(10px + env(safe-area-inset-top, 0px))",right:14,zIndex:9500,display:"flex",alignItems:"center",gap:8 }}>
         {phase === "lobby" && <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowLeaderboard(true); }} title={L(appLang,"leaderboardTitle")} style={{ width:30,height:30,borderRadius:8,background:"rgba(255,215,0,0.10)",border:"1px solid rgba(255,215,0,0.4)",fontSize:14,cursor:"pointer",color:t.gold,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>🏆</button>}
+        {phase === "siege" && <button onClick={()=>{ sfx.init(); sfx.play('click'); resetGame(); }} title={L(appLang,"leaveGame")} style={{ width:30,height:30,borderRadius:8,background:"rgba(255,71,87,0.12)",border:`1px solid ${t.hit}`,fontSize:14,cursor:"pointer",color:t.hit,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>⚑</button>}
         <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowSettings(true); setSettingsView(null); }} title={L(appLang,"settingsTooltip")} style={{ width:30,height:30,borderRadius:8,background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,fontSize:14,cursor:"pointer",color:t.textDim,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>⚙️</button>
         <button onClick={toggleMusic} title={L(appLang,"musicTooltip")} style={{ width:30,height:30,borderRadius:8,background:musicOn?"rgba(255,255,255,0.06)":"rgba(255,71,87,0.14)",border:`1px solid ${musicOn?t.border:t.hit}`,fontSize:14,cursor:"pointer",color:musicOn?t.textDim:t.hit,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>{musicOn?"🔊":"🔇"}</button>
       </div>
@@ -5801,14 +5802,19 @@ export default function Game() {
     const activeDefender = myTurn ? myTargetIdx : isSpectating ? siegeSpectator.defender : 0;
     const idleIdx = [0,1,2].find(i => i!==activeAttacker && i!==activeDefender);
     const emptyOverlay = emptyGrid().map(r=>r.map(()=>null));
-    const attackerOverlay = siegeReceived[activeAttacker] || emptyOverlay;
     const idleOverlay = siegeReceived[idleIdx] || emptyOverlay;
     const hitCount = overlayGrid.flat().filter(v=>v==="hit"||v==="sunk").length;
-    const bigCell = Math.max(7, Math.min(14, Math.floor((viewport.h - 430) / 24)));
-    const miniCell = Math.max(4, Math.min(7, Math.floor(viewport.w / 70)));
+    // Tek büyük tahta (saldıran/hedef) + ortada bekleme + altta filo paneli. Genişlik VE yükseklikten en büyük hücreyi seç.
+    const bigCell = Math.max(16, Math.min(40, Math.floor(Math.min((viewport.w - gutter - 8) / 10, (viewport.h - 300) / 10))));
+    const miniCell = Math.max(5, Math.min(9, Math.floor(viewport.w / 60)));
     const boardFor = (idx, overlayG, clickable, cellSize) => idx === 0
       ? <Grid board={defenseBoard} cellSize={cellSize} isDefense shipColors={shipColorMap} overlay={overlayG} disabled={!clickable} onClick={clickable?siegeToggleCell:undefined} />
       : <Grid board={emptyGrid()} cellSize={cellSize} overlay={overlayG} disabled={!clickable} onClick={clickable?siegeToggleCell:undefined} />;
+    // Alt filo paneli için savunanın gemileri + isabet haritası (sadece "hit"/"sunk" doğru sayılsın; "miss" değil).
+    const siegeDefenderShips = activeDefender === 0
+      ? (placedShips && placedShips.length ? placedShips : null)
+      : (siegeBotShips[activeDefender] || null);
+    const siegeDefenderHitMap = (siegeReceived[activeDefender] || emptyOverlay).map(row => row.map(v => v === "hit" || v === "sunk"));
 
     // === Açılış tanıtımı — 3 oyuncu sırayla (1sn arayla) büyüyerek sahneye çıkar ===
     if (!siegeIntroDone) {
@@ -5832,44 +5838,38 @@ export default function Game() {
       </div>);
     }
 
-    return (<div style={{ ...appStyle, height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingBottom:10 }}><style>{ANIMS}</style>
-      <div style={{ width:"100%",maxWidth:400,display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4 }}>
-        <button onClick={resetGame} style={{ padding:"7px 14px",minHeight:32,background:"rgba(255,255,255,0.05)",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:9,fontSize:11,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",gap:5 }}>← {L(appLang,"backBtn")}</button>
-        <div style={{ fontSize:13,fontWeight:800,letterSpacing:3,color:t.accent,fontFamily:warrior,textShadow:`0 0 15px ${t.accentGlow}` }}>KUŞATMA</div>
-        <div style={{ width:32 }} />
-      </div>
-      {isSpectating && <div style={{ fontSize:10,fontWeight:800,color:"#c084fc",marginBottom:4,fontFamily:warrior,letterSpacing:2,textAlign:"center",textTransform:"uppercase" }}>👁 {appLang==="en"?"WATCHING":"İZLİYORSUN"}</div>}
-      {/* SALDIRAN — üstte büyük */}
-      <div key={`att-${activeAttacker}`} style={{ width:"100%",maxWidth:400,animation:"siegeRiseUp 0.5s cubic-bezier(0.22,1,0.36,1) both" }}>
-        <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:4 }}>
-          <span style={{ width:24,height:24,borderRadius:"50%",background:`${t.gold}22`,border:`2px solid ${t.gold}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,flexShrink:0 }}>{avatarFor(activeAttacker)}</span>
-          <span style={{ fontSize:11,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{nameFor(activeAttacker)}</span>
-          <span style={{ fontSize:8,color:t.textDim,fontFamily:mono,letterSpacing:1,textTransform:"uppercase" }}>{appLang==="en"?"attacking":"saldırıyor"}</span>
-        </div>
-        <div style={{ display:"flex",justifyContent:"center" }}>{boardFor(activeAttacker, attackerOverlay, false, bigCell)}</div>
-      </div>
-      <div style={{ fontSize:12,fontWeight:900,color:t.hit,fontFamily:mono,margin:"6px 0" }}>{appLang==="en"?"HITS":"İSABET"}: {hitCount}/20</div>
-      {/* SAVUNAN — altta büyük */}
-      <div key={`def-${activeDefender}`} style={{ width:"100%",maxWidth:400,animation:"siegeSlideDown 0.5s cubic-bezier(0.22,1,0.36,1) both" }}>
-        <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:4 }}>
-          <span style={{ width:24,height:24,borderRadius:"50%",background:"rgba(255,71,87,0.15)",border:`2px solid ${t.hit}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,flexShrink:0 }}>{avatarFor(activeDefender)}</span>
-          <span style={{ fontSize:11,fontWeight:800,color:t.hit,fontFamily:warrior,letterSpacing:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{nameFor(activeDefender)}</span>
-          <span style={{ fontSize:8,color:t.textDim,fontFamily:mono,letterSpacing:1,textTransform:"uppercase" }}>{appLang==="en"?"under fire":"ateş altında"}</span>
+    return (<div style={{ ...appStyle, height:"100dvh", maxHeight:"100dvh", overflow:"hidden", justifyContent:"flex-start", paddingTop:"calc(8px + env(safe-area-inset-top, 0px))", paddingBottom:8 }}><style>{ANIMS}</style>
+      {/* Başlık — GERİ butonu YOK; oyundan ayrıl (⚑) üst bardaki ayarların yanında */}
+      <div style={{ fontSize:14,fontWeight:800,letterSpacing:4,color:t.accent,fontFamily:warrior,textShadow:`0 0 15px ${t.accentGlow}`,marginBottom:4 }}>KUŞATMA</div>
+      {isSpectating && <div style={{ fontSize:10,fontWeight:800,color:"#c084fc",marginBottom:3,fontFamily:warrior,letterSpacing:2,textAlign:"center",textTransform:"uppercase" }}>👁 {appLang==="en"?"WATCHING":"İZLİYORSUN"}</div>}
+
+      {/* ÜST — SALDIRAN: saldıran → savunan; tıklanan/ateş edilen büyük tahta */}
+      <div key={`board-${activeAttacker}-${activeDefender}`} style={{ width:"100%",maxWidth:420,animation:"siegeRiseUp 0.5s cubic-bezier(0.22,1,0.36,1) both" }}>
+        <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:7,marginBottom:5 }}>
+          <span style={{ width:22,height:22,borderRadius:"50%",background:`${t.gold}22`,border:`2px solid ${t.gold}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,flexShrink:0 }}>{avatarFor(activeAttacker)}</span>
+          <span style={{ fontSize:11,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:1,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{nameFor(activeAttacker)}</span>
+          <span style={{ fontSize:13,color:t.textDim }}>⟶</span>
+          <span style={{ width:22,height:22,borderRadius:"50%",background:"rgba(255,71,87,0.15)",border:`2px solid ${t.hit}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,flexShrink:0 }}>{avatarFor(activeDefender)}</span>
+          <span style={{ fontSize:11,fontWeight:800,color:t.hit,fontFamily:warrior,letterSpacing:1,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{nameFor(activeDefender)}</span>
         </div>
         <div style={{ display:"flex",justifyContent:"center" }}>{boardFor(activeDefender, overlayGrid, boardMode==="target", bigCell)}</div>
       </div>
-      {boardMode === "target" && (
-        <button onClick={siegeFire} disabled={siegeSelected.length===0} style={{ width:"100%",maxWidth:400,marginTop:10,padding:"12px 0",background:siegeSelected.length===0?t.surfaceLight:`linear-gradient(135deg,${t.hit},#dc2626)`,color:siegeSelected.length===0?t.textDim:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:900,letterSpacing:3,cursor:siegeSelected.length===0?"default":"pointer",fontFamily:warrior,boxShadow:siegeSelected.length===0?"none":`0 0 20px ${t.hitGlow}` }}>{L(appLang,"fire")} 🔥 ({siegeSelected.length}/{SIEGE_SHOTS_PER_TURN})</button>
+      <div style={{ fontSize:12,fontWeight:900,color:t.hit,fontFamily:mono,margin:"5px 0" }}>{appLang==="en"?"HITS":"İSABET"}: {hitCount}/20</div>
+      {boardMode === "target" ? (
+        <button onClick={siegeFire} disabled={siegeSelected.length===0} style={{ width:"100%",maxWidth:420,padding:"11px 0",background:siegeSelected.length===0?t.surfaceLight:`linear-gradient(135deg,${t.hit},#dc2626)`,color:siegeSelected.length===0?t.textDim:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:900,letterSpacing:3,cursor:siegeSelected.length===0?"default":"pointer",fontFamily:warrior,boxShadow:siegeSelected.length===0?"none":`0 0 20px ${t.hitGlow}` }}>{L(appLang,"fire")} 🔥 ({siegeSelected.length}/{SIEGE_SHOTS_PER_TURN})</button>
+      ) : (
+        <div style={{ textAlign:"center",fontSize:10,color:t.textDim,fontFamily:warrior,letterSpacing:1,animation:"blink3s 1.2s infinite",minHeight:18 }}>{boardMode==="own" ? (appLang==="en"?"Bracing for impact...":"Darbeye hazırlanıyor...") : (appLang==="en"?"Battle in progress...":"Çatışma sürüyor...")}</div>
       )}
-      {boardMode !== "target" && (
-        <div style={{ marginTop:10,textAlign:"center",fontSize:10,color:t.textDim,fontFamily:warrior,letterSpacing:1,animation:"blink3s 1.2s infinite" }}>{boardMode==="own" ? (appLang==="en"?"Bracing for impact...":"Darbeye hazırlanıyor...") : (appLang==="en"?"Battle in progress...":"Çatışma sürüyor...")}</div>
-      )}
-      {/* BEKLEME ODASI — sırası olmayan 3. oyuncu, en altta minik */}
-      <div key={`idle-${idleIdx}`} style={{ width:"100%",maxWidth:400,marginTop:10,display:"flex",alignItems:"center",gap:8,padding:"5px 10px",borderRadius:10,background:"rgba(255,255,255,0.03)",border:`1px solid ${t.border}`,opacity:0.75,animation:"siegeShrinkToMini 0.5s ease-out both" }}>
-        <span style={{ fontSize:8,color:t.textDim,fontFamily:mono,letterSpacing:1,textTransform:"uppercase",flexShrink:0 }}>{appLang==="en"?"waiting":"bekliyor"}</span>
+
+      {/* ORTA — BEKLEME ODASI: sırası olmayan 3. oyuncu */}
+      <div key={`idle-${idleIdx}`} style={{ width:"100%",maxWidth:420,marginTop:8,display:"flex",alignItems:"center",gap:8,padding:"5px 11px",borderRadius:10,background:"rgba(255,255,255,0.03)",border:`1px solid ${t.border}`,opacity:0.8,animation:"siegeShrinkToMini 0.5s ease-out both" }}>
+        <span style={{ fontSize:8,color:t.textDim,fontFamily:mono,letterSpacing:1,textTransform:"uppercase",flexShrink:0 }}>{appLang==="en"?"waiting room":"bekleme odası"}</span>
         <span style={{ fontSize:9,color:t.textDim,fontFamily:mono,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{siegeAlive[idleIdx]?nameFor(idleIdx):"☠ "+nameFor(idleIdx)}</span>
         {boardFor(idleIdx, idleOverlay, false, miniCell)}
       </div>
+
+      {/* ALT — SAVUNANIN FİLOSU: RAKİP GEMİLER / GEMİLERİM — batan gemiler burada görünür */}
+      <FleetBar title={activeDefender===0?L(appLang,"myShips"):L(appLang,"oppShips")} ships={siegeDefenderShips} hitCells={siegeDefenderHitMap} color={activeDefender===0?t.accent:t.hit} lang={appLang} />
     </div>);
   }
 
