@@ -14,8 +14,26 @@
     },
     "rooms": {
       "$roomId": {
-        ".read": "auth != null",
-        ".write": "auth != null",
+        ".read": "auth != null && (auth.uid === data.child('p1_uid').val() || auth.uid === data.child('p2_uid').val() || !data.child('p2_uid').val())",
+        ".write": "auth != null && ((!data.exists() && (newData.child('p1_uid').val() === auth.uid || newData.child('p2_uid').val() === auth.uid)) || (data.exists() && !newData.exists() && (auth.uid === data.child('p1_uid').val() || auth.uid === data.child('p2_uid').val())))",
+        "p2_uid": {
+          ".write": "auth != null && !data.exists() && newData.val() === auth.uid"
+        },
+        "p2_name": {
+          ".write": "auth != null && !data.exists() && newData.parent().child('p2_uid').val() === auth.uid"
+        },
+        "phase": {
+          ".write": "auth != null && (auth.uid === newData.parent().child('p1_uid').val() || auth.uid === newData.parent().child('p2_uid').val())"
+        },
+        "turn": {
+          ".write": "auth != null && (auth.uid === newData.parent().child('p1_uid').val() || auth.uid === newData.parent().child('p2_uid').val())"
+        },
+        "clocks": {
+          ".write": "auth != null && (auth.uid === newData.parent().child('p1_uid').val() || auth.uid === newData.parent().child('p2_uid').val())"
+        },
+        "attacks": {
+          ".write": "auth != null && (auth.uid === newData.parent().child('p1_uid').val() || auth.uid === newData.parent().child('p2_uid').val())"
+        },
         "p1_board": {
           ".write": "auth != null && auth.uid === data.parent().child('p1_uid').val() && data.val() === null"
         },
@@ -28,11 +46,23 @@
         "p2_ships": {
           ".write": "auth != null && auth.uid === data.parent().child('p2_uid').val() && data.val() === null"
         },
+        "salvo_p1": {
+          ".write": "auth != null && auth.uid === data.parent().child('p1_uid').val() && data.val() === null"
+        },
+        "salvo_p2": {
+          ".write": "auth != null && auth.uid === data.parent().child('p2_uid').val() && data.val() === null"
+        },
+        "salvoResult": {
+          ".write": "auth != null && data.val() === null && (auth.uid === data.parent().child('p1_uid').val() || auth.uid === data.parent().child('p2_uid').val())"
+        },
         "winner": {
-          ".write": "auth != null && data.val() === null"
+          ".write": "auth != null && data.val() === null && (auth.uid === newData.parent().child('p1_uid').val() || auth.uid === newData.parent().child('p2_uid').val())"
+        },
+        "winReason": {
+          ".write": "auth != null && (auth.uid === newData.parent().child('p1_uid').val() || auth.uid === newData.parent().child('p2_uid').val())"
         },
         "eloProcessed": {
-          ".write": "auth != null && data.val() !== true"
+          ".write": "auth != null && data.val() !== true && (auth.uid === newData.parent().child('p1_uid').val() || auth.uid === newData.parent().child('p2_uid').val())"
         }
       }
     },
