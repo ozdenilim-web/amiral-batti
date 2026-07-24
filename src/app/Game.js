@@ -2814,7 +2814,7 @@ function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack, ready, onTogg
 
 function findMatch(myUid, myName, myGold, arenaId, timeoutMs = 60000, mode = null) {
   // NOT: salvo kuyruğu, kural dağıtımı gerektirmesin diye zaten izinli olan matchmaking_arena altında "salvo" sözde-arenası olarak tutulur.
-  const queuePath = mode === "salvo" ? "matchmaking_arena/salvo" : (arenaId ? `matchmaking_arena/${arenaId}` : "matchmaking");
+  const queuePath = mode === "salvo" ? "matchmaking_arena/salvo" : mode === "tersane" ? "matchmaking_arena/tersane" : (arenaId ? `matchmaking_arena/${arenaId}` : "matchmaking");
   let cancelled = false, creating = false, resolved = false;
   let unsubQueue = null, unsubMatch = null, timeoutId = null;
 
@@ -3110,6 +3110,8 @@ export default function Game() {
   const salvoModeRef = useRef(false);
   const [tersaneMode, setTersaneMode] = useState(false);
   const tersaneModeRef = useRef(false);
+  // === ONLINE TERSANE — klasik rooms motoruyla aynı altyapı, sadece serbest-şekil yerleştirme ===
+  const tersaneOnlineRef = useRef(false); // bu tersane maçı online mı (bot değil)
   const [salvoSelected, setSalvoSelected] = useState([]); // [[r,c],...] max 20
   const salvoSelectedRef = useRef([]); // setInterval kapanışında güncel kalsın diye state'in aynası
   const [salvoTimer, setSalvoTimer] = useState(SALVO_SECONDS);
@@ -3633,7 +3635,7 @@ export default function Game() {
             // Sound for incoming hits
             const incomingHits = lastAtk.shots.filter(s => s.result === "hit").length;
             sfx.init(); if (incomingHits > 0) sfx.play('hit');
-            if (game[`${myKey}_ships`]) { const myShips = Object.values(game[`${myKey}_ships`]); const reports = []; lastAtk.shots.forEach(s => { if (s.result === "hit") { const hitShip = myShips.find(sh => sh.cells.some(([r, c]) => r === s.r && c === s.c)); if (hitShip) { const shipDef = SHIPS.find(sd => sd.id === hitShip.id); const shipName = appLang === "en" ? (shipDef?.nameEn || shipDef?.name) : shipDef?.name; const totalH = hitShip.cells.filter(([r, c]) => dHitMap[r][c]).length; const sunkNow = totalH === hitShip.cells.length; reports.push({ text: sunkNow ? (appLang==="en"?`${shipName} sank!`:`${shipName} battı!`) : (appLang==="en"?`${shipName} took ${totalH} hit${totalH>1?'s':''}`:`${shipName} ${totalH}. yarasını aldı`), sunk: sunkNow }); } } }); if (reports.length > 0) { setDamageReport(reports.map(r=>r.text).join(" • ")); if (!firstHitVoiceRef.current) { firstHitVoiceRef.current = true; sfx.playVoice('first_kill'); } setMicroFeedback({ text: reports.length ? reports[reports.length-1].text.toLocaleUpperCase(appLang==='en'?'en-US':'tr-TR') : fbPick(appLang==="en"?FB_GOT_HIT_EN:FB_GOT_HIT), color: t.hit }); if (damageTimerRef.current) clearTimeout(damageTimerRef.current); damageTimerRef.current = setTimeout(() => setDamageReport(""), 8000); if (reports.some(r => r.sunk)) setTimeout(() => { sfx.play('sunk'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2); }, 200); } }
+            if (game[`${myKey}_ships`]) { const myShips = Object.values(game[`${myKey}_ships`]); const reports = []; lastAtk.shots.forEach(s => { if (s.result === "hit") { const hitShip = myShips.find(sh => sh.cells.some(([r, c]) => r === s.r && c === s.c)); if (hitShip) { const shipDef = SHIPS.find(sd => sd.id === hitShip.id); const shipName = shipDef ? (appLang === "en" ? (shipDef.nameEn || shipDef.name) : shipDef.name) : (appLang === "en" ? (hitShip.nameEn || hitShip.name) : hitShip.name); const totalH = hitShip.cells.filter(([r, c]) => dHitMap[r][c]).length; const sunkNow = totalH === hitShip.cells.length; reports.push({ text: sunkNow ? (appLang==="en"?`${shipName} sank!`:`${shipName} battı!`) : (appLang==="en"?`${shipName} took ${totalH} hit${totalH>1?'s':''}`:`${shipName} ${totalH}. yarasını aldı`), sunk: sunkNow }); } } }); if (reports.length > 0) { setDamageReport(reports.map(r=>r.text).join(" • ")); if (!firstHitVoiceRef.current) { firstHitVoiceRef.current = true; sfx.playVoice('first_kill'); } setMicroFeedback({ text: reports.length ? reports[reports.length-1].text.toLocaleUpperCase(appLang==='en'?'en-US':'tr-TR') : fbPick(appLang==="en"?FB_GOT_HIT_EN:FB_GOT_HIT), color: t.hit }); if (damageTimerRef.current) clearTimeout(damageTimerRef.current); damageTimerRef.current = setTimeout(() => setDamageReport(""), 8000); if (reports.some(r => r.sunk)) setTimeout(() => { sfx.play('sunk'); launchExplosion('confetti-canvas', window.innerWidth/2, window.innerHeight/2); }, 200); } }
           }
           if (lastAtk.by === pNum && lastAtk.shots) {
             setBlinkCells(lastAtk.shots.map(s => [s.r, s.c])); if (blinkTimerRef.current) clearTimeout(blinkTimerRef.current); blinkTimerRef.current = setTimeout(() => setBlinkCells([]), 3000);
@@ -4200,6 +4202,8 @@ export default function Game() {
     if (salvoTimeoutRef.current) { clearTimeout(salvoTimeoutRef.current); salvoTimeoutRef.current = null; }
     salvoOnlineRef.current = false; salvoRoomRef.current = null; salvoResolvedRef.current = false;
     salvoModeRef.current = false; salvoSelectedRef.current = []; salvoBotShotsRef.current = []; salvoSubmittedRef.current = false;
+    // ONLINE TERSANE — çözülmemiş maçtan ayrılıyorsak (rooms temizliği yukarıda zaten "placing" ise odayı siliyor)
+    tersaneOnlineRef.current = false;
     setTersaneMode(false); tersaneModeRef.current = false;
     setSalvoMode(false); setSalvoSelected([]); setSalvoSubmitted(false); setSalvoResult(null); setSalvoTimer(SALVO_SECONDS);
     // ONLINE KUŞATMA temizliği — host ayrılırsa oda kapanır (maç iptal), katılan ayrılırsa present düşer
@@ -4471,6 +4475,69 @@ export default function Game() {
     setPhase("placing");
     sfx.init(); sfx.playPlacementMusic();
   };
+  // === ONLINE TERSANE — Tek Salvo'yla AYNI MANTIK: direkt kuyruk, 7 sn'de rakip yoksa bota düş.
+  // Fark: tek atışlık salvo turu değil, klasik sıra tabanlı savaş (rooms motoru zaten geneldir,
+  // gemi şekline bakmaz — sadece hücreleri karşılaştırır), o yüzden listenToRoom/fireShots aynen kullanılır.
+  const startTersaneOnline = async () => {
+    track("game_start", { mode: "tersane_online" });
+    if (!playerName.trim()) { setMessage(L(appLang, "msgTypeName")); return; }
+    if (!authUid) { setMessage(L(appLang, "msgConnecting")); return; }
+    setReadyToPlay(false);
+    if (authUid) update(ref(db, `online_players/${authUid}`), { ready: false }).catch(() => {});
+    quickMatchCancelledRef.current = false;
+    setMessage(""); setMatchmaking(true); setQuickMatchOpponent(null); setQuickMatchCandidate(null);
+    sfx.init(); sfx.play('click');
+    setQuickMatchPhase("searching");
+    const searchSec = 7; setQuickMatchSecondsLeft(searchSec);
+    let pool = [];
+    try { const snap = await get(ref(db, "online_players")); if (snap.exists()) snap.forEach(c => { if (c.key !== authUid) pool.push({ name: c.val().displayName || "Denizci", gold: safeGold(c.val().gold) }); }); } catch (e) {}
+    if (pool.length < 3) BOT_NAMES.forEach(n => pool.push({ name: n, gold: 200 + Math.floor(Math.random() * 4000) }));
+    if (quickMatchCarouselRef.current) clearInterval(quickMatchCarouselRef.current);
+    quickMatchCarouselRef.current = setInterval(() => { const p = pool[Math.floor(Math.random() * pool.length)]; setQuickMatchCandidate({ name: p.name, gold: p.gold, avatar: QM_AVATARS[Math.floor(Math.random() * QM_AVATARS.length)], key: Math.random() }); }, 120);
+    if (quickMatchCountdownRef.current) clearInterval(quickMatchCountdownRef.current);
+    const t0 = Date.now();
+    quickMatchCountdownRef.current = setInterval(() => setQuickMatchSecondsLeft(Math.max(0, searchSec - Math.floor((Date.now() - t0) / 1000))), 250);
+    const mp = findMatch(authUid, playerName.trim(), myProfile?.gold ?? STARTING_GOLD, null, searchSec * 1000, "tersane");
+    setMatchCancelFn(() => mp._cancel);
+    mp.then(async (data) => {
+      if (quickMatchCarouselRef.current) { clearInterval(quickMatchCarouselRef.current); quickMatchCarouselRef.current = null; }
+      if (quickMatchCountdownRef.current) { clearInterval(quickMatchCountdownRef.current); quickMatchCountdownRef.current = null; }
+      if (quickMatchCancelledRef.current) return;
+      if (data && data.roomId) {
+        let opp = { name: data.oppName || "Rakip", avatar: "⚓", gold: null, level: null };
+        try { const rs = await get(ref(db, `rooms/${data.roomId}`)); const room = rs.val(); const ou = room ? (data.playerNum === 1 ? room.p2_uid : room.p1_uid) : null; if (ou) { const ps = await get(ref(db, `profiles/${ou}`)); if (ps.exists()) { const p = ps.val(); opp = { name: p.displayName || opp.name, avatar: p.avatar || "⚓", gold: safeGold(p.gold), level: p.level || 0 }; } } } catch (e) {}
+        finalizeTersaneMatch(data.roomId, data.playerNum, opp);
+      } else {
+        // 7 sn'de insan yok → bot
+        setMatchmaking(false); setMatchCancelFn(null); setQuickMatchPhase(null); setQuickMatchOpponent(null); setQuickMatchCandidate(null);
+        startTersaneBotGame();
+      }
+    });
+  };
+
+  const finalizeTersaneMatch = (roomId, playerNum, opp) => {
+    setQuickMatchOpponent({ name: opp.name, avatar: opp.avatar, gold: opp.gold, level: opp.level });
+    setQuickMatchPhase("found");
+    sfx.init(); sfx.play('gold');
+    setTimeout(() => {
+      if (quickMatchCancelledRef.current) return;
+      setMatchmaking(false); setMatchCancelFn(null); setQuickMatchPhase(null); setQuickMatchOpponent(null);
+      setTersaneMode(true); tersaneModeRef.current = true;
+      tersaneOnlineRef.current = true;
+      roomIdRef.current = roomId; setRoomId(roomId); setPlayerNum(playerNum); playerNumRef.current = playerNum;
+      setOpponentName(opp.name); if (opp.avatar) setOppAvatar(opp.avatar);
+      setIsBotGame(false); isBotGameRef.current = false;
+      setGameStartTime(Date.now());
+      setDefenseBoard(emptyGrid()); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null)));
+      setPlacedShips([]); setPlacementConfirmed(false); setPlacementPreview(false); setPlacementTimer(PLACEMENT_SECONDS);
+      setMyTurn(true); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS);
+      setPhase("placing");
+      listenToRoom(roomId, playerNum);
+      sfx.playPlacementMusic();
+      if (authUid) remove(ref(db, `online_players/${authUid}`)).catch(() => {});
+    }, 1700);
+  };
+
   // Boyama: bir kutuyu doldur/boşalt (en fazla 20 kutu).
   const tersaneToggleCell = (r, c) => {
     if (phase !== "placing" || placementConfirmed) return;
@@ -4481,7 +4548,7 @@ export default function Game() {
     const nc = shipColorMap.map(row => [...row]); nc[r][c] = filled ? null : TERSANE_PAINT; setShipColorMap(nc);
   };
   // Onay: 20 kutu ve tam 5 bağlı grup şart. Her grup bir gemi olur, ayrı renk alır.
-  const confirmTersane = () => {
+  const confirmTersane = async () => {
     if (!tersaneValid(defenseBoard)) return;
     const comps = tersaneComponents(defenseBoard);
     const ships = comps.map((cells, i) => ({ id: `ters${i}`, custom: true, name: `Gemi ${i + 1}`, nameEn: `Ship ${i + 1}`, color: TERSANE_PALETTE[i % TERSANE_PALETTE.length], cells }));
@@ -4492,8 +4559,18 @@ export default function Game() {
     setMyShipsData(shipData);
     setPlacementConfirmed(true);
     if (placementTimerRef.current) clearInterval(placementTimerRef.current);
+    sfx.init(); sfx.play('click');
+    if (tersaneOnlineRef.current && roomIdRef.current) {
+      // ONLINE TERSANE: klasik online 1v1 ile birebir aynı yazım — tahtayı/gemileri odaya yaz,
+      // iki taraf da hazırsa phase "playing" olur, listenToRoom zaten bunu dinliyor.
+      const pNum = playerNumRef.current, myKey = pNum === 1 ? "p1" : "p2", oppKey = pNum === 1 ? "p2" : "p1";
+      await update(ref(db, `rooms/${roomIdRef.current}`), { [`${myKey}_board`]: defenseBoard, [`${myKey}_ships`]: shipData });
+      const snapshot = await get(ref(db, `rooms/${roomIdRef.current}`));
+      if (snapshot.val()?.[`${oppKey}_board`]) await update(ref(db, `rooms/${roomIdRef.current}`), { phase: "playing" });
+      return;
+    }
     setPhase("playing"); setMyTurn(true); setActiveBoard("attack");
-    sfx.init(); sfx.play('click'); sfx.playBattleMusic(false);
+    sfx.playBattleMusic(false);
   };
 
   const startBotGame = () => {
@@ -5316,7 +5393,7 @@ export default function Game() {
           const hitShip = Object.values(myShipsData).find(sh => sh.cells.some(([sr, sc]) => sr === r && sc === c));
           if (hitShip) {
             const shipDef = SHIPS.find(sd => sd.id === hitShip.id);
-            const shipName = appLang === "en" ? (shipDef?.nameEn || shipDef?.name) : shipDef?.name;
+            const shipName = shipDef ? (appLang === "en" ? (shipDef.nameEn || shipDef.name) : shipDef.name) : (appLang === "en" ? (hitShip.nameEn || hitShip.name) : hitShip.name);
             const totalH = hitShip.cells.filter(([hr, hc]) => newDefHit[hr][hc]).length;
             const sunkNow = totalH === hitShip.cells.length;
             reports.push({ text: sunkNow ? (appLang==="en"?`${shipName} sank!`:`${shipName} battı!`) : (appLang==="en"?`${shipName} took ${totalH} hit${totalH>1?'s':''}`:`${shipName} ${totalH}. yarasını aldı`), sunk: sunkNow });
@@ -5631,8 +5708,8 @@ export default function Game() {
     const unsub = onValue(ref(db, `match_found/${authUid}`), async snap => {
       if (!snap.exists()) return;
       const d = snap.val(); if (!d.roomId) return;
-      // Salvo maçları startSalvoOnline tarafından yönetilir — global akış karışmasın
-      try { const rs = await get(ref(db, `rooms/${d.roomId}`)); if (rs.val()?.mode === "salvo") return; } catch (e) {}
+      // Salvo/Tersane maçları kendi başlatıcıları tarafından yönetilir — global akış karışmasın
+      try { const rs = await get(ref(db, `rooms/${d.roomId}`)); const rm = rs.val()?.mode; if (rm === "salvo" || rm === "tersane") return; } catch (e) {}
       remove(ref(db, `match_found/${authUid}`)).catch(() => {});
       handleOnlineChallenge(d.roomId, d.playerNum || 2);
     });
@@ -6154,7 +6231,7 @@ export default function Game() {
   }
   if (showAchievements) return <><style>{ANIMS}</style><AchievementsScreen profile={myProfile} onClose={() => setShowAchievements(false)} onClaim={claimAchievementSet} lang={appLang} /></>;
   if (showLeaderboard) return <><style>{ANIMS}</style><Leaderboard onBack={() => setShowLeaderboard(false)} myUid={authUid} lang={appLang} /></>;
-  if (showDifferentWaters) return <><style>{ANIMS}</style><DifferentWaters onBack={() => setShowDifferentWaters(false)} onPlaySalvo={() => { setShowDifferentWaters(false); startSalvoOnline(); }} onPlayKusatma={() => { setShowDifferentWaters(false); setShowSiegeLobby(true); }} onPlayTersane={() => { setShowDifferentWaters(false); startTersaneBotGame(); }} lang={appLang} /></>;
+  if (showDifferentWaters) return <><style>{ANIMS}</style><DifferentWaters onBack={() => setShowDifferentWaters(false)} onPlaySalvo={() => { setShowDifferentWaters(false); startSalvoOnline(); }} onPlayKusatma={() => { setShowDifferentWaters(false); setShowSiegeLobby(true); }} onPlayTersane={() => { setShowDifferentWaters(false); startTersaneOnline(); }} lang={appLang} /></>;
   if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => { setSelectedArena(arena); setShowArenaSelect(false); startQuickMatch(arena); }} lang={appLang} /></>;
   if (showSiegeLobby) return <><style>{ANIMS}</style><SiegeLobby myUid={authUid} myName={playerName} myAvatar={myProfile?.avatar} onBack={() => setShowSiegeLobby(false)} onStart={(payload) => { setShowSiegeLobby(false); const humans = [0,1,2].filter(i => payload.seats && payload.seats[String(i)]).length; if (humans >= 2) startSiegeOnline(payload); else { if (payload.roomId) remove(ref(db, `siege_rooms/${payload.roomId}`)).catch(() => {}); startSiegeBotGame(); } }} lang={appLang} /></>;
   if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myGold={myProfile?.gold} onBack={() => setShowOnlineLobby(false)} onChallenge={handleOnlineChallenge} ready={readyToPlay} onToggleReady={()=>setReadyToPlay(v=>!v)} lang={appLang} /></>;
