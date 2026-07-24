@@ -489,7 +489,7 @@ const TRANSLATIONS = {
     wantsToPlayMsg: "seninle oynamak istiyor", acceptFullBtn: "KABUL ET",
     arenaInfoEntry: (n) => `${n} altın öde, bu odaya gir.`, arenaInfoWin: (n) => `Kazanırsan ${n} altın kazanırsın.`,
     arenaInfoXpBonus: "Ayrıca normal oyunlardan %10 daha fazla deneyim puanı (XP) kazanırsın.",
-    arenaGeneralNote: "Arenalar ücretlidir ama daha çok altın ve deneyim kazandırır. Salon, Bot ve Oda Kodu ile oynanan oyunlar ise ücretsizdir, sadece kazandırdığı altın ve deneyim daha azdır.",
+    arenaGeneralNote: "Sadece iddialı olanlar girsin.",
     infoIconTooltip: "Bilgi",
   },
   en: {
@@ -562,7 +562,7 @@ const TRANSLATIONS = {
     wantsToPlayMsg: "wants to play with you", acceptFullBtn: "ACCEPT",
     arenaInfoEntry: (n) => `Pay ${n} gold to enter this room.`, arenaInfoWin: (n) => `If you win, you get ${n} gold.`,
     arenaInfoXpBonus: "You also earn 10% more XP (experience) than normal games.",
-    arenaGeneralNote: "Arenas cost gold to enter but pay out more gold and XP. Lobby, Bot, and Room Code games are free, but pay out less gold and XP.",
+    arenaGeneralNote: "Only the bold enter.",
     infoIconTooltip: "Info",
   },
 };
@@ -1318,9 +1318,9 @@ function ArenaSelect({ myGold, onSelect, onBack, lang = "tr" }) {
 
 // === FARKLI SULAR — özel oyun modları merkezi. Aynı temel kurallar, değişik harita/gemi/oynanış varyantları. ===
 const WATER_MODES = [
-  { id:"teksalvo", name:"TEK SALVO", nameEn:"SINGLE SALVO", icon:"💥", color:"#fbbf24", desc:"20 atışını tek seferde işaretle, en çok vuran kazanır. 💰25 giriş, kazanana 50.", descEn:"Mark all 20 shots at once — most hits wins. 💰25 entry, winner takes 50." },
-  { id:"kusatma", name:"KUŞATMA", nameEn:"SIEGE", icon:"⚔️", color:"#ff4757", desc:"3 filo, sabit üçgen: sen birine ateş edersin, o üçüncüye, o da sana.", descEn:"3 fleets, fixed triangle: you fire at one, they fire at the next, and they fire back at you." },
-  { id:"tersane", name:"TERSANE", nameEn:"SHIPYARD", icon:"⚒️", color:"#f59e0b", desc:"20 kutucuk, 5 gemi, istediğin şekli ver.", descEn:"20 cells, 5 ships, any shape you want." },
+  { id:"teksalvo", name:"TEK SALVO", nameEn:"SINGLE SALVO", icon:"💥", color:"#fbbf24", desc:"20 atışı tek seferde yap. Bakalım tahminin ne kadar güçlü...", descEn:"Take all 20 shots at once. Let's see how strong your instinct is..." },
+  { id:"kusatma", name:"KUŞATMA", nameEn:"SIEGE", icon:"⚔️", color:"#ff4757", desc:"3 oyuncu, herkes birbirine ateş ediyor, işler karışık.. Bu cenderenden çıkabilecek misin?", descEn:"3 players, everyone firing at everyone, things get messy... Can you break out of this bind?" },
+  { id:"tersane", name:"TERSANE", nameEn:"SHIPYARD", icon:"⚒️", color:"#f59e0b", desc:"Senin gemilerin farklı mı, bakalım senin gemi tasarımların nasıl?", descEn:"Your ships, your rules — let's see what your ship designs look like." },
   { id:"girdap", name:"GİRDAP", nameEn:"WHIRLPOOL", icon:"🌀", color:"#6366f1", desc:"Sular çekilince göreceksin…", descEn:"You'll see when the tide turns…" },
   { id:"manevra", name:"MANEVRA", nameEn:"MANEUVER", icon:"🧭", color:"#4ade80", desc:"Sular çekilince göreceksin…", descEn:"You'll see when the tide turns…" },
   { id:"ateskes", name:"ATEŞKES", nameEn:"CEASEFIRE", icon:"🕊️", color:"#94a3b8", desc:"Sular çekilince göreceksin…", descEn:"You'll see when the tide turns…" },
@@ -1328,7 +1328,7 @@ const WATER_MODES = [
 function DifferentWaters({ onBack, onPlaySalvo, onPlayKusatma, onPlayTersane, lang = "tr" }) {
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)",padding:"24px 14px",fontFamily:mono,color:"#dfe9f0" }}>
     <div style={{ fontSize:24,fontWeight:900,letterSpacing:5,color:"#5fd8ee",marginBottom:6,fontFamily:warrior,textShadow:"0 0 24px rgba(28,199,230,0.3)",textAlign:"center" }}>{lang==="en"?"DIFFERENT WATERS":"FARKLI SULAR"}</div>
-    <div style={{ fontSize:11,color:"#7A8FA0",fontFamily:mono,textAlign:"center",marginBottom:18,maxWidth:400,lineHeight:1.6,padding:"0 8px" }}>{lang==="en"?"New rules, new maps, new fleets — coming soon.":"Farklı kurallar, farklı haritalar, farklı filolar — çok yakında."}</div>
+    <div style={{ fontSize:12,color:"#c9a15e",fontFamily:warrior,fontStyle:"italic",fontWeight:700,letterSpacing:1.5,textAlign:"center",marginBottom:18,maxWidth:360,lineHeight:1.6,textShadow:"0 0 12px rgba(201,161,94,0.3)" }}>{lang==="en"?"Every water hides its own storm...":"Her suyun kendi fırtınası var..."}</div>
     <div style={{ width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:12 }}>
       {WATER_MODES.map(mode => {
         const playable = mode.id === "teksalvo" || mode.id === "kusatma" || mode.id === "tersane";
@@ -2173,7 +2173,7 @@ function AchievementsScreen({ profile, onClose, onClaim, lang = "tr" }) {
       <div style={{ maxWidth:400,margin:"0 auto",padding:"calc(14px + env(safe-area-inset-top,0px)) clamp(10px,4vw,16px) 44px",width:"100%",display:"flex",flexDirection:"column",alignItems:"center" }}>
         {/* Başlık */}
         <div style={{ width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16 }}>
-          <button onClick={onClose} style={{ width:38,height:38,borderRadius:10,background:"linear-gradient(180deg,#20313f,#132030)",border:"1px solid #26394b",color:"#A9BCC9",fontSize:18,cursor:"pointer",fontFamily:warrior,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.1)" }}>←</button>
+          <button onClick={onClose} style={{ width:38,height:38,borderRadius:10,background:"linear-gradient(180deg,#20313f,#132030)",border:"1px solid #26394b",color:"#A9BCC9",fontSize:18,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontFamily:warrior,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.1)" }}>←</button>
           <div style={{ fontSize:22,fontWeight:900,color:"#f0d79a",fontFamily:warrior,letterSpacing:5 }}>🏅 {L(lang,"achTitle")}</div>
           <div style={{ width:38 }} />
         </div>
@@ -3041,6 +3041,7 @@ export default function Game() {
   const botSay = () => { /* bot emoji tepkileri kaldırıldı — istenmiyor */ };
   const firstHitVoiceRef = useRef(false);
   const isBotGameRef = useRef(false);
+  const botArenaRef = useRef(null); // Arena aramasında insan bulunamayıp bota düşülürse hangi arenaydı — ödül/iade bunu kullanır
   const avatarFileRef = useRef(null);
   const handleAvatarUpload = (e) => {
     const file = e.target.files?.[0];
@@ -3410,12 +3411,17 @@ export default function Game() {
   recordBotLossRef.current = () => {
     if (!authUid || !myProfile || isOnboarding) return;
     // Kaybeden altın kaybetmez ama kazanmaz da — XP: kazanılanın %25'i
+    // Arena aramasında insan bulunamayıp bota düştüysek: online arena mağlubiyetiyle aynı mantık —
+    // giriş ücreti iade edilir (net kayıp yok), sadece kazanınca ekstra kazanılır.
+    const arenaRefund = botArenaRef.current ? botArenaRef.current.entryFee : 0;
     const lvl2 = applyLevelCredit(myProfile, XP_BOT_LOSS);
-    update(ref(db, `profiles/${authUid}`), { losses: (myProfile.losses||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl2.level, levelProgress: lvl2.levelProgress, recentResults: pushRecent(myProfile.recentResults, false), honor: migrateHonor(myProfile) + HONOR_LOSS_BOT }).catch(()=>{});
-    setMyProfile(prev => prev ? { ...prev, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl2.level, levelProgress: lvl2.levelProgress, recentResults: pushRecent(prev.recentResults, false), honor: migrateHonor(prev) + HONOR_LOSS_BOT } : prev);
+    const newGold2 = safeGold(myProfile.gold) + arenaRefund;
+    update(ref(db, `profiles/${authUid}`), { gold: newGold2, losses: (myProfile.losses||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl2.level, levelProgress: lvl2.levelProgress, recentResults: pushRecent(myProfile.recentResults, false), honor: migrateHonor(myProfile) + HONOR_LOSS_BOT }).catch(()=>{});
+    setMyProfile(prev => prev ? { ...prev, gold: newGold2, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl2.level, levelProgress: lvl2.levelProgress, recentResults: pushRecent(prev.recentResults, false), honor: migrateHonor(prev) + HONOR_LOSS_BOT } : prev);
     bumpDaily(d => { d.gamesPlayed += 1; });
-    setMatchRewards({ gold: 0, xp: XP_BOT_LOSS, honor: HONOR_LOSS_BOT, revenge: 1, isWin: false }); setRewardModalOpen(true);
-    track("game_end", { mode: "bot", result: "loss" });
+    if (arenaRefund > 0) { setGoldChange({ amount: arenaRefund, refund: true }); }
+    setMatchRewards({ gold: arenaRefund, xp: XP_BOT_LOSS, honor: HONOR_LOSS_BOT, revenge: 1, isWin: false }); setRewardModalOpen(true);
+    track("game_end", { mode: botArenaRef.current ? "arena_bot_fallback" : "bot", result: "loss" });
     // Kazanım sayaçları: mağlubiyette isabet/batırma yine sayılır, seriler sıfırlanır
     bumpAch(a => { a.hits += myHits; a.sunk += killCountRef.current; a.winStreak = 0; a.turnStreak = 0; a.lossStreak = (a.lossStreak||0) + 1; });
     bumpGlobalStats(1, killCountRef.current);
@@ -4220,7 +4226,7 @@ export default function Game() {
     if (siegeIntroTimerRef.current) { clearInterval(siegeIntroTimerRef.current); siegeIntroTimerRef.current = null; }
     setSiegeIntroCount(0); setSiegeIntroDone(false);
     finishDragListeners(); dragRef.current = null;
-    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShowSurrenderConfirm(false); setAfkTimer(null); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; killCountRef.current = 0; firstHitVoiceRef.current = false; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); isBotGameRef.current = false; setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false }); setRevengeResult(null); setMatchRewards(null); setRewardModalOpen(false); setNewAchUnlocks([]);
+    setPhase("lobby"); setRoomId(""); setInputRoomId(""); setPlayerNum(null); setDefenseBoard(emptyGrid()); setShowSurrenderConfirm(false); setAfkTimer(null); setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null))); setAttackOverlay(emptyGrid().map(r => r.map(() => null))); setDefenseOverlay(emptyGrid().map(r => r.map(() => null))); setPlacedShips([]); setCurrentShots([]); setMyHits(0); setOppHits(0); setWinner(null); setMessage(""); setOpponentName(""); setPlacementConfirmed(false); setNotationEntries([]); setBlinkCells([]); setDamageReport(""); setManualMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS); myClockRef.current = CLOCK_SECONDS; oppClockRef.current = CLOCK_SECONDS; setMyShipsData(null); setOppShipsData(null); setActiveBoard("attack"); setMarkMode(false); setDefHitMap(emptyGrid().map(r => r.map(() => false))); setAtkHitMap(emptyGrid().map(r => r.map(() => false))); lastAttackCountRef.current = 0; killCountRef.current = 0; firstHitVoiceRef.current = false; setPlacementTimer(PLACEMENT_SECONDS); setShowReview(false); setIsWin(false); setEloChange(null); eloUpdatedRef.current = false; setShowOnlineLobby(false); setMatchmaking(false); setMatchCancelFn(null); setSelectedArena(null); setShowArenaSelect(false); setGoldChange(null); setEmojiToast(null); setMyEmojiToast(null); setEntryFeeDeducted(null); setIsBotGame(false); isBotGameRef.current = false; botArenaRef.current = null; setBotBoard(null); setBotShips(null); setBotAttackOverlay(emptyGrid().map(r => r.map(() => null))); setBotName(""); setGameStartTime(null); setHitStreak(0); setStreakToast(null); setGoldAnim(null); setMicroFeedback(null); setExtraTimeUsed(false); setPlacementPreview(false); setIsOnboarding(false); setOnboardingStep(0); setOnboardingMilestones({ firstHit: false, firstSunk: false }); setRevengeResult(null); setMatchRewards(null); setRewardModalOpen(false); setNewAchUnlocks([]);
     // Profili sunucudan tazele — AMA günlük görev ve kazanım sayaçlarında YEREL ilerleme
     // daha ileriyse onu koru. (Maç sonu yazımı sunucuya ulaşmadan bu okuma dönerse
     // eskiden ilerleme siliniyordu; görevlerin "işlenmemesinin" asıl sebebi buydu.)
@@ -4573,9 +4579,10 @@ export default function Game() {
     sfx.playBattleMusic(false);
   };
 
-  const startBotGame = () => {
-    track("game_start", { mode: "bot" });
+  const startBotGame = (arenaOverride) => {
+    track("game_start", { mode: arenaOverride ? "arena_bot_fallback" : "bot", arena: arenaOverride?.id || "none" });
     if (!playerName.trim()) { setMessage(L(appLang,"msgTypeName")); return; }
+    botArenaRef.current = arenaOverride || null;
     const bot = botPlaceShips();
     const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
     setIsBotGame(true); isBotGameRef.current = true;
@@ -5549,7 +5556,9 @@ export default function Game() {
       const streakMult = hitStreak >= 9 ? 4 : hitStreak >= 6 ? 3 : hitStreak >= 3 ? 2 : 1;
       // İntikam çarpanı — kayıp serisinden gelen bilenmişlik ödülü
       const rMult1 = revengeMult(safeAch(myProfile?.ach).lossStreak);
-      const botWinGold = Math.round(50 * streakMult * rMult1); // 25→50: aktif oyun her zaman pasiften iyi öder
+      // Arena aramasında insan bulunamayıp bota düştüysek (7sn) — arenanın kendi galibiyet ödülü geçerli,
+      // online rakip bulunmuş gibi aynı ekonomi (streak çarpanı yok, arena zaten kendi ödülünü veriyor).
+      const botWinGold = botArenaRef.current ? Math.round(botArenaRef.current.winGold * rMult1) : Math.round(50 * streakMult * rMult1); // 25→50: aktif oyun her zaman pasiften iyi öder
       if (rMult1 > 1) setRevengeResult({ mult: rMult1 });
       if (authUid && myProfile && !isOnboarding) {
         const lvl1 = applyLevelCredit(myProfile, XP_BOT_WIN * rMult1);
@@ -5600,8 +5609,8 @@ export default function Game() {
   const runQueueSearch = async (arena) => {
     if (quickMatchCancelledRef.current) return;
     setQuickMatchPhase("searching");
-    // OYNA: 7 saniyede insan yoksa bot kaptan garantisi. Arena: insan şart, 45 sn.
-    const searchTotalSec = arena ? 45 : 7;
+    // Her zamanki gibi: 7 saniyede insan yoksa bot kaptan garantisi (arena dahil — asla boş beklemez).
+    const searchTotalSec = 7;
     setQuickMatchSecondsLeft(searchTotalSec);
 
     let pool = [];
@@ -5642,20 +5651,10 @@ export default function Game() {
           }
         } catch (e) {}
         finalizeQuickMatch(data.roomId, data.playerNum, oppInfo.name, oppInfo.avatar, oppInfo.gold, oppInfo.level);
-      } else if (!arena) {
-        // OYNA: 7 saniyede insan çıkmadı — bot kaptan meydan okur, oyuncu ASLA boş beklemez
-        setMatchmaking(false); setMatchCancelFn(null); setQuickMatchPhase(null); setQuickMatchOpponent(null); setQuickMatchCandidate(null);
-        startBotGame();
       } else {
-        // Arena: insan şart — bulunamadı, ücret anında iade
-        setMatchmaking(false); setMatchCancelFn(null);
-        setQuickMatchPhase("notfound");
-        if (entryFeeDeducted) {
-          const refundGold = safeGold(myProfile?.gold) + arena.entryFee;
-          ensureProfile(authUid).then(cleanP => { cleanP.gold = refundGold; set(ref(db, `profiles/${authUid}`), cleanP); }).catch(() => {});
-          setMyProfile(prev => prev ? { ...prev, gold: refundGold } : prev);
-          setEntryFeeDeducted(null);
-        }
+        // 7 saniyede insan çıkmadı — bot kaptan meydan okur (arena dahil, aynı giriş ücreti/ödül geçerli), oyuncu ASLA boş beklemez
+        setMatchmaking(false); setMatchCancelFn(null); setQuickMatchPhase(null); setQuickMatchOpponent(null); setQuickMatchCandidate(null);
+        startBotGame(arena || undefined);
       }
     });
   };
@@ -6285,7 +6284,7 @@ export default function Game() {
     const BRONZE = "linear-gradient(180deg,#5a3d22 0%,#c9a15e 42%,#f0d79a 52%,#c9a15e 62%,#5a3d22 100%)";
     const neutralBtn = (dis) => ({ position:"relative",overflow:"hidden",flex:1,height:56,display:"flex",alignItems:"center",justifyContent:"center",gap:9,background:"linear-gradient(180deg,#20313f,#132030)",color:"#A9BCC9",border:"1px solid #26394b",borderRadius:12,fontSize:16,fontWeight:800,fontFamily:warrior,textTransform:"uppercase",letterSpacing:2,cursor:dis?"not-allowed":"pointer",opacity:dis?0.45:1,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.10), 0 2px 0 rgba(0,0,0,0.45), 0 7px 16px rgba(0,0,0,0.32)" });
     const btnSub = { fontFamily:mono,fontWeight:400,letterSpacing:1,fontSize:8.5,color:"#7A8FA0",textTransform:"none",marginTop:3 };
-    return (<div style={{ ...appStyle, background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)",position:"relative",overflow:"hidden" }}><style>{ANIMS}{`
+    return (<div style={{ ...appStyle, background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)",position:"relative",overflow:"hidden",paddingTop:"calc(46px + env(safe-area-inset-top, 0px))" }}><style>{ANIMS}{`
 @keyframes sonarSweep{to{transform:translate(-50%,-50%) rotate(360deg)}}
 `}</style>
       {/* Deniz haritası ızgara dokusu — çok soluk */}
@@ -6303,7 +6302,7 @@ export default function Game() {
       {isNewPlayer && (<div style={{ width:"100%",maxWidth:400,marginTop:16,zIndex:1,display:"flex",alignItems:"center",gap:14,padding:"16px 18px",borderRadius:12,position:"relative",overflow:"hidden",background:"linear-gradient(180deg,rgba(24,38,50,0.55),rgba(12,22,32,0.55))",border:"1px solid #26394b",animation:"fadeUp 0.3s ease-out" }}>
         <span style={{ position:"absolute",left:0,top:0,bottom:0,width:2,background:BRONZE }} />
         <svg width="34" height="34" viewBox="0 0 24 24" fill="none" style={{ flexShrink:0 }}><g stroke="#c9a15e" strokeWidth="1.6" strokeLinecap="round"><circle cx="12" cy="4.4" r="1.9"/><line x1="12" y1="6.3" x2="12" y2="20"/><line x1="8.4" y1="9.2" x2="15.6" y2="9.2"/><path d="M4.5 14.5a7.5 7.5 0 0 0 15 0"/><line x1="4.5" y1="14.5" x2="3" y2="13"/><line x1="19.5" y1="14.5" x2="21" y2="13"/></g></svg>
-        <div><div style={{ fontWeight:800,fontSize:16,letterSpacing:0.5,color:"#e8eef3",fontFamily:warrior }}>{appLang==="en"?"Your first battle awaits":"İlk savaşın seni bekliyor"}</div><div style={{ fontSize:11,letterSpacing:1,color:"#7A8FA0",fontFamily:mono,marginTop:2 }}>{appLang==="en"?"Set sail, make your name at sea.":"Denize açıl, sularda adını duyur."}</div></div>
+        <div><div style={{ fontWeight:800,fontSize:16,letterSpacing:0.5,color:"#e8eef3",fontFamily:warrior }}>{appLang==="en"?"Your first battle awaits...":"İlk savaşın seni bekliyor..."}</div><div style={{ fontSize:11,letterSpacing:1,color:"#7A8FA0",fontFamily:mono,marginTop:2 }}>{appLang==="en"?"Set sail — carve your name into the waves.":"Denize açıl, adını dalgalara yazdır."}</div></div>
       </div>)}
       {authLoading && <div style={{ background:"rgba(239,68,68,0.12)",border:`1px solid ${t.hit}`,borderRadius:8,padding:"10px 16px",marginBottom:12,fontSize:11,color:t.hit,fontFamily:mono,textAlign:"center",width:"100%",maxWidth:340,animation:"pulse 1.5s infinite" }}>{L(appLang,"connectingToServer")}</div>}
       {isTestMode() && <div style={{ background:"rgba(251,191,36,0.15)",border:`1px solid ${t.gold}`,borderRadius:8,padding:"8px 16px",marginBottom:12,fontSize:11,color:t.gold,fontFamily:warrior,letterSpacing:2,textAlign:"center",width:"100%",maxWidth:340 }}>{L(appLang,"testModeMsg")}</div>}
