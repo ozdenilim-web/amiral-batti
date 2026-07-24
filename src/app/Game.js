@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, memo } from "react";
 import { db, auth, googleProvider, ref, set, get, onValue, update, remove, onDisconnect, runTransaction, query, orderByChild, limitToLast, signInAnonymously, onAuthStateChanged, signInWithPopup, signOut, track, identify, EmailAuthProvider, linkWithCredential, signInWithEmailAndPassword } from "../lib/firebase";
 
 const ROWS = 11;
@@ -1811,7 +1811,7 @@ function AnchorHeroLogo() {
   return (<img src="/img/anchor-logo.png" alt="Amiral Battı" draggable={false} style={{ width:"100%",height:"100%",objectFit:"contain",userSelect:"none",pointerEvents:"none" }} />);
 }
 
-function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, onCellPointerDown, overlay, hoverCells, isDefense, shipColors, disabled, blinkCells, manualMarks, showShipStatus, onboardingHint, turnGlow, revealSweepMs, flatHit, flashCells }) {
+const Grid = memo(function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, onCellPointerDown, overlay, hoverCells, isDefense, shipColors, disabled, blinkCells, manualMarks, showShipStatus, onboardingHint, turnGlow, revealSweepMs, flatHit, flashCells }) {
   const longPressRef = useRef(null);
   const [rippleCell, setRippleCell] = useState(null);
   const handleClick = (r,c) => { if(disabled)return; sfx.init(); setRippleCell(`${r},${c}`); setTimeout(()=>setRippleCell(null),400); onClick?.(r,c); };
@@ -1859,12 +1859,12 @@ function Grid({ board, cellSize, onClick, onHover, onRightClick, onLongPress, on
         return <div key={c} data-cell="1" data-r={r} data-c={c} className={disabled?"":"ab-cell"} onClick={()=>handleClick(r,c)} onMouseEnter={()=>onHover?.(r,c)} onContextMenu={e=>{e.preventDefault();onRightClick?.(r,c);}} onMouseDown={disabled?undefined:(e)=>onCellPointerDown?.(r,c,e)} onTouchStart={disabled?undefined:(e)=>{ if(onCellPointerDown){ onCellPointerDown(r,c,e); } else { handleTouchStart(r,c); } }} onTouchEnd={handleTouchEnd} onTouchCancel={handleTouchEnd} style={{ position:"relative",overflow:"hidden",width:cellSize,height:cellSize,border:"1px solid rgba(0,229,255,0.22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:ovr==="sunk"?13:11,fontWeight:900,cursor:disabled?"default":"pointer",background:bg,boxShadow:isPlainShipCell?`${shadow==="none"?"":shadow+", "}inset 0 -3px 5px rgba(0,0,0,0.28)`:shadow,color:clr,boxSizing:"border-box",transition:"background 0.15s ease, box-shadow 0.15s ease",animation:isFlash?"blink3s 0.5s ease-in-out 3":isBlink?"blink3s 0.5s ease-in-out 6":isRipple?"popIn 0.3s ease-out":"none",borderRadius:1,touchAction:onCellPointerDown?"none":"auto" }}>{content}{isPlainShipCell && <span style={{ position:"absolute",top:0,left:0,right:0,height:"46%",background:"linear-gradient(180deg, rgba(255,255,255,0.55), rgba(255,255,255,0))",borderRadius:"1px 1px 50% 50%",pointerEvents:"none" }} />}</div>;
       })}</div>); })}
   </div>);
-}
+});
 
 // FİLO ŞERİDİ — tek satırda tüm donanma. Her gemi kendi renginde bloklardan oluşur;
 // vurulan blok söner, gemi tamamen batınca üzeri çizilir. Ekranda sadece ~36px yer kaplar,
 // böylece tahta hiç küçülmeden hangi geminin ne kadar kaldığı her an görünür.
-function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
+const FleetBar = memo(function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
   if (!ships) return null;
   const list = Object.values(ships);
   const sunkCount = list.filter(s => { const c = s.cells || []; return c.length > 0 && c.every(([r, cc]) => hitCells?.[r]?.[cc]); }).length;
@@ -1952,7 +1952,7 @@ function FleetBar({ title, ships, hitCells, color, lang = "tr" }) {
       </div>
     </div>
   );
-}
+});
 
 function ShipStatusPanel({ title, ships, hitCells, color, lang = "tr", compact = false }) {
   if(!ships)return null;
@@ -2037,126 +2037,6 @@ function HorizonStrip({ lang = "tr" }) {
     <div style={{ flex:1,fontFamily:mono,fontSize:11,letterSpacing:0.5,color:"#54697a" }}>{lang==="en"?"Total ":"Toplam "}<b style={{ color:"#f0d79a",fontWeight:700 }}>{sunk.toLocaleString(lang==="en"?"en-US":"tr-TR")}</b>{lang==="en"?" ships sunk":" gemi batırıldı"}</div>
     <svg width="56" height="16" viewBox="0 0 60 18" fill="none"><path d="M4 12h52l-6 4H10z" fill="#26394b"/><path d="M14 12V6h30v6" fill="#1a2a38"/><line x1="30" y1="6" x2="30" y2="1" stroke="#54697a" strokeWidth="1.2"/><path d="M30 2l7 3-7 1z" fill="#54697a"/></svg>
   </div>);
-}
-
-function LivingHorizon({ profile, lang = "tr" }) {
-  const [onlineN, setOnlineN] = useState(0);
-  const [gs, setGs] = useState({ battlesTotal: 0, sunkTotal: 0, battlesToday: 0 });
-  const [capIdx, setCapIdx] = useState(0);
-  useEffect(() => {
-    const u1 = onValue(ref(db, "online_players"), s => { let n = 0; s.forEach(() => { n++; }); setOnlineN(n); });
-    const u2 = onValue(ref(db, "global_stats"), s => { const v = s.val() || {}; setGs({ battlesTotal: v.battlesTotal || 0, sunkTotal: v.sunkTotal || 0, battlesToday: (v.day && v.day[todayKey()] && v.day[todayKey()].battles) || 0 }); });
-    const iv = setInterval(() => setCapIdx(i => i + 1), 4200);
-    return () => { u1(); u2(); clearInterval(iv); };
-  }, []);
-  const en = lang === "en";
-  const hour = new Date().getHours();
-  // Gökyüzü paleti — o anın saati
-  const sky = hour >= 20 || hour < 5
-    ? { top:"#01020a", mid:"#060f24", low:"#0a1b36", mode:"night" }
-    : hour < 8
-    ? { top:"#191838", mid:"#54305a", low:"#c06a44", mode:"dawn" }
-    : hour < 17
-    ? { top:"#082038", mid:"#0f3a63", low:"#1f6293", mode:"day" }
-    : { top:"#131130", mid:"#45285c", low:"#b04f38", mode:"dusk" };
-  // Denizdeki kaptanlar: gerçek oyuncular + o saat seyirde olan bot filosu (saat seed'li → herkese aynı, saatte bir değişir)
-  const hourSeed = Math.floor(Date.now() / 3600000);
-  let hr = (hourSeed * 2654435761) & 0x7fffffff; hr = (hr * 1664525 + 1013904223) & 0x7fffffff;
-  const botFleet = 6 + (hr % 7); // 6-12
-  const captains = botFleet + onlineN;
-  // Silüetler — saat içinde sabit rastgelelik
-  // Mobil performans: aynı anda hareket eden silüet sayısı sınırlı (her biri ayrı GPU katmanı).
-  // useMemo şart — altyazı her 4 sn değiştiğinde liste yeniden üretilirse animasyonlar baştan
-  // başlar, katmanlar yeniden kurulur ve gözle görülür takılma olur.
-  const silCount = Math.min(captains, 5);
-  const sils = useMemo(() => Array.from({ length: silCount }).map((_, i) => {
-    let sr = ((hourSeed + i * 7919) * 2654435761) & 0x7fffffff; const rnd = () => { sr = (sr * 1664525 + 1013904223) & 0x7fffffff; return sr / 0x7fffffff; };
-    return { w: 14 + Math.round(rnd() * 12), top: 2 + rnd() * 6, dur: 55 + rnd() * 70, delay: -rnd() * 90, flip: rnd() > 0.5 };
-  }), [silCount, hourSeed]);
-  // Rütbe → gemi katmanı (Şeref'e bağlı — sadece savaşarak büyür)
-  const hn = migrateHonor(profile);
-  const tier = hn >= 5000 ? 5 : hn >= 2000 ? 4 : hn >= 800 ? 3 : hn >= 300 ? 2 : hn >= 100 ? 1 : 0;
-  const rank = getRankInfo(hn, lang);
-  const flag = profile && profile.avatar && !String(profile.avatar).startsWith("data:") ? profile.avatar : "⚓";
-  const shipScale = [0.62, 0.72, 0.85, 0.95, 1.05, 1.18][tier];
-  // Dönen altyazılar — hepsi dürüst metrik
-  const captions = [
-    en ? `⚓ ${captains} captains at sea right now` : `⚓ Denizde ${captains} kaptan seyirde`,
-    en ? `⚔ ${gs.battlesToday} battles fought today` : `⚔ Bugün ${gs.battlesToday} savaş yapıldı`,
-    en ? `💀 ${gs.sunkTotal} ships sunk in total` : `💀 Toplam ${gs.sunkTotal} gemi batırıldı`,
-  ];
-  const caption = captions[capIdx % captions.length];
-  return (
-    <div style={{ width:"100%",maxWidth:400,margin:"16px auto 0",position:"relative",height:170,overflow:"hidden",zIndex:1,borderRadius:14,border:"1px solid rgba(255,255,255,0.06)" }}>
-      <style>{`
-@keyframes lhDrift{0%{transform:translate3d(-30px,0,0)}100%{transform:translate3d(440px,0,0)}}
-@keyframes lhDriftR{0%{transform:translate3d(440px,0,0) scaleX(-1)}100%{transform:translate3d(-30px,0,0) scaleX(-1)}}
-@keyframes lhBob{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-5px) rotate(1.4deg)}}
-@keyframes lhWave{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
-@keyframes lhTwinkle{0%,100%{opacity:0.2}50%{opacity:0.9}}
-@keyframes lhCaption{0%{opacity:0;transform:translateY(6px)}12%{opacity:1;transform:translateY(0)}88%{opacity:1}100%{opacity:0}}
-@keyframes lhGlow{0%,100%{opacity:0.5}50%{opacity:0.9}}
-      `}</style>
-      {/* Gökyüzü */}
-      <div style={{ position:"absolute",inset:0,background:`linear-gradient(180deg, ${sky.top} 0%, ${sky.mid} 52%, ${sky.low} 68%, #04101f 68.5%, #030b18 100%)` }} />
-      {/* Yıldızlar (gece) */}
-      {sky.mode === "night" && Array.from({length:7}).map((_,i) => { let sr=((hourSeed+i*104729)*2654435761)&0x7fffffff; const rnd=()=>{sr=(sr*1664525+1013904223)&0x7fffffff;return sr/0x7fffffff;}; return <div key={`st${i}`} style={{ position:"absolute",width:rnd()>0.7?2:1.5,height:rnd()>0.7?2:1.5,borderRadius:"50%",background:"#e6f0ff",top:`${4+rnd()*48}%`,left:`${2+rnd()*96}%`,animation:`lhTwinkle ${2+rnd()*3}s ease-in-out ${rnd()*3}s infinite` }} />; })}
-      {/* Güneş / Ay */}
-      {sky.mode === "night"
-        ? <div style={{ position:"absolute",top:16,right:"14%",width:26,height:26,borderRadius:"50%",background:"radial-gradient(circle at 35% 35%, #f4f6e8, #cfd6c4)",boxShadow:"0 0 24px rgba(240,245,220,0.35)" }}><div style={{ position:"absolute",top:5,left:9,width:6,height:6,borderRadius:"50%",background:"rgba(0,0,0,0.08)" }} /><div style={{ position:"absolute",top:13,left:5,width:4,height:4,borderRadius:"50%",background:"rgba(0,0,0,0.07)" }} /></div>
-        : <div style={{ position:"absolute",top:sky.mode==="day"?12:44,left:sky.mode==="dawn"?"16%":sky.mode==="dusk"?"78%":"48%",width:sky.mode==="day"?24:32,height:sky.mode==="day"?24:32,borderRadius:"50%",background:sky.mode==="day"?"radial-gradient(circle, #fff8d8, #ffd76a)":"radial-gradient(circle, #ffd9a0, #ff8c4a)",boxShadow:sky.mode==="day"?"0 0 30px rgba(255,220,120,0.5)":"0 0 40px rgba(255,140,70,0.55)",animation:"lhGlow 5s ease-in-out infinite" }} />}
-      {/* Ufuk silüetleri — denizdeki kaptanlar */}
-      {sils.map((s, i) => (
-        <div key={`sil${i}`} className="gpu" style={{ position:"absolute",top:`calc(68% - ${6 + s.top}px)`,left:0,animation:`${s.flip?"lhDriftR":"lhDrift"} ${s.dur}s linear ${s.delay}s infinite`,opacity:0.55 }}>
-          <svg width={s.w} height={s.w*0.55} viewBox="0 0 24 13"><path d="M1 9 L23 9 L20 12 L4 12 Z" fill="#030910"/><path d="M10 9 L10 2 L11 2 L11 9 Z" fill="#030910"/><path d="M11 2 L16 6 L11 6 Z" fill="#04121f"/></svg>
-        </div>
-      ))}
-      {/* Deniz dalgaları */}
-      <div style={{ position:"absolute",top:"68%",left:0,right:0,bottom:0,overflow:"hidden" }}>
-        <div className="gpu" style={{ position:"absolute",top:-6,left:0,width:"200%",height:14,background:"radial-gradient(ellipse 18px 7px at 25% 50%, rgba(0,229,255,0.10) 60%, transparent 62%), radial-gradient(ellipse 22px 8px at 75% 50%, rgba(0,229,255,0.07) 60%, transparent 62%)",backgroundSize:"90px 14px",animation:"lhWave 11s linear infinite" }} />
-      </div>
-      {/* SENİN GEMİN — rütbeyle büyür, bayrağında avatarın */}
-      <div style={{ position:"absolute",bottom:14,right:"6%",transform:`scale(${shipScale})`,transformOrigin:"bottom right" }}>
-        <div style={{ animation:"lhBob 4.6s ease-in-out infinite",transformOrigin:"50% 90%",filter:"drop-shadow(0 6px 10px rgba(0,0,0,0.6))" }}>
-          <svg width="150" height="110" viewBox="0 0 150 110">
-            {tier <= 1 ? (<>
-              {/* Sandal */}
-              <path d="M40 88 L110 88 L98 100 L52 100 Z" fill="#1d2b3a" stroke="#2e455c" strokeWidth="1.5"/>
-              <path d="M74 88 L74 58 L76 58 L76 88 Z" fill="#243a4f"/>
-              <path d="M76 60 L98 76 L76 76 Z" fill="rgba(200,215,230,0.16)" stroke="rgba(200,215,230,0.3)" strokeWidth="1"/>
-              <text x="66" y="56" fontSize="13">{flag}</text>
-            </>) : tier <= 3 ? (<>
-              {/* Yelkenli */}
-              <path d="M28 84 L122 84 L106 102 L44 102 Z" fill="#1c2f42" stroke="#31526f" strokeWidth="1.5"/>
-              <rect x="30" y="78" width="90" height="6" fill="#253d54"/>
-              <path d="M70 84 L70 28 L73 28 L73 84 Z" fill="#2a4258"/>
-              <path d="M73 32 L112 66 L73 66 Z" fill="rgba(210,225,240,0.2)" stroke="rgba(210,225,240,0.4)" strokeWidth="1"/>
-              <path d="M70 40 L38 70 L70 70 Z" fill="rgba(210,225,240,0.13)" stroke="rgba(210,225,240,0.3)" strokeWidth="1"/>
-              <circle cx="50" cy="81" r="1.6" fill="rgba(255,215,0,0.7)"/><circle cx="75" cy="81" r="1.6" fill="rgba(255,215,0,0.7)"/><circle cx="100" cy="81" r="1.6" fill="rgba(255,215,0,0.7)"/>
-              <text x="62" y="26" fontSize="14">{flag}</text>
-            </>) : (<>
-              {/* Zırhlı */}
-              <path d="M18 82 L132 82 L118 104 L34 104 Z" fill="#182b3d" stroke="#37587a" strokeWidth="1.5"/>
-              <rect x="34" y="72" width="82" height="10" rx="2" fill="#22394e"/>
-              <rect x="52" y="58" width="30" height="14" rx="2" fill="#2b4560"/>
-              <rect x="88" y="62" width="16" height="10" rx="2" fill="#2b4560"/>
-              <rect x="60" y="44" width="8" height="14" fill="#324e6b"/>
-              <rect x="94" y="50" width="6" height="12" fill="#324e6b"/>
-              <path d="M82 64 L104 64 L104 61 L112 61" stroke="#3d5f80" strokeWidth="2.5" fill="none"/>
-              <path d="M46 66 L30 66" stroke="#3d5f80" strokeWidth="2.5"/>
-              <circle cx="42" cy="77" r="1.8" fill="rgba(255,215,0,0.8)"/><circle cx="62" cy="77" r="1.8" fill="rgba(255,215,0,0.8)"/><circle cx="82" cy="77" r="1.8" fill="rgba(255,215,0,0.8)"/><circle cx="102" cy="77" r="1.8" fill="rgba(255,215,0,0.8)"/>
-              <path d="M62 44 L62 30 L64 30 L64 44 Z" fill="#324e6b"/>
-              <text x="54" y="28" fontSize="14">{flag}</text>
-            </>)}
-          </svg>
-        </div>
-        {/* Rütbe etiketi */}
-        <div style={{ textAlign:"center",marginTop:-6,fontSize:9,fontWeight:900,color:rank.color,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 10px ${rank.color}66`,opacity:0.9 }}>{rank.icon} {rank.title}</div>
-      </div>
-      {/* Dönen altyazı — dürüst canlı metrikler */}
-      <div key={capIdx} style={{ position:"absolute",bottom:9,left:0,right:0,textAlign:"center",fontSize:12.5,fontWeight:700,color:"rgba(190,232,255,0.92)",fontFamily:warrior,fontStyle:"italic",letterSpacing:2.5,animation:"lhCaption 4.2s ease-in-out forwards",textShadow:"0 1px 4px rgba(0,0,0,0.85), 0 0 14px rgba(120,200,255,0.45)" }}>{caption}</div>
-    </div>
-  );
 }
 
 // === KAZANIMLAR EKRANI ===
@@ -4305,6 +4185,7 @@ export default function Game() {
       <div style={{ position:"fixed",top:"calc(10px + env(safe-area-inset-top, 0px))",right:14,zIndex:9500,display:"flex",alignItems:"center",gap:6 }}>
         {phase === "lobby" && <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowLeaderboard(true); }} title={L(appLang,"leaderboardTitle")} style={{ width:26,height:26,borderRadius:7,background:"rgba(255,215,0,0.10)",border:"1px solid rgba(255,215,0,0.4)",fontSize:12,cursor:"pointer",color:t.gold,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>🏆</button>}
         {phase === "siege" && <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowSurrenderConfirm(true); }} title={L(appLang,"leaveGame")} style={{ width:26,height:26,borderRadius:7,background:"rgba(255,71,87,0.12)",border:`1px solid ${t.hit}`,fontSize:12,cursor:"pointer",color:t.hit,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>⚑</button>}
+        <button onClick={()=>{ sfx.init(); sfx.play('click'); toggleMusic(); }} title={L(appLang,"musicTooltip")} style={{ width:26,height:26,borderRadius:7,background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,fontSize:12,cursor:"pointer",color:musicOn?t.accent:t.textDim,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>{musicOn?"🎵":"🔇"}</button>
         <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowSettings(true); setSettingsView(null); }} title={L(appLang,"settingsTooltip")} style={{ width:26,height:26,borderRadius:7,background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,fontSize:12,cursor:"pointer",color:t.textDim,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>⚙️</button>
       </div>
       {/* Mini profil — TEK SALVO bahis akışında (yerleştirme/işaretleme/sonuç) altın bakiyesi her an görünsün, oyuncu devam/bırak kararını buna göre versin */}
