@@ -3264,7 +3264,9 @@ export default function Game() {
 
   // GÜNLÜK GÖREV sayaçlarını güncelle — profile yazılır, uygulama kapansa da kaybolmaz.
   // Gün değişince safeDaily otomatik sıfırlar.
-  const bumpDaily = (fn) => {
+  // useCallback: referansı authUid değişmedikçe sabit kalsın — buna bağlı olay
+  // işleyicileri (ör. handleAttackMark) de sabit kalabilsin, gereksiz Grid render'ı olmasın.
+  const bumpDaily = useCallback((fn) => {
     const prev = myProfileRef.current;
     if (!prev) return;
     const d = safeDaily(prev.daily);
@@ -3272,10 +3274,10 @@ export default function Game() {
     myProfileRef.current = { ...prev, daily: d }; // aynı karede peş peşe çağrılırsa birikerek gitsin
     setMyProfile(p => p ? { ...p, daily: d } : p);
     if (authUid) update(ref(db, `profiles/${authUid}`), { daily: d }).catch(() => {});
-  };
+  }, [authUid]);
 
   // Kazanım sayaçlarını güncelle — fn(a) sayaç kopyasını mutasyona uğratır, DB + local senkronize edilir
-  const bumpAch = (fn) => {
+  const bumpAch = useCallback((fn) => {
     const prev = myProfileRef.current;
     if (!prev) return;
     const a = safeAch(prev.ach);
@@ -3283,7 +3285,7 @@ export default function Game() {
     myProfileRef.current = { ...prev, ach: a };
     setMyProfile(p => p ? { ...p, ach: a } : p);
     if (authUid) update(ref(db, `profiles/${authUid}`), { ach: a }).catch(()=>{});
-  };
+  }, [authUid]);
 
   // Bot maçı mağlubiyetini kaydet — her yenilgi yolundan (batma, süre, yerleştirememe) çağrılır.
   // Ref üzerinden tutulur ki interval/timeout closure'ları her zaman güncel profile erişsin.
@@ -4071,10 +4073,12 @@ export default function Game() {
     const snapshot = await get(ref(db, `rooms/${roomIdRef.current}`));
     if (snapshot.val()?.[`${oppKey}_board`]) await update(ref(db, `rooms/${roomIdRef.current}`), { phase: salvoModeRef.current ? "salvo" : "playing" });
   };
-  const handleAttackClick = (r, c) => { if (!myTurn || phase !== "playing") return; if (markMode) { handleAttackMark(r, c); return; } if (attackOverlay[r][c]) return; if (manualMarks[r][c]) return; const existing = currentShots.findIndex(([sr, sc]) => sr === r && sc === c); if (existing !== -1) { setCurrentShots(currentShots.filter((_, i) => i !== existing)); return; } if (currentShots.length >= SHOTS_PER_TURN) return; setCurrentShots([...currentShots, [r, c]]); };
-  const handleAttackRightClick = (r, c) => { handleAttackMark(r, c); };
-  const handleAttackMark = (r, c) => { if (phase !== "playing") return; if (attackOverlay[r][c]) return; const nm = manualMarks.map(row => [...row]); nm[r][c] = !nm[r][c]; setManualMarks(nm); if (nm[r][c] && !isOnboarding) { bumpAch(a => { a.marks += 1; }); bumpDaily(d => { d.markedCells += 1; }); } };
-  const handleAttackLongPress = (r, c) => { handleAttackMark(r, c); };
+  // useCallback: referanslar sadece gerçek oyun durumu değişince (atış/işaret) değişsin —
+  // saat/AFK sayacı gibi ilgisiz tick'lerde sabit kalsın ki memoize edilen Grid gereksiz render olmasın.
+  const handleAttackMark = useCallback((r, c) => { if (phase !== "playing") return; if (attackOverlay[r][c]) return; const nm = manualMarks.map(row => [...row]); nm[r][c] = !nm[r][c]; setManualMarks(nm); if (nm[r][c] && !isOnboarding) { bumpAch(a => { a.marks += 1; }); bumpDaily(d => { d.markedCells += 1; }); } }, [phase, attackOverlay, manualMarks, isOnboarding, bumpAch, bumpDaily]);
+  const handleAttackClick = useCallback((r, c) => { if (!myTurn || phase !== "playing") return; if (markMode) { handleAttackMark(r, c); return; } if (attackOverlay[r][c]) return; if (manualMarks[r][c]) return; const existing = currentShots.findIndex(([sr, sc]) => sr === r && sc === c); if (existing !== -1) { setCurrentShots(currentShots.filter((_, i) => i !== existing)); return; } if (currentShots.length >= SHOTS_PER_TURN) return; setCurrentShots([...currentShots, [r, c]]); }, [myTurn, phase, markMode, attackOverlay, manualMarks, currentShots, handleAttackMark]);
+  const handleAttackRightClick = useCallback((r, c) => { handleAttackMark(r, c); }, [handleAttackMark]);
+  const handleAttackLongPress = useCallback((r, c) => { handleAttackMark(r, c); }, [handleAttackMark]);
   const fireShots = async () => {
     if (currentShots.length === 0) return;
     if (isBotGame) { botHandlePlayerShots(); return; }
@@ -4082,7 +4086,11 @@ export default function Game() {
     const pNum = playerNumRef.current, myKey = pNum === 1 ? "p1" : "p2"; const snapshot = await get(ref(db, `rooms/${roomIdRef.current}`)); const game = snapshot.val(); if (!game || game.turn !== pNum) return; const targetKey = pNum === 1 ? "p2" : "p1"; const shotResults = currentShots.map(([r, c]) => ({ r, c, result: game[`${targetKey}_board`][r][c] > 0 ? "hit" : "miss" })); const existingAttacks = game.attacks ? Object.values(game.attacks) : []; const prevHits = existingAttacks.filter(a => a.target === targetKey).reduce((sum, a) => sum + (a.shots ? a.shots.filter(s => s.result === "hit").length : 0), 0); const totalHits = prevHits + shotResults.filter(s => s.result === "hit").length; const updates = {}; updates[`attacks/${existingAttacks.length}`] = { by: pNum, target: targetKey, shots: shotResults, time: Date.now() }; updates[`clocks/${myKey}`] = myClockRef.current; if (totalHits >= 20) { updates.winner = pNum; updates.winReason = "hits"; } else { updates.turn = pNum === 1 ? 2 : 1; } await update(ref(db, `rooms/${roomIdRef.current}`), updates); setCurrentShots([]);
     // Tahta geçişi listenToRoom içinde 2sn gecikmeli olarak yapılıyor (atış sonucunu görsün diye)
   };
-  const getAttackDisplayOverlay = () => { const ovr = attackOverlay.map(row => [...row]); currentShots.forEach(([r, c]) => { if (!ovr[r][c]) ovr[r][c] = "selected"; }); return ovr; };
+  // useMemo: attackOverlay/currentShots değişmedikçe AYNI diziyi döndürür — Grid'e giden
+  // overlay prop'u saat tick'lerinde yeniden allocate edilmesin diye (memo() gerçekten işlesin).
+  const attackDisplayOverlay = useMemo(() => { const ovr = attackOverlay.map(row => [...row]); currentShots.forEach(([r, c]) => { if (!ovr[r][c]) ovr[r][c] = "selected"; }); return ovr; }, [attackOverlay, currentShots]);
+  // Saldırı tahtası her zaman boş görünür (rakip gemisi sızmasın) — sabit referans, her render'da yeniden yaratılmasın.
+  const attackDisplayBoard = useMemo(() => isOnboarding ? Array.from({ length: 7 }, () => Array(7).fill(0)) : emptyGrid(), [isOnboarding]);
   const surrenderGame = async () => {
     if (isBotGame) {
       setWinner(appLang==="en"?"You left the game!":"Oyundan ayrıldın!"); setIsWin(false); setPhase("gameover");
@@ -4403,7 +4411,7 @@ export default function Game() {
     try { const snap = await get(ref(db, "online_players")); if (snap.exists()) snap.forEach(c => { if (c.key !== authUid) pool.push({ name: c.val().displayName || "Denizci", gold: safeGold(c.val().gold) }); }); } catch (e) {}
     if (pool.length < 3) BOT_NAMES.forEach(n => pool.push({ name: n, gold: 200 + Math.floor(Math.random() * 4000) }));
     if (quickMatchCarouselRef.current) clearInterval(quickMatchCarouselRef.current);
-    quickMatchCarouselRef.current = setInterval(() => { const p = pool[Math.floor(Math.random() * pool.length)]; setQuickMatchCandidate({ name: p.name, gold: p.gold, avatar: QM_AVATARS[Math.floor(Math.random() * QM_AVATARS.length)], key: Math.random() }); }, 120);
+    quickMatchCarouselRef.current = setInterval(() => { const p = pool[Math.floor(Math.random() * pool.length)]; setQuickMatchCandidate({ name: p.name, gold: p.gold, avatar: QM_AVATARS[Math.floor(Math.random() * QM_AVATARS.length)], key: Math.random() }); }, 220);
     if (quickMatchCountdownRef.current) clearInterval(quickMatchCountdownRef.current);
     const t0 = Date.now();
     quickMatchCountdownRef.current = setInterval(() => setQuickMatchSecondsLeft(Math.max(0, searchSec - Math.floor((Date.now() - t0) / 1000))), 250);
@@ -4642,7 +4650,7 @@ export default function Game() {
     try { const snap = await get(ref(db, "online_players")); if (snap.exists()) snap.forEach(c => { if (c.key !== authUid) pool.push({ name: c.val().displayName || "Denizci", gold: safeGold(c.val().gold) }); }); } catch (e) {}
     if (pool.length < 3) BOT_NAMES.forEach(n => pool.push({ name: n, gold: 200 + Math.floor(Math.random() * 4000) }));
     if (quickMatchCarouselRef.current) clearInterval(quickMatchCarouselRef.current);
-    quickMatchCarouselRef.current = setInterval(() => { const p = pool[Math.floor(Math.random() * pool.length)]; setQuickMatchCandidate({ name: p.name, gold: p.gold, avatar: QM_AVATARS[Math.floor(Math.random() * QM_AVATARS.length)], key: Math.random() }); }, 120);
+    quickMatchCarouselRef.current = setInterval(() => { const p = pool[Math.floor(Math.random() * pool.length)]; setQuickMatchCandidate({ name: p.name, gold: p.gold, avatar: QM_AVATARS[Math.floor(Math.random() * QM_AVATARS.length)], key: Math.random() }); }, 220);
     if (quickMatchCountdownRef.current) clearInterval(quickMatchCountdownRef.current);
     const t0 = Date.now();
     quickMatchCountdownRef.current = setInterval(() => setQuickMatchSecondsLeft(Math.max(0, searchSec - Math.floor((Date.now() - t0) / 1000))), 250);
@@ -5528,7 +5536,7 @@ export default function Game() {
     quickMatchCarouselRef.current = setInterval(() => {
       const pick = pool[Math.floor(Math.random() * pool.length)];
       setQuickMatchCandidate({ name: pick.name, gold: pick.gold, avatar: QM_AVATARS[Math.floor(Math.random() * QM_AVATARS.length)], key: Math.random() });
-    }, 120);
+    }, 220);
 
     if (quickMatchCountdownRef.current) clearInterval(quickMatchCountdownRef.current);
     const searchStart = Date.now();
@@ -6943,7 +6951,7 @@ export default function Game() {
       <div ref={boardBoxRef} style={{ position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden" }}>
       <div style={{ border:myTurn?`3px solid ${t.accent}`:`2px solid rgba(255,71,87,0.35)`,borderRadius:12,padding:2,animation:myTurn?"turnPulse 1.1s ease-in-out infinite":"none",transition:"border-color 0.4s ease",position:"relative" }}>
         {isAttack
-          ? <Grid board={isOnboarding?Array.from({length:7},()=>Array(7).fill(0)):emptyGrid()} cellSize={isOnboarding?gridSize:playCell} overlay={getAttackDisplayOverlay()} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} onboardingHint={isOnboarding?[[2,2],[2,3],[2,4]]:null} turnGlow={myTurn && !isOnboarding} />
+          ? <Grid board={attackDisplayBoard} cellSize={isOnboarding?gridSize:playCell} overlay={attackDisplayOverlay} onClick={handleAttackClick} onRightClick={handleAttackRightClick} onLongPress={handleAttackLongPress} disabled={!myTurn} manualMarks={manualMarks} blinkCells={blinkCells} onboardingHint={isOnboarding?[[2,2],[2,3],[2,4]]:null} turnGlow={myTurn && !isOnboarding} />
           : <Grid board={defenseBoard} cellSize={isOnboarding?gridSize:playCell} isDefense shipColors={shipColorMap} overlay={defenseOverlay} disabled blinkCells={blinkCells} />}
         {/* İŞARETLE — tahtanın sol üst köşesinde, köşeye tam oturan tek ikon */}
         {isAttack && !isOnboarding && (
