@@ -1198,7 +1198,7 @@ const STARTING_GOLD = 500;
 
 function safeGold(val) {
   if (typeof val === "number" && !isNaN(val) && isFinite(val)) return Math.max(0, Math.floor(val));
-  return isTestMode() ? 5000 : STARTING_GOLD;
+  return STARTING_GOLD;
 }
 
 const QUICK_EMOJIS = [
@@ -1526,7 +1526,7 @@ async function ensureProfile(uid, displayName) {
   const profileRef = ref(db, `profiles/${uid}`);
   const snap = await get(profileRef);
   if (!snap.exists()) {
-    const startGold = isTestMode() ? 5000 : STARTING_GOLD;
+    const startGold = STARTING_GOLD;
     const profile = { displayName: displayName||"Denizci", wins:0, losses:0, totalGames:0, botGames:0, onlineGames:0, gold:startGold, honor:0, level:0, levelProgress:0, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false, recentResults:[], ach:{ ...ACH_DEFAULT }, achievClaimed:{}, voyage:{ lastClaim:Date.now(), dayKey:"", matches:0 }, daily:{ ...DAILY_DEFAULT, dayKey:todayKey() } };
     await set(profileRef, profile);
     return profile;
@@ -3473,12 +3473,37 @@ export default function Game() {
     setMyProfile(prev => { if (!prev) return prev; const a = safeAch(prev.ach); a.chest += 1; a.goldEarned += amount; return { ...prev, gold: safeGold(prev.gold) + amount, ach: a }; });
     if (authUid) {
       try {
-        const snap = await get(ref(db, `profiles/${authUid}`));
-        if (snap.exists()) { const p = snap.val(); const a = safeAch(p.ach); a.chest += 1; a.goldEarned += amount; await set(ref(db, `profiles/${authUid}`), { ...p, gold: safeGold(p.gold) + amount, ach: a }); }
+        // Transaction: sunucudaki GÜNCEL değeri okuyup üzerine ekler — get()+set() gibi arada
+        // başka bir yazımı (ör. eşzamanlı bumpDaily/bumpAch) ezme riski yok.
+        await runTransaction(ref(db, `profiles/${authUid}`), (p) => {
+          if (!p) return p; // profil yok — dokunma
+          const a = safeAch(p.ach); a.chest += 1; a.goldEarned += amount;
+          return { ...p, gold: safeGold(p.gold) + amount, ach: a };
+        });
       } catch (e) { console.error(e); }
     }
     setDailyChestModalOpen(false); setShowDailyChest(false);
   };
+
+  // Arena giriş ücretini ATOMİK düş — transaction sunucudaki GÜNCEL altını okuyup üzerinden
+  // hesaplar, get()+set() gibi arada başka bir yazımı (ör. eşzamanlı bumpDaily) ezme riski yok.
+  // Yetersiz altında transaction commitlenmeden iptal olur (undefined döndürülünce).
+  const chargeArenaEntry = async (arena) => {
+    if (!authUid || !arena) return false;
+    try {
+      const res = await runTransaction(ref(db, `profiles/${authUid}/gold`), (cur) => {
+        const g = safeGold(cur);
+        if (g < arena.entryFee) return; // yetersiz — abort
+        return g - arena.entryFee;
+      });
+      if (!res.committed) return false;
+      const newGold = res.snapshot.val();
+      setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev);
+      setEntryFeeDeducted(arena.entryFee);
+      return true;
+    } catch (e) { console.error(e); return false; }
+  };
+
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   // ANALİTİK — ekran geçişleri (hangi ekranda bırakıldığını görmek için)
@@ -3955,7 +3980,7 @@ export default function Game() {
       try { await set(ref(db, `profiles/${authUid}/displayName`), playerName.trim()); } catch(e) { console.error(e); }
     }
     const arena = arenaOverride || selectedArena;
-    if (arena) { const cg = safeGold(myProfile?.gold); if (cg < arena.entryFee) { setMessage(L(appLang,"msgNotEnoughGold")); return; } const newGold = cg - arena.entryFee; try { const cleanP = await ensureProfile(authUid); cleanP.gold = newGold; await set(ref(db, `profiles/${authUid}`), cleanP); } catch(e) { console.error(e); } setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev); setEntryFeeDeducted(arena.entryFee); }
+    if (arena) { const ok = await chargeArenaEntry(arena); if (!ok) { setMessage(L(appLang,"msgNotEnoughGold")); return; } }
     const id = Math.random().toString(36).substring(2, 8).toUpperCase();
     roomIdRef.current = id; setRoomId(id); setPlayerNum(1); playerNumRef.current = 1;
     await set(ref(db, `rooms/${id}`), { p1_name: playerName.trim(), p1_uid: authUid, p2_name: null, p2_uid: null, phase: "waiting", p1_board: null, p2_board: null, p1_ships: null, p2_ships: null, attacks: null, turn: 1, clocks: { p1: CLOCK_SECONDS, p2: CLOCK_SECONDS }, winner: null, winReason: null, eloProcessed: false, arena: arena?.id || null, created: Date.now() });
@@ -3985,7 +4010,7 @@ export default function Game() {
     const rid = inputRoomId.trim().toUpperCase();
     const snapshot = await get(ref(db, `rooms/${rid}`)); if (!snapshot.exists()) { setMessage(L(appLang,"msgRoomNotFound")); return; }
     const game = snapshot.val(); if (game.p2_name) { setMessage(L(appLang,"msgRoomFull")); return; }
-    if (game.arena) { const arena = ARENAS.find(a => a.id === game.arena); if (arena) { const cg = safeGold(myProfile?.gold); if (cg < arena.entryFee) { setMessage(L(appLang,"msgArenaGoldNeeded")(arena.entryFee)); return; } const newGold = cg - arena.entryFee; const cleanP = await ensureProfile(authUid); cleanP.gold = newGold; await set(ref(db, `profiles/${authUid}`), cleanP); setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev); setEntryFeeDeducted(arena.entryFee); } }
+    if (game.arena) { const arena = ARENAS.find(a => a.id === game.arena); if (arena) { const ok = await chargeArenaEntry(arena); if (!ok) { setMessage(L(appLang,"msgArenaGoldNeeded")(arena.entryFee)); return; } } }
     roomIdRef.current = rid; setRoomId(rid); setPlayerNum(2); playerNumRef.current = 2; setOpponentName(game.p1_name);
     await update(ref(db, `rooms/${rid}`), { p2_name: playerName.trim(), p2_uid: authUid, phase: "placing" });
     setPhase("placing"); listenToRoom(rid, 2);
@@ -4178,8 +4203,6 @@ export default function Game() {
     // Tahta geçişi listenToRoom içinde 2sn gecikmeli olarak yapılıyor (atış sonucunu görsün diye)
   };
   const getAttackDisplayOverlay = () => { const ovr = attackOverlay.map(row => [...row]); currentShots.forEach(([r, c]) => { if (!ovr[r][c]) ovr[r][c] = "selected"; }); return ovr; };
-  const forceEndGame = async () => { if (!roomIdRef.current) return; await update(ref(db, `rooms/${roomIdRef.current}`), { winner: playerNumRef.current, winReason: "test_force" }); };
-
   const surrenderGame = async () => {
     if (isBotGame) {
       setWinner(appLang==="en"?"You left the game!":"Oyundan ayrıldın!"); setIsWin(false); setPhase("gameover");
@@ -5665,7 +5688,7 @@ export default function Game() {
     if (!authUid) { setMessage(L(appLang,"msgConnecting")); return; }
     const arena = arenaOverride || null;
     lastQuickMatchArenaRef.current = arena;
-    if (arena) { const cg = safeGold(myProfile?.gold); if (cg < arena.entryFee) { setMessage(L(appLang,"msgNotEnoughGold")); return; } const newGold = cg - arena.entryFee; try { const cleanP = await ensureProfile(authUid); cleanP.gold = newGold; await set(ref(db, `profiles/${authUid}`), cleanP); } catch(e) { console.error(e); } setMyProfile(prev => prev ? { ...prev, gold: newGold } : prev); setEntryFeeDeducted(arena.entryFee); }
+    if (arena) { const ok = await chargeArenaEntry(arena); if (!ok) { setMessage(L(appLang,"msgNotEnoughGold")); return; } }
     setMessage("");
     quickMatchCancelledRef.current = false;
     setMatchmaking(true);
@@ -7054,7 +7077,6 @@ export default function Game() {
       {!isOnboarding && (isAttack
         ? <FleetBar title={L(appLang,"oppShips")} ships={oppShipsData} hitCells={atkHitMap} color={t.hit} lang={appLang} />
         : <FleetBar title={L(appLang,"myShips")} ships={myShipsData} hitCells={defHitMap} color={t.accent} lang={appLang} />)}
-      {isTestMode() && <button onClick={forceEndGame} style={{ marginTop:8,padding:"8px 16px",background:"rgba(251,191,36,0.2)",color:t.gold,border:`1px solid ${t.gold}`,borderRadius:6,fontSize:10,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"endGameTestBtn")}</button>}
       {myTurn && isAttack && !markMode && (<div style={{ position:"fixed",bottom:0,left:0,right:0,background:"rgba(10,14,23,0.97)",borderTop:`1px solid ${t.border}`,paddingTop:10,paddingLeft:16,paddingRight:16,paddingBottom:"calc(10px + env(safe-area-inset-bottom, 0px))",display:"flex",alignItems:"center",justifyContent:"center",gap:14,zIndex:100 }}>
         <div style={{ display:"flex",gap:5 }}>{[0,1,2].map(i=><div key={i} style={{ width:14,height:14,borderRadius:"50%",background:i<currentShots.length?t.hit:t.accent,opacity:i<currentShots.length?0.3:1,animation:i<currentShots.length?"popIn 0.3s ease-out":"none" }} />)}</div>
         <RippleButton onClick={fireShots} disabled={currentShots.length===0} style={{ padding:"12px 36px",background:currentShots.length>0?`linear-gradient(135deg,${t.hit},#dc2626)`:t.surfaceLight,color:currentShots.length>0?"#fff":t.textDim,border:"none",borderRadius:10,fontSize:16,fontWeight:700,letterSpacing:3,cursor:currentShots.length===0?"default":"pointer",fontFamily:warrior,boxShadow:currentShots.length>0?`0 0 24px ${t.hitGlow}`:"none",opacity:currentShots.length===0?0.5:1 }}>{L(appLang,"fire")} 🔥</RippleButton>
