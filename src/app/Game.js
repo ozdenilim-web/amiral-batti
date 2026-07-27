@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef, useMemo, memo } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo, memo } from "react";
 import { db, auth, googleProvider, ref, set, get, onValue, update, remove, onDisconnect, runTransaction, query, orderByChild, limitToLast, signInAnonymously, onAuthStateChanged, signInWithPopup, signOut, track, identify, EmailAuthProvider, linkWithCredential, signInWithEmailAndPassword } from "../lib/firebase";
 
 const ROWS = 11;
@@ -1181,16 +1181,45 @@ function launchExplosion(canvasId, x, y, duration=1200) {
 }
 
 // === GOLD COİN ANİMASYONU ===
-function GoldCoinAnim({ amount, onDone, bottomPct }) {
+// targetRef verilirse (ör. lobideki altın rozeti) paralar rastgele yukarı süzülüp kaybolmak yerine
+// TEK TEK, hızlıca doğrudan o rozete uçar ve varışta rozet hafifçe "zıplar" — altın nereye gitti belli olsun.
+// targetRef yoksa (rozet o an ekranda değilse) eski yukarı-süzülme davranışına güvenli şekilde düşer.
+function GoldCoinAnim({ amount, onDone, bottomPct, targetRef }) {
+  const wrapRef = useRef(null);
+  const [fly, setFly] = useState(null); // { dx, dy } — rozete olan mesafe, ölçülünce dolar
   const [coins] = useState(() => Array.from({length: Math.min(amount > 100 ? 14 : amount > 20 ? 9 : 6, 16)}, (_,i) => ({
-    id: i, delay: i*70, x: (Math.random()-0.5)*80, endY: -90-Math.random()*50, rotation: (Math.random()-0.5)*60
+    id: i, delay: i*55, x: (Math.random()-0.5)*70, rotation: (Math.random()-0.5)*60, jx: (Math.random()-0.5)*16, jy: (Math.random()-0.5)*10
   })));
-  useEffect(() => { const timer = setTimeout(()=>onDone?.(), coins.length*70+1400); return ()=>clearTimeout(timer); }, []);
-  return (<div style={{ position:'fixed',bottom: bottomPct!=null?`${bottomPct}%`:100,left:'50%',transform:'translateX(-50%)',zIndex:10000,pointerEvents:'none' }}>
-    {coins.map(c => (
-      <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, fontSize:32, animation:`coinFly 1.1s cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards`, opacity:0, transform:`rotate(${c.rotation}deg)` }}>🪙</div>
+  useLayoutEffect(() => {
+    if (targetRef?.current && wrapRef.current) {
+      const tRect = targetRef.current.getBoundingClientRect();
+      const oRect = wrapRef.current.getBoundingClientRect();
+      if (tRect.width > 0) {
+        setFly({
+          dx: (tRect.left + tRect.width / 2) - (oRect.left + oRect.width / 2),
+          dy: (tRect.top + tRect.height / 2) - (oRect.top + oRect.height / 2),
+        });
+      }
+    }
+  }, []);
+  const flightMs = fly ? 600 : 850;
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onDone?.();
+      // Son para varır varmaz rozet hafifçe zıplasın
+      try { targetRef?.current?.animate?.([{ transform: "scale(1)" }, { transform: "scale(1.18)" }, { transform: "scale(1)" }], { duration: 260, easing: "ease-out" }); } catch (e) {}
+    }, coins.length * 55 + flightMs + 120);
+    return () => clearTimeout(timer);
+  }, [fly]);
+  return (<div ref={wrapRef} style={{ position:'fixed',bottom: bottomPct!=null?`${bottomPct}%`:100,left:'50%',transform:'translateX(-50%)',zIndex:10000,pointerEvents:'none' }}>
+    {coins.map(c => fly ? (
+      <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, fontSize:24,
+        ['--fly-x']:`${fly.dx + c.jx}px`, ['--fly-y']:`${fly.dy + c.jy}px`,
+        animation:`flyToProfile ${flightMs}ms cubic-bezier(0.3,0.05,0.55,1) ${c.delay}ms forwards`, opacity:0 }}>🪙</div>
+    ) : (
+      <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, fontSize:32, animation:`coinFly ${flightMs}ms cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards`, opacity:0, transform:`rotate(${c.rotation}deg)` }}>🪙</div>
     ))}
-    <div style={{ position:'absolute',left:'50%',transform:'translateX(-50%)',bottom:70,fontSize:28,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 30px ${t.goldGlow}, 0 0 60px ${t.goldGlow}`,animation:'scaleUp 0.4s cubic-bezier(0.34,1.56,0.64,1) 150ms forwards',opacity:0,whiteSpace:'nowrap',letterSpacing:4 }}>+{amount} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /></div>
+    {!fly && <div style={{ position:'absolute',left:'50%',transform:'translateX(-50%)',bottom:70,fontSize:28,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 30px ${t.goldGlow}, 0 0 60px ${t.goldGlow}`,animation:'scaleUp 0.4s cubic-bezier(0.34,1.56,0.64,1) 150ms forwards',opacity:0,whiteSpace:'nowrap',letterSpacing:4 }}>+{amount} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /></div>}
   </div>);
 }
 
@@ -1795,6 +1824,7 @@ const ANIMS = `
 @keyframes radarSweepLine{0%{top:0%;opacity:0}6%{opacity:1}90%{opacity:1}100%{top:100%;opacity:0}}
 @keyframes mapReveal{0%{clip-path:inset(0 0 100% 0)}100%{clip-path:inset(0 0 0% 0)}}
 @keyframes goldDrain{0%{opacity:0;transform:translateY(-6px) scale(0.9)}30%{opacity:1;transform:translateY(0) scale(1.05)}100%{opacity:0.6;transform:translateY(10px) scale(0.92)}}
+@keyframes coinToNumber{0%{opacity:1;transform:translate(0,0) scale(1)}75%{opacity:1}100%{opacity:0;transform:translate(130px,-4px) scale(0.35)}}
 
 /* ═══════════════════════════════════════════════════════════════════
    MOBİL PERFORMANS KATMANI — en sonda tanımlı, öncekileri EZER.
@@ -2421,12 +2451,17 @@ function RewardModal({ rewards: rawRewards, dailyMissions, missionProgress, newA
     return () => clearInterval(iv);
   }, [row >= 1]);
   const lvl = profile?.level || 0, lvlPct = Math.min(1, (profile?.levelProgress || 0) / Math.max(1, gamesNeededForLevel(lvl)));
-  const Row = ({ show, icon, label, value, color, glow, extra }) => (
-    <div style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:12,background:"rgba(255,255,255,0.035)",border:`1px solid ${show?color+"55":"rgba(255,255,255,0.06)"}`,marginBottom:8,opacity:show?1:0.25,transform:show?"translateX(0)":"translateX(-14px)",transition:"all 0.45s cubic-bezier(0.34,1.56,0.64,1)" }}>
+  // coinBurst: sadece altın satırında — ikonun yanından sayının üzerine doğru tek tek hızlıca
+  // uçan minik paralar. "Altın nereye gitti" hissi versin diye, kutucuğun KENDİ İÇİNDE oluyor.
+  const Row = ({ show, icon, label, value, color, glow, extra, coinBurst }) => (
+    <div style={{ position:"relative",display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:12,background:"rgba(255,255,255,0.035)",border:`1px solid ${show?color+"55":"rgba(255,255,255,0.06)"}`,marginBottom:8,opacity:show?1:0.25,transform:show?"translateX(0)":"translateX(-14px)",transition:"all 0.45s cubic-bezier(0.34,1.56,0.64,1)",overflow:"hidden" }}>
       <span style={{ fontSize:20,filter:show?`drop-shadow(0 0 8px ${glow})`:"grayscale(1)" }}>{icon}</span>
       <span style={{ flex:1,fontSize:11,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:2 }}>{label}</span>
       {extra}
       <span style={{ fontSize:20,fontWeight:900,color,fontFamily:warrior,textShadow:show?`0 0 14px ${glow}`:"none",display:"flex",alignItems:"center",gap:4 }}>{value}{show && <span style={{ fontSize:13,animation:"fadeUp 0.4s ease-out" }}>↑</span>}</span>
+      {coinBurst && show && Array.from({ length: 5 }).map((_, i) => (
+        <span key={i} style={{ position:"absolute",left:34,top:"50%",marginTop:-8,fontSize:14,pointerEvents:"none",animation:`coinToNumber 550ms cubic-bezier(0.3,0.05,0.55,1) ${i*70}ms both` }}>🪙</span>
+      ))}
     </div>
   );
   return (
@@ -2435,7 +2470,7 @@ function RewardModal({ rewards: rawRewards, dailyMissions, missionProgress, newA
         <button onClick={onClose} style={{ position:"absolute",top:10,right:10,width:30,height:30,borderRadius:"50%",background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,color:t.textDim,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>✕</button>
         <div style={{ textAlign:"center",fontSize:17,fontWeight:900,color:rewards.isWin?t.gold:t.accent,fontFamily:warrior,letterSpacing:4,marginBottom:14,textShadow:`0 0 18px ${rewards.isWin?t.goldGlow:t.accentGlow}` }}>{rewards.isWin?"⚔ ":"🛡 "}{L(lang, rewards.isWin?"rewardTitleWin":"rewardTitleLoss")}</div>
         {rewards.revenge > 1 && <div style={{ textAlign:"center",fontSize:10,fontWeight:900,color:"#ff9a76",fontFamily:warrior,letterSpacing:2,marginBottom:10,textShadow:"0 0 10px rgba(255,90,50,0.6)" }}>{L(lang,"rewardRevengeRow")(rewards.revenge)}</div>}
-        <Row show={row>=1} icon="💰" label={L(lang,"rewardGold")} value={`+${rewards.gold>0?goldShown:0}`} color={t.gold} glow={t.goldGlow} />
+        <Row show={row>=1} icon="💰" label={L(lang,"rewardGold")} value={`+${rewards.gold>0?goldShown:0}`} color={t.gold} glow={t.goldGlow} coinBurst={rewards.gold>0} />
         <Row show={row>=2} icon="⚔" label={L(lang,"rewardHonor")} value={`+${rewards.honor}`} color="#a78bfa" glow="rgba(167,139,250,0.6)" />
         <Row show={row>=3} icon="⭐" label={L(lang,"rewardXp")} value={`+${rewards.xp % 1 === 0 ? rewards.xp : rewards.xp.toFixed(2)}`} color={t.accent} glow={t.accentGlow}
           extra={<div style={{ width:52,height:5,borderRadius:3,background:"rgba(0,0,0,0.5)",overflow:"hidden",marginRight:6 }}><div style={{ width:`${Math.round(lvlPct*100)}%`,height:"100%",background:`linear-gradient(90deg,${t.accent},#ffd700)`,transition:"width 1s ease 0.5s",borderRadius:3 }} /></div>} />
@@ -2533,6 +2568,37 @@ function SiegeReview({ players, showAll, concluded, cellSize, lang = "tr", onBac
       ); })()}
     </div>
   );
+}
+
+// === MAÇ SONU "SAVAŞ HARİTASI" TEKRARI — oyun biter bitmez 5sn boyunca, vurduğun tüm gemi
+// hücreleri yanıp söner (BoardReview ile aynı Grid, blinkCells devreye alınır). Etkileşimsiz,
+// otomatik ilerleyen bir sahne — geri/ileri butonu yok, sıradaki sahneye zamanlayıcı geçer. ===
+function BattleRecapScreen({ oppShipsData, attackOverlay, atkHitMap, cellSize, lang = "tr" }) {
+  const oppBoard = emptyGrid(), oppColors = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+  if (oppShipsData) { Object.values(oppShipsData).forEach(ship => { const sd = SHIPS.find(s => s.id === ship.id); ship.cells?.forEach(([r, c]) => { oppBoard[r][c] = 1; oppColors[r][c] = sd?.color || ship.color || t.shipCell; }); }); }
+  const hitCells = [];
+  (atkHitMap || []).forEach((row, r) => (row || []).forEach((v, c) => { if (v) hitCells.push([r, c]); }));
+  return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",minHeight:"100dvh",background:t.bg,padding:"12px 8px",fontFamily:mono,color:t.text }}>
+    <div style={{ fontSize:16,fontWeight:800,color:t.accent,marginBottom:10,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 15px ${t.accentGlow}`,animation:"pulse 1.6s ease-in-out infinite" }}>{L(lang,"battleMap")}</div>
+    <div style={{ width:"100%",maxWidth:400 }}>
+      <Grid board={oppBoard} cellSize={cellSize || 26} overlay={attackOverlay} isDefense shipColors={oppColors} disabled showShipStatus blinkCells={hitCells} />
+    </div>
+  </div>);
+}
+
+// === MAÇ SONU MİNİ PATLAMA — savaş haritası tekrarından sonra ~1.5sn, ganimet tablosundan önce.
+// Sadece kısa bir "KAZANDIN!/KAYBETTİN!" vurgusu, istatistik yok — o zaten sonraki ekranlarda. ===
+function MiniResultBurst({ isWin, lang = "tr" }) {
+  return (<div style={{ position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",zIndex:9000,background:isWin?"radial-gradient(ellipse at 50% 45%,rgba(255,215,0,0.14) 0%,rgba(2,6,16,0.92) 70%)":"radial-gradient(ellipse at 50% 45%,rgba(255,71,87,0.12) 0%,rgba(2,6,16,0.92) 70%)" }}>
+    <div style={{ textAlign:"center",animation:"popFlash 1.3s cubic-bezier(0.34,1.56,0.64,1) both" }}>
+      <div style={{ fontSize:64,marginBottom:6,filter: isWin ? "drop-shadow(0 0 30px rgba(255,215,0,0.7))" : "drop-shadow(0 0 24px rgba(255,71,87,0.6))" }}>{isWin ? "🏆" : "💥"}</div>
+      <div style={{ fontSize:"clamp(30px, 9vw, 46px)",fontWeight:900,fontFamily:warrior,letterSpacing:4,textTransform:"uppercase",
+        ...(isWin ? { background:"linear-gradient(180deg,#fffbe0 0%,#ffe066 26%,#ffd700 50%,#b45309 72%,#ffe066 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" } : { color:"#ff4757" }),
+        textShadow: isWin ? "0 0 30px rgba(255,215,0,0.7)" : "0 0 26px rgba(255,71,87,0.75)" }}>
+        {isWin ? L(lang,"victory") : L(lang,"defeat")}
+      </div>
+    </div>
+  </div>);
 }
 
 function BoardReview({ defenseBoard, shipColorMap, defenseOverlay, attackOverlay, oppShipsData, myShipsData, defHitMap, atkHitMap, cellSize, onBack, lang = "tr" }) {
@@ -3162,6 +3228,8 @@ export default function Game() {
     return "tr";
   });
   const [goldAnim, setGoldAnim] = useState(null);
+  // Maç sonu sahne akışı: null (henüz başlamadı) → 'map' → 'burst' → 'rewards' → 'final'
+  const [gameOverStage, setGameOverStage] = useState(null);
   const [microFeedback, setMicroFeedback] = useState(null);
   const [extraTimeUsed, setExtraTimeUsed] = useState(false);
   const [placementPreview, setPlacementPreview] = useState(false);
@@ -3202,6 +3270,24 @@ export default function Game() {
 
   // Her yeni maç raporu geldiğinde nonce'u tazele — RewardModal remount olsun, animasyon her seferinde çalışsın
   useEffect(() => { if (matchRewards && rewardModalOpen) setRewardNonce(n => n + 1); }, [matchRewards, rewardModalOpen]);
+
+  // MAÇ SONU SAHNE AKIŞI — oyun bitince otomatik başlat (onboarding hariç), oyundan çıkınca sıfırla.
+  useEffect(() => {
+    if (phase === "gameover" && !isOnboarding) setGameOverStage(prev => prev || "map");
+    else if (phase !== "gameover") setGameOverStage(null);
+  }, [phase, isOnboarding]);
+  // Sahneler arası otomatik geçiş: harita 5sn, mini kazandın/kaybettin patlaması 1.5sn.
+  // "rewards" sahnesinden çıkış RewardModal'ın kendi kapatma (DEVAM/✕) etkileşimiyle olur.
+  useEffect(() => {
+    if (gameOverStage === "map") { const tm = setTimeout(() => setGameOverStage("burst"), 5000); return () => clearTimeout(tm); }
+    if (gameOverStage === "burst") { const tm = setTimeout(() => setGameOverStage("rewards"), 1500); return () => clearTimeout(tm); }
+    // Güvenlik: "rewards" sahnesine geldik ama rapor (matchRewards) hâlâ gelmediyse — normalde
+    // gelmesi gereken guarantee-effect'ten önce buraya düşmüş olabiliriz — 2sn sonra yine de devam et.
+    if (gameOverStage === "rewards" && !matchRewards) {
+      const tm = setTimeout(() => setGameOverStage(prev => prev === "rewards" ? "final" : prev), 2000);
+      return () => clearTimeout(tm);
+    }
+  }, [gameOverStage, matchRewards]);
 
   // GARANTİ: maç bitti ve 1.5 sn içinde rapor gelmediyse (online ELO zinciri gecikmiş/kopmuş olabilir)
   // eldeki verilerle raporu yine de göster — oyuncu ganimetini ASLA göremeden kalmasın.
@@ -3367,6 +3453,9 @@ export default function Game() {
   // Tahta alanını TAHMİN etmek yerine ÖLÇÜYORUZ. Üstteki/alttaki kontroller ne kadar yer
   // kaplarsa kaplasın, tahta kalan boşluğa tam oturur — hiçbir cihazda taşma/kırpılma olmaz.
   const boardBoxRef = useRef(null);
+  // Lobideki altın rozetinin gerçek ekran konumu — sandık/günlük/sefer altınları paraya
+  // uçarken hedef olarak kullanılır (GoldCoinAnim targetRef).
+  const goldBadgeRef = useRef(null);
   const [boardBox, setBoardBox] = useState({ w: 0, h: 0 });
   useEffect(() => {
     const el = boardBoxRef.current;
@@ -6216,6 +6305,19 @@ export default function Game() {
         <OnboardingVictoryScreen sfx={sfx} t={t} winner={winner} warrior={warrior} mono={mono} onDone={() => { setIsOnboarding(false); resetGame(); }} lang={appLang} />
       </>);
     }
+    // MAÇ SONU AKIŞI: önce 5sn savaş haritası (vurulan gemiler yanıp söner) → 1.5sn mini
+    // kazandın/kaybettin patlaması → ganimet tablosu → tam zafer/bozgun ekranı. Onboarding hariç.
+    if (!isOnboarding && gameOverStage === "map") {
+      return (<><style>{ANIMS}</style><BattleRecapScreen oppShipsData={oppShipsData} attackOverlay={attackOverlay} atkHitMap={atkHitMap} cellSize={cellSize} lang={appLang} /></>);
+    }
+    if (!isOnboarding && gameOverStage === "burst") {
+      return (<><style>{ANIMS}</style><MiniResultBurst isWin={isWin} lang={appLang} /></>);
+    }
+    if (!isOnboarding && gameOverStage === "rewards" && matchRewards) {
+      return (<><style>{ANIMS}</style>
+        <RewardModal key={rewardNonce} rewards={matchRewards} dailyMissions={dailyMissions} missionProgress={missionProgress} newAch={newAchUnlocks} profile={myProfile} sfx={sfx} onClose={() => { setRewardModalOpen(false); setGameOverStage("final"); }} lang={appLang} />
+      </>);
+    }
     const myEloDiff = eloChange ? eloChange.myNew - eloChange.myOld : null;
     const myRank = myProfile ? getRankInfo(migrateHonor(myProfile), appLang) : null;
     const chestProgressPct = Math.round((Object.keys(missionProgress).length / (dailyMissions.length || 3)) * 100);
@@ -6293,7 +6395,7 @@ export default function Game() {
               </div>
             ); })()}
           </div>
-          <div style={{ flexShrink:0,display:"flex",alignItems:"center",gap:5,background:"linear-gradient(180deg, rgba(26,19,4,0.9), rgba(12,9,2,0.95))",borderRadius:10,padding:"5px 11px 5px 7px",border:"1px solid rgba(201,161,94,0.45)",boxShadow:"inset 0 1px 0 rgba(240,215,154,0.15)" }}>
+          <div ref={goldBadgeRef} style={{ flexShrink:0,display:"flex",alignItems:"center",gap:5,background:"linear-gradient(180deg, rgba(26,19,4,0.9), rgba(12,9,2,0.95))",borderRadius:10,padding:"5px 11px 5px 7px",border:"1px solid rgba(201,161,94,0.45)",boxShadow:"inset 0 1px 0 rgba(240,215,154,0.15)" }}>
             <img src="/img/coin.png" alt="" style={{ width:18,height:18,flexShrink:0 }} />
             <div style={{ fontSize:16,fontWeight:800,fontFamily:mono,lineHeight:1,color:"#f0d79a",whiteSpace:"nowrap" }}>{safeGold(myProfile.gold).toLocaleString(appLang==="en"?"en-US":"tr-TR")}</div>
           </div>
@@ -6478,7 +6580,7 @@ export default function Game() {
       )}
       {showDailyChest && !dailyChestModalOpen && <DailyChestFab onOpen={() => setDailyChestModalOpen(true)} lang={appLang} />}
       {dailyChestModalOpen && <DailyChestPopup onClaim={claimDailyChest} onClose={() => setDailyChestModalOpen(false)} lang={appLang} />}
-      {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
+      {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} targetRef={goldBadgeRef} />}
       <HorizonStrip lang={appLang} />
     </div>);
   }
