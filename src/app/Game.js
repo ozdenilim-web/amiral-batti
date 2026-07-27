@@ -621,6 +621,17 @@ const XP_BOT_LOSS = XP_BOT_WIN / 4;       // kaybeden, kazanılan XP'nin %25'ini
 // TEK SALVO — arena tarzı bahis: giriş 25 altın (ortaya konur), kazanan 50 altın alır (net +25), kaybeden anteyi kaybeder, berabere ante iade edilir. XP/şeref YOK, sadece altın.
 const SALVO_ANTE = 25;
 const SALVO_WIN_GOLD = 50;
+// NORMAL "OYNA" (klasik, botlu veya online) — artık Salvo ile BİREBİR AYNI ORAN: giriş 25 altın,
+// kazanınca 50 (net +25, seri/intikam çarpanları bunun üstüne uygulanır), kaybedince ante gider (net -25).
+// Hem bota hem online rakibe karşı geçerli — güvenli/risksiz mod kalmadı.
+const CLASSIC_ANTE = 25;
+const CLASSIC_WIN_GOLD = 50;
+// KUŞATMA (3 kişilik) — kendine özgü, daha yüksek: giriş ücreti YOK, sadece maç sonu kazanç/kayıp.
+// Zincir kuralı: hiç kazanmadan ilk elenen normal kayıp (-50) yaşar; bir raundu kazanıp sonra elenen
+// (1 galibiyet + 1 mağlubiyet) NET SIFIR kalır; maçın nihai galibi (1 ya da 2 kill fark etmez) normal
+// galibiyetin 2 katını (200) alır. Online'da da artık ekonomi tamamen açık (eskiden kapalıydı).
+const SIEGE_WIN_GOLD = 100;
+const SIEGE_LOSS_GOLD = 50;
 function gamesNeededForLevel(fromLevel) {
   if (fromLevel >= MAX_LEVEL) return Infinity;
   return Math.max(1, Math.round(3 * Math.pow(5 / 3, fromLevel - 1)));
@@ -704,7 +715,6 @@ const ACH_SETS = [
       { icon:"⚑", text:"Toplam 20 kare işaretle",        textEn:"Mark 20 cells",               check:(p,a)=>a.marks>=20 },
       { icon:"🌊", text:"Toplam 5 oyun oyna",             textEn:"Play 5 games",                check:(p,a)=>(p.totalGames||0)>=5 },
       { icon:"💰", text:"Günlük sandığı aç",               textEn:"Open the daily chest",        check:(p,a)=>a.chest>=1 },
-      { icon:"🎖", text:"Seviye 2'ye ulaş",               textEn:"Reach level 2",               check:(p,a)=>(p.level||0)>=2 },
     ] },
   { id:"s2", name:"DENİZCİ", nameEn:"SAILOR", reward:1500,
     gate: (p) => (p.totalGames||0)>=21 && safeAch(p.ach).goldEarned>=5000 && (wr(p)>=30 || (p.wins||0)>=10),
@@ -1648,7 +1658,9 @@ async function applyOnlineResultSelf(uid, isWinner, arena, achMutator) {
     const a = safeAch(p.ach);
     const rev = isWinner ? revengeMult(a.lossStreak) : 1;
     const baseXp = arena ? XP_ONLINE_WIN * 1.1 : XP_ONLINE_WIN;
-    const gold = isWinner ? Math.round((arena ? arena.winGold : 100) * rev) : (arena ? arena.entryFee : 0);
+    // Kazanınca arena/kazanç tutarı (Salvo mantığı: ante ayrıca maç başında kesildi, burada sadece
+    // BRÜT kazanç işlenir). Kaybedince artık HİÇBİR refund yok — ante zaten girişte kesildi, o gider.
+    const gold = isWinner ? Math.round((arena ? arena.winGold : CLASSIC_WIN_GOLD) * rev) : 0;
     const xp = isWinner ? baseXp * rev : baseXp * 0.25;
     const lvl = applyLevelCredit(p, xp);
     const oldGold = safeGold(p.gold), newGold = oldGold + gold;
@@ -2142,6 +2154,7 @@ function AchievementsScreen({ profile, onClose, onClaim, lang = "tr" }) {
           const unlocked = achSetUnlocked(idx, p);
           const done = achSetDone(s, p);
           const isClaimed = claimed[s.id] === true;
+          const totalCount = s.missions.length;
           const doneCount = s.missions.filter(m => { try { return m.check(p, a); } catch(e) { return false; } }).length;
           const setName = en ? s.nameEn : s.name;
           // ── Kilitli set: silik kart + şartlar ──
@@ -2157,16 +2170,30 @@ function AchievementsScreen({ profile, onClose, onClaim, lang = "tr" }) {
               {s.gateReq.map((g,gi) => <div key={gi} style={{ fontSize:10,color:g.ok(p)?"#c9a15e":"#54697a",fontFamily:mono,marginBottom:3 }}>{g.ok(p)?"✓":"○"} {en?g.en:g.tr}</div>)}
             </div>
           );
-          // ── Açık set: 10 görev dikey liste ──
+          // ── Tamamlanmış set: artık 10 maddeyi tekrar göstermiyoruz, sıkışık bir "bitti" şeridi
+          // yeterli — ekranda göz aktif/sıradaki sete gitsin, bitmiş liste yer kaplamasın. ──
+          if (done) return (
+            <div key={s.id} style={{ width:"100%",background:isClaimed?"rgba(255,255,255,0.02)":"linear-gradient(180deg,rgba(90,61,34,0.4),rgba(40,28,15,0.4))",border:`1px solid ${isClaimed?"#26394b":"rgba(201,161,94,0.55)"}`,borderRadius:12,padding:"13px 16px",marginBottom:12,display:"flex",alignItems:"center",gap:12,opacity:isClaimed?0.65:1,animation:"achFadeUp 0.4s ease-out" }}>
+              <span style={{ fontSize:22,flexShrink:0 }}>{ACH_AVATARS[s.id]}</span>
+              <div style={{ flex:1,minWidth:0 }}>
+                <div style={{ fontSize:13,fontWeight:900,color:"#f0d79a",fontFamily:warrior,letterSpacing:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{idx+1}. SET — {setName}</div>
+                <div style={{ fontSize:10,fontWeight:700,color:"#c9a15e",fontFamily:mono,marginTop:2 }}>✓ {totalCount}/{totalCount} · 💰 {s.reward}</div>
+              </div>
+              {isClaimed
+                ? <span style={{ fontSize:11,fontWeight:800,color:"#c9a15e",fontFamily:warrior,letterSpacing:2,flexShrink:0 }}>✓ {L(lang,"achClaimed")}</span>
+                : <button onClick={()=>onClaim(s)} style={{ flexShrink:0,padding:"9px 16px",background:"linear-gradient(180deg,#5a3d22 0%,#c9a15e 42%,#f0d79a 52%,#c9a15e 62%,#5a3d22 100%)",color:"#2a1c08",border:"none",borderRadius:10,fontSize:11,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.4)" }}>{L(lang,"achClaim")}</button>}
+            </div>
+          );
+          // ── Açık ve aktif (henüz bitmemiş) set: tam görev listesi ──
           return (
-            <div key={s.id} style={{ width:"100%",background:"linear-gradient(180deg, rgba(20,34,48,0.8), rgba(10,20,30,0.85))",border:`1px solid ${done?"rgba(201,161,94,0.55)":"#26394b"}`,borderRadius:12,padding:"14px 16px",marginBottom:12,animation:"achFadeUp 0.4s ease-out",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.05)" }}>
+            <div key={s.id} style={{ width:"100%",background:"linear-gradient(180deg, rgba(20,34,48,0.8), rgba(10,20,30,0.85))",border:"1px solid #26394b",borderRadius:12,padding:"14px 16px",marginBottom:12,animation:"achFadeUp 0.4s ease-out",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.05)" }}>
               <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:8 }}>
                 <span style={{ fontSize:14,fontWeight:800,color:"#f0d79a",fontFamily:warrior,letterSpacing:2 }}>{idx+1}. SET — {setName}</span>
-                <span style={{ marginLeft:"auto",fontSize:12,fontWeight:700,color:done?"#f0d79a":"#7A8FA0",fontFamily:mono }}>{doneCount}/10</span>
+                <span style={{ marginLeft:"auto",fontSize:12,fontWeight:700,color:"#7A8FA0",fontFamily:mono }}>{doneCount}/{totalCount}</span>
               </div>
               {/* Set ilerleme çubuğu — bronz */}
               <div style={{ width:"100%",height:5,borderRadius:3,background:"rgba(0,0,0,0.45)",overflow:"hidden",marginBottom:12,boxShadow:"inset 0 1px 2px rgba(0,0,0,0.6)" }}>
-                <div style={{ width:`${doneCount*10}%`,height:"100%",borderRadius:3,background:"linear-gradient(180deg,#5a3d22 0%,#c9a15e 42%,#f0d79a 52%,#c9a15e 62%,#5a3d22 100%)",transition:"width 0.5s ease",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.3)" }} />
+                <div style={{ width:`${(doneCount/totalCount)*100}%`,height:"100%",borderRadius:3,background:"linear-gradient(180deg,#5a3d22 0%,#c9a15e 42%,#f0d79a 52%,#c9a15e 62%,#5a3d22 100%)",transition:"width 0.5s ease",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.3)" }} />
               </div>
               {/* Görevler — dikey ikon listesi */}
               {s.missions.map((m, mi) => {
@@ -2179,8 +2206,8 @@ function AchievementsScreen({ profile, onClose, onClaim, lang = "tr" }) {
                   </div>
                 );
               })}
-              {/* Set ödülü */}
-              <div style={{ marginTop:10,padding:"11px 14px",borderRadius:10,background:done&&!isClaimed?"linear-gradient(180deg,rgba(90,61,34,0.4),rgba(40,28,15,0.4))":"rgba(0,0,0,0.25)",border:`1px solid ${done&&!isClaimed?"rgba(201,161,94,0.5)":"#26394b"}`,display:"flex",alignItems:"center",gap:10 }}>
+              {/* Set ödülü — henüz bitmemiş, sadece bilgi amaçlı */}
+              <div style={{ marginTop:10,padding:"11px 14px",borderRadius:10,background:"rgba(0,0,0,0.25)",border:"1px solid #26394b",display:"flex",alignItems:"center",gap:10 }}>
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:9,fontWeight:800,color:"#54697a",fontFamily:warrior,letterSpacing:2,marginBottom:3 }}>{L(lang,"achSetReward")}</div>
                   <div style={{ display:"flex",alignItems:"center",gap:8 }}>
@@ -2189,11 +2216,7 @@ function AchievementsScreen({ profile, onClose, onClaim, lang = "tr" }) {
                     <span style={{ fontSize:8,fontWeight:800,color:"#7A8FA0",fontFamily:warrior,letterSpacing:1 }}>{L(lang,"achAvatarReward")}</span>
                   </div>
                 </div>
-                {isClaimed
-                  ? <span style={{ fontSize:11,fontWeight:800,color:"#c9a15e",fontFamily:warrior,letterSpacing:2 }}>✓ {L(lang,"achClaimed")}</span>
-                  : done
-                    ? <button onClick={()=>onClaim(s)} style={{ padding:"10px 18px",background:"linear-gradient(180deg,#5a3d22 0%,#c9a15e 42%,#f0d79a 52%,#c9a15e 62%,#5a3d22 100%)",color:"#2a1c08",border:"none",borderRadius:10,fontSize:12,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.4)" }}>{L(lang,"achClaim")}</button>
-                    : <span style={{ fontSize:11,fontWeight:800,color:"#54697a",fontFamily:mono }}>{doneCount}/10</span>}
+                <span style={{ fontSize:11,fontWeight:800,color:"#54697a",fontFamily:mono }}>{doneCount}/{totalCount}</span>
               </div>
             </div>
           );
@@ -2439,9 +2462,9 @@ function RewardModal({ rewards: rawRewards, dailyMissions, missionProgress, newA
     (newAch || []).forEach((_, i) => timers.push(setTimeout(() => { setRow(5 + i); try { sfx.play('gold'); } catch(e) {} }, 2200 + i * 450)));
     return () => timers.forEach(clearTimeout);
   }, []);
-  // Altın sayacı
+  // Altın sayacı — kayıpta (negatif) da saymalı, sadece tam sıfırsa (net sıfır) hiç saymaya gerek yok
   useEffect(() => {
-    if (row < 1 || rewards.gold <= 0) return;
+    if (row < 1 || rewards.gold === 0) return;
     const dur = 900, start = Date.now();
     const iv = setInterval(() => {
       const p = Math.min(1, (Date.now() - start) / dur);
@@ -2453,12 +2476,12 @@ function RewardModal({ rewards: rawRewards, dailyMissions, missionProgress, newA
   const lvl = profile?.level || 0, lvlPct = Math.min(1, (profile?.levelProgress || 0) / Math.max(1, gamesNeededForLevel(lvl)));
   // coinBurst: sadece altın satırında — ikonun yanından sayının üzerine doğru tek tek hızlıca
   // uçan minik paralar. "Altın nereye gitti" hissi versin diye, kutucuğun KENDİ İÇİNDE oluyor.
-  const Row = ({ show, icon, label, value, color, glow, extra, coinBurst }) => (
+  const Row = ({ show, icon, label, value, color, glow, extra, coinBurst, downArrow }) => (
     <div style={{ position:"relative",display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:12,background:"rgba(255,255,255,0.035)",border:`1px solid ${show?color+"55":"rgba(255,255,255,0.06)"}`,marginBottom:8,opacity:show?1:0.25,transform:show?"translateX(0)":"translateX(-14px)",transition:"all 0.45s cubic-bezier(0.34,1.56,0.64,1)",overflow:"hidden" }}>
       <span style={{ fontSize:20,filter:show?`drop-shadow(0 0 8px ${glow})`:"grayscale(1)" }}>{icon}</span>
       <span style={{ flex:1,fontSize:11,fontWeight:800,color:t.textDim,fontFamily:warrior,letterSpacing:2 }}>{label}</span>
       {extra}
-      <span style={{ fontSize:20,fontWeight:900,color,fontFamily:warrior,textShadow:show?`0 0 14px ${glow}`:"none",display:"flex",alignItems:"center",gap:4 }}>{value}{show && <span style={{ fontSize:13,animation:"fadeUp 0.4s ease-out" }}>↑</span>}</span>
+      <span style={{ fontSize:20,fontWeight:900,color,fontFamily:warrior,textShadow:show?`0 0 14px ${glow}`:"none",display:"flex",alignItems:"center",gap:4 }}>{value}{show && <span style={{ fontSize:13,animation:"fadeUp 0.4s ease-out" }}>{downArrow?"↓":"↑"}</span>}</span>
       {coinBurst && show && Array.from({ length: 5 }).map((_, i) => (
         <span key={i} style={{ position:"absolute",left:34,top:"50%",marginTop:-8,fontSize:14,pointerEvents:"none",animation:`coinToNumber 550ms cubic-bezier(0.3,0.05,0.55,1) ${i*70}ms both` }}>🪙</span>
       ))}
@@ -2470,7 +2493,10 @@ function RewardModal({ rewards: rawRewards, dailyMissions, missionProgress, newA
         <button onClick={onClose} style={{ position:"absolute",top:10,right:10,width:30,height:30,borderRadius:"50%",background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,color:t.textDim,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>✕</button>
         <div style={{ textAlign:"center",fontSize:17,fontWeight:900,color:rewards.isWin?t.gold:t.accent,fontFamily:warrior,letterSpacing:4,marginBottom:14,textShadow:`0 0 18px ${rewards.isWin?t.goldGlow:t.accentGlow}` }}>{rewards.isWin?"⚔ ":"🛡 "}{L(lang, rewards.isWin?"rewardTitleWin":"rewardTitleLoss")}</div>
         {rewards.revenge > 1 && <div style={{ textAlign:"center",fontSize:10,fontWeight:900,color:"#ff9a76",fontFamily:warrior,letterSpacing:2,marginBottom:10,textShadow:"0 0 10px rgba(255,90,50,0.6)" }}>{L(lang,"rewardRevengeRow")(rewards.revenge)}</div>}
-        <Row show={row>=1} icon="💰" label={L(lang,"rewardGold")} value={`+${rewards.gold>0?goldShown:0}`} color={t.gold} glow={t.goldGlow} coinBurst={rewards.gold>0} />
+        <Row show={row>=1} icon="💰" label={L(lang,"rewardGold")}
+          value={rewards.gold > 0 ? `+${goldShown}` : rewards.gold < 0 ? `${goldShown}` : "0"}
+          color={rewards.gold < 0 ? t.hit : t.gold} glow={rewards.gold < 0 ? t.hitGlow : t.goldGlow}
+          coinBurst={rewards.gold > 0} downArrow={rewards.gold < 0} />
         <Row show={row>=2} icon="⚔" label={L(lang,"rewardHonor")} value={`+${rewards.honor}`} color="#a78bfa" glow="rgba(167,139,250,0.6)" />
         <Row show={row>=3} icon="⭐" label={L(lang,"rewardXp")} value={`+${rewards.xp % 1 === 0 ? rewards.xp : rewards.xp.toFixed(2)}`} color={t.accent} glow={t.accentGlow}
           extra={<div style={{ width:52,height:5,borderRadius:3,background:"rgba(0,0,0,0.5)",overflow:"hidden",marginRight:6 }}><div style={{ width:`${Math.round(lvlPct*100)}%`,height:"100%",background:`linear-gradient(90deg,${t.accent},#ffd700)`,transition:"width 1s ease 0.5s",borderRadius:3 }} /></div>} />
@@ -3146,6 +3172,10 @@ export default function Game() {
   const siegeModeRef = useRef(false);
   const [siegeAlive, setSiegeAlive] = useState([true, true, true]);
   const siegeAliveRef = useRef([true, true, true]);
+  // Bu maçta İNSANIN (bot-simülasyon yolunda, koltuk 0) kaç kez rakip elediği — ekonomi zincir
+  // kuralı için (0 kill+elenme=normal kayıp, 1+ kill+elenme=net sıfır, hayatta kalan=x2).
+  // Online Kuşatma'da bunun yerine paylaşılan oda verisindeki game.kills[koltuk] okunur.
+  const siegeMyKillsRef = useRef(0);
   const [siegeTargetOf, setSiegeTargetOf] = useState([1, 2, 0]); // 0→1→2→0 sabit üçgen
   const siegeTargetOfRef = useRef([1, 2, 0]);
   const [siegeTurnIdx, setSiegeTurnIdx] = useState(0);
@@ -3430,17 +3460,14 @@ export default function Game() {
   const recordBotLossRef = useRef(null);
   recordBotLossRef.current = () => {
     if (!authUid || !myProfile || isOnboarding) return;
-    // Kaybeden altın kaybetmez ama kazanmaz da — XP: kazanılanın %25'i
-    // Arena aramasında insan bulunamayıp bota düştüysek: online arena mağlubiyetiyle aynı mantık —
-    // giriş ücreti iade edilir (net kayıp yok), sadece kazanınca ekstra kazanılır.
-    const arenaRefund = botArenaRef.current ? botArenaRef.current.entryFee : 0;
+    // Artık HİÇBİR kayıp iade edilmiyor — arenalı da arenasız da ante/giriş ücreti maç başında
+    // zaten kesildi, kaybedince o gider (Salvo mantığı). Sadece XP: kazanılanın %25'i.
     const lvl2 = applyLevelCredit(myProfile, XP_BOT_LOSS);
-    const newGold2 = safeGold(myProfile.gold) + arenaRefund;
+    const newGold2 = safeGold(myProfile.gold);
     update(ref(db, `profiles/${authUid}`), { gold: newGold2, losses: (myProfile.losses||0)+1, totalGames: (myProfile.totalGames||0)+1, botGames: (myProfile.botGames||0)+1, lastGameAt: Date.now(), level: lvl2.level, levelProgress: lvl2.levelProgress, recentResults: pushRecent(myProfile.recentResults, false), honor: migrateHonor(myProfile) + HONOR_LOSS_BOT }).catch(()=>{});
     setMyProfile(prev => prev ? { ...prev, gold: newGold2, losses:(prev.losses||0)+1, totalGames:(prev.totalGames||0)+1, botGames:(prev.botGames||0)+1, level: lvl2.level, levelProgress: lvl2.levelProgress, recentResults: pushRecent(prev.recentResults, false), honor: migrateHonor(prev) + HONOR_LOSS_BOT } : prev);
     bumpDaily(d => { d.gamesPlayed += 1; });
-    if (arenaRefund > 0) { setGoldChange({ amount: arenaRefund, refund: true }); }
-    setMatchRewards({ gold: arenaRefund, xp: XP_BOT_LOSS, honor: HONOR_LOSS_BOT, revenge: 1, isWin: false }); setRewardModalOpen(true);
+    setMatchRewards({ gold: 0, xp: XP_BOT_LOSS, honor: HONOR_LOSS_BOT, revenge: 1, isWin: false }); setRewardModalOpen(true);
     track("game_end", { mode: botArenaRef.current ? "arena_bot_fallback" : "bot", result: "loss" });
     // Kazanım sayaçları: mağlubiyette isabet/batırma yine sayılır, seriler sıfırlanır
     bumpAch(a => { a.hits += myHits; a.sunk += killCountRef.current; a.winStreak = 0; a.turnStreak = 0; a.lossStreak = (a.lossStreak||0) + 1; });
@@ -4272,7 +4299,7 @@ export default function Game() {
     siegeOnlineRef.current = false; siegeGameRoomRef.current = null; siegeHostRef.current = false;
     hostGameRef.current = null; hostLoopStartedRef.current = false; hostInputSeqRef.current = 0; siegeResultDoneRef.current = false;
     // KUŞATMA temizliği — bekleyen bot-turu/izleyici zamanlayıcıları siegeModeRef=false görünce no-op olur
-    siegeModeRef.current = false; siegeAliveRef.current = [true, true, true]; siegeTargetOfRef.current = [1, 2, 0]; siegeTurnIdxRef.current = 0;
+    siegeModeRef.current = false; siegeAliveRef.current = [true, true, true]; siegeTargetOfRef.current = [1, 2, 0]; siegeTurnIdxRef.current = 0; siegeMyKillsRef.current = 0;
     siegeBotBoardsRef.current = {}; siegeBotShipsRef.current = {}; siegeMyShipCellsRef.current = []; siegeReceivedRef.current = {}; siegeSelectedRef.current = []; siegeGameOverRef.current = null; siegeStopRef.current = false;
     setSiegeMode(false); setSiegeAlive([true, true, true]); setSiegeTargetOf([1, 2, 0]); setSiegeTurnIdx(0); setSiegeBotBoards({}); setSiegeBotShips({}); setSiegeNames({}); setSiegeReceived({}); setSiegeSelected([]); setSiegeSpectator(null); setSiegeGameOver(null);
     if (siegeIntroTimerRef.current) { clearInterval(siegeIntroTimerRef.current); siegeIntroTimerRef.current = null; }
@@ -4542,6 +4569,9 @@ export default function Game() {
     track("game_start", { mode: "tersane_online" });
     if (!playerName.trim()) { setMessage(L(appLang, "msgTypeName")); return; }
     if (!authUid) { setMessage(L(appLang, "msgConnecting")); return; }
+    // Tersane de artık Salvo mantığıyla ante ödüyor (klasik "OYNA" ile aynı oran). Bota düşülürse
+    // (7sn'de rakip yoksa) bu ödeme aynen geçerli kalır, ikinci kez kesilmez.
+    { const ok = await chargeArenaEntry({ entryFee: CLASSIC_ANTE }); if (!ok) { setMessage(L(appLang,"msgNotEnoughGold")); return; } }
     setReadyToPlay(false);
     if (authUid) update(ref(db, `online_players/${authUid}`), { ready: false }).catch(() => {});
     quickMatchCancelledRef.current = false;
@@ -4633,9 +4663,15 @@ export default function Game() {
     sfx.playBattleMusic(false);
   };
 
-  const startBotGame = (arenaOverride) => {
+  const startBotGame = async (arenaOverride) => {
     track("game_start", { mode: arenaOverride ? "arena_bot_fallback" : "bot", arena: arenaOverride?.id || "none" });
     if (!playerName.trim()) { setMessage(L(appLang,"msgTypeName")); return; }
+    // Saf bot pratiği (arenasız) de artık Salvo mantığıyla ante ödüyor. Arena bot-fallback'te ante
+    // zaten startQuickMatch'te kesildi, burada tekrar kesilmez — sadece o ödemeyi hatırlıyoruz.
+    if (!arenaOverride) {
+      const ok = await chargeArenaEntry({ entryFee: CLASSIC_ANTE });
+      if (!ok) { setMessage(L(appLang,"msgNotEnoughGold")); return; }
+    }
     botArenaRef.current = arenaOverride || null;
     const bot = botPlaceShips();
     const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
@@ -4954,6 +4990,7 @@ export default function Game() {
     siegeAliveRef.current = [true, true, true]; setSiegeAlive(siegeAliveRef.current);
     siegeTargetOfRef.current = [1, 2, 0]; setSiegeTargetOf(siegeTargetOfRef.current);
     siegeTurnIdxRef.current = 0; setSiegeTurnIdx(0);
+    siegeMyKillsRef.current = 0;
     siegeReceivedRef.current = { 0: emptyGrid().map(r => r.map(() => null)), 1: emptyGrid().map(r => r.map(() => null)), 2: emptyGrid().map(r => r.map(() => null)) };
     setSiegeReceived(siegeReceivedRef.current);
     siegeSelectedRef.current = []; setSiegeSelected([]);
@@ -4990,6 +5027,7 @@ export default function Game() {
   // Defender elendi: saldırgan, elenenin eski hedefini devralır (üçgen doğal olarak ikiliye küçülür).
   // İnsan elenirse anında oyun biter (kayıp). Sadece insan hayatta kalırsa oyun biter (galibiyet).
   const handleSiegeElimination = (attacker, defender) => {
+    if (attacker === 0) siegeMyKillsRef.current += 1; // insan bu maçta bir rakip daha eledi — ekonomi zinciri için
     const nextAlive = [...siegeAliveRef.current]; nextAlive[defender] = false;
     siegeAliveRef.current = nextAlive; setSiegeAlive(nextAlive);
     const nextTargets = [...siegeTargetOfRef.current];
@@ -4999,14 +5037,14 @@ export default function Game() {
     if (aliveCount <= 1) {
       // Tüm oyun bitti — tek filo kaldı. Savaş haritası artık herkese açık.
       siegeStopRef.current = true; setSiegeConcluded(true);
-      if (nextAlive[0] && !siegeGameOverRef.current) finishSiegeGame(true); // insan kazandı
+      if (nextAlive[0] && !siegeGameOverRef.current) finishSiegeGame(true, siegeMyKillsRef.current); // insan kazandı
       return;
     }
     // İnsan elendi ama 2 bot hâlâ savaşıyor: BOZGUN göster, motoru DURDURMA (insan isterse sonunu bekleyip hepsini görebilir).
-    if (defender === 0 && !siegeGameOverRef.current) finishSiegeGame(false);
+    if (defender === 0 && !siegeGameOverRef.current) finishSiegeGame(false, siegeMyKillsRef.current);
   };
 
-  const finishSiegeGame = (won) => {
+  const finishSiegeGame = (won, myKills = 0) => {
     siegeGameOverRef.current = { won }; setSiegeGameOver({ won });
     // Sonuç ekranı verisi (standart GAMEOVER arayüzüyle aynı): isabet/karavana + savaş haritası
     const myTarget = siegeTargetOfRef.current[0];
@@ -5029,9 +5067,14 @@ export default function Game() {
     else { setTimeout(() => sfx.playDefeatMusic?.(), 500); }
     if (authUid && myProfile) {
       const rMult = revengeMult(safeAch(myProfile?.ach).lossStreak);
-      const gold = (won && !siegeOnlineRef.current) ? Math.round(50 * rMult) : 0; // online Kuşatma: ekonomi kapalı
-      const xp = won ? XP_BOT_WIN * rMult : XP_BOT_LOSS;
-      const honor = won ? HONOR_WIN_BOT : HONOR_LOSS_BOT;
+      // ZİNCİR KURALI (online'da da artık geçerli — ekonomi tamamen açık):
+      // - Hiç kazanmadan (0 kill) elenen → normal kayıp (-SIEGE_LOSS_GOLD)
+      // - Bir raundu kazanıp (1+ kill) sonra elenen → NET SIFIR (kazanç/kayıp birbirini götürür)
+      // - Maçın nihai galibi (1 ya da 2 kill fark etmez) → normal galibiyetin 2 katı
+      const netZero = !won && myKills >= 1;
+      const gold = won ? Math.round(SIEGE_WIN_GOLD * 2 * rMult) : (netZero ? 0 : -SIEGE_LOSS_GOLD);
+      const xp = won ? XP_BOT_WIN * 2 * rMult : (netZero ? 0 : XP_BOT_LOSS);
+      const honor = won ? HONOR_WIN_BOT * 2 : (netZero ? 0 : HONOR_LOSS_BOT);
       if (won && rMult > 1) setRevengeResult({ mult: rMult });
       bumpDaily(d => { d.gamesPlayed += 1; if (won) { d.wins += 1; d.botWin = true; d.shipsSunk = Math.max(d.shipsSunk || 0, sunkCount); } });
       bumpAch(a => {
@@ -5043,14 +5086,15 @@ export default function Game() {
       bumpVoyageMatch();
       const lvl = applyLevelCredit(myProfile, xp);
       const oldGold = safeGold(myProfile.gold);
-      const newGold = oldGold + gold;
+      const newGold = Math.max(0, oldGold + gold); // kayıpta negatif olabilir, 0'ın altına inmez
       const patch = { gold: newGold, totalGames: (myProfile.totalGames || 0) + 1, botGames: (myProfile.botGames || 0) + 1, lastGameAt: Date.now(), level: lvl.level, levelProgress: lvl.levelProgress, honor: migrateHonor(myProfile) + honor };
       if (won) { patch.wins = (myProfile.wins || 0) + 1; patch.recentResults = pushRecent(myProfile.recentResults, true); }
       else { patch.losses = (myProfile.losses || 0) + 1; patch.recentResults = pushRecent(myProfile.recentResults, false); }
       update(ref(db, `profiles/${authUid}`), patch).catch(() => {});
       setMyProfile(prev => prev ? { ...prev, ...patch } : prev);
       setEloChange({ myOld: oldGold, myNew: newGold });
-      if (won && gold > 0) { setGoldChange({ amount: gold }); sfx.play('gold'); setGoldAnim({ amount: gold }); }
+      if (gold > 0) { setGoldChange({ amount: gold }); sfx.play('gold'); setGoldAnim({ amount: gold }); }
+      else if (gold < 0) { setGoldChange({ amount: gold, refund: false }); }
       setMatchRewards({ gold, xp, honor, revenge: won ? rMult : 1, isWin: won });
     }
     track("game_end", { mode: "siege3", result: won ? "win" : "loss" });
@@ -5151,7 +5195,7 @@ export default function Game() {
   const siegeHandleTimeout = (idx) => {
     if (siegeOnlineRef.current) return; // ONLINE: saat/AFK host'ta yönetilir
     if (siegeGameOverRef.current) return;
-    if (idx === 0) { finishSiegeGame(false); return; }
+    if (idx === 0) { finishSiegeGame(false, siegeMyKillsRef.current); return; }
     const attacker = siegeTargetOfRef.current.findIndex((tg, i) => i !== idx && siegeAliveRef.current[i] && tg === idx);
     handleSiegeElimination(attacker >= 0 ? attacker : 0, idx);
     if (!siegeStopRef.current) runSiegeEngineStep(idx);
@@ -5185,6 +5229,7 @@ export default function Game() {
     siegeAliveRef.current = [true, true, true]; setSiegeAlive([true, true, true]);
     siegeGameOverRef.current = null; setSiegeGameOver(null);
     siegeStopRef.current = false; setSiegeConcluded(false);
+    siegeMyKillsRef.current = 0;
     setSiegeSpectator(null);
     setSiegeElapsed(0);
     setSiegeMarks(Array.from({ length: ROWS }, () => Array(COLS).fill(false))); setSiegeMarkMode(false);
@@ -5230,6 +5275,7 @@ export default function Game() {
     siegeMyShipCellsRef.current = Object.values(myShips).flatMap(s => s.cells || []);
     const localTurn = rotL(game.turnIdx ?? 0, mySeat);
     siegeTurnIdxRef.current = localTurn; setSiegeTurnIdx(localTurn);
+    siegeMyKillsRef.current = (game.kills && game.kills[mySeat]) || 0; // leaveOnline'da ekonomi hesabı için güncel tut
   };
 
   // ── HOST DÖNGÜSÜ (2b) — mutlak koltuklarda motor ──
@@ -5254,7 +5300,10 @@ export default function Game() {
     (cells || []).forEach(({ r, c }) => { if (r == null || c == null) return; const hit = defCells.some(([sr, sc]) => sr === r && sc === c); rec[`${r}_${c}`] = hit ? "hit" : "miss"; });
     g.received[defender] = rec;
     const total = defCells.length, hitCount = Object.values(rec).filter(v => v === "hit").length;
-    if (total > 0 && hitCount >= total) { g.alive[defender] = false; g.targetOf[attacker] = g.targetOf[defender]; }
+    if (total > 0 && hitCount >= total) {
+      g.alive[defender] = false; g.targetOf[attacker] = g.targetOf[defender];
+      g.kills = g.kills || {}; g.kills[attacker] = (g.kills[attacker] || 0) + 1; // ekonomi zinciri için kişisel kill sayacı
+    }
     g.seq = (g.seq || 0) + 1;
     if (g.alive.filter(Boolean).length <= 1) g.gameOver = { winnerSeat: g.alive.findIndex(Boolean) };
     hostGameRef.current = g; hostWriteGame();
@@ -5266,7 +5315,10 @@ export default function Game() {
     const wasActive = g.turnIdx === seat;
     g.alive[seat] = false;
     const attacker = g.targetOf.findIndex((t, i) => i !== seat && g.alive[i] && t === seat);
-    if (attacker >= 0) g.targetOf[attacker] = g.targetOf[seat]; // saldıranı, elenenin hedefini devralır → 2 kişi düelloya döner
+    if (attacker >= 0) {
+      g.targetOf[attacker] = g.targetOf[seat]; // saldıranı, elenenin hedefini devralır → 2 kişi düelloya döner
+      g.kills = g.kills || {}; g.kills[attacker] = (g.kills[attacker] || 0) + 1; // AFK/kopma da bir "eleme" sayılır
+    }
     g.seq = (g.seq || 0) + 1;
     if (g.alive.filter(Boolean).length <= 1) { g.gameOver = { winnerSeat: g.alive.findIndex(Boolean) }; hostGameRef.current = g; hostWriteGame(); if (hostTickRef.current) { clearInterval(hostTickRef.current); hostTickRef.current = null; } return; }
     if (wasActive) {
@@ -5326,9 +5378,26 @@ export default function Game() {
 
   // Online Kuşatma'dan ayrılma: host → oda kapanır (herkese iptal); değilse → present düşer (host eler). Ayrılan bozgun.
   const siegeLeaveOnline = () => {
+    // Maçtan kaçarak -50 cezasından kaçmayı engellemek için: erken ayrılma da normal elenme gibi
+    // ekonomiye tabi (0 kill'de gerçek kayıp, 1+ kill'de elde var sıfır) — finishSiegeGame ile tutarlı.
     if (siegeHostRef.current) { if (siegeGameRoomRef.current) remove(ref(db, `siege_rooms/${siegeGameRoomRef.current}`)).catch(() => {}); }
     else if (authUid && siegeGameRoomRef.current) remove(ref(db, `siege_rooms/${siegeGameRoomRef.current}/present/${authUid}`)).catch(() => {});
-    if (authUid && myProfile) { const p = myProfile; const patch = { totalGames: (p.totalGames || 0) + 1, losses: (p.losses || 0) + 1, recentResults: pushRecent(p.recentResults, false), lastGameAt: Date.now() }; update(ref(db, `profiles/${authUid}`), patch).catch(() => {}); setMyProfile(prev => prev ? { ...prev, ...patch } : prev); bumpAch(a => { a.winStreak = 0; a.lossStreak = (a.lossStreak || 0) + 1; }); bumpDaily(d => { d.gamesPlayed += 1; }); }
+    if (authUid && myProfile) {
+      const p = myProfile;
+      const netZero = siegeMyKillsRef.current >= 1;
+      const gold = netZero ? 0 : -SIEGE_LOSS_GOLD;
+      const xp = netZero ? 0 : XP_BOT_LOSS;
+      const honor = netZero ? 0 : HONOR_LOSS_BOT;
+      const oldGold = safeGold(p.gold);
+      const newGold = Math.max(0, oldGold + gold);
+      const lvl = applyLevelCredit(p, xp);
+      const patch = { gold: newGold, totalGames: (p.totalGames || 0) + 1, losses: (p.losses || 0) + 1, recentResults: pushRecent(p.recentResults, false), lastGameAt: Date.now(), honor: migrateHonor(p) + honor, level: lvl.level, levelProgress: lvl.levelProgress };
+      update(ref(db, `profiles/${authUid}`), patch).catch(() => {});
+      setMyProfile(prev => prev ? { ...prev, ...patch } : prev);
+      bumpAch(a => { a.winStreak = 0; a.lossStreak = (a.lossStreak || 0) + 1; });
+      bumpDaily(d => { d.gamesPlayed += 1; });
+      if (gold < 0) setGoldChange({ amount: gold, refund: false });
+    }
     resetGame();
   };
 
@@ -5347,7 +5416,7 @@ export default function Game() {
           const ships = {};
           [0, 1, 2].forEach(i => { if (seatBotRef.current[i]) { const bp = botPlaceShips(); const sd = {}; bp.ships.forEach((s, k) => sd[k] = { id: s.id, cells: s.cells }); ships[i] = sd; } else ships[i] = room.ships[String(i)]; });
           const received = { 0: {}, 1: {}, 2: {} }; // seyrek harita: "r_c" -> hit/miss (Firebase-güvenli, null dizi yok)
-          const game = { alive: [true, true, true], targetOf: [1, 2, 0], turnIdx: 0, received, clocks: [CLOCK_SECONDS, CLOCK_SECONDS, CLOCK_SECONDS], names: siegeAbsNamesRef.current, ships, seatBot: seatBotRef.current, seq: 0 };
+          const game = { alive: [true, true, true], targetOf: [1, 2, 0], turnIdx: 0, received, clocks: [CLOCK_SECONDS, CLOCK_SECONDS, CLOCK_SECONDS], names: siegeAbsNamesRef.current, ships, seatBot: seatBotRef.current, seq: 0, kills: { 0: 0, 1: 0, 2: 0 } };
           hostGameRef.current = game; set(ref(db, `siege_rooms/${rid}/game`), game).catch(() => {}); hostStartLoop();
         }
         return;
@@ -5372,7 +5441,7 @@ export default function Game() {
         if (room.game.gameOver && !siegeResultDoneRef.current) {
           siegeResultDoneRef.current = true;
           if (hostTickRef.current) { clearInterval(hostTickRef.current); hostTickRef.current = null; }
-          finishSiegeGame(room.game.gameOver.winnerSeat === mySeat);
+          finishSiegeGame(room.game.gameOver.winnerSeat === mySeat, room.game.kills?.[mySeat] || 0);
           if (isHost) setTimeout(() => remove(ref(db, `siege_rooms/${rid}`)).catch(() => {}), 60000);
         }
       }
@@ -5620,7 +5689,7 @@ export default function Game() {
       const rMult1 = revengeMult(safeAch(myProfile?.ach).lossStreak);
       // Arena aramasında insan bulunamayıp bota düştüysek (7sn) — arenanın kendi galibiyet ödülü geçerli,
       // online rakip bulunmuş gibi aynı ekonomi (streak çarpanı yok, arena zaten kendi ödülünü veriyor).
-      const botWinGold = botArenaRef.current ? Math.round(botArenaRef.current.winGold * rMult1) : Math.round(50 * streakMult * rMult1); // 25→50: aktif oyun her zaman pasiften iyi öder
+      const botWinGold = botArenaRef.current ? Math.round(botArenaRef.current.winGold * rMult1) : Math.round(CLASSIC_WIN_GOLD * streakMult * rMult1); // aktif oyun her zaman pasiften iyi öder
       if (rMult1 > 1) setRevengeResult({ mult: rMult1 });
       if (authUid && myProfile && !isOnboarding) {
         const lvl1 = applyLevelCredit(myProfile, XP_BOT_WIN * rMult1);
@@ -5727,7 +5796,9 @@ export default function Game() {
     if (!authUid) { setMessage(L(appLang,"msgConnecting")); return; }
     const arena = arenaOverride || null;
     lastQuickMatchArenaRef.current = arena;
-    if (arena) { const ok = await chargeArenaEntry(arena); if (!ok) { setMessage(L(appLang,"msgNotEnoughGold")); return; } }
+    // Normal "OYNA" (arenasız) da artık Salvo mantığıyla ante ödüyor — güvenli/risksiz mod kalmadı.
+    const ok = await chargeArenaEntry(arena || { entryFee: CLASSIC_ANTE });
+    if (!ok) { setMessage(L(appLang,"msgNotEnoughGold")); return; }
     setMessage("");
     quickMatchCancelledRef.current = false;
     setMatchmaking(true);
@@ -6488,7 +6559,7 @@ export default function Game() {
             <span style={{ flex:1,textAlign:"left",fontWeight:700,fontSize:13,letterSpacing:1.5,color:claimable?"#f0d79a":"#A9BCC9",textTransform:"uppercase" }}>{L(appLang,"achBtn")}</span>
             {claimable
               ? <span style={{ fontSize:10,fontWeight:900,color:"#1a1206",background:BRONZE,borderRadius:8,padding:"3px 9px",letterSpacing:1 }}>{L(appLang,"achClaim")}!</span>
-              : aSet && <span style={{ fontSize:11,fontFamily:mono,color:"#54697a" }}>{aDone}/10</span>}
+              : aSet && <span style={{ fontSize:11,fontFamily:mono,color:"#54697a" }}>{aDone}/{aSet.missions.length}</span>}
             <span style={{ color:"#54697a",fontSize:12 }}>›</span>
           </RippleButton>
         );
