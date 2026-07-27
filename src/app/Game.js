@@ -417,6 +417,25 @@ function requestImmersive() {
   } catch (e) {}
 }
 
+// Arkadaşını davet et — cihazda destekleniyorsa yerli paylaşım sayfasını açar (WhatsApp dahil
+// tüm uygulamalar listede çıkar), desteklenmiyorsa (masaüstü Safari/Firefox gibi) doğrudan
+// WhatsApp web linkine düşer. Kullanıcı paylaşımı iptal ederse (AbortError) sessizce çıkar.
+const GAME_SHARE_URL = "https://amiral-batti-topaz.vercel.app/";
+async function shareGame(lang = "tr") {
+  const text = L(lang, "inviteShareText");
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: "Amiral Battı", text, url: GAME_SHARE_URL });
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === "AbortError") return; // kullanıcı vazgeçti, sorun yok
+  }
+  try {
+    window.open(`https://wa.me/?text=${encodeURIComponent(`${text} ${GAME_SHARE_URL}`)}`, "_blank");
+  } catch (e) {}
+}
+
 // === LOKALİZASYON ===
 const TRANSLATIONS = {
   tr: {
@@ -442,6 +461,7 @@ const TRANSLATIONS = {
     noSailorsHint: "Hızlı Oyun ile otomatik eşleşebilirsin", sailorsActive: "DENİZCİ AKTİF", duel: "⚓ DÜELLO", waitingBadge: "BEKLENİYOR", backBtn: "GERİ DÖN",
     victory: "ZAFER", defeat: "BOZGUN", newBattle: "YENİ SAVAŞ", chestProgress: "SANDIK İLERLEMESİ",
     missLabel: "KARAVANA", goldLabel: "ALTIN", levelLabel: "SEVİYE", battleMap: "SAVAŞ HARİTASI", homeBtn: "ANA SAYFA",
+    inviteBtn: "ARKADAŞINI DAVET ET", inviteShareText: "Amiral Battı'nda benimle dövüşür müsün? ⚓ Ücretsiz, online, çok eğlenceli:",
     oppField: "RAKİP SAHA", myField: "BENİM SAHAM", oppShips: "RAKİP GEMİLER", myShips: "GEMİLERİM",
     missionsTitle: "GÖREVLER", missionsSub: "HER GÜN YENİLENİR", missionDone: "TAMAMLANDI", missionInProgress: "DEVAM EDİYOR",
     msgConnError: "Bağlantı hatası — tekrar dene", msgLoginFailed: "Giriş başarısız: ", msgPopupClosed: "Pencere kapatıldı",
@@ -515,6 +535,7 @@ const TRANSLATIONS = {
     noSailorsHint: "You can auto-match with Quick Play", sailorsActive: "SAILORS ONLINE", duel: "⚓ DUEL", waitingBadge: "WAITING", backBtn: "GO BACK",
     victory: "VICTORY", defeat: "DEFEAT", newBattle: "NEW BATTLE", chestProgress: "CHEST PROGRESS",
     missLabel: "MISSES", goldLabel: "GOLD", levelLabel: "LEVEL", battleMap: "BATTLE MAP", homeBtn: "HOME",
+    inviteBtn: "INVITE A FRIEND", inviteShareText: "Want to battle me on Amiral Battı? ⚓ Free, online, a lot of fun:",
     oppField: "ENEMY FIELD", myField: "MY FIELD", oppShips: "ENEMY SHIPS", myShips: "MY SHIPS",
     missionsTitle: "MISSIONS", missionsSub: "RESETS DAILY", missionDone: "COMPLETED", missionInProgress: "IN PROGRESS",
     msgConnError: "Connection error — try again", msgLoginFailed: "Login failed: ", msgPopupClosed: "Window was closed",
@@ -658,7 +679,7 @@ const ACH_SETS = [
       { icon:"💥", text:"Tek turda 3 isabet yap",         textEn:"Land 3 hits in one turn",     check:(p,a)=>a.tripleTurn>=1 },
       { icon:"⚑", text:"Toplam 20 kare işaretle",        textEn:"Mark 20 cells",               check:(p,a)=>a.marks>=20 },
       { icon:"🌊", text:"Toplam 5 oyun oyna",             textEn:"Play 5 games",                check:(p,a)=>(p.totalGames||0)>=5 },
-      { icon:"💰", text:"Günlük sandığı 3 kez aç",        textEn:"Open the daily chest 3 times",check:(p,a)=>a.chest>=3 },
+      { icon:"💰", text:"Günlük sandığı aç",               textEn:"Open the daily chest",        check:(p,a)=>a.chest>=1 },
       { icon:"🎖", text:"Seviye 2'ye ulaş",               textEn:"Reach level 2",               check:(p,a)=>(p.level||0)>=2 },
     ] },
   { id:"s2", name:"DENİZCİ", nameEn:"SAILOR", reward:1500,
@@ -1900,7 +1921,13 @@ const FleetBar = memo(function FleetBar({ title, ships, hitCells, color, lang = 
             layout = cells.map(([r, c]) => ({ r: r - minR, c: c - minC }));
             const maxR = Math.max(...layout.map(p => p.r)), maxC = Math.max(...layout.map(p => p.c));
             gw = (maxC + 1) * S + maxC * G; gh = (maxR + 1) * S + maxR * G;
-            hitFor = cellHit;
+            // TERSANE: geminin GERÇEK şekli görünür (hangi gemi olduğu belli) ama hangi
+            // HÜCRESİNE isabet aldığı sızdırılmaz — standart gemiler gibi en üst-soldan
+            // itibaren okuma sırasına göre doldurulur, rakip tahmin etmek zorunda kalır.
+            const order = layout.map((_, idx) => idx).sort((a, b) => (layout[a].r - layout[b].r) || (layout[a].c - layout[b].c));
+            const rank = new Array(layout.length);
+            order.forEach((origIdx, rankIdx) => { rank[origIdx] = rankIdx; });
+            hitFor = layout.map((_, idx) => rank[idx] < hits);
           } else {
             layout = isAdmiral
               ? [{ r:0, c:0 }, { r:0, c:1 }, { r:0, c:2 }, { r:1, c:1 }]
@@ -2331,6 +2358,7 @@ function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoar
             {onShowRewards && <button onClick={onShowRewards} style={{ flex:1,padding:"11px 12px",background:"linear-gradient(135deg,rgba(255,215,0,0.12),rgba(255,159,67,0.05))",color:t.gold,border:`2px solid rgba(255,215,0,0.4)`,borderRadius:12,fontSize:11,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}>🏆 {L(lang,"goodsBadge")}</button>}
             <button onClick={onViewBoard} style={{ flex:1,padding:"11px 12px",background:"transparent",color:t.accent,border:`2px solid rgba(0,229,255,0.25)`,borderRadius:12,fontSize:11,fontWeight:800,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>{L(lang,"battleMap")}</button>
           </div>
+          <button onClick={() => shareGame(lang)} style={{ padding:"12px 20px",background:"linear-gradient(135deg,rgba(37,211,102,0.16),rgba(18,140,62,0.10))",color:"#25d366",border:"2px solid rgba(37,211,102,0.45)",borderRadius:12,fontSize:12,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}>📤 {L(lang,"inviteBtn")}</button>
           <button onClick={onHome} style={{ padding:"12px 20px",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:10,fontSize:12,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior,opacity:0.9 }}>🏠 {L(lang,"homeBtn")}</button>
         </div>}
       </div>
@@ -4191,6 +4219,7 @@ export default function Game() {
   const renderTopBar = () => (
     <>
       <div style={{ position:"fixed",top:"calc(10px + env(safe-area-inset-top, 0px))",right:14,zIndex:9500,display:"flex",alignItems:"center",gap:6 }}>
+        {phase === "lobby" && <button onClick={()=>{ sfx.init(); sfx.play('click'); shareGame(appLang); }} title={L(appLang,"inviteBtn")} style={{ width:26,height:26,borderRadius:7,background:"rgba(37,211,102,0.10)",border:"1px solid rgba(37,211,102,0.4)",fontSize:12,cursor:"pointer",color:"#25d366",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>📤</button>}
         {phase === "lobby" && <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowLeaderboard(true); }} title={L(appLang,"leaderboardTitle")} style={{ width:26,height:26,borderRadius:7,background:"rgba(255,215,0,0.10)",border:"1px solid rgba(255,215,0,0.4)",fontSize:12,cursor:"pointer",color:t.gold,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>🏆</button>}
         {phase === "siege" && <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowSurrenderConfirm(true); }} title={L(appLang,"leaveGame")} style={{ width:26,height:26,borderRadius:7,background:"rgba(255,71,87,0.12)",border:`1px solid ${t.hit}`,fontSize:12,cursor:"pointer",color:t.hit,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>⚑</button>}
         <button onClick={()=>{ sfx.init(); sfx.play('click'); toggleMusic(); }} title={L(appLang,"musicTooltip")} style={{ width:26,height:26,borderRadius:7,background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,fontSize:12,cursor:"pointer",color:musicOn?t.accent:t.textDim,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>{musicOn?"🎵":"🔇"}</button>
@@ -6529,7 +6558,7 @@ export default function Game() {
         </div>
         {/* Rastgele yerleştir */}
         {!placementConfirmed && <button onClick={autoPlaceShips} style={{ width:"100%",maxWidth:400,padding:"11px 0",marginBottom:6,background:"linear-gradient(180deg,#20313f,#132030)",color:"#A9BCC9",border:"1px solid #26394b",borderRadius:12,fontSize:15,fontWeight:800,cursor:"pointer",fontFamily:warrior,letterSpacing:3,display:"flex",alignItems:"center",justifyContent:"center",gap:10,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 0 rgba(0,0,0,0.4)" }}>
-          🎲 {L(appLang,"randomPlaceBtn")}
+          🎲 {L(appLang,"randomPlaceBtn")} 🎲
         </button>}
         {/* Mobile-friendly rotate and undo buttons - large touch targets */}
         <div style={{ display:"flex",gap:10,marginBottom:6,width:"100%",maxWidth:400,justifyContent:"center" }}>
@@ -6677,6 +6706,7 @@ export default function Game() {
         <span>⚔ {appLang==="en"?"NEW GAME":"YENİ OYUN"}</span>
         <span style={{ fontSize:9,fontWeight:700,letterSpacing:1,opacity:0.75 }}>{appLang==="en"?"Entry":"Giriş"} {SALVO_ANTE} 💰</span>
       </button>
+      <button onClick={() => shareGame(appLang)} style={{ marginTop:10,padding:"11px 28px",background:"linear-gradient(135deg,rgba(37,211,102,0.16),rgba(18,140,62,0.10))",color:"#25d366",border:"2px solid rgba(37,211,102,0.45)",borderRadius:10,fontSize:12,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}>📤 {L(appLang,"inviteBtn")}</button>
       <button onClick={resetGame} style={{ marginTop:10,marginBottom:24,padding:"10px 28px",background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:10,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"backBtn")}</button>
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} bottomPct={58} />}
     </div>);
