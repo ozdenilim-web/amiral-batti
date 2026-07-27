@@ -332,8 +332,35 @@ function shiftIntoBounds(cells) {
   return { cells: cells.map(([r, c]) => [r + dr, c + dc]), dr, dc };
 }
 
-function botChooseShots(attackOverlay, lastHits, shotCount) {
-  return botChooseShotsInternal(attackOverlay, lastHits, shotCount, false);
+function botChooseShots(attackOverlay, lastHits, shotCount, smartProb) {
+  return botChooseShotsInternal(attackOverlay, lastHits, shotCount, false, smartProb);
+}
+// Bilinen bir isabet çiftinin uzattığı hattı bulur (yatay/dikey), o hattın iki ucundaki boş
+// hücreleri döndürür. Bu HER ZAMAN devreye girer (zorluktan bağımsız) — bir gemiyi bulduktan
+// sonra rastgele çevresine ateş etmek yerine hattı takip etmek temel Amiral Battı stratejisidir,
+// "zorluk ayarı" değil, aptal davranışı düzeltmektir.
+function botFindDirectionalTargets(attackOverlay) {
+  const rows = attackOverlay.length, cols = attackOverlay[0]?.length || 0;
+  const targets = []; const seen = new Set();
+  const push = (r, c) => { if (r >= 0 && r < rows && c >= 0 && c < cols && !attackOverlay[r][c]) { const k = r + "_" + c; if (!seen.has(k)) { seen.add(k); targets.push([r, c]); } } };
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (attackOverlay[r][c] !== "hit") continue;
+      if (c + 1 < cols && attackOverlay[r][c + 1] === "hit") {
+        let cl = c, cr = c + 1;
+        while (cl - 1 >= 0 && attackOverlay[r][cl - 1] === "hit") cl--;
+        while (cr + 1 < cols && attackOverlay[r][cr + 1] === "hit") cr++;
+        push(r, cl - 1); push(r, cr + 1);
+      }
+      if (r + 1 < rows && attackOverlay[r + 1][c] === "hit") {
+        let rt = r, rb = r + 1;
+        while (rt - 1 >= 0 && attackOverlay[rt - 1][c] === "hit") rt--;
+        while (rb + 1 < rows && attackOverlay[rb + 1][c] === "hit") rb++;
+        push(rt - 1, c); push(rb + 1, c);
+      }
+    }
+  }
+  return targets;
 }
 function botChooseShotsOnboarding(attackOverlay, defBoard, shotCount) {
   // Onboarding bot: ALWAYS miss — only picks empty water cells
@@ -351,33 +378,30 @@ function botChooseShotsOnboarding(attackOverlay, defBoard, shotCount) {
   }
   return shots;
 }
-function botChooseShotsInternal(attackOverlay, lastHits, shotCount, alwaysMiss) {
-  const available = [];
-  const priority = [];
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      if (!attackOverlay[r][c]) {
+function botChooseShotsInternal(attackOverlay, lastHits, shotCount, alwaysMiss, smartProb = 0.6) {
+  const shots = [];
+  const isTaken = (r, c) => attackOverlay[r][c] || shots.some(s => s[0] === r && s[1] === c);
+  for (let i = 0; i < shotCount; i++) {
+    const available = [];
+    const priority = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (isTaken(r, c)) continue;
         available.push([r, c]);
         // Check if adjacent to a hit (hunt mode)
         const adjHit = [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].some(([ar,ac]) => ar >= 0 && ar < ROWS && ac >= 0 && ac < COLS && attackOverlay[ar][ac] === "hit");
         if (adjHit) priority.push([r, c]);
       }
     }
-  }
-  const shots = [];
-  const pool = priority.length > 0 ? priority : available;
-  for (let i = 0; i < shotCount && pool.length > 0; i++) {
-    // Medium difficulty: 60% smart, 40% random
-    let usePool = pool;
-    if (priority.length > 0 && Math.random() < 0.4) usePool = available;
-    const idx = Math.floor(Math.random() * usePool.length);
-    const shot = usePool.splice(idx, 1)[0];
-    // Also remove from the other pool
-    const aidx = available.findIndex(([r,c]) => r === shot[0] && c === shot[1]);
-    if (aidx !== -1) available.splice(aidx, 1);
-    const pidx = priority.findIndex(([r,c]) => r === shot[0] && c === shot[1]);
-    if (pidx !== -1) priority.splice(pidx, 1);
-    shots.push(shot);
+    // Bilinen bir hat varsa (iki bitişik isabet) HER ZAMAN onu takip et — zorluktan bağımsız,
+    // temel strateji. Yoksa isabete bitişik hücreler (avlama), o da yoksa rastgele arama.
+    const directional = botFindDirectionalTargets(attackOverlay).filter(([r, c]) => !isTaken(r, c));
+    let pool;
+    if (directional.length > 0) pool = directional;
+    else if (priority.length > 0) pool = Math.random() < smartProb ? priority : available;
+    else pool = available;
+    if (pool.length === 0) break;
+    shots.push(pool[Math.floor(Math.random() * pool.length)]);
   }
   return shots;
 }
@@ -5318,13 +5342,21 @@ export default function Game() {
     setPhase("onboarding_intro");
   };
 
+  // Adaptif bot zorluğu: oyuncu seri yapıyorsa (winStreak≥3) veya kazanma oranı yüksekse (≥%65)
+  // bot çok daha akıllı ateş eder ve arasıra kazanır. Yeni/zayıf oyuncuya karşı davranış
+  // aynen korunur (%60 akıllı atış) — bota karşı herkes eşit ezilmesin/zorlanmasın diye.
+  const botSmartProb = () => {
+    const a = safeAch(myProfile?.ach);
+    const skilled = (a.winStreak || 0) >= 3 || wr(myProfile) >= 65;
+    return skilled ? 0.88 : 0.6;
+  };
   const botFireShots = () => {
     // Önce savunma platformuna geç, 1 sn sonra atışlar düşsün
     setActiveBoard("defense");
     setTimeout(() => botFireShotsImpl(), 1000);
   };
   const botFireShotsImpl = () => {
-    const shots = isOnboarding ? botChooseShotsOnboarding(botAttackOverlay, defenseBoard, SHOTS_PER_TURN) : botChooseShots(botAttackOverlay, [], SHOTS_PER_TURN);
+    const shots = isOnboarding ? botChooseShotsOnboarding(botAttackOverlay, defenseBoard, SHOTS_PER_TURN) : botChooseShots(botAttackOverlay, [], SHOTS_PER_TURN, botSmartProb());
     const newBotOverlay = botAttackOverlay.map(row => [...row]);
     const newDefOverlay = defenseOverlay.map(row => [...row]);
     const newDefHit = defHitMap.map(row => [...row]);
