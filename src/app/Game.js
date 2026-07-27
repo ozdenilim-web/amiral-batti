@@ -1452,7 +1452,7 @@ function StatBox({ label, value, color }) {
   </div>);
 }
 
-const PRIVACY_TEXT = `GİZLİLİK POLİTİKASI
+export const PRIVACY_TEXT = `GİZLİLİK POLİTİKASI
 
 Son güncelleme: Temmuz 2026
 
@@ -1487,7 +1487,7 @@ KULLANIM KOŞULLARI
 
 İletişim: ozdenilim@gmail.com`;
 
-const PRIVACY_TEXT_EN = `PRIVACY POLICY
+export const PRIVACY_TEXT_EN = `PRIVACY POLICY
 
 Last updated: July 2026
 
