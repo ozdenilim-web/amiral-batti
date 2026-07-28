@@ -6982,21 +6982,24 @@ export default function Game() {
           {[0,1,2,3,4,5,6].map(i => (
             <span key={i} style={{ position:"absolute",bottom:"22%",left:`${12 + i*12}%`,width:5+(i%3)*4,height:5+(i%3)*4,borderRadius:"50%",background:"rgba(160,225,255,0.35)",border:"1px solid rgba(200,240,255,0.5)",animation:`sailRise ${3.2+(i%4)*0.7}s ease-in ${i*0.45}s infinite`,pointerEvents:"none" }} />
           ))}
-          <div onClick={e=>e.stopPropagation()} style={{ position:"relative",width:"min(84vw, 320px)",aspectRatio:"1 / 1",borderRadius:"50%",
-            background:"radial-gradient(circle at 32% 26%, rgba(255,255,255,0.22) 0%, rgba(120,210,255,0.16) 22%, rgba(10,40,70,0.96) 55%, rgba(4,14,30,0.99) 100%)",
+          {/* Sabit genişlikli, taşmayan kart. Eskiden aspectRatio ile daire + yüzde
+              padding kullanılıyordu; metin sığmayınca kutu dikey şişip masaüstünde
+              dev bir elipse dönüşüyordu. Baloncuk görünümü korundu, ölçü sabitlendi. */}
+          <div onClick={e=>e.stopPropagation()} style={{ position:"relative",width:"min(90vw, 330px)",maxHeight:"86vh",overflowY:"auto",boxSizing:"border-box",borderRadius:26,
+            background:"radial-gradient(circle at 32% 18%, rgba(255,255,255,0.22) 0%, rgba(120,210,255,0.16) 26%, rgba(10,40,70,0.96) 62%, rgba(4,14,30,0.99) 100%)",
             border:"2px solid rgba(150,230,255,0.55)",
             boxShadow:"0 0 0 6px rgba(0,229,255,0.07), 0 0 50px rgba(0,200,255,0.35), 0 26px 60px rgba(0,0,0,0.75), inset 0 6px 24px rgba(255,255,255,0.18), inset 0 -14px 34px rgba(0,60,110,0.7)",
-            display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"12% 13%",
+            display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"26px 24px 22px",
             animation:"sailPop 0.85s cubic-bezier(0.34,1.56,0.64,1)" }}>
             {/* Baloncuk parlaması */}
-            <span style={{ position:"absolute",top:"13%",left:"20%",width:"26%",height:"16%",borderRadius:"50%",background:"radial-gradient(ellipse, rgba(255,255,255,0.5) 0%, transparent 70%)",pointerEvents:"none",transform:"rotate(-25deg)" }} />
-            <span style={{ position:"absolute",inset:-2,borderRadius:"50%",border:"2px solid rgba(0,229,255,0.4)",animation:"sailRing 2.6s ease-out infinite",pointerEvents:"none" }} />
-            <button onClick={() => setSailNotice(false)} style={{ position:"absolute",top:"7%",right:"7%",width:30,height:30,borderRadius:"50%",background:"rgba(0,20,40,0.75)",border:"1.5px solid rgba(150,230,255,0.5)",color:"#bfe9ff",fontSize:14,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1 }}>✕</button>
-            <div style={{ fontSize:"clamp(40px, 15vw, 54px)",lineHeight:1,marginBottom:6,animation:"sailBob 3.4s ease-in-out infinite",filter:"drop-shadow(0 6px 12px rgba(0,0,0,0.55))" }}>⛵</div>
-            <div style={{ fontSize:"clamp(15px, 5vw, 19px)",fontWeight:900,color:"#7fe9ff",fontFamily:warrior,letterSpacing:2,textShadow:"0 0 18px rgba(0,229,255,0.8), 0 2px 4px rgba(0,0,0,0.7)",marginBottom:8 }}>{L(appLang,"sailTitle")}</div>
-            <div style={{ fontSize:"clamp(10px, 3.2vw, 12px)",color:"#dff3ff",fontFamily:mono,lineHeight:1.55,marginBottom:6 }}>{L(appLang,"sailBody")}</div>
-            <div style={{ fontSize:"clamp(9px, 2.9vw, 11px)",color:t.gold,fontFamily:mono,lineHeight:1.45,fontStyle:"italic",marginBottom:12,textShadow:"0 0 10px rgba(255,215,0,0.4)" }}>⚓ {L(appLang,"sailBody2")}</div>
-            <button onClick={() => setSailNotice(false)} style={{ padding:"11px 22px",background:"linear-gradient(135deg,#22d8ff,#0891b2)",color:"#04202e",border:"1.5px solid rgba(255,255,255,0.4)",borderRadius:22,fontSize:"clamp(11px, 3.4vw, 13px)",fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 22px rgba(0,229,255,0.6), 0 5px 14px rgba(0,0,0,0.5)",whiteSpace:"nowrap" }}>{L(appLang,"sailOk")}</button>
+            <span style={{ position:"absolute",top:14,left:26,width:74,height:34,borderRadius:"50%",background:"radial-gradient(ellipse, rgba(255,255,255,0.45) 0%, transparent 70%)",pointerEvents:"none",transform:"rotate(-22deg)" }} />
+            <span style={{ position:"absolute",inset:-2,borderRadius:28,border:"2px solid rgba(0,229,255,0.4)",animation:"sailRing 2.6s ease-out infinite",pointerEvents:"none" }} />
+            <button onClick={() => setSailNotice(false)} style={{ position:"absolute",top:10,right:10,width:30,height:30,borderRadius:"50%",background:"rgba(0,20,40,0.75)",border:"1.5px solid rgba(150,230,255,0.5)",color:"#bfe9ff",fontSize:14,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1 }}>✕</button>
+            <div style={{ fontSize:52,lineHeight:1,marginBottom:8,animation:"sailBob 3.4s ease-in-out infinite",filter:"drop-shadow(0 6px 12px rgba(0,0,0,0.55))" }}>⛵</div>
+            <div style={{ fontSize:19,fontWeight:900,color:"#7fe9ff",fontFamily:warrior,letterSpacing:2,textShadow:"0 0 18px rgba(0,229,255,0.8), 0 2px 4px rgba(0,0,0,0.7)",marginBottom:10 }}>{L(appLang,"sailTitle")}</div>
+            <div style={{ fontSize:12.5,color:"#dff3ff",fontFamily:mono,lineHeight:1.6,marginBottom:8 }}>{L(appLang,"sailBody")}</div>
+            <div style={{ fontSize:11.5,color:t.gold,fontFamily:mono,lineHeight:1.5,fontStyle:"italic",marginBottom:16,textShadow:"0 0 10px rgba(255,215,0,0.4)" }}>⚓ {L(appLang,"sailBody2")}</div>
+            <button onClick={() => setSailNotice(false)} style={{ padding:"12px 26px",background:"linear-gradient(135deg,#22d8ff,#0891b2)",color:"#04202e",border:"1.5px solid rgba(255,255,255,0.4)",borderRadius:22,fontSize:13,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 22px rgba(0,229,255,0.6), 0 5px 14px rgba(0,0,0,0.5)",whiteSpace:"nowrap" }}>{L(appLang,"sailOk")}</button>
           </div>
         </div>
       )}
