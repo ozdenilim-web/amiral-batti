@@ -1846,6 +1846,7 @@ const ANIMS = `
 @keyframes muzzleFlash{0%{opacity:0;transform:scale(0.3)}15%{opacity:1;transform:scale(1.3)}45%{opacity:0.4;transform:scale(1.6)}100%{opacity:0;transform:scale(2)}}
 @keyframes critBurstPop{0%{opacity:0;transform:scale(0.2) rotate(-8deg)}35%{opacity:1;transform:scale(1.25) rotate(3deg)}55%{transform:scale(1) rotate(0deg)}100%{opacity:0;transform:scale(1.05) translateY(-14px)}}
 @keyframes needleTick{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
+@keyframes chestJolt{0%{transform:scale(1) rotate(0deg)}20%{transform:scale(0.9) rotate(-4deg)}45%{transform:scale(1.12) rotate(3deg)}70%{transform:scale(0.97) rotate(-1deg)}100%{transform:scale(1) rotate(0deg)}}
 
 /* ═══════════════════════════════════════════════════════════════════
    MOBİL PERFORMANS KATMANI — en sonda tanımlı, öncekileri EZER.
@@ -2275,8 +2276,8 @@ function DailyChestFab({ onOpen, lang = "tr" }) {
   </button>);
 }
 function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
-  // "Topla Patlat" — pasif tık yerine basılı-tut şarj + zamanlama beceri mekaniği.
-  // idle: bekleme | charging: basılı, ibre salınıyor | fired: top ateşlendi (kısa geçiş) | opened: ödül ekranı
+  // "Topla Patlat" — pasif tık yerine, sandığın kendisiyle bütünleşik bir top arabası:
+  // idle: bekleme | charging: basılı, ibre gülle arabasında salınıyor | firing: ateşlendi, sandık isabet aldı | opened: ödül ekranı
   const [phase, setPhase] = useState("idle");
   const [meter, setMeter] = useState(0);
   const [isCrit, setIsCrit] = useState(false);
@@ -2311,41 +2312,58 @@ function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
     const pct = crit ? Math.round(10 + Math.random() * 10) : 0;
     const amount = crit ? Math.round(DAILY_CHEST_GOLD * (1 + pct / 100)) : DAILY_CHEST_GOLD;
     setIsCrit(crit); setBonusPct(pct); setRewardAmount(amount);
-    setPhase("fired");
-    sfx.play('sunk');
+    setPhase("firing");
+    sfx.play('hit'); // namlu patlaması
+    setTimeout(() => sfx.play('sunk'), 120); // isabet — sandık aldı
     setTimeout(() => {
       setPhase("opened"); setShowCoins(true);
       sfx.play('chest');
       setTimeout(() => sfx.play('gold'), 250);
-    }, 550);
+    }, 700);
   };
 
   const coins = Array.from({ length: 12 }, (_, i) => ({ id: i, delay: i * 90, dx: (Math.random() - 0.5) * 120 }));
   const claim = () => onClaim(rewardAmount);
   return (<div style={{ position:"fixed",inset:0,overflow:"hidden",background:"radial-gradient(ellipse at 50% 40%, rgba(255,214,0,0.12) 0%, rgba(0,0,0,0.88) 75%)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(6px)" }} onClick={phase === "opened" ? claim : (phase === "idle" ? onClose : undefined)}>
-    <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, rgba(20,26,52,0.99) 0%, rgba(10,16,32,0.99) 60%, rgba(18,16,30,0.99) 100%)",border:"3px solid #ffe94d",outline:"2px solid rgba(255,233,77,0.65)",outlineOffset:6,borderRadius:22,padding:"38px 42px",textAlign:"center",maxWidth:340,width:"90%",boxShadow:"0 0 40px #ffe94d, 0 0 90px rgba(255,233,77,0.75), 0 0 150px rgba(255,233,77,0.4), 0 24px 70px rgba(0,0,0,0.6)",overflow:"visible",animation: phase === "fired" ? "cannonRecoil 0.55s ease-out" : "chestGlow 1.6s ease-in-out infinite" }}>
+    <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, rgba(20,26,52,0.99) 0%, rgba(10,16,32,0.99) 60%, rgba(18,16,30,0.99) 100%)",border:"3px solid #ffe94d",outline:"2px solid rgba(255,233,77,0.65)",outlineOffset:6,borderRadius:22,padding:"38px 42px",textAlign:"center",maxWidth:340,width:"90%",boxShadow:"0 0 40px #ffe94d, 0 0 90px rgba(255,233,77,0.75), 0 0 150px rgba(255,233,77,0.4), 0 24px 70px rgba(0,0,0,0.6)",overflow:"visible",animation: phase === "firing" ? "cannonRecoil 0.5s ease-out" : "chestGlow 1.6s ease-in-out infinite" }}>
       <button onClick={phase === "opened" ? claim : onClose} title={L(lang,"backBtn")} style={{ position:"absolute",top:-14,right:-14,width:34,height:34,borderRadius:"50%",background:"#0c1529",border:"2px solid #ffe94d",color:"#ffe94d",fontSize:16,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,boxShadow:"0 0 14px rgba(255,233,77,0.8)",zIndex:2 }}>✕</button>
 
+      {phase !== "opened" && (
+        <div style={{ position:"relative",width:116,height:116,margin:"0 auto 8px" }}>
+          <img src="/img/chest.png" alt="" draggable={false} style={{ width:"100%",height:"100%",objectFit:"contain",userSelect:"none",animation: phase === "firing" ? "chestJolt 0.5s ease-out" : phase === "charging" ? "cannonBarrelPulse 0.5s ease-in-out infinite" : "chestWiggle 2s ease-in-out infinite",filter:"drop-shadow(0 0 30px #ffe94d) drop-shadow(0 0 60px rgba(255,233,77,0.85)) drop-shadow(0 0 100px rgba(255,233,77,0.5))" }} />
+          {phase === "firing" && (<>
+            <span style={{ position:"absolute",inset:"-26%",borderRadius:"50%",border:"2px solid rgba(255,190,80,0.85)",animation:"explodeWave 0.6s ease-out 0.12s both",pointerEvents:"none" }} />
+            <span style={{ position:"absolute",inset:0,borderRadius:"50%",background:"radial-gradient(circle at 50% 50%, rgba(255,235,120,0.95) 0%, rgba(255,150,30,0.85) 30%, rgba(220,50,10,0.55) 55%, transparent 75%)",animation:"explodeCore 0.5s ease-in-out 0.12s 2",pointerEvents:"none" }} />
+            {[0,1,2].map(i => (<span key={i} style={{ position:"absolute",bottom:"4%",left:`${32+i*18}%`,fontSize:15,opacity:0,filter:"grayscale(1) brightness(1.3)",animation:`smokeRise ${1.1+i*0.25}s ease-in ${0.2+i*0.12}s forwards`,pointerEvents:"none" }}>💨</span>))}
+          </>)}
+        </div>
+      )}
+
       {(phase === "idle" || phase === "charging") && (<>
-        <img src="/img/chest.png" alt="" draggable={false} style={{ width:140,height:140,objectFit:"contain",marginBottom:12,userSelect:"none",animation: phase === "charging" ? "cannonBarrelPulse 0.5s ease-in-out infinite" : "chestWiggle 2s ease-in-out infinite",filter:"drop-shadow(0 0 30px #ffe94d) drop-shadow(0 0 60px rgba(255,233,77,0.85)) drop-shadow(0 0 100px rgba(255,233,77,0.5))" }} />
         <div style={{ fontSize:14,fontWeight:800,color:"#ffe94d",fontFamily:mono,letterSpacing:4,marginBottom:10 }}>{L(lang,"dailyChestTooltip").toUpperCase()}</div>
         <div style={{ fontSize:14,fontWeight:600,color:t.textDim,fontFamily:mono,marginBottom:16 }}>{phase === "charging" ? L(lang,"cannonHoldLabel") : L(lang,"oneChestPerDevice")}</div>
-        <div style={{ position:"relative",height:22,borderRadius:11,background:"rgba(255,255,255,0.08)",border:"2px solid rgba(255,233,77,0.35)",marginBottom:20,overflow:"hidden" }}>
-          <div style={{ position:"absolute",left:`${SWEET_MIN}%`,width:`${SWEET_MAX - SWEET_MIN}%`,top:0,bottom:0,background:"rgba(74,222,128,0.35)",borderLeft:"1px solid rgba(74,222,128,0.7)",borderRight:"1px solid rgba(74,222,128,0.7)" }} />
-          <div style={{ position:"absolute",left:`calc(${meter}% - 3px)`,top:-3,bottom:-3,width:6,borderRadius:3,background:"#fff9c4",boxShadow:"0 0 10px #ffe94d",animation: phase === "charging" ? "needleTick 0.3s ease-in-out infinite" : "none" }} />
-        </div>
-        <button
-          onPointerDown={startCharge}
-          onPointerUp={fireCannon}
-          onPointerLeave={() => { if (phase === "charging") fireCannon(); }}
-          onPointerCancel={() => { if (phase === "charging") fireCannon(); }}
-          style={{ padding:"22px 40px",background: phase === "charging" ? "linear-gradient(135deg,#ff9f43,#ff4757 45%,#d63447)" : "linear-gradient(135deg,#fff9c4,#ffe94d 45%,#ffb300)",color: phase === "charging" ? "#fff" : "#1a1206",border:"3px solid #fff176",borderRadius:14,fontSize:26,fontWeight:900,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 30px #ffe94d, 0 0 60px rgba(255,233,77,0.6)",animation: phase === "charging" ? "none" : "chestGlow 1.5s infinite",textTransform:"uppercase",width:"100%",touchAction:"none",userSelect:"none" }}
-        >{phase === "charging" ? "💣 "+L(lang,"cannonFireBtn") : "🎯 "+L(lang,"cannonAimLabel")}</button>
       </>)}
 
-      {phase === "fired" && (
-        <div style={{ position:"relative",height:280,display:"flex",alignItems:"center",justifyContent:"center" }}>
-          <div style={{ fontSize:90,animation:"muzzleFlash 0.55s ease-out" }}>💥</div>
+      {phase !== "opened" && (
+        <div
+          onPointerDown={phase === "idle" ? startCharge : undefined}
+          onPointerUp={phase === "charging" ? fireCannon : undefined}
+          onPointerLeave={() => { if (phase === "charging") fireCannon(); }}
+          onPointerCancel={() => { if (phase === "charging") fireCannon(); }}
+          style={{ position:"relative",height:56,borderRadius:16,width:"100%",marginBottom:6,background: phase === "charging" ? "linear-gradient(180deg,#4a3018 0%,#2a1a0c 55%,#160c05 100%)" : "linear-gradient(180deg,#3a3f4b 0%,#1c1f26 55%,#0d0f13 100%)",border:"3px solid #6b5433",boxShadow:"inset 0 2px 4px rgba(255,255,255,0.15), inset 0 -6px 10px rgba(0,0,0,0.5), 0 6px 16px rgba(0,0,0,0.5)",cursor: phase === "firing" ? "default" : "pointer",touchAction:"none",userSelect:"none",overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",animation: phase === "firing" ? "cannonRecoil 0.5s ease-out" : "none" }}
+        >
+          {/* top arabası tekerlekleri */}
+          <span style={{ position:"absolute",left:8,bottom:-9,width:20,height:20,borderRadius:"50%",background:"radial-gradient(circle at 35% 30%, #8a6d40, #2a1f10 70%)",border:"2px solid #3a2c15" }} />
+          <span style={{ position:"absolute",right:8,bottom:-9,width:20,height:20,borderRadius:"50%",background:"radial-gradient(circle at 35% 30%, #8a6d40, #2a1f10 70%)",border:"2px solid #3a2c15" }} />
+          {/* isabet bölgesi */}
+          <span style={{ position:"absolute",left:`${SWEET_MIN}%`,width:`${SWEET_MAX - SWEET_MIN}%`,top:5,bottom:5,background:"rgba(74,222,128,0.4)",borderLeft:"1px solid rgba(74,222,128,0.85)",borderRight:"1px solid rgba(74,222,128,0.85)",borderRadius:6 }} />
+          {/* ibre / kıvılcım */}
+          {phase !== "firing" && <span style={{ position:"absolute",left:`calc(${meter}% - 7px)`,top:5,bottom:5,width:14,borderRadius:7,background:"radial-gradient(circle, #fff9c4 0%, #ffb300 60%, #d63447 100%)",boxShadow:"0 0 14px #ffb300, 0 0 24px rgba(255,140,20,0.7)",animation: phase === "charging" ? "needleTick 0.25s ease-in-out infinite" : "none" }} />}
+          {/* namlu ağzı flaşı */}
+          {phase === "firing" && <span style={{ position:"absolute",left:"50%",top:-8,width:32,height:32,marginLeft:-16,borderRadius:"50%",background:"radial-gradient(circle, #fff9c4 0%, #ffb300 45%, transparent 72%)",animation:"muzzleFlash 0.4s ease-out",pointerEvents:"none" }} />}
+          <span style={{ position:"relative",fontFamily:warrior,fontWeight:900,fontSize:14,letterSpacing:2,color:"#fff2c9",textShadow:"0 2px 4px rgba(0,0,0,0.8)",textTransform:"uppercase",pointerEvents:"none" }}>
+            {phase === "charging" ? L(lang,"cannonFireBtn") : phase === "firing" ? "" : L(lang,"cannonAimLabel")}
+          </span>
         </div>
       )}
 
