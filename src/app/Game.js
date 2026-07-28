@@ -7201,7 +7201,7 @@ export default function Game() {
     if (soloBurst) return (<><style>{ANIMS}</style><ResultBurst isWin={soloBurst.isWin} lang={appLang} /></>);
     if (!salvoResult) {
       return (<div style={{ ...appStyle, justifyContent:"center", alignItems:"center" }}><style>{ANIMS}</style>
-        <button onClick={resetGame} style={{ padding:"14px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:14,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"backBtn")}</button>
+        <button onClick={resetGame} style={{ padding:"14px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:14,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior }}>🏠 {L(appLang,"homeBtn")}</button>
       </div>);
     }
     const { myHits, oppHits, myOverlay, oppOverlay, won, draw } = salvoResult;
@@ -7278,7 +7278,7 @@ export default function Game() {
         <span style={{ fontSize:9,fontWeight:700,letterSpacing:1,opacity:0.75 }}>{appLang==="en"?"Entry":"Giriş"} {SALVO_ANTE} 💰</span>
       </button>
       <button onClick={() => shareGame(appLang)} style={{ marginTop:10,padding:"11px 28px",background:"linear-gradient(135deg,rgba(37,211,102,0.16),rgba(18,140,62,0.10))",color:"#25d366",border:"2px solid rgba(37,211,102,0.45)",borderRadius:10,fontSize:12,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}>📤 {L(appLang,"inviteBtn")}</button>
-      <button onClick={resetGame} style={{ marginTop:10,marginBottom:24,padding:"10px 28px",background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:10,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"backBtn")}</button>
+      <button onClick={resetGame} style={{ marginTop:10,marginBottom:24,padding:"10px 28px",background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:10,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>🏠 {L(appLang,"homeBtn")}</button>
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} bottomPct={58} targetRef={goldBadgeRef} goldTotal={safeGold(myProfile?.gold)} lang={appLang} />}
     </div>);
   }
