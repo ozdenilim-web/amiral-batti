@@ -1083,13 +1083,21 @@ class SoundEngine {
     this.currentMusic = 'victory';
     this._switchMp3('/sfx/victory.mp3', 0.55, true, 450, 700);
   }
-  // BOZGUN MÜZİĞİ — kısa bir sting (~2.7 sn) olduğu için döngüsüz.
-  // Kısa olduğundan yavaş fade ile açılırsa duyulmadan biter: neredeyse anında ve yüksek girer.
+  // BOZGUN MÜZİĞİ — kısa bir sting (~2.7 sn).
+  // Müzik kanalı (Web Audio + gain rampası) kısa dosyalarda güvenilir çalmıyordu; bu yüzden
+  // patlama sesiyle AYNI, kanıtlanmış basit yolu kullanıyor: doğrudan <audio>, tam sesle.
+  // Arkadaki savaş/lobi müziği ayrıca susturuluyor ki sting net duyulsun.
   playGameOverMusic() {
-    if (!this.ctx) this.init();
-    if (!this.ctx) return;
     this.currentMusic = 'gameover';
-    this._switchMp3('/sfx/gameover.mp3', 0.85, false, 180, 80);
+    try { this._stopMp3(); } catch (e) {}   // arka plan müziğini kes
+    try {
+      if (this._gameOverEl) { this._gameOverEl.pause(); this._gameOverEl = null; }
+      const a = new Audio('/sfx/gameover.mp3');
+      a.volume = 1.0;
+      this._gameOverEl = a;
+      const p = a.play();
+      if (p && p.catch) p.catch(() => {});
+    } catch (e) {}
   }
   playIntroFanfare() { this.ensureMusic(0.10); }
   // YERLEŞTİRME — Taktik müzik (sakin ama gerilimli)
@@ -4532,7 +4540,10 @@ export default function Game() {
     // Zafer/bozgun müziği lobide devam etmesin — lobi müziğine dön.
     // ensureMusic çalan parçayı değiştirmez (sadece sesini ayarlar), o yüzden önce durdur.
     try {
-      if (sfx.currentMusic === 'victory' || sfx.currentMusic === 'gameover') { sfx._stopMp3(); sfx.playLobbyMusic(); }
+      if (sfx.currentMusic === 'victory' || sfx.currentMusic === 'gameover') {
+        if (sfx._gameOverEl) { try { sfx._gameOverEl.pause(); } catch (e) {} sfx._gameOverEl = null; }
+        sfx._stopMp3(); sfx.playLobbyMusic();
+      }
     } catch (e) {}
     // Yerleştirme aşamasında terk edilen oda (kimse kazanmadı) → hemen sil, artık kalmasın.
     if (roomIdRef.current && phaseRef.current === "placing") {
