@@ -1275,11 +1275,15 @@ function GoldCoinAnim({ amount, onDone, bottomPct, targetRef, goldTotal, lang = 
     </div>
     <div ref={wrapRef} style={{ position:'fixed',bottom: bottomPct!=null?`${bottomPct}%`:100,left:'50%',transform:'translateX(-50%)',zIndex:10000,pointerEvents:'none' }}>
       {coins.map(c => fly ? (
-        <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, fontSize:24,
+        <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, width:30, height:30,
           ['--fly-x']:`${fly.dx + c.jx}px`, ['--fly-y']:`${fly.dy + c.jy}px`, ['--mid-x']:`${c.mx}px`, ['--mid-y']:`${c.my}px`,
-          animation:`flyToProfile ${flightMs}ms cubic-bezier(0.3,0.05,0.55,1) ${c.delay}ms forwards`, opacity:0 }}>🪙</div>
+          animation:`flyToProfile ${flightMs}ms cubic-bezier(0.3,0.05,0.55,1) ${c.delay}ms forwards`, opacity:0 }}>
+          <img src="/img/coin.png" alt="" draggable={false} style={{ width:"100%",height:"100%",objectFit:"contain",filter:"drop-shadow(0 0 8px rgba(255,200,40,0.95)) drop-shadow(0 2px 4px rgba(0,0,0,0.5))",animation:`coinSpinY ${420 + c.id * 30}ms linear infinite` }} />
+        </div>
       ) : (
-        <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, fontSize:32, ['--drift']:`${c.dr}px`, animation:`coinFly ${flightMs}ms cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards`, opacity:0, transform:`rotate(${c.rotation}deg)` }}>🪙</div>
+        <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, width:36, height:36, ['--drift']:`${c.dr}px`, animation:`coinFly ${flightMs}ms cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards`, opacity:0 }}>
+          <img src="/img/coin.png" alt="" draggable={false} style={{ width:"100%",height:"100%",objectFit:"contain",filter:"drop-shadow(0 0 8px rgba(255,200,40,0.95)) drop-shadow(0 2px 4px rgba(0,0,0,0.5))",animation:`coinSpinY ${420 + c.id * 30}ms linear infinite` }} />
+        </div>
       ))}
     </div>
   </>);
@@ -1404,7 +1408,7 @@ function DailyRewardPopup({ reward, streak, onClose, lang = "tr" }) {
     {/* Dönen ışık huzmeleri — oksipital uyarım */}
     <div style={{ position:"absolute",width:900,height:900,top:"50%",left:"50%",transform:"translate(-50%,-50%)",background:"conic-gradient(from 0deg, transparent 0deg, rgba(255,215,0,0.10) 12deg, transparent 24deg, transparent 40deg, rgba(0,229,255,0.08) 52deg, transparent 64deg, transparent 90deg, rgba(255,105,180,0.07) 102deg, transparent 114deg, transparent 140deg, rgba(255,215,0,0.10) 152deg, transparent 164deg, transparent 190deg, rgba(167,139,250,0.08) 202deg, transparent 214deg, transparent 250deg, rgba(255,215,0,0.09) 262deg, transparent 274deg, transparent 310deg, rgba(0,229,255,0.07) 322deg, transparent 334deg)",animation:"raysSpin 22s linear infinite",pointerEvents:"none" }} />
     {/* Süzülen paralar */}
-    {[...Array(8)].map((_,i)=>(<div key={i} style={{ position:"absolute",fontSize:16+((i*7)%14),left:`${8+i*11.5}%`,top:`${72+((i*13)%18)}%`,opacity:0.5,animation:`coinRise ${5+(i%4)}s ease-in ${i*0.7}s infinite`,pointerEvents:"none",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.6))" }}>{i%3===0?"💰":i%3===1?"🪙":"✨"}</div>))}
+    {[...Array(8)].map((_,i)=>(<div key={i} style={{ position:"absolute",fontSize:16+((i*7)%14),left:`${8+i*11.5}%`,top:`${72+((i*13)%18)}%`,opacity:0.5,animation:`coinRise ${5+(i%4)}s ease-in ${i*0.7}s infinite`,pointerEvents:"none",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.6))" }}>{i%3===1?<img src="/img/coin.png" alt="" draggable={false} style={{ width:16+((i*7)%14),height:16+((i*7)%14),objectFit:"contain",display:"block" }} />:(i%3===0?"💰":"✨")}</div>))}
     <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, rgba(20,26,52,0.99) 0%, rgba(10,16,32,0.99) 60%, rgba(30,20,8,0.99) 100%)",border:"2px solid rgba(255,215,0,0.6)",outline:"1px solid rgba(0,229,255,0.25)",outlineOffset:5,borderRadius:22,padding:"38px 42px",textAlign:"center",maxWidth:350,width:"90%",boxShadow:"0 0 100px rgba(255,215,0,0.35), 0 0 200px rgba(167,139,250,0.15), 0 24px 70px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,215,0,0.2)",animation:"chestBounceIn 0.7s cubic-bezier(0.34,1.56,0.64,1)",overflow:"hidden" }}>
       {/* Parlama süpürmesi */}
       <div style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg, transparent, rgba(255,255,255,0.10), transparent)",animation:"shineSweep 3s ease-in-out 0.8s infinite",pointerEvents:"none" }} />
@@ -1850,7 +1854,7 @@ const ANIMS = `
 @keyframes arSlideIn{0%{opacity:0;transform:perspective(800px) rotateX(25deg) translateY(80px) scale(0.7)}40%{opacity:1;transform:perspective(800px) rotateX(-5deg) translateY(-10px) scale(1.05)}70%{transform:perspective(800px) rotateX(2deg) translateY(5px) scale(0.98)}100%{transform:perspective(800px) rotateX(0deg) translateY(0) scale(1)}}
 @keyframes arGlow{0%,100%{box-shadow:0 10px 40px rgba(0,0,0,0.5),0 0 30px var(--ar-color,rgba(0,229,255,0.3))}50%{box-shadow:0 15px 60px rgba(0,0,0,0.6),0 0 50px var(--ar-color,rgba(0,229,255,0.5))}}
 @keyframes previewZoom{0%{opacity:0;transform:scale(0.5) perspective(600px) rotateY(15deg)}50%{opacity:1;transform:scale(1.08) perspective(600px) rotateY(-3deg)}100%{transform:scale(1) perspective(600px) rotateY(0deg)}}
-@keyframes coinSpinY{0%,100%{transform:rotateY(0deg)}50%{transform:rotateY(180deg)}}
+@keyframes coinSpinY{0%{transform:perspective(120px) rotateY(0deg)}100%{transform:perspective(120px) rotateY(360deg)}}
 @keyframes explodeCore{0%,100%{opacity:0.9;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
 @keyframes explodeWave{0%{opacity:0.7;transform:scale(0.6)}70%{opacity:0.15;transform:scale(1.25)}100%{opacity:0;transform:scale(1.4)}}
 @keyframes siegeIntroPop{0%{opacity:0;transform:scale(0.3) translateY(30px)}55%{opacity:1;transform:scale(1.12) translateY(-6px)}100%{opacity:1;transform:scale(1) translateY(0)}}
@@ -2422,7 +2426,9 @@ function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
         <div style={{ fontSize:52,fontWeight:900,fontFamily:warrior,marginBottom:14,letterSpacing:2,background:"linear-gradient(180deg, #fff7d6 0%, #ffd700 45%, #d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 25px rgba(255,214,0,0.8))",animation:"rewardPulse 1.4s ease-in-out infinite" }}>+{rewardAmount} <img src="/img/coin.png" alt="" style={{ width:22,height:22,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /></div>
         <button onClick={claim} style={{ padding:"20px 52px",background:"linear-gradient(135deg, #ffd700 0%, #ff9f43 55%, #d97706 100%)",color:"#1a1206",border:"none",borderRadius:14,fontSize:22,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 40px rgba(255,214,0,0.6), 0 6px 24px rgba(0,0,0,0.5)",animation:"btnBreath 1.8s ease-in-out infinite",textTransform:"uppercase",width:"100%" }}>{L(lang,"collectBtn")}</button>
         {showCoins && <div style={{ position:"absolute",left:"50%",bottom:"38%",pointerEvents:"none" }}>
-          {coins.map(c => (<div key={c.id} style={{ position:"absolute",left:c.dx,bottom:0,fontSize:26,opacity:0,['--drift']:`${c.dr}px`,animation:`coinFly 0.55s cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards` }}>🪙</div>))}
+          {coins.map(c => (<div key={c.id} style={{ position:"absolute",left:c.dx,bottom:0,width:30,height:30,opacity:0,['--drift']:`${c.dr}px`,animation:`coinFly 0.55s cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards` }}>
+            <img src="/img/coin.png" alt="" draggable={false} style={{ width:"100%",height:"100%",objectFit:"contain",filter:"drop-shadow(0 0 8px rgba(255,200,40,0.95))",animation:`coinSpinY ${420 + c.id * 30}ms linear infinite` }} />
+          </div>))}
         </div>}
       </>)}
     </div>
@@ -2485,7 +2491,9 @@ function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoar
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",minHeight:"100dvh",background:isWin?`radial-gradient(ellipse at 50% 20%,rgba(0,229,255,0.18) 0%,rgba(255,215,0,0.08) 35%,${t.bg} 75%)`:`radial-gradient(ellipse at center,rgba(255,71,87,0.1) 0%,${t.bg} 70%)`,padding:20,perspective:"800px",position:"relative",overflow:"hidden" }}>
     {/* Üstten yağan altın paralar ve konfeti — ilk 2 saniye */}
     {showRain && coinDrops.map(c => (
-      <div key={c.id} style={{ position:"absolute",top:-40,left:`${c.left}%`,fontSize:c.big?26:16,zIndex:5,animation:`coinFall ${c.dur}s linear ${c.delay}ms forwards`,pointerEvents:"none" }}>{c.big?"🪙":"✨"}</div>
+      <div key={c.id} style={{ position:"absolute",top:-40,left:`${c.left}%`,fontSize:16,zIndex:5,animation:`coinFall ${c.dur}s linear ${c.delay}ms forwards`,pointerEvents:"none" }}>
+        {c.big ? <img src="/img/coin.png" alt="" draggable={false} style={{ width:28,height:28,objectFit:"contain",display:"block",filter:"drop-shadow(0 0 8px rgba(255,200,40,0.9))",animation:`coinSpinY ${500 + c.id * 25}ms linear infinite` }} /> : "✨"}
+      </div>
     ))}
     <div style={{ animation:"arSlideIn 0.8s ease-out forwards",transformStyle:"preserve-3d",zIndex:1 }}>
       <div style={{ background:`linear-gradient(145deg, rgba(12,21,41,0.98), rgba(8,14,30,0.99))`,border:`3px solid ${isWin?t.accent:t.hit}`,borderRadius:24,padding:"28px 32px 32px",textAlign:"center",maxWidth:360,width:"90vw",animation:`arGlow 3s ease-in-out infinite`,boxShadow:`0 20px 80px rgba(0,0,0,0.7), 0 0 ${isWin?60:30}px ${isWin?t.accentGlow:t.hitGlow}`,'--ar-color':isWin?t.accentGlow:t.hitGlow,position:"relative",overflow:"hidden" }}>
@@ -2614,7 +2622,9 @@ function RewardModal({ rewards: rawRewards, dailyMissions, missionProgress, newA
       {extra}
       <span style={{ fontSize:20,fontWeight:900,color,fontFamily:warrior,textShadow:show?`0 0 14px ${glow}`:"none",display:"flex",alignItems:"center",gap:4 }}>{value}{show && <span style={{ fontSize:13,animation:"fadeUp 0.4s ease-out" }}>{downArrow?"↓":"↑"}</span>}</span>
       {coinBurst && show && Array.from({ length: 5 }).map((_, i) => (
-        <span key={i} style={{ position:"absolute",left:34,top:"50%",marginTop:-8,fontSize:14,pointerEvents:"none",animation:`coinToNumber 550ms cubic-bezier(0.3,0.05,0.55,1) ${i*70}ms both` }}>🪙</span>
+        <span key={i} style={{ position:"absolute",left:34,top:"50%",marginTop:-9,width:18,height:18,pointerEvents:"none",animation:`coinToNumber 550ms cubic-bezier(0.3,0.05,0.55,1) ${i*70}ms both` }}>
+          <img src="/img/coin.png" alt="" draggable={false} style={{ width:"100%",height:"100%",objectFit:"contain",display:"block",filter:"drop-shadow(0 0 6px rgba(255,200,40,0.9))",animation:`coinSpinY ${430 + i*30}ms linear infinite` }} />
+        </span>
       ))}
     </div>
   );
