@@ -1969,6 +1969,8 @@ const ANIMS = `
 @keyframes mapReveal{0%{clip-path:inset(0 0 100% 0)}100%{clip-path:inset(0 0 0% 0)}}
 @keyframes goldDrain{0%{opacity:0;transform:translateY(-6px) scale(0.9)}30%{opacity:1;transform:translateY(0) scale(1.05)}100%{opacity:0.6;transform:translateY(10px) scale(0.92)}}
 @keyframes coinToNumber{0%{opacity:1;transform:translate(0,0) scale(1)}75%{opacity:1}100%{opacity:0;transform:translate(130px,-4px) scale(0.35)}}
+@keyframes zoomThroughEye{0%{opacity:0;transform:scale(0.04) rotate(-6deg);filter:blur(22px)}10%{opacity:1}22%{transform:scale(1.42) rotate(1.5deg);filter:blur(0)}27%{transform:scale(0.94) rotate(-0.5deg)}30%{transform:scale(1) rotate(0deg)}80%{opacity:1;transform:scale(1) rotate(0deg);filter:blur(0)}100%{opacity:0;transform:scale(5.2) rotate(0deg);filter:blur(14px)}}
+@keyframes zteFlash{0%{opacity:0;transform:scale(0.2)}20%{opacity:0.85;transform:scale(1.15)}46%{opacity:0;transform:scale(1.9)}100%{opacity:0;transform:scale(1.9)}}
 @keyframes cannonBarrelPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
 @keyframes cannonRecoil{0%{transform:translateX(0) rotate(0deg)}18%{transform:translateX(-14px) rotate(-3deg)}45%{transform:translateX(6px) rotate(1.5deg)}100%{transform:translateX(0) rotate(0deg)}}
 @keyframes muzzleFlash{0%{opacity:0;transform:scale(0.3)}15%{opacity:1;transform:scale(1.3)}45%{opacity:0.4;transform:scale(1.6)}100%{opacity:0;transform:scale(2)}}
@@ -2842,31 +2844,15 @@ function ResultBurst({ isWin, lang = "tr" }) {
   const halo = isWin ? "rgba(70,130,255,0.30)" : "rgba(255,70,70,0.28)";
   return (<div style={{ position:"fixed",inset:0,zIndex:9500,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",
     background:`radial-gradient(ellipse at 50% 50%, ${halo} 0%, rgba(3,7,18,0.94) 55%, rgba(1,3,10,0.99) 100%)` }}>
-    <style>{`
-@keyframes zoomThroughEye{
-  0%   {opacity:0; transform:scale(0.04) rotate(-6deg); filter:blur(22px)}
-  10%  {opacity:1}
-  22%  {transform:scale(1.42) rotate(1.5deg); filter:blur(0)}
-  27%  {transform:scale(0.94) rotate(-0.5deg)}
-  30%  {transform:scale(1) rotate(0deg)}
-  80%  {opacity:1; transform:scale(1) rotate(0deg); filter:blur(0)}
-  100% {opacity:0; transform:scale(5.2) rotate(0deg); filter:blur(14px)}
-}
-@keyframes zteFlash{
-  0%   {opacity:0; transform:scale(0.2)}
-  20%  {opacity:0.85; transform:scale(1.15)}
-  46%  {opacity:0; transform:scale(1.9)}
-  100% {opacity:0; transform:scale(1.9)}
-}
-    `}</style>
     {/* Yazının arkasından geçen tek patlama parıltısı */}
     <span style={{ position:"absolute",left:"50%",top:"50%",width:"70vmin",height:"70vmin",marginLeft:"-35vmin",marginTop:"-35vmin",
-      borderRadius:"50%",pointerEvents:"none",
+      borderRadius:"50%",pointerEvents:"none",opacity:0,
       background:`radial-gradient(circle, ${isWin ? "rgba(150,200,255,0.55)" : "rgba(255,140,140,0.5)"} 0%, transparent 62%)`,
-      animation:"zteFlash 2s cubic-bezier(0.16,1,0.3,1) both" }} />
-    {/* SADECE YAZI */}
-    <div style={{ position:"relative",padding:"0 14px",willChange:"transform,opacity",
-      animation:"zoomThroughEye 2s cubic-bezier(0.19,1,0.22,1) both" }}>
+      animation:"zteFlash 2s cubic-bezier(0.16,1,0.3,1) forwards" }} />
+    {/* SADECE YAZI — opacity:1 taban değer: animasyon herhangi bir sebeple çalışmazsa
+        yazı yine de görünür kalır (fill-mode "both" olsaydı görünmez kalırdı). */}
+    <div style={{ position:"relative",padding:"0 14px",opacity:1,willChange:"transform,opacity",
+      animation:"zoomThroughEye 2s cubic-bezier(0.19,1,0.22,1) forwards" }}>
       <div style={{
         fontFamily:warrior, fontWeight:900, whiteSpace:"nowrap",
         fontSize:"clamp(52px, 17vw, 132px)", lineHeight:1, letterSpacing:"0.02em",
@@ -3515,6 +3501,13 @@ export default function Game() {
   const [goldAnim, setGoldAnim] = useState(null);
   // Maç sonu sahne akışı: null (henüz başlamadı) → 'map' → 'burst' → 'rewards' → 'final'
   const [gameOverStage, setGameOverStage] = useState(null);
+  // Salvo ve Kuşatma kendi bitiş ekranlarını kullanır (gameOverStage'e girmezler),
+  // bu yüzden KAZANDIN/KAYBETTİN penceresi orada ayrı bir kaplama olarak gösterilir.
+  const [soloBurst, setSoloBurst] = useState(null); // { isWin } | null
+  const showSoloBurst = (isWinVal) => {
+    setSoloBurst({ isWin: isWinVal });
+    setTimeout(() => setSoloBurst(null), 2000);
+  };
   const [microFeedback, setMicroFeedback] = useState(null);
   const [extraTimeUsed, setExtraTimeUsed] = useState(false);
   const [placementPreview, setPlacementPreview] = useState(false);
@@ -5070,7 +5063,7 @@ export default function Game() {
       track("game_end", { mode: "salvo", result: won ? "win" : draw ? "draw" : "loss", gold: won ? SALVO_WIN_GOLD : (draw ? SALVO_ANTE : 0) });
     }
     // Salvo kendi sonuç fazını (salvoreveal) kullanıyor — zafer müziği burada çalar.
-    sfx.init(); sfx.playVoice('explosion'); // atış sesi
+    sfx.init(); sfx.playVoice('explosion'); showSoloBurst(won); // atış sesi + KAZANDIN/KAYBETTİN penceresi
     if (won) setTimeout(() => sfx.playVictoryMusic(), 900);
     else if (!draw) setTimeout(() => sfx.playGameOverMusic(), 900);
     setSalvoResult({ myHits, oppHits, myOverlay, oppOverlay, won, draw });
@@ -5246,7 +5239,7 @@ export default function Game() {
       bumpGlobalStats(1, 0); bumpVoyageMatch();
     }
     // Salvo kendi sonuç fazını (salvoreveal) kullanıyor — zafer müziği burada çalar.
-    sfx.init(); sfx.playVoice('explosion'); // atış sesi
+    sfx.init(); sfx.playVoice('explosion'); showSoloBurst(won); // atış sesi + KAZANDIN/KAYBETTİN penceresi
     if (won) setTimeout(() => sfx.playVictoryMusic(), 900);
     else if (!draw) setTimeout(() => sfx.playGameOverMusic(), 900);
     setSalvoResult({ myHits, oppHits, myOverlay, oppOverlay, won, draw });
@@ -5351,7 +5344,7 @@ export default function Game() {
     setPhase("siegeover");
     sfx.init();
     // Kuşatma kendi bitiş fazını (siegeover) kullandığı için zafer sesini burada çalar.
-    sfx.playVoice('explosion'); // atış sesi
+    sfx.playVoice('explosion'); showSoloBurst(won); // atış sesi + KAZANDIN/KAYBETTİN penceresi
     if (won) { setTimeout(() => { sfx.playVictoryMusic(); launchConfetti('confetti-canvas'); }, 900); }
     else { setTimeout(() => sfx.playGameOverMusic(), 900); }
     if (authUid && myProfile) {
@@ -7123,6 +7116,8 @@ export default function Game() {
 
   // === TEK SALVO — açılış: iki taraf da aynı anda görünür, çok vuran kazanır ===
   if (phase === "salvoreveal") {
+    // Salvo kendi bitiş ekranını kullanır — KAZANDIN/KAYBETTİN penceresi buradan gelir
+    if (soloBurst) return (<><style>{ANIMS}</style><ResultBurst isWin={soloBurst.isWin} lang={appLang} /></>);
     if (!salvoResult) {
       return (<div style={{ ...appStyle, justifyContent:"center", alignItems:"center" }}><style>{ANIMS}</style>
         <button onClick={resetGame} style={{ padding:"14px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:14,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"backBtn")}</button>
@@ -7362,6 +7357,8 @@ export default function Game() {
 
   // === KUŞATMA — sonuç ekranı: standart GAMEOVER arayüzü (ganimet raporu, ana sayfa, altın değişimi) ===
   if (phase === "siegeover") {
+    // Kuşatma kendi bitiş fazını kullanır — KAZANDIN/KAYBETTİN penceresi buradan gelir
+    if (soloBurst) return (<><style>{ANIMS}</style><ResultBurst isWin={soloBurst.isWin} lang={appLang} /></>);
     if (showReview) {
       const shipsOf = (i) => i === 0 ? (() => { const o = {}; placedShips.forEach((s, k) => o[k] = { id: s.id, cells: s.cells }); return o; })() : (siegeBotShips[i] || {});
       const siegePlayers = [0, 1, 2].map(i => {
