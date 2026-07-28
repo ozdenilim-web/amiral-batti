@@ -856,6 +856,7 @@ function achSetUnlocked(idx, p) {
 // Değer = ses seviyesi (0-1). Yeni bir efekti mp3'e çevirmek için buraya bir satır eklemek yeterli.
 const SFX_MP3 = {
   gold: 0.85,
+  victory: 0.9,
 };
 
 // === SES MOTORU (Web Audio API + mp3) ===
@@ -2791,6 +2792,58 @@ function MiniResultBurst({ isWin, lang = "tr" }) {
   </div>);
 }
 
+// === ZAFER ANI — maç kazanılır kazanılmaz, her şeyden önce. Kocaman AR patlaması. ===
+// Ekranı kaplar: dönen ışın halkası, genişleyen şok dalgaları, harf harf gelen dev "KAZANDIN".
+function VictoryBurst({ lang = "tr" }) {
+  const word = L(lang, "victory");
+  return (<div style={{ position:"fixed",inset:0,zIndex:9500,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",
+    background:"radial-gradient(ellipse at 50% 45%, rgba(255,215,0,0.22) 0%, rgba(40,22,2,0.85) 42%, rgba(2,6,16,0.97) 78%)",
+    animation:"pageFadeIn 0.25s ease-out" }}>
+    {/* Bu üç keyframe başka bileşenlerin yerel style'ında tanımlı — burada kendi kopyamız olmalı */}
+    <style>{`
+@keyframes vbRayRotate{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+@keyframes vbFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes vbLine{0%{transform:scaleX(0);opacity:0}100%{transform:scaleX(1);opacity:1}}
+    `}</style>
+    {/* Dönen konik altın ışınlar */}
+    <span className="gpu" style={{ position:"absolute",left:"50%",top:"48%",width:"185vmax",height:"185vmax",marginLeft:"-92.5vmax",marginTop:"-92.5vmax",pointerEvents:"none",
+      background:"conic-gradient(from 0deg, rgba(255,215,0,0) 0deg, rgba(255,225,90,0.30) 14deg, rgba(255,215,0,0) 34deg, rgba(255,215,0,0) 82deg, rgba(255,225,90,0.24) 98deg, rgba(255,215,0,0) 120deg, rgba(255,215,0,0) 172deg, rgba(255,225,90,0.30) 190deg, rgba(255,215,0,0) 212deg, rgba(255,215,0,0) 262deg, rgba(255,225,90,0.24) 280deg, rgba(255,215,0,0) 302deg, rgba(255,215,0,0) 360deg)",
+      WebkitMaskImage:"radial-gradient(circle, rgba(0,0,0,0.95) 8%, rgba(0,0,0,0.45) 38%, transparent 62%)",
+      maskImage:"radial-gradient(circle, rgba(0,0,0,0.95) 8%, rgba(0,0,0,0.45) 38%, transparent 62%)",
+      animation:"vbRayRotate 11s linear infinite" }} />
+    {/* Genişleyen şok dalgaları */}
+    {[0,1,2].map(i => (
+      <span key={i} style={{ position:"absolute",left:"50%",top:"48%",width:190,height:190,marginLeft:-95,marginTop:-95,borderRadius:"50%",
+        border:"3px solid rgba(255,214,90,0.75)",pointerEvents:"none",
+        animation:`explodeWave 1.5s cubic-bezier(0.16,1,0.3,1) ${i*0.26}s both` }} />
+    ))}
+    <div style={{ position:"relative",textAlign:"center",padding:"0 16px" }}>
+      {/* Kupa */}
+      <div style={{ fontSize:"clamp(64px, 20vw, 118px)",lineHeight:1,marginBottom:6,
+        filter:"drop-shadow(0 0 34px rgba(255,215,0,0.95)) drop-shadow(0 0 70px rgba(255,190,40,0.6))",
+        animation:"siegeIntroPop 0.7s cubic-bezier(0.16,1,0.3,1) both, float 2.6s ease-in-out 0.7s infinite" }}>🏆</div>
+      {/* Dev KAZANDIN — harf harf */}
+      <div style={{ display:"flex",justifyContent:"center",flexWrap:"nowrap",gap:"0.01em" }}>
+        {word.split("").map((ch, i) => (
+          <span key={i} style={{ display:"inline-block",
+            fontSize:"clamp(42px, 15vw, 104px)",fontWeight:900,fontFamily:warrior,letterSpacing:2,lineHeight:1.05,
+            background:"linear-gradient(180deg,#fffbe0 0%,#ffe98a 24%,#ffd700 48%,#a86a08 72%,#ffe98a 100%)",
+            WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",
+            filter:"drop-shadow(0 0 26px rgba(255,215,0,0.9)) drop-shadow(0 4px 10px rgba(0,0,0,0.7))",
+            animation:`siegeIntroPop 0.6s cubic-bezier(0.34,1.56,0.64,1) ${0.22 + i*0.07}s both, vbFloat 2.8s ease-in-out ${1.1 + i*0.14}s infinite` }}>
+            {ch === " " ? " " : ch}
+          </span>
+        ))}
+      </div>
+      {/* Altın çizgi */}
+      <div style={{ height:3,margin:"14px auto 0",width:"min(320px, 74%)",borderRadius:2,
+        background:"linear-gradient(90deg,transparent,#ffd700,#fffbe0,#ffd700,transparent)",
+        boxShadow:"0 0 22px rgba(255,215,0,0.85)",
+        animation:"vbLine 0.8s ease-out 0.75s both" }} />
+    </div>
+  </div>);
+}
+
 function BoardReview({ defenseBoard, shipColorMap, defenseOverlay, attackOverlay, oppShipsData, myShipsData, defHitMap, atkHitMap, cellSize, onBack, lang = "tr" }) {
   const [view,setView] = useState("attack");
   const oppBoard=emptyGrid(), oppColors=Array.from({length:ROWS},()=>Array(COLS).fill(null));
@@ -3467,13 +3520,25 @@ export default function Game() {
 
   // MAÇ SONU SAHNE AKIŞI — oyun bitince otomatik başlat (onboarding hariç), oyundan çıkınca sıfırla.
   useEffect(() => {
-    if (phase === "gameover" && !isOnboarding) setGameOverStage(prev => prev || "map");
+    // Kazanınca akış ZAFER ANIYLA başlar: kocaman AR "KAZANDIN" + zafer müziği.
+    // Kaybedince eski akış korunur (harita → mini KAYBETTİN).
+    if (phase === "gameover" && !isOnboarding) setGameOverStage(prev => prev || (isWin ? "victory" : "map"));
     else if (phase !== "gameover") setGameOverStage(null);
-  }, [phase, isOnboarding]);
-  // Sahneler arası otomatik geçiş: harita 5sn, mini kazandın/kaybettin patlaması 1.5sn.
+  }, [phase, isOnboarding, isWin]);
+  // Zafer sesi + arka plan müziği — "victory" sahnesine girildiğinde BİR KEZ.
+  // Efekt sadece gameOverStage'e bağlı; başka state değişince tekrar çalmaz.
+  useEffect(() => {
+    if (gameOverStage !== "victory") return;
+    try { sfx.init(); sfx.play('victory'); } catch (e) {}
+    try { launchConfetti('confetti-canvas'); } catch (e) {}
+  }, [gameOverStage]);
+  // Sahneler arası otomatik geçiş.
+  // Kazanma:  zafer penceresi 2.6sn → harita 5sn → ganimet tablosu
+  // Kaybetme: harita 5sn → mini kaybettin 1.5sn → ganimet tablosu
   // "rewards" sahnesinden çıkış RewardModal'ın kendi kapatma (DEVAM/✕) etkileşimiyle olur.
   useEffect(() => {
-    if (gameOverStage === "map") { const tm = setTimeout(() => setGameOverStage("burst"), 5000); return () => clearTimeout(tm); }
+    if (gameOverStage === "victory") { const tm = setTimeout(() => setGameOverStage("map"), 2600); return () => clearTimeout(tm); }
+    if (gameOverStage === "map") { const tm = setTimeout(() => setGameOverStage(isWin ? "rewards" : "burst"), 5000); return () => clearTimeout(tm); }
     if (gameOverStage === "burst") { const tm = setTimeout(() => setGameOverStage("rewards"), 1500); return () => clearTimeout(tm); }
     // Güvenlik: "rewards" sahnesine geldik ama rapor (matchRewards) hâlâ gelmediyse — normalde
     // gelmesi gereken guarantee-effect'ten önce buraya düşmüş olabiliriz — 2sn sonra yine de devam et.
@@ -3481,7 +3546,7 @@ export default function Game() {
       const tm = setTimeout(() => setGameOverStage(prev => prev === "rewards" ? "final" : prev), 2000);
       return () => clearTimeout(tm);
     }
-  }, [gameOverStage, matchRewards]);
+  }, [gameOverStage, matchRewards, isWin]);
 
   // GARANTİ: maç bitti ve 1.5 sn içinde rapor gelmediyse (online ELO zinciri gecikmiş/kopmuş olabilir)
   // eldeki verilerle raporu yine de göster — oyuncu ganimetini ASLA göremeden kalmasın.
@@ -3904,9 +3969,9 @@ export default function Game() {
         if (pNum === 1 && !roomCleanupRef.current) {
           roomCleanupRef.current = deleteRoomSoon(roomIdRef.current, 45000);
         }
-        sfx.init(); sfx.play(iW ? 'win' : 'lose');
-        if (iW) { setTimeout(() => sfx.playEpicMusic(), 500); setTimeout(() => launchConfetti('confetti-canvas'), 300); }
-        else { setTimeout(() => sfx.playDefeatMusic(), 500); }
+        sfx.init();
+        // Zafer sesi + konfeti "victory" sahnesinde tek yerden çalıyor; yenilgi eskisi gibi.
+        if (!iW) { sfx.play('lose'); setTimeout(() => sfx.playDefeatMusic(), 500); }
         if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
 
         // MAÇ SONUCU — her oyuncu KENDİ profilini yazar (Firebase kuralları başkasınınkine izin vermez).
@@ -5226,9 +5291,10 @@ export default function Game() {
     setDefHitMap(recvMe.map(row => row.map(v => v === "hit" || v === "sunk")));
     setAtkHitMap(recvTgt.map(row => row.map(v => v === "hit" || v === "sunk")));
     setPhase("siegeover");
-    sfx.init(); sfx.play(won ? 'win' : 'lose');
-    if (won) { setTimeout(() => launchConfetti('confetti-canvas'), 300); setTimeout(() => sfx.playEpicMusic?.(), 500); }
-    else { setTimeout(() => sfx.playDefeatMusic?.(), 500); }
+    sfx.init();
+    // Kuşatma kendi bitiş fazını (siegeover) kullandığı için zafer sesini burada çalar.
+    if (won) { sfx.play('victory'); setTimeout(() => launchConfetti('confetti-canvas'), 300); }
+    else { sfx.play('lose'); setTimeout(() => sfx.playDefeatMusic?.(), 500); }
     if (authUid && myProfile) {
       const rMult = revengeMult(safeAch(myProfile?.ach).lossStreak);
       // ZİNCİR KURALI (online'da da artık geçerli — ekonomi tamamen açık):
@@ -5841,8 +5907,7 @@ export default function Game() {
         setWinner(appLang==="en"?"You sank all their ships!":"Tüm gemileri batırdın!");
       }
       setIsWin(true); setPhase("gameover");
-      sfx.init(); sfx.play('win'); setTimeout(() => launchConfetti('confetti-canvas'), 300);
-      if (!isOnboarding) setTimeout(() => sfx.playEpicMusic(), 500);
+      sfx.init(); // zafer sesi + konfeti artık "victory" sahnesinde çalıyor (tek yerden)
       // Count sunk ships
       const sunkCount = botShips ? Object.values(botShips).filter(ship => ship.cells.every(([r,c]) => newAtkOverlay[r][c] === "hit" || newAtkOverlay[r][c] === "sunk")).length : 0;
       const elapsed = gameStartTime ? (Date.now() - gameStartTime) / 1000 : 999;
@@ -6542,6 +6607,9 @@ export default function Game() {
     }
     // MAÇ SONU AKIŞI: önce 5sn savaş haritası (vurulan gemiler yanıp söner) → 1.5sn mini
     // kazandın/kaybettin patlaması → ganimet tablosu → tam zafer/bozgun ekranı. Onboarding hariç.
+    if (!isOnboarding && gameOverStage === "victory") {
+      return (<><style>{ANIMS}</style><VictoryBurst lang={appLang} /><canvas id="confetti-canvas" style={{ position:"fixed",inset:0,pointerEvents:"none",zIndex:9600 }} /></>);
+    }
     if (!isOnboarding && gameOverStage === "map") {
       return (<><style>{ANIMS}</style><BattleRecapScreen oppShipsData={oppShipsData} attackOverlay={attackOverlay} atkHitMap={atkHitMap} cellSize={cellSize} lang={appLang} /></>);
     }
