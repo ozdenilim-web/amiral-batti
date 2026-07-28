@@ -990,9 +990,12 @@ class SoundEngine {
     srcNode.connect(gainNode);
     this._audioSrc = srcNode;
     this._mp3Volume = 0;
-    // Parça sonuna 3.5s kala yavaşça kıs
+    // Parça sonuna 3.5s kala yavaşça kıs.
+    // NOT: `this._audioEl !== audio` kontrolü şart — bu parça durdurulup yerine zafer/bozgun
+    // müziği geldiyse, buradaki eski dinleyici YENİ parçanın sesini kısardı (sessiz müzik hatası).
     let fadingOut = false;
     audio.addEventListener('timeupdate', () => {
+      if (this._audioEl !== audio) return; // bu parça artık aktif değil
       if (!audio.duration || fadingOut) return;
       if (audio.duration - audio.currentTime < 3.5) {
         fadingOut = true;
@@ -1001,6 +1004,7 @@ class SoundEngine {
     });
     // Bitince başa sar, yavaşça aç
     audio.addEventListener('ended', () => {
+      if (this._audioEl !== audio) return; // yerine başka parça geldiyse yeniden başlatma
       fadingOut = false;
       audio.currentTime = 0;
       audio.play().catch(()=>{});
@@ -1079,12 +1083,13 @@ class SoundEngine {
     this.currentMusic = 'victory';
     this._switchMp3('/sfx/victory.mp3', 0.55, true, 450, 700);
   }
-  // BOZGUN MÜZİĞİ — kısa bir sting olduğu için döngüsüz, bir kez çalar.
+  // BOZGUN MÜZİĞİ — kısa bir sting (~2.7 sn) olduğu için döngüsüz.
+  // Kısa olduğundan yavaş fade ile açılırsa duyulmadan biter: neredeyse anında ve yüksek girer.
   playGameOverMusic() {
     if (!this.ctx) this.init();
     if (!this.ctx) return;
     this.currentMusic = 'gameover';
-    this._switchMp3('/sfx/gameover.mp3', 0.6, false, 450, 350);
+    this._switchMp3('/sfx/gameover.mp3', 0.85, false, 180, 80);
   }
   playIntroFanfare() { this.ensureMusic(0.10); }
   // YERLEŞTİRME — Taktik müzik (sakin ama gerilimli)
