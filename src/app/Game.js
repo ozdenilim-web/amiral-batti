@@ -510,6 +510,7 @@ const TRANSLATIONS = {
     goodsBadge: "GANİMET TABLOSU", revengeGauge: "İNTİKAM YÜKLENİYOR", revengeReady: "İNTİKAM HAZIR",
     oneChestPerDevice: "Her cihaza günde 1 sandık!", dailyRewardLabel: "GÜNLÜK ÖDÜL",
     cannonAimLabel: "TOPU ATEŞLE", cannonHoldLabel: "BAS TUT, TAM ZAMANINDA BIRAK!", cannonFireBtn: "ATEŞLE",
+    ropeHint: "İpi aşağı çek ve topu ateşle!", ropePulling: "Çekmeye devam et...", ropeSweet: "ŞİMDİ BIRAK!",
     criticalHitLabel: "KRİTİK VURUŞ!", bonusGoldLabel: (p) => `+%${p} BONUS ALTIN`,
     battleStarting: "SAVAŞ BAŞLIYOR",
     tagline: "savaşların atası...",
@@ -586,6 +587,7 @@ const TRANSLATIONS = {
     goodsBadge: "LOOT REPORT", revengeGauge: "REVENGE CHARGING", revengeReady: "REVENGE READY",
     oneChestPerDevice: "1 chest per device, every day!", dailyRewardLabel: "DAILY REWARD",
     cannonAimLabel: "FIRE THE CANNON", cannonHoldLabel: "HOLD, RELEASE AT THE RIGHT MOMENT!", cannonFireBtn: "FIRE",
+    ropeHint: "Pull the rope down and fire!", ropePulling: "Keep pulling...", ropeSweet: "RELEASE NOW!",
     criticalHitLabel: "CRITICAL HIT!", bonusGoldLabel: (p) => `+${p}% BONUS GOLD`,
     battleStarting: "BATTLE STARTING",
     tagline: "ancestor of battles...",
@@ -2384,6 +2386,10 @@ function AchievementsScreen({ profile, onClose, onClaim, lang = "tr" }) {
 
 // === GÜNLÜK SANDIK — cihaz başına 1 tane, sabit 500 altın ===
 // Işın halkası tasarımı: kutu yok — dönen konik altın ışınlar, minik yıldızlar, nefes alan sandık
+// Top görseli: public/img/cannon.png konunca otomatik kullanılır, yoksa sandığa düşer.
+const CANNON_IMG = "/img/cannon.png";
+const cannonFallback = (e) => { if (e.currentTarget.src.indexOf("chest.png") === -1) { e.currentTarget.onerror = null; e.currentTarget.src = "/img/chest.png"; } };
+
 function DailyChestFab({ onOpen, lang = "tr" }) {
   return (<button onClick={onOpen} style={{ position:"fixed",top:"calc(64px + env(safe-area-inset-top, 0px))",right:12,zIndex:150,width:80,height:80,background:"transparent",border:"none",padding:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center" }} title={L(lang,"dailyChestTooltip")}>
     <style>{`
@@ -2400,99 +2406,113 @@ function DailyChestFab({ onOpen, lang = "tr" }) {
     <span style={{ position:"absolute",bottom:10,left:8,fontSize:7,color:"#fff6c0",animation:"chestStar 3.1s ease-in-out 0.9s infinite",pointerEvents:"none",textShadow:"0 0 5px rgba(255,233,77,0.8)" }}>✦</span>
     <span style={{ position:"absolute",top:24,left:2,fontSize:6,color:"#ffe94d",animation:"chestStar 2.2s ease-in-out 1.6s infinite",pointerEvents:"none",textShadow:"0 0 5px rgba(255,233,77,0.8)" }}>✦</span>
     {/* Sandık — nefes alır, altında yumuşak gölge */}
-    <img src="/img/chest.png" alt="" draggable={false} style={{ width:52,height:52,objectFit:"contain",userSelect:"none",pointerEvents:"none",position:"relative",animation:"chestBreath 2.8s ease-in-out infinite",filter:"drop-shadow(0 5px 7px rgba(0,0,0,0.55)) drop-shadow(0 0 12px rgba(255,215,0,0.35))" }} />
+    <img src={CANNON_IMG} onError={cannonFallback} alt="" draggable={false} style={{ width:54,height:54,objectFit:"contain",userSelect:"none",pointerEvents:"none",position:"relative",animation:"chestBreath 2.8s ease-in-out infinite",filter:"drop-shadow(0 5px 7px rgba(0,0,0,0.55)) drop-shadow(0 0 12px rgba(255,215,0,0.35))" }} />
     {/* Bildirim noktası — altın çerçeveli */}
     <span style={{ position:"absolute",top:6,right:6,width:17,height:17,borderRadius:"50%",background:"#ff4757",color:"#fff",fontSize:10,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",border:"1.5px solid #ffd700",boxShadow:"0 1px 4px rgba(0,0,0,0.5)",fontFamily:warrior }}>1</span>
   </button>);
 }
+// === GÜNLÜK ÖDÜL — TOP ===
+// idle: fitil ipi sarkıyor | pulling: ip aşağı çekiliyor (ne kadar çekersen o kadar iyi)
+// firing: top patlıyor | opened: ödül ekranı
 function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
-  // "Topla Patlat" — pasif tık yerine, sandığın kendisiyle bütünleşik bir top arabası:
-  // idle: bekleme | charging: basılı, ibre gülle arabasında salınıyor | firing: ateşlendi, sandık isabet aldı | opened: ödül ekranı
   const [phase, setPhase] = useState("idle");
-  const [meter, setMeter] = useState(0);
+  const [pull, setPull] = useState(0);         // 0-100 arası çekme miktarı
   const [isCrit, setIsCrit] = useState(false);
   const [bonusPct, setBonusPct] = useState(0);
   const [rewardAmount, setRewardAmount] = useState(DAILY_CHEST_GOLD);
   const [showCoins, setShowCoins] = useState(false);
-  const meterRef = useRef(0);
-  const rafRef = useRef(null);
-  const startTsRef = useRef(0);
-  const SWEET_MIN = 40, SWEET_MAX = 60;
+  const pullRef = useRef(0);
+  const startYRef = useRef(0);
+  const MAX_PULL = 120;                        // px — tam çekiş mesafesi
+  const SWEET_MIN = 70, SWEET_MAX = 100;       // kritik bölge (%)
 
-  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
-
-  const startCharge = () => {
+  const onDown = (e) => {
     if (phase !== "idle") return;
-    setPhase("charging");
-    sfx.init(); // sandıkta tıklama/patlama efekti yok — sadece ödül anındaki altın sesi çalar
-    startTsRef.current = performance.now();
-    const tick = (now) => {
-      const elapsed = now - startTsRef.current;
-      const v = 50 + 50 * Math.sin(elapsed / 240);
-      meterRef.current = v; setMeter(v);
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
+    setPhase("pulling");
+    startYRef.current = e.clientY;
+    sfx.init();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
   };
-  const fireCannon = () => {
-    if (phase !== "charging") return;
-    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
-    const v = meterRef.current;
+  const onMove = (e) => {
+    if (phase !== "pulling") return;
+    const dy = Math.max(0, e.clientY - startYRef.current);
+    const v = Math.min(100, (dy / MAX_PULL) * 100);
+    pullRef.current = v; setPull(v);
+  };
+  const fire = () => {
+    if (phase !== "pulling") return;
+    const v = pullRef.current;
+    if (v < 22) { setPhase("idle"); setPull(0); pullRef.current = 0; return; } // yeterince çekilmedi
     const crit = v >= SWEET_MIN && v <= SWEET_MAX;
     const pct = crit ? Math.round(10 + Math.random() * 10) : 0;
-    const amount = crit ? Math.round(DAILY_CHEST_GOLD * (1 + pct / 100)) : DAILY_CHEST_GOLD;
-    setIsCrit(crit); setBonusPct(pct); setRewardAmount(amount);
+    setIsCrit(crit); setBonusPct(pct);
+    setRewardAmount(crit ? Math.round(DAILY_CHEST_GOLD * (1 + pct / 100)) : DAILY_CHEST_GOLD);
     setPhase("firing");
+    sfx.playVoice('explosion');
     setTimeout(() => {
       setPhase("opened"); setShowCoins(true);
-      sfx.play('gold'); // tek ses: altın
-    }, 700);
+      sfx.play('gold');
+    }, 850);
   };
 
   const coins = Array.from({ length: 14 }, (_, i) => ({ id: i, delay: i * 42, dx: (Math.random() - 0.5) * 130, dr: (Math.random() - 0.5) * 70 }));
   const claim = () => onClaim(rewardAmount);
+  const ropeLen = 46 + (pull / 100) * MAX_PULL;
+  const inSweet = pull >= SWEET_MIN && pull <= SWEET_MAX;
+
   return (<div style={{ position:"fixed",inset:0,overflow:"hidden",background:"radial-gradient(ellipse at 50% 40%, rgba(255,214,0,0.12) 0%, rgba(0,0,0,0.88) 75%)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(6px)" }} onClick={phase === "opened" ? claim : (phase === "idle" ? onClose : undefined)}>
-    <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, rgba(20,26,52,0.99) 0%, rgba(10,16,32,0.99) 60%, rgba(18,16,30,0.99) 100%)",border:"3px solid #ffe94d",outline:"2px solid rgba(255,233,77,0.65)",outlineOffset:6,borderRadius:22,padding:"38px 42px",textAlign:"center",maxWidth:340,width:"90%",boxShadow:"0 0 40px #ffe94d, 0 0 90px rgba(255,233,77,0.75), 0 0 150px rgba(255,233,77,0.4), 0 24px 70px rgba(0,0,0,0.6)",overflow:"visible",animation: phase === "firing" ? "cannonRecoil 0.5s ease-out" : "chestGlow 1.6s ease-in-out infinite" }}>
+    <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, rgba(20,26,52,0.99) 0%, rgba(10,16,32,0.99) 60%, rgba(18,16,30,0.99) 100%)",border:"3px solid #ffe94d",outline:"2px solid rgba(255,233,77,0.65)",outlineOffset:6,borderRadius:22,padding:"34px 38px 30px",textAlign:"center",maxWidth:340,width:"90%",boxShadow:"0 0 40px #ffe94d, 0 0 90px rgba(255,233,77,0.75), 0 0 150px rgba(255,233,77,0.4), 0 24px 70px rgba(0,0,0,0.6)",overflow:"visible",animation: phase === "firing" ? "cannonRecoil 0.55s ease-out" : "chestGlow 1.6s ease-in-out infinite" }}>
       <button onClick={phase === "opened" ? claim : onClose} title={L(lang,"backBtn")} style={{ position:"absolute",top:-14,right:-14,width:34,height:34,borderRadius:"50%",background:"#0c1529",border:"2px solid #ffe94d",color:"#ffe94d",fontSize:16,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,boxShadow:"0 0 14px rgba(255,233,77,0.8)",zIndex:2 }}>✕</button>
 
-      {phase !== "opened" && (
-        <div style={{ position:"relative",width:116,height:116,margin:"0 auto 8px" }}>
-          <img src="/img/chest.png" alt="" draggable={false} style={{ width:"100%",height:"100%",objectFit:"contain",userSelect:"none",animation: phase === "firing" ? "chestJolt 0.5s ease-out" : phase === "charging" ? "cannonBarrelPulse 0.5s ease-in-out infinite" : "chestWiggle 2s ease-in-out infinite",filter:"drop-shadow(0 0 30px #ffe94d) drop-shadow(0 0 60px rgba(255,233,77,0.85)) drop-shadow(0 0 100px rgba(255,233,77,0.5))" }} />
+      {phase !== "opened" && (<>
+        {/* TOP */}
+        <div style={{ position:"relative",width:170,height:150,margin:"0 auto 2px" }}>
+          <img src={CANNON_IMG} onError={cannonFallback} alt="" draggable={false}
+            style={{ width:"100%",height:"100%",objectFit:"contain",userSelect:"none",
+              animation: phase === "firing" ? "chestJolt 0.55s ease-out" : (phase === "pulling" ? "none" : "chestWiggle 2.6s ease-in-out infinite"),
+              transform: phase === "pulling" ? `translateX(${-pull * 0.06}px)` : "none",
+              filter:"drop-shadow(0 0 24px rgba(255,233,77,0.7)) drop-shadow(0 6px 12px rgba(0,0,0,0.6))" }} />
           {phase === "firing" && (<>
-            <span style={{ position:"absolute",inset:"-26%",borderRadius:"50%",border:"2px solid rgba(255,190,80,0.85)",animation:"explodeWave 0.6s ease-out 0.12s both",pointerEvents:"none" }} />
-            <span style={{ position:"absolute",inset:0,borderRadius:"50%",background:"radial-gradient(circle at 50% 50%, rgba(255,235,120,0.95) 0%, rgba(255,150,30,0.85) 30%, rgba(220,50,10,0.55) 55%, transparent 75%)",animation:"explodeCore 0.5s ease-in-out 0.12s 2",pointerEvents:"none" }} />
-            {[0,1,2].map(i => (<span key={i} style={{ position:"absolute",bottom:"4%",left:`${32+i*18}%`,fontSize:15,opacity:0,filter:"grayscale(1) brightness(1.3)",animation:`smokeRise ${1.1+i*0.25}s ease-in ${0.2+i*0.12}s forwards`,pointerEvents:"none" }}>💨</span>))}
+            <span style={{ position:"absolute",left:"6%",top:"30%",width:78,height:78,marginLeft:-39,marginTop:-39,borderRadius:"50%",pointerEvents:"none",
+              background:"radial-gradient(circle, rgba(255,249,196,0.98) 0%, rgba(255,179,0,0.9) 38%, rgba(214,52,52,0.5) 62%, transparent 78%)",
+              animation:"muzzleFlash 0.5s ease-out" }} />
+            <span style={{ position:"absolute",inset:"-18%",borderRadius:"50%",border:"3px solid rgba(255,190,80,0.8)",pointerEvents:"none",
+              animation:"explodeWave 0.75s ease-out both" }} />
+            {[0,1,2,3].map(i => (<span key={i} style={{ position:"absolute",bottom:"12%",left:`${14+i*20}%`,fontSize:18,opacity:0,filter:"grayscale(1) brightness(1.3)",pointerEvents:"none",
+              animation:`smokeRise ${1.2+i*0.22}s ease-in ${0.1+i*0.1}s forwards` }}>💨</span>))}
           </>)}
         </div>
-      )}
 
-      {(phase === "idle" || phase === "charging") && (<>
-        <div style={{ fontSize:14,fontWeight:800,color:"#ffe94d",fontFamily:mono,letterSpacing:4,marginBottom:10 }}>{L(lang,"dailyChestTooltip").toUpperCase()}</div>
-        <div style={{ fontSize:14,fontWeight:600,color:t.textDim,fontFamily:mono,marginBottom:16 }}>{phase === "charging" ? L(lang,"cannonHoldLabel") : L(lang,"oneChestPerDevice")}</div>
-      </>)}
-
-      {phase !== "opened" && (
-        <div
-          onPointerDown={phase === "idle" ? startCharge : undefined}
-          onPointerUp={phase === "charging" ? fireCannon : undefined}
-          onPointerLeave={() => { if (phase === "charging") fireCannon(); }}
-          onPointerCancel={() => { if (phase === "charging") fireCannon(); }}
-          style={{ position:"relative",height:56,borderRadius:16,width:"100%",marginBottom:6,background: phase === "charging" ? "linear-gradient(180deg,#4a3018 0%,#2a1a0c 55%,#160c05 100%)" : "linear-gradient(180deg,#3a3f4b 0%,#1c1f26 55%,#0d0f13 100%)",border:"3px solid #6b5433",boxShadow:"inset 0 2px 4px rgba(255,255,255,0.15), inset 0 -6px 10px rgba(0,0,0,0.5), 0 6px 16px rgba(0,0,0,0.5)",cursor: phase === "firing" ? "default" : "pointer",touchAction:"none",userSelect:"none",overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",animation: phase === "firing" ? "cannonRecoil 0.5s ease-out" : "none" }}
-        >
-          {/* top arabası tekerlekleri */}
-          <span style={{ position:"absolute",left:8,bottom:-9,width:20,height:20,borderRadius:"50%",background:"radial-gradient(circle at 35% 30%, #8a6d40, #2a1f10 70%)",border:"2px solid #3a2c15" }} />
-          <span style={{ position:"absolute",right:8,bottom:-9,width:20,height:20,borderRadius:"50%",background:"radial-gradient(circle at 35% 30%, #8a6d40, #2a1f10 70%)",border:"2px solid #3a2c15" }} />
-          {/* isabet bölgesi */}
-          <span style={{ position:"absolute",left:`${SWEET_MIN}%`,width:`${SWEET_MAX - SWEET_MIN}%`,top:5,bottom:5,background:"rgba(74,222,128,0.4)",borderLeft:"1px solid rgba(74,222,128,0.85)",borderRight:"1px solid rgba(74,222,128,0.85)",borderRadius:6 }} />
-          {/* ibre / kıvılcım */}
-          {phase !== "firing" && <span style={{ position:"absolute",left:`calc(${meter}% - 7px)`,top:5,bottom:5,width:14,borderRadius:7,background:"radial-gradient(circle, #fff9c4 0%, #ffb300 60%, #d63447 100%)",boxShadow:"0 0 14px #ffb300, 0 0 24px rgba(255,140,20,0.7)",animation: phase === "charging" ? "needleTick 0.25s ease-in-out infinite" : "none" }} />}
-          {/* namlu ağzı flaşı */}
-          {phase === "firing" && <span style={{ position:"absolute",left:"50%",top:-8,width:32,height:32,marginLeft:-16,borderRadius:"50%",background:"radial-gradient(circle, #fff9c4 0%, #ffb300 45%, transparent 72%)",animation:"muzzleFlash 0.4s ease-out",pointerEvents:"none" }} />}
-          <span style={{ position:"relative",fontFamily:warrior,fontWeight:900,fontSize:14,letterSpacing:2,color:"#fff2c9",textShadow:"0 2px 4px rgba(0,0,0,0.8)",textTransform:"uppercase",pointerEvents:"none" }}>
-            {phase === "charging" ? L(lang,"cannonFireBtn") : phase === "firing" ? "" : L(lang,"cannonAimLabel")}
-          </span>
+        <div style={{ fontSize:14,fontWeight:800,color:"#ffe94d",fontFamily:mono,letterSpacing:4,marginBottom:6 }}>{L(lang,"dailyChestTooltip").toUpperCase()}</div>
+        <div style={{ fontSize:13,fontWeight:600,color: inSweet ? "#4ade80" : t.textDim,fontFamily:mono,marginBottom:10,minHeight:18 }}>
+          {phase === "pulling" ? (inSweet ? L(lang,"ropeSweet") : L(lang,"ropePulling")) : L(lang,"ropeHint")}
         </div>
-      )}
+
+        {/* FİTİL İPİ — aşağı sürükle */}
+        {phase !== "firing" && (
+          <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={fire} onPointerCancel={fire}
+            style={{ position:"relative",height:150,cursor:"grab",touchAction:"none",userSelect:"none",display:"flex",flexDirection:"column",alignItems:"center" }}>
+            {/* ip */}
+            <div style={{ width:5,height:ropeLen,borderRadius:3,
+              background: inSweet
+                ? "repeating-linear-gradient(180deg,#8ef0b0 0 5px,#4ade80 5px 10px)"
+                : "repeating-linear-gradient(180deg,#e8d5a8 0 5px,#b99a5e 5px 10px)",
+              boxShadow: inSweet ? "0 0 14px rgba(74,222,128,0.8)" : "0 2px 6px rgba(0,0,0,0.5)",
+              transition: phase === "pulling" ? "none" : "height 0.25s cubic-bezier(0.34,1.56,0.64,1)" }} />
+            {/* tutamak */}
+            <div style={{ width:52,height:52,borderRadius:"50%",marginTop:-2,display:"flex",alignItems:"center",justifyContent:"center",
+              background: inSweet ? "radial-gradient(circle at 35% 30%, #b9f6ca, #2e7d32 72%)" : "radial-gradient(circle at 35% 30%, #f0d79a, #6b4a1e 72%)",
+              border: `3px solid ${inSweet ? "#4ade80" : "#c9a15e"}`,
+              boxShadow: inSweet ? "0 0 22px rgba(74,222,128,0.85)" : "0 4px 12px rgba(0,0,0,0.55)",
+              fontSize:22,
+              animation: phase === "idle" ? "float 1.9s ease-in-out infinite" : "none" }}>🪢</div>
+            {/* kritik bölge işareti */}
+            <div style={{ position:"absolute",right:6,top:`${46 + (SWEET_MIN/100)*MAX_PULL}px`,height:`${((SWEET_MAX-SWEET_MIN)/100)*MAX_PULL}px`,width:14,borderRadius:4,
+              background:"rgba(74,222,128,0.28)",border:"1px solid rgba(74,222,128,0.7)",pointerEvents:"none" }} />
+          </div>
+        )}
+        {phase === "firing" && <div style={{ height:150 }} />}
+      </>)}
 
       {phase === "opened" && (<>
         <div style={{ fontSize:60,marginBottom:8,animation:"popIn 0.5s ease-out",filter:"drop-shadow(0 0 30px #ffe066)" }}>🎉</div>
@@ -2506,6 +2526,19 @@ function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
           </div>))}
         </div>}
       </>)}
+
+      {/* PATLAMA ANINDA: kocaman 3B "+300 ALTIN" */}
+      {phase === "firing" && (
+        <div style={{ position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none",zIndex:5 }}>
+          <div style={{ opacity:1,animation:"zoomThroughEye 0.85s cubic-bezier(0.19,1,0.22,1) forwards" }}>
+            <div style={{ fontFamily:warrior,fontWeight:900,whiteSpace:"nowrap",fontSize:"clamp(40px, 13vw, 92px)",lineHeight:1,letterSpacing:"0.02em",
+              color:"#ffffff", WebkitTextStroke:"2px #7a4a00", transform:"skewY(-2deg)",
+              textShadow:"1px 1px 0 #ffe082,2px 2px 0 #ffd54f,3px 3px 0 #ffca28,4px 4px 0 #ffc107,5px 5px 0 #ffb300,6px 6px 0 #ffa000,7px 7px 0 #ff8f00,8px 8px 0 #ff6f00,9px 9px 0 #e65100,10px 10px 0 #bf360c,11px 11px 0 #9c3006,12px 12px 0 #7a2504, 0 18px 34px rgba(60,25,0,0.75), 0 0 46px rgba(255,190,60,0.65)" }}>
+              +{rewardAmount} {L(lang,"tabGold")}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   </div>);
 }
