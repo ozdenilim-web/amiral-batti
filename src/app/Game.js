@@ -854,9 +854,10 @@ function achSetUnlocked(idx, p) {
 // Dosya yoksa (404) bir kez işaretlenip sessizce eski sentezlenmiş sese dönülür —
 // yani mp3'ü koymadan da oyun bozulmaz, koyunca kendiliğinden devreye girer.
 // Değer = ses seviyesi (0-1). Yeni bir efekti mp3'e çevirmek için buraya bir satır eklemek yeterli.
+// Not: victory/gameover BURADA DEĞİL — onlar müzik kanalından çalar (playVictoryMusic/
+// playGameOverMusic), yoksa arka plan müziğinin üstüne biner ve bitince lobi müziğine dönerdi.
 const SFX_MP3 = {
   gold: 0.85,
-  victory: 0.9,
 };
 
 // === SES MOTORU (Web Audio API + mp3) ===
@@ -1069,6 +1070,21 @@ class SoundEngine {
     } else {
       startNew();
     }
+  }
+  // ZAFER MÜZİĞİ — kullanıcının kendi parçası. MÜZİK kanalından çalar (efekt kanalından değil):
+  // böylece arkadaki lobi/savaş müziğini kapatır ve bitince ona geri dönmez, döngüde devam eder.
+  playVictoryMusic() {
+    if (!this.ctx) this.init();
+    if (!this.ctx) return;
+    this.currentMusic = 'victory';
+    this._switchMp3('/sfx/victory.mp3', 0.55, true, 450, 700);
+  }
+  // BOZGUN MÜZİĞİ — kısa bir sting olduğu için döngüsüz, bir kez çalar.
+  playGameOverMusic() {
+    if (!this.ctx) this.init();
+    if (!this.ctx) return;
+    this.currentMusic = 'gameover';
+    this._switchMp3('/sfx/gameover.mp3', 0.6, false, 450, 350);
   }
   playIntroFanfare() { this.ensureMusic(0.10); }
   // YERLEŞTİRME — Taktik müzik (sakin ama gerilimli)
@@ -2788,69 +2804,68 @@ function BattleRecapScreen({ oppShipsData, attackOverlay, atkHitMap, cellSize, l
   </div>);
 }
 
-// === MAÇ SONU MİNİ PATLAMA — savaş haritası tekrarından sonra ~1.5sn, ganimet tablosundan önce.
-// Sadece kısa bir "KAZANDIN!/KAYBETTİN!" vurgusu, istatistik yok — o zaten sonraki ekranlarda. ===
-function MiniResultBurst({ isWin, lang = "tr" }) {
-  return (<div style={{ position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",zIndex:9000,background:isWin?"radial-gradient(ellipse at 50% 45%,rgba(255,215,0,0.14) 0%,rgba(2,6,16,0.92) 70%)":"radial-gradient(ellipse at 50% 45%,rgba(255,71,87,0.12) 0%,rgba(2,6,16,0.92) 70%)" }}>
-    <div style={{ textAlign:"center",animation:"popFlash 1.3s cubic-bezier(0.34,1.56,0.64,1) both" }}>
-      <div style={{ fontSize:64,marginBottom:6,filter: isWin ? "drop-shadow(0 0 30px rgba(255,215,0,0.7))" : "drop-shadow(0 0 24px rgba(255,71,87,0.6))" }}>{isWin ? "🏆" : "💥"}</div>
-      <div style={{ fontSize:"clamp(30px, 9vw, 46px)",fontWeight:900,fontFamily:warrior,letterSpacing:4,textTransform:"uppercase",
-        ...(isWin ? { background:"linear-gradient(180deg,#fffbe0 0%,#ffe066 26%,#ffd700 50%,#b45309 72%,#ffe066 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" } : { color:"#ff4757" }),
-        textShadow: isWin ? "0 0 30px rgba(255,215,0,0.7)" : "0 0 26px rgba(255,71,87,0.75)" }}>
-        {isWin ? L(lang,"victory") : L(lang,"defeat")}
-      </div>
-    </div>
-  </div>);
-}
-
-// === ZAFER ANI — maç kazanılır kazanılmaz, her şeyden önce. Kocaman AR patlaması. ===
-// Ekranı kaplar: dönen ışın halkası, genişleyen şok dalgaları, harf harf gelen dev "KAZANDIN".
-function VictoryBurst({ lang = "tr" }) {
-  const word = L(lang, "victory");
+// === MAÇ SONU ANI — maç biter bitmez, ekranın TAM ORTASINDA, 1 saniye. Atış sesiyle gelir. ===
+// Kazanma ve kaybetme aynı tasarımı paylaşır; sadece renk, ikon ve yazı değişir.
+function ResultBurst({ isWin, lang = "tr" }) {
+  const word = isWin ? L(lang, "victory") : L(lang, "defeat");
+  const ring    = isWin ? "rgba(255,214,90,0.75)" : "rgba(255,90,80,0.75)";
+  const bg      = isWin
+    ? "radial-gradient(ellipse at 50% 50%, rgba(255,215,0,0.22) 0%, rgba(40,22,2,0.85) 42%, rgba(2,6,16,0.97) 78%)"
+    : "radial-gradient(ellipse at 50% 50%, rgba(255,60,50,0.20) 0%, rgba(42,6,8,0.86) 42%, rgba(2,6,16,0.97) 78%)";
+  const rays = isWin
+    ? "conic-gradient(from 0deg, rgba(255,215,0,0) 0deg, rgba(255,225,90,0.30) 14deg, rgba(255,215,0,0) 34deg, rgba(255,215,0,0) 82deg, rgba(255,225,90,0.24) 98deg, rgba(255,215,0,0) 120deg, rgba(255,215,0,0) 172deg, rgba(255,225,90,0.30) 190deg, rgba(255,215,0,0) 212deg, rgba(255,215,0,0) 262deg, rgba(255,225,90,0.24) 280deg, rgba(255,215,0,0) 302deg, rgba(255,215,0,0) 360deg)"
+    : "conic-gradient(from 0deg, rgba(255,71,87,0) 0deg, rgba(255,110,90,0.26) 14deg, rgba(255,71,87,0) 34deg, rgba(255,71,87,0) 82deg, rgba(255,110,90,0.20) 98deg, rgba(255,71,87,0) 120deg, rgba(255,71,87,0) 172deg, rgba(255,110,90,0.26) 190deg, rgba(255,71,87,0) 212deg, rgba(255,71,87,0) 262deg, rgba(255,110,90,0.20) 280deg, rgba(255,71,87,0) 302deg, rgba(255,71,87,0) 360deg)";
+  const textFill = isWin
+    ? { background:"linear-gradient(180deg,#fffbe0 0%,#ffe98a 24%,#ffd700 48%,#a86a08 72%,#ffe98a 100%)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }
+    : { background:"linear-gradient(180deg,#ffe3e0 0%,#ff9a90 24%,#ff4757 50%,#7f1d1d 74%,#ff9a90 100%)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" };
+  const glow = isWin
+    ? "drop-shadow(0 0 26px rgba(255,215,0,0.9)) drop-shadow(0 4px 10px rgba(0,0,0,0.7))"
+    : "drop-shadow(0 0 24px rgba(255,71,87,0.85)) drop-shadow(0 4px 10px rgba(0,0,0,0.7))";
   return (<div style={{ position:"fixed",inset:0,zIndex:9500,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",
-    background:"radial-gradient(ellipse at 50% 45%, rgba(255,215,0,0.22) 0%, rgba(40,22,2,0.85) 42%, rgba(2,6,16,0.97) 78%)",
-    animation:"pageFadeIn 0.25s ease-out" }}>
+    background:bg, animation:"pageFadeIn 0.18s ease-out" }}>
     {/* Bu üç keyframe başka bileşenlerin yerel style'ında tanımlı — burada kendi kopyamız olmalı */}
     <style>{`
 @keyframes vbRayRotate{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 @keyframes vbFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 @keyframes vbLine{0%{transform:scaleX(0);opacity:0}100%{transform:scaleX(1);opacity:1}}
     `}</style>
-    {/* Dönen konik altın ışınlar */}
-    <span className="gpu" style={{ position:"absolute",left:"50%",top:"48%",width:"185vmax",height:"185vmax",marginLeft:"-92.5vmax",marginTop:"-92.5vmax",pointerEvents:"none",
-      background:"conic-gradient(from 0deg, rgba(255,215,0,0) 0deg, rgba(255,225,90,0.30) 14deg, rgba(255,215,0,0) 34deg, rgba(255,215,0,0) 82deg, rgba(255,225,90,0.24) 98deg, rgba(255,215,0,0) 120deg, rgba(255,215,0,0) 172deg, rgba(255,225,90,0.30) 190deg, rgba(255,215,0,0) 212deg, rgba(255,215,0,0) 262deg, rgba(255,225,90,0.24) 280deg, rgba(255,215,0,0) 302deg, rgba(255,215,0,0) 360deg)",
+    {/* Dönen konik ışınlar */}
+    <span className="gpu" style={{ position:"absolute",left:"50%",top:"50%",width:"185vmax",height:"185vmax",marginLeft:"-92.5vmax",marginTop:"-92.5vmax",pointerEvents:"none",
+      background:rays,
       WebkitMaskImage:"radial-gradient(circle, rgba(0,0,0,0.95) 8%, rgba(0,0,0,0.45) 38%, transparent 62%)",
       maskImage:"radial-gradient(circle, rgba(0,0,0,0.95) 8%, rgba(0,0,0,0.45) 38%, transparent 62%)",
       animation:"vbRayRotate 11s linear infinite" }} />
     {/* Genişleyen şok dalgaları */}
     {[0,1,2].map(i => (
-      <span key={i} style={{ position:"absolute",left:"50%",top:"48%",width:190,height:190,marginLeft:-95,marginTop:-95,borderRadius:"50%",
-        border:"3px solid rgba(255,214,90,0.75)",pointerEvents:"none",
-        animation:`explodeWave 1.5s cubic-bezier(0.16,1,0.3,1) ${i*0.26}s both` }} />
+      <span key={i} style={{ position:"absolute",left:"50%",top:"50%",width:190,height:190,marginLeft:-95,marginTop:-95,borderRadius:"50%",
+        border:`3px solid ${ring}`,pointerEvents:"none",
+        animation:`explodeWave 1s cubic-bezier(0.16,1,0.3,1) ${i*0.14}s both` }} />
     ))}
     <div style={{ position:"relative",textAlign:"center",padding:"0 16px" }}>
-      {/* Kupa */}
-      <div style={{ fontSize:"clamp(64px, 20vw, 118px)",lineHeight:1,marginBottom:6,
-        filter:"drop-shadow(0 0 34px rgba(255,215,0,0.95)) drop-shadow(0 0 70px rgba(255,190,40,0.6))",
-        animation:"siegeIntroPop 0.7s cubic-bezier(0.16,1,0.3,1) both, float 2.6s ease-in-out 0.7s infinite" }}>🏆</div>
-      {/* Dev KAZANDIN — harf harf */}
+      {/* İkon */}
+      <div style={{ fontSize:"clamp(58px, 18vw, 104px)",lineHeight:1,marginBottom:4,
+        filter: isWin
+          ? "drop-shadow(0 0 34px rgba(255,215,0,0.95)) drop-shadow(0 0 70px rgba(255,190,40,0.6))"
+          : "drop-shadow(0 0 30px rgba(255,71,87,0.9)) drop-shadow(0 0 60px rgba(220,40,40,0.5))",
+        animation:"siegeIntroPop 0.45s cubic-bezier(0.16,1,0.3,1) both" }}>{isWin ? "\u{1F3C6}" : "\u{1F480}"}</div>
+      {/* Dev KAZANDIN / KAYBETTİN — harf harf */}
       <div style={{ display:"flex",justifyContent:"center",flexWrap:"nowrap",gap:"0.01em" }}>
         {word.split("").map((ch, i) => (
           <span key={i} style={{ display:"inline-block",
-            fontSize:"clamp(42px, 15vw, 104px)",fontWeight:900,fontFamily:warrior,letterSpacing:2,lineHeight:1.05,
-            background:"linear-gradient(180deg,#fffbe0 0%,#ffe98a 24%,#ffd700 48%,#a86a08 72%,#ffe98a 100%)",
-            WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",
-            filter:"drop-shadow(0 0 26px rgba(255,215,0,0.9)) drop-shadow(0 4px 10px rgba(0,0,0,0.7))",
-            animation:`siegeIntroPop 0.6s cubic-bezier(0.34,1.56,0.64,1) ${0.22 + i*0.07}s both, vbFloat 2.8s ease-in-out ${1.1 + i*0.14}s infinite` }}>
-            {ch === " " ? " " : ch}
+            fontSize:"clamp(40px, 14vw, 98px)",fontWeight:900,fontFamily:warrior,letterSpacing:2,lineHeight:1.05,
+            ...textFill, filter:glow,
+            animation:`siegeIntroPop 0.4s cubic-bezier(0.34,1.56,0.64,1) ${0.1 + i*0.04}s both` }}>
+            {ch === " " ? "\u00a0" : ch}
           </span>
         ))}
       </div>
-      {/* Altın çizgi */}
+      {/* Alt çizgi */}
       <div style={{ height:3,margin:"14px auto 0",width:"min(320px, 74%)",borderRadius:2,
-        background:"linear-gradient(90deg,transparent,#ffd700,#fffbe0,#ffd700,transparent)",
-        boxShadow:"0 0 22px rgba(255,215,0,0.85)",
-        animation:"vbLine 0.8s ease-out 0.75s both" }} />
+        background: isWin
+          ? "linear-gradient(90deg,transparent,#ffd700,#fffbe0,#ffd700,transparent)"
+          : "linear-gradient(90deg,transparent,#ff4757,#ffd0cc,#ff4757,transparent)",
+        boxShadow: isWin ? "0 0 22px rgba(255,215,0,0.85)" : "0 0 22px rgba(255,71,87,0.8)",
+        animation:"vbLine 0.45s ease-out 0.35s both" }} />
     </div>
   </div>);
 }
@@ -3353,6 +3368,9 @@ export default function Game() {
   const [markMode, setMarkMode] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [isWin, setIsWin] = useState(false);
+  // Sahne sesleri sadece gameOverStage'e bağlı çalıştığı için isWin'in ref kopyası gerekir.
+  const isWinRef = useRef(false);
+  useEffect(() => { isWinRef.current = isWin; }, [isWin]);
   const [isBotGame, setIsBotGame] = useState(false);
   const [botBoard, setBotBoard] = useState(null);
   const [botShips, setBotShips] = useState(null);
@@ -3531,33 +3549,38 @@ export default function Game() {
 
   // MAÇ SONU SAHNE AKIŞI — oyun bitince otomatik başlat (onboarding hariç), oyundan çıkınca sıfırla.
   useEffect(() => {
-    // Kazanınca akış ZAFER ANIYLA başlar: kocaman AR "KAZANDIN" + zafer müziği.
-    // Kaybedince eski akış korunur (harita → mini KAYBETTİN).
-    if (phase === "gameover" && !isOnboarding) setGameOverStage(prev => prev || (isWin ? "victory" : "map"));
+    // Kazanma ve kaybetme AYNI akışı kullanır — sadece yazı, renk ve müzik değişir:
+    // burst (1sn, ekranın tam ortasında KAZANDIN/KAYBETTİN + atış sesi)
+    //   → ganimet tablosu (zafer/bozgun müziği burada başlar)
+    //   → savaş haritası 5sn
+    //   → zafer/bozgun ekranı
+    if (phase === "gameover" && !isOnboarding) setGameOverStage(prev => prev || "burst");
     else if (phase !== "gameover") setGameOverStage(null);
-  }, [phase, isOnboarding, isWin]);
-  // Zafer sesi + arka plan müziği — "victory" sahnesine girildiğinde BİR KEZ.
-  // Efekt sadece gameOverStage'e bağlı; başka state değişince tekrar çalmaz.
+  }, [phase, isOnboarding]);
+  // Sahneye özel sesler — sadece gameOverStage değişince tetiklenir, başka state'ten etkilenmez.
   useEffect(() => {
-    if (gameOverStage !== "victory") return;
-    try { sfx.init(); sfx.play('victory'); } catch (e) {}
-    try { launchConfetti('confetti-canvas'); } catch (e) {}
+    if (gameOverStage === "burst") {
+      try { sfx.init(); sfx.playVoice('explosion'); } catch (e) {} // atış sesi
+    } else if (gameOverStage === "rewards") {
+      // Müzik ganimet tablosuyla BİRLİKTE başlar ve ekran boyunca sürer (lobi müziğine dönmez).
+      try {
+        sfx.init();
+        if (isWinRef.current) { sfx.playVictoryMusic(); launchConfetti('confetti-canvas'); }
+        else sfx.playGameOverMusic();
+      } catch (e) {}
+    }
   }, [gameOverStage]);
-  // Sahneler arası otomatik geçiş.
-  // Kazanma:  zafer penceresi 2.6sn → harita 5sn → ganimet tablosu
-  // Kaybetme: harita 5sn → mini kaybettin 1.5sn → ganimet tablosu
-  // "rewards" sahnesinden çıkış RewardModal'ın kendi kapatma (DEVAM/✕) etkileşimiyle olur.
+  // Sahneler arası otomatik geçiş. "rewards"tan çıkış RewardModal'ın kendi kapatmasıyla olur.
   useEffect(() => {
-    if (gameOverStage === "victory") { const tm = setTimeout(() => setGameOverStage("map"), 2600); return () => clearTimeout(tm); }
-    if (gameOverStage === "map") { const tm = setTimeout(() => setGameOverStage(isWin ? "rewards" : "burst"), 5000); return () => clearTimeout(tm); }
-    if (gameOverStage === "burst") { const tm = setTimeout(() => setGameOverStage("rewards"), 1500); return () => clearTimeout(tm); }
+    if (gameOverStage === "burst") { const tm = setTimeout(() => setGameOverStage("rewards"), 1000); return () => clearTimeout(tm); }
+    if (gameOverStage === "map") { const tm = setTimeout(() => setGameOverStage("final"), 5000); return () => clearTimeout(tm); }
     // Güvenlik: "rewards" sahnesine geldik ama rapor (matchRewards) hâlâ gelmediyse — normalde
     // gelmesi gereken guarantee-effect'ten önce buraya düşmüş olabiliriz — 2sn sonra yine de devam et.
     if (gameOverStage === "rewards" && !matchRewards) {
-      const tm = setTimeout(() => setGameOverStage(prev => prev === "rewards" ? "final" : prev), 2000);
+      const tm = setTimeout(() => setGameOverStage(prev => prev === "rewards" ? "map" : prev), 2000);
       return () => clearTimeout(tm);
     }
-  }, [gameOverStage, matchRewards, isWin]);
+  }, [gameOverStage, matchRewards]);
 
   // GARANTİ: maç bitti ve 1.5 sn içinde rapor gelmediyse (online ELO zinciri gecikmiş/kopmuş olabilir)
   // eldeki verilerle raporu yine de göster — oyuncu ganimetini ASLA göremeden kalmasın.
@@ -3849,7 +3872,7 @@ export default function Game() {
           // Süre bitti — kaybettin
           if (isBotGame) {
             setWinner(appLang==="en"?"You lost because you didn't place your ships in time!":"Gemileri zamanında yerleştiremediğin için kaybettin!"); setIsWin(false); setPhase("gameover");
-            sfx.init(); sfx.play('lose'); sfx.playDefeatMusic();
+            sfx.init(); // bozgun sesi/müziği ganimet tablosuyla birlikte sahne makinesinden çalıyor
             recordBotLossRef.current?.();
           } else if (roomIdRef.current) {
             // Online: rakip kazansın
@@ -3869,7 +3892,7 @@ export default function Game() {
       if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
       clockIntervalRef.current = setInterval(() => {
         if (phaseRef.current !== "playing") return;
-        if (myTurnRef.current) { myClockRef.current = Math.max(0, myClockRef.current - 1); setMyClock(myClockRef.current); if (myClockRef.current <= 0) { clearInterval(clockIntervalRef.current); if (isBotGameRef.current) { setWinner(appLang==="en"?"Time's up!":"Süren doldu!"); setIsWin(false); setPhase("gameover"); sfx.init(); sfx.play('lose'); sfx.playDefeatMusic(); recordBotLossRef.current?.(); } else { update(ref(db, `rooms/${roomIdRef.current}`), { winner: playerNumRef.current === 1 ? 2 : 1, winReason: "timeout" }); } } }
+        if (myTurnRef.current) { myClockRef.current = Math.max(0, myClockRef.current - 1); setMyClock(myClockRef.current); if (myClockRef.current <= 0) { clearInterval(clockIntervalRef.current); if (isBotGameRef.current) { setWinner(appLang==="en"?"Time's up!":"Süren doldu!"); setIsWin(false); setPhase("gameover"); sfx.init(); /* bozgun sesi/müziği ganimet tablosuyla birlikte sahne makinesinden çalıyor */ recordBotLossRef.current?.(); } else { update(ref(db, `rooms/${roomIdRef.current}`), { winner: playerNumRef.current === 1 ? 2 : 1, winReason: "timeout" }); } } }
         else { oppClockRef.current = Math.max(0, oppClockRef.current - 1); setOppClock(oppClockRef.current); if (oppClockRef.current <= 0) { clearInterval(clockIntervalRef.current); update(ref(db, `rooms/${roomIdRef.current}`), { winner: playerNumRef.current, winReason: "timeout" }); } }
       }, 1000);
     }
@@ -3982,7 +4005,7 @@ export default function Game() {
         }
         sfx.init();
         // Zafer sesi + konfeti "victory" sahnesinde tek yerden çalıyor; yenilgi eskisi gibi.
-        if (!iW) { sfx.play('lose'); setTimeout(() => sfx.playDefeatMusic(), 500); }
+        // kazanma/kaybetme sesi ganimet tablosuyla birlikte sahne makinesinden çalıyor
         if (clockIntervalRef.current) clearInterval(clockIntervalRef.current);
 
         // MAÇ SONUCU — her oyuncu KENDİ profilini yazar (Firebase kuralları başkasınınkine izin vermez).
@@ -4502,7 +4525,7 @@ export default function Game() {
   const surrenderGame = async () => {
     if (isBotGame) {
       setWinner(appLang==="en"?"You left the game!":"Oyundan ayrıldın!"); setIsWin(false); setPhase("gameover");
-      sfx.init(); sfx.play('lose'); sfx.playDefeatMusic();
+      sfx.init(); // bozgun sesi/müziği ganimet tablosuyla birlikte sahne makinesinden çalıyor
       return;
     }
     if (roomIdRef.current) {
@@ -4513,7 +4536,11 @@ export default function Game() {
 
   const resetGame = () => {
     /* müzik devam eder */
-    try { sfx.stopSfx('victory'); } catch (e) {} // zafer müziği lobide çalmaya devam etmesin
+    // Zafer/bozgun müziği lobide devam etmesin — lobi müziğine dön.
+    // ensureMusic çalan parçayı değiştirmez (sadece sesini ayarlar), o yüzden önce durdur.
+    try {
+      if (sfx.currentMusic === 'victory' || sfx.currentMusic === 'gameover') { sfx._stopMp3(); sfx.playLobbyMusic(); }
+    } catch (e) {}
     // Yerleştirme aşamasında terk edilen oda (kimse kazanmadı) → hemen sil, artık kalmasın.
     if (roomIdRef.current && phaseRef.current === "placing") {
       remove(ref(db, `rooms/${roomIdRef.current}`)).catch(() => {});
@@ -5030,7 +5057,9 @@ export default function Game() {
       track("game_end", { mode: "salvo", result: won ? "win" : draw ? "draw" : "loss", gold: won ? SALVO_WIN_GOLD : (draw ? SALVO_ANTE : 0) });
     }
     // Salvo kendi sonuç fazını (salvoreveal) kullanıyor — zafer müziği burada çalar.
-    sfx.init(); sfx.play(won ? 'victory' : draw ? 'click' : 'lose');
+    sfx.init(); sfx.playVoice('explosion'); // atış sesi
+    if (won) setTimeout(() => sfx.playVictoryMusic(), 900);
+    else if (!draw) setTimeout(() => sfx.playGameOverMusic(), 900);
     setSalvoResult({ myHits, oppHits, myOverlay, oppOverlay, won, draw });
     setPhase("salvoreveal");
   };
@@ -5204,7 +5233,9 @@ export default function Game() {
       bumpGlobalStats(1, 0); bumpVoyageMatch();
     }
     // Salvo kendi sonuç fazını (salvoreveal) kullanıyor — zafer müziği burada çalar.
-    sfx.init(); sfx.play(won ? 'victory' : draw ? 'click' : 'lose');
+    sfx.init(); sfx.playVoice('explosion'); // atış sesi
+    if (won) setTimeout(() => sfx.playVictoryMusic(), 900);
+    else if (!draw) setTimeout(() => sfx.playGameOverMusic(), 900);
     setSalvoResult({ myHits, oppHits, myOverlay, oppOverlay, won, draw });
     setPhase("salvoreveal");
     if (salvoUnsubRef.current) { salvoUnsubRef.current(); salvoUnsubRef.current = null; }
@@ -5307,8 +5338,9 @@ export default function Game() {
     setPhase("siegeover");
     sfx.init();
     // Kuşatma kendi bitiş fazını (siegeover) kullandığı için zafer sesini burada çalar.
-    if (won) { sfx.play('victory'); setTimeout(() => launchConfetti('confetti-canvas'), 300); }
-    else { sfx.play('lose'); setTimeout(() => sfx.playDefeatMusic?.(), 500); }
+    sfx.playVoice('explosion'); // atış sesi
+    if (won) { setTimeout(() => { sfx.playVictoryMusic(); launchConfetti('confetti-canvas'); }, 900); }
+    else { setTimeout(() => sfx.playGameOverMusic(), 900); }
     if (authUid && myProfile) {
       const rMult = revengeMult(safeAch(myProfile?.ach).lossStreak);
       // ZİNCİR KURALI (online'da da artık geçerli — ekonomi tamamen açık):
@@ -5809,7 +5841,7 @@ export default function Game() {
     // Check if bot won
     if (newOppHits >= 20) {
       setWinner(appLang==="en"?"Your ships were sunk!":"Gemilerin battı!"); setIsWin(false); setPhase("gameover");
-      sfx.init(); sfx.play('lose'); sfx.playDefeatMusic();
+      sfx.init(); // bozgun sesi/müziği ganimet tablosuyla birlikte sahne makinesinden çalıyor
       // Kaybeden altın kaybetmez, kazanmaz da — sadece istatistik + %25 XP
       recordBotLossRef.current?.();
     } else {
@@ -6619,21 +6651,20 @@ export default function Game() {
         <OnboardingVictoryScreen sfx={sfx} t={t} winner={winner} warrior={warrior} mono={mono} onDone={() => { setIsOnboarding(false); resetGame(); }} lang={appLang} />
       </>);
     }
-    // MAÇ SONU AKIŞI: önce 5sn savaş haritası (vurulan gemiler yanıp söner) → 1.5sn mini
-    // kazandın/kaybettin patlaması → ganimet tablosu → tam zafer/bozgun ekranı. Onboarding hariç.
-    if (!isOnboarding && gameOverStage === "victory") {
-      return (<><style>{ANIMS}</style><VictoryBurst lang={appLang} /><canvas id="confetti-canvas" style={{ position:"fixed",inset:0,pointerEvents:"none",zIndex:9600 }} /></>);
-    }
-    if (!isOnboarding && gameOverStage === "map") {
-      return (<><style>{ANIMS}</style><BattleRecapScreen oppShipsData={oppShipsData} attackOverlay={attackOverlay} atkHitMap={atkHitMap} cellSize={cellSize} lang={appLang} /></>);
-    }
+    // MAÇ SONU AKIŞI (kazanma ve kaybetme aynı, sadece renk/yazı/müzik değişir):
+    // 1sn ekranın tam ortasında KAZANDIN/KAYBETTİN (atış sesiyle) → ganimet tablosu
+    // (zafer/bozgun müziği burada başlar) → 5sn savaş haritası → tam zafer/bozgun ekranı.
     if (!isOnboarding && gameOverStage === "burst") {
-      return (<><style>{ANIMS}</style><MiniResultBurst isWin={isWin} lang={appLang} /></>);
+      return (<><style>{ANIMS}</style><ResultBurst isWin={isWin} lang={appLang} /></>);
     }
     if (!isOnboarding && gameOverStage === "rewards" && matchRewards) {
       return (<><style>{ANIMS}</style>
-        <RewardModal key={rewardNonce} rewards={matchRewards} dailyMissions={dailyMissions} missionProgress={missionProgress} newAch={newAchUnlocks} profile={myProfile} sfx={sfx} onClose={() => { setRewardModalOpen(false); setGameOverStage("final"); }} lang={appLang} />
+        <RewardModal key={rewardNonce} rewards={matchRewards} dailyMissions={dailyMissions} missionProgress={missionProgress} newAch={newAchUnlocks} profile={myProfile} sfx={sfx} onClose={() => { setRewardModalOpen(false); setGameOverStage("map"); }} lang={appLang} />
+        <canvas id="confetti-canvas" style={{ position:"fixed",inset:0,pointerEvents:"none",zIndex:9600 }} />
       </>);
+    }
+    if (!isOnboarding && gameOverStage === "map") {
+      return (<><style>{ANIMS}</style><BattleRecapScreen oppShipsData={oppShipsData} attackOverlay={attackOverlay} atkHitMap={atkHitMap} cellSize={cellSize} lang={appLang} /></>);
     }
     const myEloDiff = eloChange ? eloChange.myNew - eloChange.myOld : null;
     const myRank = myProfile ? getRankInfo(migrateHonor(myProfile), appLang) : null;
