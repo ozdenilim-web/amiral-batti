@@ -2372,7 +2372,7 @@ function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
   const startCharge = () => {
     if (phase !== "idle") return;
     setPhase("charging");
-    sfx.init(); sfx.play('click');
+    sfx.init(); // sandıkta tıklama/patlama efekti yok — sadece ödül anındaki altın sesi çalar
     startTsRef.current = performance.now();
     const tick = (now) => {
       const elapsed = now - startTsRef.current;
@@ -2391,12 +2391,9 @@ function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
     const amount = crit ? Math.round(DAILY_CHEST_GOLD * (1 + pct / 100)) : DAILY_CHEST_GOLD;
     setIsCrit(crit); setBonusPct(pct); setRewardAmount(amount);
     setPhase("firing");
-    sfx.play('hit'); // namlu patlaması
-    setTimeout(() => sfx.play('sunk'), 120); // isabet — sandık aldı
     setTimeout(() => {
       setPhase("opened"); setShowCoins(true);
-      sfx.play('chest');
-      setTimeout(() => sfx.play('gold'), 250);
+      sfx.play('gold'); // tek ses: altın
     }, 700);
   };
 
@@ -2617,14 +2614,14 @@ function RewardModal({ rewards: rawRewards, dailyMissions, missionProgress, newA
   const [goldShown, setGoldShown] = useState(0);
   const [row, setRow] = useState(0); // sahne sahne akış
   useEffect(() => {
-    try { sfx.init(); sfx.play('chest'); } catch(e) {}
+    try { sfx.init(); } catch(e) {} // açılış efekti yok — sadece altın satırında altın sesi
     const timers = [];
     timers.push(setTimeout(() => { setRow(1); try { if (rewards.gold > 0) sfx.play('gold'); } catch(e) {} }, 350));
     timers.push(setTimeout(() => setRow(2), 900));
     timers.push(setTimeout(() => setRow(3), 1350));
     timers.push(setTimeout(() => setRow(4), 1800));
-    // Kazanımlar chink sesiyle sırayla
-    (newAch || []).forEach((_, i) => timers.push(setTimeout(() => { setRow(5 + i); try { sfx.play('gold'); } catch(e) {} }, 2200 + i * 450)));
+    // Kazanımlar sırayla açılır — altın sesi üst üste binmesin diye burada ses yok
+    (newAch || []).forEach((_, i) => timers.push(setTimeout(() => setRow(5 + i), 2200 + i * 450)));
     return () => timers.forEach(clearTimeout);
   }, []);
   // Altın sayacı — kayıpta (negatif) da saymalı, sadece tam sıfırsa (net sıfır) hiç saymaya gerek yok
@@ -3456,7 +3453,7 @@ export default function Game() {
     const cl = safeClaimed(myProfile.achievClaimed);
     if (cl[setDef.id] || !achSetDone(setDef, myProfile)) return;
     track("reward_claim", { type: "achievement_set", set: setDef.id, gold: setDef.reward });
-    sfx.init(); sfx.play('chest'); setTimeout(() => sfx.play('gold'), 350);
+    sfx.init(); sfx.play('gold'); // tek ses: altın
     const a2 = safeAch(myProfile.ach); a2.goldEarned += setDef.reward;
     const nc = { ...cl, [setDef.id]: true };
     const newGold = safeGold(myProfile.gold) + setDef.reward;
