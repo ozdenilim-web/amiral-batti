@@ -167,17 +167,24 @@ function isTestMode() {
   return new URLSearchParams(window.location.search).get("test") === "1";
 }
 
-// === GÜNLÜK SANDIK (cihaz bazlı) ===
-const DAILY_CHEST_KEY = "ab_daily_chest_date";
+// === GÜNLÜK TOP ÖDÜLÜ (HESAP bazlı) ===
+// Eskiden cihaz hafızasındaydı; aynı hesapla başka tarayıcıdan tekrar alınabiliyordu.
+// Artık profile yazılıyor: hangi cihazdan girilirse girilsin günde 1 kez.
+// Kaldırılan "günlük giriş ödülü"nün seri (streak) ödülü buraya çarpan olarak taşındı.
 const DAILY_CHEST_GOLD = 300; // pasif kazanç aktif oyunu geçmesin diye 500→300
-function hasClaimedDailyChestToday() {
-  if (typeof window === "undefined") return true;
-  try { return localStorage.getItem(DAILY_CHEST_KEY) === new Date().toDateString(); } catch (e) { return true; }
+function dayKeyOf(ts) { const d = new Date(ts); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+function hasClaimedCannonToday(profile) {
+  if (!profile || !profile.lastCannonReward) return false;
+  return dayKeyOf(profile.lastCannonReward) === dayKeyOf(Date.now());
 }
-function markDailyChestClaimed() {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(DAILY_CHEST_KEY, new Date().toDateString()); } catch (e) {}
+// Giriş serisi: dün aldıysa +1, aradan gün atladıysa 1'e döner.
+function nextCannonStreak(profile) {
+  const last = profile && profile.lastCannonReward;
+  if (!last) return 1;
+  return isConsecutiveDay(last, Date.now()) ? (profile.loginStreak || 0) + 1 : 1;
 }
+// Seri çarpanı — eski giriş ödülüyle aynı kademeler
+function streakMultOf(streak) { return streak >= 7 ? 2 : streak >= 3 ? 1.5 : streak >= 2 ? 1.25 : 1; }
 
 // === BOT AI ===
 const BOT_NAMES = [
@@ -1430,74 +1437,10 @@ const QUICK_EMOJIS = [
   { id: "lucky", emoji: "🍀", label: "Şanslısın", labelEn: "Lucky!" },
 ];
 
-function calculateDailyReward(streak) {
-  const base = 50, max = 200;
-  let multiplier = streak >= 7 ? 2 : streak >= 3 ? 1.5 : streak >= 2 ? 1.25 : 1;
-  return Math.floor((base + Math.floor(Math.random() * (max - base))) * multiplier);
-}
 function isSameDay(ts1, ts2) { const d1 = new Date(ts1), d2 = new Date(ts2); return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate(); }
 function isConsecutiveDay(lastTs, nowTs) { const l = new Date(lastTs), n = new Date(nowTs); return (new Date(n.getFullYear(),n.getMonth(),n.getDate()) - new Date(l.getFullYear(),l.getMonth(),l.getDate())) / 864e5 === 1; }
 
-async function checkDailyReward(uid) {
-  const profileRef = ref(db, `profiles/${uid}`);
-  const snap = await get(profileRef);
-  if (!snap.exists()) return null;
-  const profile = snap.val();
-  const now = Date.now();
-  // Günlük max 3 ödül
-  const sameDay = profile.lastDailyReward && isSameDay(profile.lastDailyReward, now);
-  const todayCount = sameDay ? (profile.dailyRewardCount || 1) : 0;
-  if (todayCount >= 3) return null;
-  let streak = sameDay ? (profile.loginStreak || 1) : ((profile.lastDailyReward && isConsecutiveDay(profile.lastDailyReward, now)) ? (profile.loginStreak || 0) + 1 : 1);
-  const reward = calculateDailyReward(streak);
-  const newGold = safeGold(profile.gold) + reward;
-  // Use set() with full clean profile to avoid NaN contamination from other fields
-  const cleanProfile = {
-    displayName: profile.displayName || "Denizci",
-    wins: (typeof profile.wins === "number" && !isNaN(profile.wins) && isFinite(profile.wins)) ? profile.wins : 0,
-    losses: (typeof profile.losses === "number" && !isNaN(profile.losses) && isFinite(profile.losses)) ? profile.losses : 0,
-    totalGames: (typeof profile.totalGames === "number" && !isNaN(profile.totalGames) && isFinite(profile.totalGames)) ? profile.totalGames : 0,
-    botGames: (typeof profile.botGames === "number" && isFinite(profile.botGames)) ? profile.botGames : 0,
-    onlineGames: (typeof profile.onlineGames === "number" && isFinite(profile.onlineGames)) ? profile.onlineGames : 0,
-    gold: newGold,
-    level: (typeof profile.level === "number" && isFinite(profile.level)) ? profile.level : 0,
-    levelProgress: (typeof profile.levelProgress === "number" && isFinite(profile.levelProgress)) ? profile.levelProgress : 0,
-    loginStreak: streak,
-    lastDailyReward: now,
-    createdAt: profile.createdAt || Date.now(),
-    lastGameAt: profile.lastGameAt || null,
-    onboardingDone: profile.onboardingDone === true,
-    nameSetAt: profile.nameSetAt || null,
-    avatar: profile.avatar || "⚓",
-    dailyRewardCount: todayCount + 1,
-    recentResults: safeRecent(profile.recentResults),
-    ach: (() => { const a = safeAch(profile.ach); a.goldEarned += reward; a.chest += 0; return a; })(),
-    achievClaimed: safeClaimed(profile.achievClaimed),
-    honor: migrateHonor(profile),
-    voyage: safeVoyage(profile.voyage),
-    daily: safeDaily(profile.daily),
-  };
-  await set(profileRef, cleanProfile);
-  return { reward, streak, newGold };
-}
 
-function DailyRewardPopup({ reward, streak, onClose, lang = "tr" }) {
-  return (<div style={{ position:"fixed",inset:0,background:"radial-gradient(ellipse at 50% 40%, rgba(255,215,0,0.10) 0%, rgba(167,139,250,0.06) 35%, rgba(0,0,0,0.88) 75%)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(6px)",overflow:"hidden" }} onClick={onClose}>
-    {/* Dönen ışık huzmeleri — oksipital uyarım */}
-    <div style={{ position:"absolute",width:900,height:900,top:"50%",left:"50%",transform:"translate(-50%,-50%)",background:"conic-gradient(from 0deg, transparent 0deg, rgba(255,215,0,0.10) 12deg, transparent 24deg, transparent 40deg, rgba(0,229,255,0.08) 52deg, transparent 64deg, transparent 90deg, rgba(255,105,180,0.07) 102deg, transparent 114deg, transparent 140deg, rgba(255,215,0,0.10) 152deg, transparent 164deg, transparent 190deg, rgba(167,139,250,0.08) 202deg, transparent 214deg, transparent 250deg, rgba(255,215,0,0.09) 262deg, transparent 274deg, transparent 310deg, rgba(0,229,255,0.07) 322deg, transparent 334deg)",animation:"raysSpin 22s linear infinite",pointerEvents:"none" }} />
-    {/* Süzülen paralar */}
-    {[...Array(8)].map((_,i)=>(<div key={i} style={{ position:"absolute",fontSize:16+((i*7)%14),left:`${8+i*11.5}%`,top:`${72+((i*13)%18)}%`,opacity:0.5,animation:`coinRise ${5+(i%4)}s ease-in ${i*0.7}s infinite`,pointerEvents:"none",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.6))" }}>{i%3===1?<img src="/img/coin.png" alt="" draggable={false} style={{ width:16+((i*7)%14),height:16+((i*7)%14),objectFit:"contain",display:"block" }} />:(i%3===0?"💰":"✨")}</div>))}
-    <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, rgba(20,26,52,0.99) 0%, rgba(10,16,32,0.99) 60%, rgba(30,20,8,0.99) 100%)",border:"2px solid rgba(255,215,0,0.6)",outline:"1px solid rgba(0,229,255,0.25)",outlineOffset:5,borderRadius:22,padding:"38px 42px",textAlign:"center",maxWidth:350,width:"90%",boxShadow:"0 0 100px rgba(255,215,0,0.35), 0 0 200px rgba(167,139,250,0.15), 0 24px 70px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,215,0,0.2)",animation:"chestBounceIn 0.7s cubic-bezier(0.34,1.56,0.64,1)",overflow:"hidden" }}>
-      {/* Parlama süpürmesi */}
-      <div style={{ position:"absolute",top:0,left:"-60%",width:"45%",height:"100%",background:"linear-gradient(105deg, transparent, rgba(255,255,255,0.10), transparent)",animation:"shineSweep 3s ease-in-out 0.8s infinite",pointerEvents:"none" }} />
-      <img src="/img/chest.png" alt="" draggable={false} style={{ width:80,height:80,objectFit:"contain",marginBottom:10,animation:"chestWiggle 2.2s ease-in-out infinite",filter:"drop-shadow(0 6px 14px rgba(0,0,0,0.6)) drop-shadow(0 0 30px rgba(255,215,0,0.5))",userSelect:"none",pointerEvents:"none" }} />
-      <div style={{ fontSize:11,fontWeight:700,color:"rgba(255,215,0,0.6)",fontFamily:mono,letterSpacing:5,marginBottom:8 }}>{L(lang,"dailyLoginReward")}</div>
-      <div style={{ fontSize:50,fontWeight:900,fontFamily:warrior,marginBottom:12,letterSpacing:2,background:"linear-gradient(180deg, #fff7d6 0%, #ffd700 45%, #d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 25px rgba(255,215,0,0.7)) drop-shadow(0 3px 4px rgba(0,0,0,0.8))",animation:"rewardPulse 1.6s ease-in-out infinite" }}>+{reward} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /></div>
-      {streak > 1 && <div style={{ fontSize:13,fontWeight:800,color:"#ff9f43",fontFamily:warrior,marginBottom:12,padding:"7px 18px",background:"linear-gradient(135deg, rgba(255,105,60,0.14), rgba(255,215,0,0.10))",borderRadius:10,border:"1px solid rgba(255,159,67,0.35)",display:"inline-block",letterSpacing:2,textShadow:"0 0 12px rgba(255,159,67,0.5)" }}>🔥 {streak} {L(lang,"dayStreak")} {streak>=7?"• x2 BONUS":streak>=3?"• x1.5 BONUS":streak>=2?"• x1.25 BONUS":""}</div>}
-      <div><button onClick={onClose} style={{ marginTop:12,padding:"16px 52px",background:"linear-gradient(135deg, #ffd700 0%, #ff9f43 55%, #d97706 100%)",color:"#1a1206",border:"none",borderRadius:12,fontSize:17,fontWeight:900,letterSpacing:5,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 40px rgba(255,215,0,0.5), 0 6px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.4)",animation:"btnBreath 1.8s ease-in-out infinite",textTransform:"uppercase" }}>{L(lang,"collectBtn")}</button></div>
-    </div>
-  </div>);
-}
 
 function ArenaSelect({ myGold, onSelect, onBack, lang = "tr" }) {
   const [openInfo, setOpenInfo] = useState(null);
@@ -1745,7 +1688,7 @@ async function ensureProfile(uid, displayName) {
   const snap = await get(profileRef);
   if (!snap.exists()) {
     const startGold = STARTING_GOLD;
-    const profile = { displayName: displayName||"Denizci", wins:0, losses:0, totalGames:0, botGames:0, onlineGames:0, gold:startGold, honor:0, level:0, levelProgress:0, loginStreak:0, lastDailyReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false, recentResults:[], ach:{ ...ACH_DEFAULT }, achievClaimed:{}, voyage:{ lastClaim:Date.now(), dayKey:"", matches:0 }, daily:{ ...DAILY_DEFAULT, dayKey:todayKey() } };
+    const profile = { displayName: displayName||"Denizci", wins:0, losses:0, totalGames:0, botGames:0, onlineGames:0, gold:startGold, honor:0, level:0, levelProgress:0, loginStreak:0, lastCannonReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false, recentResults:[], ach:{ ...ACH_DEFAULT }, achievClaimed:{}, voyage:{ lastClaim:Date.now(), dayKey:"", matches:0 }, daily:{ ...DAILY_DEFAULT, dayKey:todayKey() } };
     await set(profileRef, profile);
     return profile;
   }
@@ -1762,13 +1705,12 @@ async function ensureProfile(uid, displayName) {
     level: (typeof existing.level === "number" && !isNaN(existing.level) && isFinite(existing.level)) ? existing.level : 0,
     levelProgress: (typeof existing.levelProgress === "number" && !isNaN(existing.levelProgress) && isFinite(existing.levelProgress)) ? existing.levelProgress : 0,
     loginStreak: (typeof existing.loginStreak === "number" && !isNaN(existing.loginStreak) && isFinite(existing.loginStreak)) ? existing.loginStreak : 0,
-    lastDailyReward: existing.lastDailyReward || null,
+    lastCannonReward: existing.lastCannonReward || null,
     createdAt: existing.createdAt || Date.now(),
     lastGameAt: existing.lastGameAt || null,
     onboardingDone: existing.onboardingDone === true,
     nameSetAt: existing.nameSetAt || null,
     avatar: existing.avatar || "⚓",
-    dailyRewardCount: (typeof existing.dailyRewardCount === "number" && isFinite(existing.dailyRewardCount)) ? existing.dailyRewardCount : 0,
     recentResults: safeRecent(existing.recentResults),
     ach: safeAch(existing.ach),
     achievClaimed: safeClaimed(existing.achievClaimed),
@@ -2425,7 +2367,7 @@ const CANNON_ZONES = [
 ];
 const cannonZoneOf = (lvl) => CANNON_ZONES.find(z => lvl >= z.min) || CANNON_ZONES[CANNON_ZONES.length - 1];
 
-function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
+function DailyChestPopup({ onClaim, onClose, streak = 1, lang = "tr" }) {
   const [phase, setPhase] = useState("idle");
   const [level, setLevel] = useState(0);       // 0-100, bar seviyesi (aşağıdan yukarı)
   const [pull, setPull] = useState(0);         // halatın çekilme miktarı (px)
@@ -2468,8 +2410,10 @@ function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
     const zi = CANNON_ZONES.findIndex(z => lvl >= z.min);
     const zone = CANNON_ZONES[zi < 0 ? CANNON_ZONES.length - 1 : zi];
     setZoneIdx(zi < 0 ? CANNON_ZONES.length - 1 : zi);
-    setBonusPct(Math.round((zone.mult - 1) * 100));
-    setRewardAmount(Math.round(DAILY_CHEST_GOLD * zone.mult));
+    // Bölge çarpanı × giriş serisi çarpanı (eski günlük giriş ödülünden devralındı)
+    const sMult = streakMultOf(streak);
+    setBonusPct(Math.round((zone.mult * sMult - 1) * 100));
+    setRewardAmount(Math.round(DAILY_CHEST_GOLD * zone.mult * sMult));
     setPhase("firing");
     sfx.playVoice('explosion');
     setTimeout(() => { setPhase("opened"); setShowCoins(true); sfx.play('gold'); }, 850);
@@ -2560,6 +2504,16 @@ function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
         </div>
 
         <div style={{ fontSize:12,fontWeight:600,color:t.textDim,fontFamily:mono,marginTop:10 }}>{L(lang,"ropeHint")}</div>
+        {/* Giriş serisi — eski günlük giriş ödülünün seri çarpanı buraya taşındı */}
+        <div style={{ marginTop:8,display:"inline-flex",alignItems:"center",gap:7,padding:"5px 12px",borderRadius:20,
+          background: streakMultOf(streak) > 1 ? "rgba(255,215,0,0.12)" : "rgba(255,255,255,0.05)",
+          border: `1px solid ${streakMultOf(streak) > 1 ? "rgba(255,215,0,0.45)" : t.border}` }}>
+          <span style={{ fontSize:12 }}>🔥</span>
+          <span style={{ fontSize:11,fontWeight:800,fontFamily:mono,letterSpacing:1,color: streakMultOf(streak) > 1 ? t.gold : t.textDim }}>
+            {streak} {L(lang,"dayStreak")}
+          </span>
+          {streakMultOf(streak) > 1 && <span style={{ fontSize:11,fontWeight:900,fontFamily:warrior,color:t.gold,textShadow:`0 0 10px ${t.goldGlow}` }}>×{streakMultOf(streak)}</span>}
+        </div>
       </>)}
 
       {phase === "opened" && (<>
@@ -3372,7 +3326,6 @@ export default function Game() {
   const [showArenaSelect, setShowArenaSelect] = useState(false);
   const [goldChange, setGoldChange] = useState(null);
   const [entryFeeDeducted, setEntryFeeDeducted] = useState(null);
-  const [dailyReward, setDailyReward] = useState(null);
   const [showDailyChest, setShowDailyChest] = useState(false);
   const [dailyChestModalOpen, setDailyChestModalOpen] = useState(false);
   const [showAvatarPick, setShowAvatarPick] = useState(false);
@@ -3711,20 +3664,10 @@ export default function Game() {
     if (authUid) update(ref(db, `profiles/${authUid}`), { voyage: v }).catch(()=>{});
   };
 
-  // GÜNLÜK GİRİŞ ÖDÜLÜ — bu özellik yazılmış ama HİÇ ÇAĞRILMIYORDU (ölü kod denetiminde çıktı).
-  // Günde en fazla 3 kez, giriş serisine göre artan altın verir.
-  const loginRewardRef = useRef(false);
-  useEffect(() => {
-    if (phase !== "lobby" || !authUid || !myProfile || loginRewardRef.current) return;
-    loginRewardRef.current = true;
-    const tm = setTimeout(async () => {
-      try {
-        const r = await checkDailyReward(authUid);
-        if (r && r.reward > 0) setDailyReward(r);
-      } catch (e) {}
-    }, 1600); // sefer/ganimet pencereleriyle çakışmasın
-    return () => clearTimeout(tm);
-  }, [phase, authUid, myProfile]);
+  // GÜNLÜK GİRİŞ ÖDÜLÜ KALDIRILDI.
+  // İki ayrı "günlük altın" penceresi hem oyuncuya karışık geliyordu hem de pasif geliri
+  // (günde 3 kez, 150-1200 altın) aktif oyunun çok üstüne çıkarıyordu. Giriş serisi ödülü
+  // kaybolmadı: seri çarpanı artık Günlük Top Ödülüne uygulanıyor (streakMultOf).
 
   // ÖKSÜZ ODA TEMİZLİĞİ — oturumda bir kez. Önceki oturumda çökme/kapanma yüzünden
   // ortada kalan kendi odamızı siler; veritabanının şişmesini engeller.
@@ -3861,21 +3804,25 @@ export default function Game() {
   ));
   useEffect(() => { myTurnRef.current = myTurn; }, [myTurn]);
   useEffect(() => {
-    if (phase === "lobby" && authUid && myProfile && !hasClaimedDailyChestToday()) setShowDailyChest(true);
+    if (phase === "lobby" && authUid && myProfile && !hasClaimedCannonToday(myProfile)) setShowDailyChest(true);
   }, [phase, authUid, myProfile]);
   const claimDailyChest = async (amount) => {
-    track("reward_claim", { type: "daily_chest", gold: amount });
-    markDailyChestClaimed();
+    const now = Date.now();
+    const streak = nextCannonStreak(myProfile);
+    track("reward_claim", { type: "daily_cannon", gold: amount, streak });
     setGoldAnim({ amount });
-    setMyProfile(prev => { if (!prev) return prev; const a = safeAch(prev.ach); a.chest += 1; a.goldEarned += amount; return { ...prev, gold: safeGold(prev.gold) + amount, ach: a }; });
+    setMyProfile(prev => { if (!prev) return prev; const a = safeAch(prev.ach); a.chest += 1; a.goldEarned += amount; return { ...prev, gold: safeGold(prev.gold) + amount, ach: a, lastCannonReward: now, loginStreak: streak }; });
     if (authUid) {
       try {
         // Transaction: sunucudaki GÜNCEL değeri okuyup üzerine ekler — get()+set() gibi arada
         // başka bir yazımı (ör. eşzamanlı bumpDaily/bumpAch) ezme riski yok.
+        // Ödülü ALMA damgası da burada yazılır: cihaz değiştirerek tekrar alınamaz.
         await runTransaction(ref(db, `profiles/${authUid}`), (p) => {
-          if (!p) return p; // profil yok — dokunma
+          if (!p) return p;                              // profil yok — dokunma
+          if (hasClaimedCannonToday(p)) return p;        // bugün zaten alınmış — çift ödeme yok
           const a = safeAch(p.ach); a.chest += 1; a.goldEarned += amount;
-          return { ...p, gold: safeGold(p.gold) + amount, ach: a };
+          const st = isConsecutiveDay(p.lastCannonReward || 0, now) ? (p.loginStreak || 0) + 1 : 1;
+          return { ...p, gold: safeGold(p.gold) + amount, ach: a, lastCannonReward: now, loginStreak: st };
         });
       } catch (e) { console.error(e); }
     }
@@ -6968,7 +6915,6 @@ export default function Game() {
         }
         setChestClaimed(true); bumpDaily(d => { d.chestClaimed = true; }); setChestReward(null);
       }} />}
-      {dailyReward && <DailyRewardPopup reward={dailyReward.reward} streak={dailyReward.streak} onClose={() => { setMyProfile(prev => prev ? { ...prev, gold: dailyReward.newGold, loginStreak: dailyReward.streak } : prev); setDailyReward(null); }} lang={appLang} />}
       {/* SEFERE ÇIKIYORUZ — açılış karşılaması, çarpı veya arkaya dokunarak kapanır */}
       {sailNotice && (
         <div onClick={() => setSailNotice(false)} style={{ position:"fixed",inset:0,overflow:"hidden",zIndex:9350,background:"radial-gradient(ellipse at 50% 45%, rgba(0,80,120,0.55) 0%, rgba(2,6,16,0.88) 65%)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,animation:"settingsFadeIn 0.3s ease-out" }}>
@@ -7017,7 +6963,7 @@ export default function Game() {
         </div>
       )}
       {showDailyChest && !dailyChestModalOpen && <DailyChestFab onOpen={() => setDailyChestModalOpen(true)} lang={appLang} />}
-      {dailyChestModalOpen && <DailyChestPopup onClaim={claimDailyChest} onClose={() => setDailyChestModalOpen(false)} lang={appLang} />}
+      {dailyChestModalOpen && <DailyChestPopup onClaim={claimDailyChest} onClose={() => setDailyChestModalOpen(false)} streak={nextCannonStreak(myProfile)} lang={appLang} />}
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} targetRef={goldBadgeRef} goldTotal={safeGold(myProfile?.gold)} lang={appLang} />}
       <HorizonStrip lang={appLang} />
     </div>);
