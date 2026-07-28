@@ -1202,7 +1202,8 @@ function GoldCoinAnim({ amount, onDone, bottomPct, targetRef }) {
   const wrapRef = useRef(null);
   const [fly, setFly] = useState(null); // { dx, dy } — rozete olan mesafe, ölçülünce dolar
   const [coins] = useState(() => Array.from({length: Math.min(amount > 100 ? 14 : amount > 20 ? 9 : 6, 16)}, (_,i) => ({
-    id: i, delay: i*55, x: (Math.random()-0.5)*70, rotation: (Math.random()-0.5)*60, jx: (Math.random()-0.5)*16, jy: (Math.random()-0.5)*10
+    id: i, delay: i*28, x: (Math.random()-0.5)*70, rotation: (Math.random()-0.5)*60, jx: (Math.random()-0.5)*22, jy: (Math.random()-0.5)*16,
+    mx: (Math.random()-0.5)*150, my: -(35 + Math.random()*55), dr: (Math.random()-0.5)*70
   })));
   useLayoutEffect(() => {
     if (targetRef?.current && wrapRef.current) {
@@ -1216,22 +1217,22 @@ function GoldCoinAnim({ amount, onDone, bottomPct, targetRef }) {
       }
     }
   }, []);
-  const flightMs = fly ? 600 : 850;
+  const flightMs = fly ? 400 : 520;
   useEffect(() => {
     const timer = setTimeout(() => {
       onDone?.();
       // Son para varır varmaz rozet hafifçe zıplasın
       try { targetRef?.current?.animate?.([{ transform: "scale(1)" }, { transform: "scale(1.18)" }, { transform: "scale(1)" }], { duration: 260, easing: "ease-out" }); } catch (e) {}
-    }, coins.length * 55 + flightMs + 120);
+    }, coins.length * 28 + flightMs + 80);
     return () => clearTimeout(timer);
   }, [fly]);
   return (<div ref={wrapRef} style={{ position:'fixed',bottom: bottomPct!=null?`${bottomPct}%`:100,left:'50%',transform:'translateX(-50%)',zIndex:10000,pointerEvents:'none' }}>
     {coins.map(c => fly ? (
       <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, fontSize:24,
-        ['--fly-x']:`${fly.dx + c.jx}px`, ['--fly-y']:`${fly.dy + c.jy}px`,
+        ['--fly-x']:`${fly.dx + c.jx}px`, ['--fly-y']:`${fly.dy + c.jy}px`, ['--mid-x']:`${c.mx}px`, ['--mid-y']:`${c.my}px`,
         animation:`flyToProfile ${flightMs}ms cubic-bezier(0.3,0.05,0.55,1) ${c.delay}ms forwards`, opacity:0 }}>🪙</div>
     ) : (
-      <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, fontSize:32, animation:`coinFly ${flightMs}ms cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards`, opacity:0, transform:`rotate(${c.rotation}deg)` }}>🪙</div>
+      <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, fontSize:32, ['--drift']:`${c.dr}px`, animation:`coinFly ${flightMs}ms cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards`, opacity:0, transform:`rotate(${c.rotation}deg)` }}>🪙</div>
     ))}
     {!fly && <div style={{ position:'absolute',left:'50%',transform:'translateX(-50%)',bottom:70,fontSize:28,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 30px ${t.goldGlow}, 0 0 60px ${t.goldGlow}`,animation:'scaleUp 0.4s cubic-bezier(0.34,1.56,0.64,1) 150ms forwards',opacity:0,whiteSpace:'nowrap',letterSpacing:4 }}>+{amount} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /></div>}
   </div>);
@@ -1793,12 +1794,12 @@ const ANIMS = `
 @keyframes wave{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
 @keyframes goldShine{0%{filter:brightness(1)}50%{filter:brightness(1.4)}100%{filter:brightness(1)}}
-@keyframes coinFly{0%{opacity:1;transform:translateY(0) scale(1)}50%{opacity:1;transform:translateY(-60px) scale(1.2)}100%{opacity:0;transform:translateY(-120px) scale(0.5)}}
+@keyframes coinFly{0%{opacity:1;transform:translate(0,0) rotate(0deg) scale(1)}40%{opacity:1;transform:translate(var(--drift,14px),-64px) rotate(210deg) scale(1.25)}100%{opacity:0;transform:translate(calc(var(--drift,14px) * 1.7),-140px) rotate(430deg) scale(0.35)}}
 @keyframes rippleExpand{0%{transform:scale(0);opacity:0.6}100%{transform:scale(4);opacity:0}}
 @keyframes microFloat{0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-40px) scale(1.3)}}
 @keyframes rankGlow{0%,100%{box-shadow:0 0 8px var(--rank-color,rgba(0,212,255,0.3))}50%{box-shadow:0 0 24px var(--rank-color,rgba(0,212,255,0.6)),0 0 48px var(--rank-color,rgba(0,212,255,0.2))}}
 @keyframes coinSpin{0%{transform:rotateY(0deg)}100%{transform:rotateY(360deg)}}
-@keyframes flyToProfile{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--fly-x,0px),var(--fly-y,-200px)) scale(0.3)}}
+@keyframes flyToProfile{0%{opacity:1;transform:translate(0,0) scale(1) rotate(0deg)}28%{opacity:1;transform:translate(var(--mid-x,0px),var(--mid-y,-50px)) scale(1.25) rotate(170deg)}100%{opacity:0;transform:translate(var(--fly-x,0px),var(--fly-y,-200px)) scale(0.28) rotate(430deg)}}
 @keyframes arSlideIn{0%{opacity:0;transform:perspective(800px) rotateX(25deg) translateY(80px) scale(0.7)}40%{opacity:1;transform:perspective(800px) rotateX(-5deg) translateY(-10px) scale(1.05)}70%{transform:perspective(800px) rotateX(2deg) translateY(5px) scale(0.98)}100%{transform:perspective(800px) rotateX(0deg) translateY(0) scale(1)}}
 @keyframes arGlow{0%,100%{box-shadow:0 10px 40px rgba(0,0,0,0.5),0 0 30px var(--ar-color,rgba(0,229,255,0.3))}50%{box-shadow:0 15px 60px rgba(0,0,0,0.6),0 0 50px var(--ar-color,rgba(0,229,255,0.5))}}
 @keyframes previewZoom{0%{opacity:0;transform:scale(0.5) perspective(600px) rotateY(15deg)}50%{opacity:1;transform:scale(1.08) perspective(600px) rotateY(-3deg)}100%{transform:scale(1) perspective(600px) rotateY(0deg)}}
@@ -2322,7 +2323,7 @@ function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
     }, 700);
   };
 
-  const coins = Array.from({ length: 12 }, (_, i) => ({ id: i, delay: i * 90, dx: (Math.random() - 0.5) * 120 }));
+  const coins = Array.from({ length: 14 }, (_, i) => ({ id: i, delay: i * 42, dx: (Math.random() - 0.5) * 130, dr: (Math.random() - 0.5) * 70 }));
   const claim = () => onClaim(rewardAmount);
   return (<div style={{ position:"fixed",inset:0,overflow:"hidden",background:"radial-gradient(ellipse at 50% 40%, rgba(255,214,0,0.12) 0%, rgba(0,0,0,0.88) 75%)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(6px)" }} onClick={phase === "opened" ? claim : (phase === "idle" ? onClose : undefined)}>
     <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, rgba(20,26,52,0.99) 0%, rgba(10,16,32,0.99) 60%, rgba(18,16,30,0.99) 100%)",border:"3px solid #ffe94d",outline:"2px solid rgba(255,233,77,0.65)",outlineOffset:6,borderRadius:22,padding:"38px 42px",textAlign:"center",maxWidth:340,width:"90%",boxShadow:"0 0 40px #ffe94d, 0 0 90px rgba(255,233,77,0.75), 0 0 150px rgba(255,233,77,0.4), 0 24px 70px rgba(0,0,0,0.6)",overflow:"visible",animation: phase === "firing" ? "cannonRecoil 0.5s ease-out" : "chestGlow 1.6s ease-in-out infinite" }}>
@@ -2374,7 +2375,7 @@ function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
         <div style={{ fontSize:52,fontWeight:900,fontFamily:warrior,marginBottom:14,letterSpacing:2,background:"linear-gradient(180deg, #fff7d6 0%, #ffd700 45%, #d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 25px rgba(255,214,0,0.8))",animation:"rewardPulse 1.4s ease-in-out infinite" }}>+{rewardAmount} <img src="/img/coin.png" alt="" style={{ width:22,height:22,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /></div>
         <button onClick={claim} style={{ padding:"20px 52px",background:"linear-gradient(135deg, #ffd700 0%, #ff9f43 55%, #d97706 100%)",color:"#1a1206",border:"none",borderRadius:14,fontSize:22,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 40px rgba(255,214,0,0.6), 0 6px 24px rgba(0,0,0,0.5)",animation:"btnBreath 1.8s ease-in-out infinite",textTransform:"uppercase",width:"100%" }}>{L(lang,"collectBtn")}</button>
         {showCoins && <div style={{ position:"absolute",left:"50%",bottom:"38%",pointerEvents:"none" }}>
-          {coins.map(c => (<div key={c.id} style={{ position:"absolute",left:c.dx,bottom:0,fontSize:26,opacity:0,animation:`coinFly 1s cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards` }}>🪙</div>))}
+          {coins.map(c => (<div key={c.id} style={{ position:"absolute",left:c.dx,bottom:0,fontSize:26,opacity:0,['--drift']:`${c.dr}px`,animation:`coinFly 0.55s cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards` }}>🪙</div>))}
         </div>}
       </>)}
     </div>
