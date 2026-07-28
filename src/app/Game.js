@@ -874,6 +874,7 @@ class SoundEngine {
     this.sfxOn = true;           // vurma/isabet/first-kill vb. ses efektleri
     this.volumeMult = 1;         // müzik seviyesi çarpanı (ayarlar sürgüsünden)
     this._mp3Missing = {};       // dosyası bulunamayan efektler — bir daha denenmez, sentez sese düşer
+    this._sfxEls = {};           // çalan mp3 efektleri — lobiye dönerken durdurulabilsin diye tutulur
     try {
       const savedSfx = localStorage.getItem('ab_sfxOn');
       if (savedSfx !== null) this.sfxOn = savedSfx === '1';
@@ -1099,8 +1100,10 @@ class SoundEngine {
     if (!this.sfxOn) return;
     if (SFX_MP3[type] != null && !this._mp3Missing[type]) {
       try {
+        this.stopSfx(type); // aynı efekt üst üste binmesin
         const a = new Audio(`/sfx/${type}.mp3`);
         a.volume = SFX_MP3[type];
+        this._sfxEls[type] = a;
         const fallback = () => { this._mp3Missing[type] = true; this._playSynth(type); };
         a.addEventListener('error', fallback, { once: true });
         const p = a.play();
@@ -1110,6 +1113,14 @@ class SoundEngine {
     }
     this._playSynth(type);
   }
+  // Uzun bir efekti (ör. 35 sn'lik zafer müziği) durdur — lobiye dönerken çalmaya devam etmesin.
+  stopSfx(type) {
+    const a = this._sfxEls[type];
+    if (!a) return;
+    try { a.pause(); a.currentTime = 0; a.src = ''; } catch (e) {}
+    this._sfxEls[type] = null;
+  }
+  stopAllSfx() { Object.keys(this._sfxEls).forEach(k => this.stopSfx(k)); }
   _playSynth(type) {
     if (!this.enabled || !this.ctx || !this.sfxOn) return;
     try {
@@ -4502,6 +4513,7 @@ export default function Game() {
 
   const resetGame = () => {
     /* müzik devam eder */
+    try { sfx.stopSfx('victory'); } catch (e) {} // zafer müziği lobide çalmaya devam etmesin
     // Yerleştirme aşamasında terk edilen oda (kimse kazanmadı) → hemen sil, artık kalmasın.
     if (roomIdRef.current && phaseRef.current === "placing") {
       remove(ref(db, `rooms/${roomIdRef.current}`)).catch(() => {});
@@ -5017,7 +5029,8 @@ export default function Game() {
       bumpVoyageMatch();
       track("game_end", { mode: "salvo", result: won ? "win" : draw ? "draw" : "loss", gold: won ? SALVO_WIN_GOLD : (draw ? SALVO_ANTE : 0) });
     }
-    sfx.init(); sfx.play(won ? 'win' : draw ? 'click' : 'lose');
+    // Salvo kendi sonuç fazını (salvoreveal) kullanıyor — zafer müziği burada çalar.
+    sfx.init(); sfx.play(won ? 'victory' : draw ? 'click' : 'lose');
     setSalvoResult({ myHits, oppHits, myOverlay, oppOverlay, won, draw });
     setPhase("salvoreveal");
   };
@@ -5190,7 +5203,8 @@ export default function Game() {
       bumpAch(a => { a.hits += myHits; if (won) { a.onlineWins += 1; a.goldEarned += (SALVO_WIN_GOLD - SALVO_ANTE); a.winStreak += 1; a.bestWinStreak = Math.max(a.bestWinStreak, a.winStreak); a.lossStreak = 0; } else if (!draw) { a.winStreak = 0; a.lossStreak = (a.lossStreak || 0) + 1; } });
       bumpGlobalStats(1, 0); bumpVoyageMatch();
     }
-    sfx.init(); sfx.play(won ? 'win' : draw ? 'click' : 'lose');
+    // Salvo kendi sonuç fazını (salvoreveal) kullanıyor — zafer müziği burada çalar.
+    sfx.init(); sfx.play(won ? 'victory' : draw ? 'click' : 'lose');
     setSalvoResult({ myHits, oppHits, myOverlay, oppOverlay, won, draw });
     setPhase("salvoreveal");
     if (salvoUnsubRef.current) { salvoUnsubRef.current(); salvoUnsubRef.current = null; }
