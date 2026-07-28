@@ -849,7 +849,16 @@ function achSetUnlocked(idx, p) {
   return achSetDone(ACH_SETS[idx-1], p) && ACH_SETS[idx].gate(p);
 }
 
-// === SES MOTORU (Web Audio API — dosyasız) ===
+// === DOSYA TABANLI SES EFEKTLERİ ===
+// Buraya yazılan her efekt için önce public/sfx/<ad>.mp3 çalınmaya çalışılır.
+// Dosya yoksa (404) bir kez işaretlenip sessizce eski sentezlenmiş sese dönülür —
+// yani mp3'ü koymadan da oyun bozulmaz, koyunca kendiliğinden devreye girer.
+// Değer = ses seviyesi (0-1). Yeni bir efekti mp3'e çevirmek için buraya bir satır eklemek yeterli.
+const SFX_MP3 = {
+  gold: 0.85,
+};
+
+// === SES MOTORU (Web Audio API + mp3) ===
 class SoundEngine {
   constructor() {
     this.ctx = null; this.enabled = true; this.musicGain = null; this.musicOscs = []; this.currentMusic = null; this._loopTimer = null;
@@ -863,6 +872,7 @@ class SoundEngine {
     // Ayarlar — kalıcı tercihler
     this.sfxOn = true;           // vurma/isabet/first-kill vb. ses efektleri
     this.volumeMult = 1;         // müzik seviyesi çarpanı (ayarlar sürgüsünden)
+    this._mp3Missing = {};       // dosyası bulunamayan efektler — bir daha denenmez, sentez sese düşer
     try {
       const savedSfx = localStorage.getItem('ab_sfxOn');
       if (savedSfx !== null) this.sfxOn = savedSfx === '1';
@@ -1083,7 +1093,23 @@ class SoundEngine {
     if (this._volleyTimer) clearTimeout(this._volleyTimer);
     this._volleyTimer = setTimeout(() => this.playVoice(name, "anon"), 320);
   }
+  // Efektin mp3'ü varsa onu, yoksa sentezlenmiş sesi çalar.
   play(type) {
+    if (!this.sfxOn) return;
+    if (SFX_MP3[type] != null && !this._mp3Missing[type]) {
+      try {
+        const a = new Audio(`/sfx/${type}.mp3`);
+        a.volume = SFX_MP3[type];
+        const fallback = () => { this._mp3Missing[type] = true; this._playSynth(type); };
+        a.addEventListener('error', fallback, { once: true });
+        const p = a.play();
+        if (p && p.catch) p.catch(fallback);
+        return;
+      } catch (e) { this._mp3Missing[type] = true; }
+    }
+    this._playSynth(type);
+  }
+  _playSynth(type) {
     if (!this.enabled || !this.ctx || !this.sfxOn) return;
     try {
       const now = this.ctx.currentTime;
