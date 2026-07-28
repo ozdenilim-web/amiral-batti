@@ -509,6 +509,8 @@ const TRANSLATIONS = {
     hookWin: "SERİN SÜRÜYOR — DALGALAR SENDEN KORKUYOR!", hookLossRevenge: (m) => `⚔ İNTİKAM HAZIR: SONRAKİ ZAFERDE ×${m} ÖDÜL`, hookLoss: "RÖVANŞ SENİ BEKLİYOR, KAPTAN!",
     goodsBadge: "GANİMET TABLOSU", revengeGauge: "İNTİKAM YÜKLENİYOR", revengeReady: "İNTİKAM HAZIR",
     oneChestPerDevice: "Her cihaza günde 1 sandık!", dailyRewardLabel: "GÜNLÜK ÖDÜL",
+    cannonAimLabel: "TOPU ATEŞLE", cannonHoldLabel: "BAS TUT, TAM ZAMANINDA BIRAK!", cannonFireBtn: "ATEŞLE",
+    criticalHitLabel: "KRİTİK VURUŞ!", bonusGoldLabel: (p) => `+%${p} BONUS ALTIN`,
     battleStarting: "SAVAŞ BAŞLIYOR",
     tagline: "savaşların atası...",
     howToPlay: "NASIL OYNANIR?", placeShipsTitle: "GEMİLERİ YERLEŞTIR", placeShipsBody1: "Bir gemi seç → haritaya dokun → yerleştir", placeShipsBody2: "ile yönünü değiştir",
@@ -583,6 +585,8 @@ const TRANSLATIONS = {
     hookWin: "YOUR STREAK LIVES — THE WAVES FEAR YOU!", hookLossRevenge: (m) => `⚔ REVENGE READY: ×${m} REWARDS ON NEXT WIN`, hookLoss: "THE REMATCH AWAITS, CAPTAIN!",
     goodsBadge: "LOOT REPORT", revengeGauge: "REVENGE CHARGING", revengeReady: "REVENGE READY",
     oneChestPerDevice: "1 chest per device, every day!", dailyRewardLabel: "DAILY REWARD",
+    cannonAimLabel: "FIRE THE CANNON", cannonHoldLabel: "HOLD, RELEASE AT THE RIGHT MOMENT!", cannonFireBtn: "FIRE",
+    criticalHitLabel: "CRITICAL HIT!", bonusGoldLabel: (p) => `+${p}% BONUS GOLD`,
     battleStarting: "BATTLE STARTING",
     tagline: "ancestor of battles...",
     howToPlay: "HOW TO PLAY?", placeShipsTitle: "PLACE YOUR SHIPS", placeShipsBody1: "Pick a ship → tap the map → place it", placeShipsBody2: "to change direction",
@@ -1837,6 +1841,11 @@ const ANIMS = `
 @keyframes mapReveal{0%{clip-path:inset(0 0 100% 0)}100%{clip-path:inset(0 0 0% 0)}}
 @keyframes goldDrain{0%{opacity:0;transform:translateY(-6px) scale(0.9)}30%{opacity:1;transform:translateY(0) scale(1.05)}100%{opacity:0.6;transform:translateY(10px) scale(0.92)}}
 @keyframes coinToNumber{0%{opacity:1;transform:translate(0,0) scale(1)}75%{opacity:1}100%{opacity:0;transform:translate(130px,-4px) scale(0.35)}}
+@keyframes cannonBarrelPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@keyframes cannonRecoil{0%{transform:translateX(0) rotate(0deg)}18%{transform:translateX(-14px) rotate(-3deg)}45%{transform:translateX(6px) rotate(1.5deg)}100%{transform:translateX(0) rotate(0deg)}}
+@keyframes muzzleFlash{0%{opacity:0;transform:scale(0.3)}15%{opacity:1;transform:scale(1.3)}45%{opacity:0.4;transform:scale(1.6)}100%{opacity:0;transform:scale(2)}}
+@keyframes critBurstPop{0%{opacity:0;transform:scale(0.2) rotate(-8deg)}35%{opacity:1;transform:scale(1.25) rotate(3deg)}55%{transform:scale(1) rotate(0deg)}100%{opacity:0;transform:scale(1.05) translateY(-14px)}}
+@keyframes needleTick{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
 
 /* ═══════════════════════════════════════════════════════════════════
    MOBİL PERFORMANS KATMANI — en sonda tanımlı, öncekileri EZER.
@@ -2266,30 +2275,86 @@ function DailyChestFab({ onOpen, lang = "tr" }) {
   </button>);
 }
 function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
-  const [opened, setOpened] = useState(false);
-  const [shake, setShake] = useState(true);
+  // "Topla Patlat" — pasif tık yerine basılı-tut şarj + zamanlama beceri mekaniği.
+  // idle: bekleme | charging: basılı, ibre salınıyor | fired: top ateşlendi (kısa geçiş) | opened: ödül ekranı
+  const [phase, setPhase] = useState("idle");
+  const [meter, setMeter] = useState(0);
+  const [isCrit, setIsCrit] = useState(false);
+  const [bonusPct, setBonusPct] = useState(0);
+  const [rewardAmount, setRewardAmount] = useState(DAILY_CHEST_GOLD);
   const [showCoins, setShowCoins] = useState(false);
-  useEffect(() => { const tm = setTimeout(() => setShake(false), 1200); return () => clearTimeout(tm); }, []);
-  const openChest = () => {
-    if (opened) return;
-    setOpened(true); setShowCoins(true);
-    sfx.init(); sfx.play('chest');
-    setTimeout(() => sfx.play('gold'), 250);
+  const meterRef = useRef(0);
+  const rafRef = useRef(null);
+  const startTsRef = useRef(0);
+  const SWEET_MIN = 40, SWEET_MAX = 60;
+
+  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
+
+  const startCharge = () => {
+    if (phase !== "idle") return;
+    setPhase("charging");
+    sfx.init(); sfx.play('click');
+    startTsRef.current = performance.now();
+    const tick = (now) => {
+      const elapsed = now - startTsRef.current;
+      const v = 50 + 50 * Math.sin(elapsed / 240);
+      meterRef.current = v; setMeter(v);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
   };
+  const fireCannon = () => {
+    if (phase !== "charging") return;
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    const v = meterRef.current;
+    const crit = v >= SWEET_MIN && v <= SWEET_MAX;
+    const pct = crit ? Math.round(10 + Math.random() * 10) : 0;
+    const amount = crit ? Math.round(DAILY_CHEST_GOLD * (1 + pct / 100)) : DAILY_CHEST_GOLD;
+    setIsCrit(crit); setBonusPct(pct); setRewardAmount(amount);
+    setPhase("fired");
+    sfx.play('sunk');
+    setTimeout(() => {
+      setPhase("opened"); setShowCoins(true);
+      sfx.play('chest');
+      setTimeout(() => sfx.play('gold'), 250);
+    }, 550);
+  };
+
   const coins = Array.from({ length: 12 }, (_, i) => ({ id: i, delay: i * 90, dx: (Math.random() - 0.5) * 120 }));
-  return (<div style={{ position:"fixed",inset:0,overflow:"hidden",background:"radial-gradient(ellipse at 50% 40%, rgba(255,214,0,0.12) 0%, rgba(0,0,0,0.88) 75%)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(6px)" }} onClick={opened ? (() => onClaim(DAILY_CHEST_GOLD)) : onClose}>
-    <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, rgba(20,26,52,0.99) 0%, rgba(10,16,32,0.99) 60%, rgba(18,16,30,0.99) 100%)",border:"3px solid #ffe94d",outline:"2px solid rgba(255,233,77,0.65)",outlineOffset:6,borderRadius:22,padding:"38px 42px",textAlign:"center",maxWidth:340,width:"90%",boxShadow:"0 0 40px #ffe94d, 0 0 90px rgba(255,233,77,0.75), 0 0 150px rgba(255,233,77,0.4), 0 24px 70px rgba(0,0,0,0.6)",overflow:"visible",animation:"chestGlow 1.6s ease-in-out infinite" }}>
-      <button onClick={opened ? (() => onClaim(DAILY_CHEST_GOLD)) : onClose} title={L(lang,"backBtn")} style={{ position:"absolute",top:-14,right:-14,width:34,height:34,borderRadius:"50%",background:"#0c1529",border:"2px solid #ffe94d",color:"#ffe94d",fontSize:16,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,boxShadow:"0 0 14px rgba(255,233,77,0.8)",zIndex:2 }}>✕</button>
-      {!opened ? (<>
-        <img src="/img/chest.png" alt="" draggable={false} onClick={openChest} style={{ width:140,height:140,objectFit:"contain",marginBottom:12,cursor:"pointer",animation:shake?"chestWiggle 0.5s ease-in-out infinite":"chestWiggle 2s ease-in-out infinite",filter:"drop-shadow(0 0 30px #ffe94d) drop-shadow(0 0 60px rgba(255,233,77,0.85)) drop-shadow(0 0 100px rgba(255,233,77,0.5))",userSelect:"none" }} />
+  const claim = () => onClaim(rewardAmount);
+  return (<div style={{ position:"fixed",inset:0,overflow:"hidden",background:"radial-gradient(ellipse at 50% 40%, rgba(255,214,0,0.12) 0%, rgba(0,0,0,0.88) 75%)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(6px)" }} onClick={phase === "opened" ? claim : (phase === "idle" ? onClose : undefined)}>
+    <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, rgba(20,26,52,0.99) 0%, rgba(10,16,32,0.99) 60%, rgba(18,16,30,0.99) 100%)",border:"3px solid #ffe94d",outline:"2px solid rgba(255,233,77,0.65)",outlineOffset:6,borderRadius:22,padding:"38px 42px",textAlign:"center",maxWidth:340,width:"90%",boxShadow:"0 0 40px #ffe94d, 0 0 90px rgba(255,233,77,0.75), 0 0 150px rgba(255,233,77,0.4), 0 24px 70px rgba(0,0,0,0.6)",overflow:"visible",animation: phase === "fired" ? "cannonRecoil 0.55s ease-out" : "chestGlow 1.6s ease-in-out infinite" }}>
+      <button onClick={phase === "opened" ? claim : onClose} title={L(lang,"backBtn")} style={{ position:"absolute",top:-14,right:-14,width:34,height:34,borderRadius:"50%",background:"#0c1529",border:"2px solid #ffe94d",color:"#ffe94d",fontSize:16,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,boxShadow:"0 0 14px rgba(255,233,77,0.8)",zIndex:2 }}>✕</button>
+
+      {(phase === "idle" || phase === "charging") && (<>
+        <img src="/img/chest.png" alt="" draggable={false} style={{ width:140,height:140,objectFit:"contain",marginBottom:12,userSelect:"none",animation: phase === "charging" ? "cannonBarrelPulse 0.5s ease-in-out infinite" : "chestWiggle 2s ease-in-out infinite",filter:"drop-shadow(0 0 30px #ffe94d) drop-shadow(0 0 60px rgba(255,233,77,0.85)) drop-shadow(0 0 100px rgba(255,233,77,0.5))" }} />
         <div style={{ fontSize:14,fontWeight:800,color:"#ffe94d",fontFamily:mono,letterSpacing:4,marginBottom:10 }}>{L(lang,"dailyChestTooltip").toUpperCase()}</div>
-        <div style={{ fontSize:14,fontWeight:600,color:t.textDim,fontFamily:mono,marginBottom:18 }}>{L(lang,"oneChestPerDevice")}</div>
-        <button onClick={openChest} style={{ padding:"22px 40px",background:"linear-gradient(135deg,#fff9c4,#ffe94d 45%,#ffb300)",color:"#1a1206",border:"3px solid #fff176",borderRadius:14,fontSize:28,fontWeight:900,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 30px #ffe94d, 0 0 60px rgba(255,233,77,0.6)",animation:"chestGlow 1.5s infinite",textTransform:"uppercase",width:"100%" }}>{L(lang,"openChestBtn")}</button>
-      </>) : (<>
+        <div style={{ fontSize:14,fontWeight:600,color:t.textDim,fontFamily:mono,marginBottom:16 }}>{phase === "charging" ? L(lang,"cannonHoldLabel") : L(lang,"oneChestPerDevice")}</div>
+        <div style={{ position:"relative",height:22,borderRadius:11,background:"rgba(255,255,255,0.08)",border:"2px solid rgba(255,233,77,0.35)",marginBottom:20,overflow:"hidden" }}>
+          <div style={{ position:"absolute",left:`${SWEET_MIN}%`,width:`${SWEET_MAX - SWEET_MIN}%`,top:0,bottom:0,background:"rgba(74,222,128,0.35)",borderLeft:"1px solid rgba(74,222,128,0.7)",borderRight:"1px solid rgba(74,222,128,0.7)" }} />
+          <div style={{ position:"absolute",left:`calc(${meter}% - 3px)`,top:-3,bottom:-3,width:6,borderRadius:3,background:"#fff9c4",boxShadow:"0 0 10px #ffe94d",animation: phase === "charging" ? "needleTick 0.3s ease-in-out infinite" : "none" }} />
+        </div>
+        <button
+          onPointerDown={startCharge}
+          onPointerUp={fireCannon}
+          onPointerLeave={() => { if (phase === "charging") fireCannon(); }}
+          onPointerCancel={() => { if (phase === "charging") fireCannon(); }}
+          style={{ padding:"22px 40px",background: phase === "charging" ? "linear-gradient(135deg,#ff9f43,#ff4757 45%,#d63447)" : "linear-gradient(135deg,#fff9c4,#ffe94d 45%,#ffb300)",color: phase === "charging" ? "#fff" : "#1a1206",border:"3px solid #fff176",borderRadius:14,fontSize:26,fontWeight:900,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 30px #ffe94d, 0 0 60px rgba(255,233,77,0.6)",animation: phase === "charging" ? "none" : "chestGlow 1.5s infinite",textTransform:"uppercase",width:"100%",touchAction:"none",userSelect:"none" }}
+        >{phase === "charging" ? "💣 "+L(lang,"cannonFireBtn") : "🎯 "+L(lang,"cannonAimLabel")}</button>
+      </>)}
+
+      {phase === "fired" && (
+        <div style={{ position:"relative",height:280,display:"flex",alignItems:"center",justifyContent:"center" }}>
+          <div style={{ fontSize:90,animation:"muzzleFlash 0.55s ease-out" }}>💥</div>
+        </div>
+      )}
+
+      {phase === "opened" && (<>
         <div style={{ fontSize:60,marginBottom:8,animation:"popIn 0.5s ease-out",filter:"drop-shadow(0 0 30px #ffe066)" }}>🎉</div>
+        {isCrit && <div style={{ fontSize:15,fontWeight:900,color:"#4ade80",fontFamily:warrior,letterSpacing:1.5,marginBottom:6,animation:"critBurstPop 0.6s ease-out",textShadow:"0 0 14px rgba(74,222,128,0.8)" }}>⚡ {L(lang,"criticalHitLabel")} {L(lang,"bonusGoldLabel")(bonusPct)}</div>}
         <div style={{ fontSize:13,fontWeight:800,color:"rgba(255,214,0,0.85)",fontFamily:mono,letterSpacing:4,marginBottom:8 }}>{L(lang,"dailyRewardLabel")}</div>
-        <div style={{ fontSize:52,fontWeight:900,fontFamily:warrior,marginBottom:14,letterSpacing:2,background:"linear-gradient(180deg, #fff7d6 0%, #ffd700 45%, #d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 25px rgba(255,214,0,0.8))",animation:"rewardPulse 1.4s ease-in-out infinite" }}>+{DAILY_CHEST_GOLD} <img src="/img/coin.png" alt="" style={{ width:22,height:22,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /></div>
-        <button onClick={() => onClaim(DAILY_CHEST_GOLD)} style={{ padding:"20px 52px",background:"linear-gradient(135deg, #ffd700 0%, #ff9f43 55%, #d97706 100%)",color:"#1a1206",border:"none",borderRadius:14,fontSize:22,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 40px rgba(255,214,0,0.6), 0 6px 24px rgba(0,0,0,0.5)",animation:"btnBreath 1.8s ease-in-out infinite",textTransform:"uppercase",width:"100%" }}>{L(lang,"collectBtn")}</button>
+        <div style={{ fontSize:52,fontWeight:900,fontFamily:warrior,marginBottom:14,letterSpacing:2,background:"linear-gradient(180deg, #fff7d6 0%, #ffd700 45%, #d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 25px rgba(255,214,0,0.8))",animation:"rewardPulse 1.4s ease-in-out infinite" }}>+{rewardAmount} <img src="/img/coin.png" alt="" style={{ width:22,height:22,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /></div>
+        <button onClick={claim} style={{ padding:"20px 52px",background:"linear-gradient(135deg, #ffd700 0%, #ff9f43 55%, #d97706 100%)",color:"#1a1206",border:"none",borderRadius:14,fontSize:22,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 40px rgba(255,214,0,0.6), 0 6px 24px rgba(0,0,0,0.5)",animation:"btnBreath 1.8s ease-in-out infinite",textTransform:"uppercase",width:"100%" }}>{L(lang,"collectBtn")}</button>
         {showCoins && <div style={{ position:"absolute",left:"50%",bottom:"38%",pointerEvents:"none" }}>
           {coins.map(c => (<div key={c.id} style={{ position:"absolute",left:c.dx,bottom:0,fontSize:26,opacity:0,animation:`coinFly 1s cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards` }}>🪙</div>))}
         </div>}
