@@ -500,7 +500,7 @@ const TRANSLATIONS = {
     dailyLoginReward: "GÜNLÜK GİRİŞ ÖDÜLÜ", dayStreak: "GÜN SERİ", collectBtn: "TOPLA",
     arenaSelectTitle: "ARENA SEÇ", goldRequired: (n) => `🔒 ${n} ALTIN GEREKLİ`, minGoldLabel: (n) => `Min: ${n} 💰`, entryLabel: "GİRİŞ", sevLabel: "SEV",
     chestReadyMsg: "SANDIK HAZIR!", collectRewardMsg: "Ödülünü topla", mysteryChest: "GİZEMLİ SANDIK", completedMissionsMsg: "3 görevi tamamladın!", openChestBtn: "SANDIĞI AÇ",
-    dailyChestTooltip: "Günlük Sandık", rewardRare: "NADİR", rewardGood: "İYİ",
+    dailyChestTooltip: "Günlük Top Ödülü", rewardRare: "NADİR", rewardGood: "İYİ",
     achTitle: "KAZANIMLAR", achClaim: "ÖDÜLÜ AL", achClaimed: "ALINDI", achLocked: "KİLİTLİ", achSoon: "YAKINDA", achSetReward: "SET ÖDÜLÜ", achUnlockReq: "Açılma şartları", achPrevSet: "Önceki set tamamlanmalı", achBtn: "KAZANIMLAR", achAvatarReward: "ÖZEL AVATAR",
     revengeActive: (m) => `İNTİKAM MODU — SONRAKİ ZAFERDE ÖDÜLLER ×${m}`, revengeTaken: (m) => `İNTİKAM ALINDI! ÖDÜLLER ×${m}`, revengeSub: "Denizin öfkesi seninle",
     voyageTitle: "GEMİN SEFERDEN DÖNDÜ!", voyageBody: (h) => `${h} saatlik seferden ganimetle döndü`, voyageCollect: "GANİMETİ TOPLA", voyageHint: "Bugün ne kadar çok savaşırsan, gemin o kadar uzun sefere çıkar",
@@ -508,9 +508,9 @@ const TRANSLATIONS = {
     rewardTitleWin: "GANİMET RAPORU", rewardTitleLoss: "SAVAŞ RAPORU", rewardGold: "ALTIN", rewardHonor: "ŞEREF", rewardXp: "TECRÜBE", rewardMissionsRow: "GÜNLÜK GÖREVLER", rewardAchRow: "YENİ KAZANIM AÇILDI!", rewardContinue: "DEVAM ▶", rewardRevengeRow: (m) => `İNTİKAM BONUSU ×${m} UYGULANDI`,
     hookWin: "SERİN SÜRÜYOR — DALGALAR SENDEN KORKUYOR!", hookLossRevenge: (m) => `⚔ İNTİKAM HAZIR: SONRAKİ ZAFERDE ×${m} ÖDÜL`, hookLoss: "RÖVANŞ SENİ BEKLİYOR, KAPTAN!",
     goodsBadge: "GANİMET TABLOSU", revengeGauge: "İNTİKAM YÜKLENİYOR", revengeReady: "İNTİKAM HAZIR",
-    oneChestPerDevice: "Her cihaza günde 1 sandık!", dailyRewardLabel: "GÜNLÜK ÖDÜL",
+    oneChestPerDevice: "Her cihaza günde 1 atış!", dailyRewardLabel: "GÜNLÜK ÖDÜL",
     cannonAimLabel: "TOPU ATEŞLE", cannonHoldLabel: "BAS TUT, TAM ZAMANINDA BIRAK!", cannonFireBtn: "ATEŞLE",
-    ropeHint: "İpi aşağı çek ve topu ateşle!", ropePulling: "Çekmeye devam et...", ropeSweet: "ŞİMDİ BIRAK!",
+    ropeHint: "İpi çek — barın en tepesinde ateşle!", ropePulling: "Çekmeye devam et...", ropeSweet: "ŞİMDİ!",
     criticalHitLabel: "KRİTİK VURUŞ!", bonusGoldLabel: (p) => `+%${p} BONUS ALTIN`,
     battleStarting: "SAVAŞ BAŞLIYOR",
     tagline: "savaşların atası...",
@@ -577,7 +577,7 @@ const TRANSLATIONS = {
     dailyLoginReward: "DAILY LOGIN REWARD", dayStreak: "DAY STREAK", collectBtn: "COLLECT",
     arenaSelectTitle: "CHOOSE ARENA", goldRequired: (n) => `🔒 REQUIRES ${n} GOLD`, minGoldLabel: (n) => `Min: ${n} 💰`, entryLabel: "ENTRY", sevLabel: "LVL",
     chestReadyMsg: "CHEST READY!", collectRewardMsg: "Collect your reward", mysteryChest: "MYSTERY CHEST", completedMissionsMsg: "You've completed 3 missions!", openChestBtn: "OPEN CHEST",
-    dailyChestTooltip: "Daily Chest", rewardRare: "RARE", rewardGood: "GOOD",
+    dailyChestTooltip: "Daily Cannon Reward", rewardRare: "RARE", rewardGood: "GOOD",
     achTitle: "ACHIEVEMENTS", achClaim: "CLAIM REWARD", achClaimed: "CLAIMED", achLocked: "LOCKED", achSoon: "COMING SOON", achSetReward: "SET REWARD", achUnlockReq: "Unlock requirements", achPrevSet: "Complete the previous set", achBtn: "ACHIEVEMENTS", achAvatarReward: "EXCLUSIVE AVATAR",
     revengeActive: (m) => `REVENGE MODE — NEXT VICTORY REWARDS ×${m}`, revengeTaken: (m) => `REVENGE TAKEN! REWARDS ×${m}`, revengeSub: "The sea's fury is with you",
     voyageTitle: "YOUR SHIP HAS RETURNED!", voyageBody: (h) => `Returned with loot from a ${h}-hour voyage`, voyageCollect: "COLLECT THE LOOT", voyageHint: "The more you battle today, the longer your ship sails",
@@ -585,9 +585,9 @@ const TRANSLATIONS = {
     rewardTitleWin: "LOOT REPORT", rewardTitleLoss: "BATTLE REPORT", rewardGold: "GOLD", rewardHonor: "HONOR", rewardXp: "EXPERIENCE", rewardMissionsRow: "DAILY MISSIONS", rewardAchRow: "ACHIEVEMENT UNLOCKED!", rewardContinue: "CONTINUE ▶", rewardRevengeRow: (m) => `REVENGE BONUS ×${m} APPLIED`,
     hookWin: "YOUR STREAK LIVES — THE WAVES FEAR YOU!", hookLossRevenge: (m) => `⚔ REVENGE READY: ×${m} REWARDS ON NEXT WIN`, hookLoss: "THE REMATCH AWAITS, CAPTAIN!",
     goodsBadge: "LOOT REPORT", revengeGauge: "REVENGE CHARGING", revengeReady: "REVENGE READY",
-    oneChestPerDevice: "1 chest per device, every day!", dailyRewardLabel: "DAILY REWARD",
+    oneChestPerDevice: "1 shot per device, every day!", dailyRewardLabel: "DAILY REWARD",
     cannonAimLabel: "FIRE THE CANNON", cannonHoldLabel: "HOLD, RELEASE AT THE RIGHT MOMENT!", cannonFireBtn: "FIRE",
-    ropeHint: "Pull the rope down and fire!", ropePulling: "Keep pulling...", ropeSweet: "RELEASE NOW!",
+    ropeHint: "Pull the rope — fire at the very top!", ropePulling: "Keep pulling...", ropeSweet: "NOW!",
     criticalHitLabel: "CRITICAL HIT!", bonusGoldLabel: (p) => `+${p}% BONUS GOLD`,
     battleStarting: "BATTLE STARTING",
     tagline: "ancestor of battles...",
@@ -2411,112 +2411,160 @@ function DailyChestFab({ onOpen, lang = "tr" }) {
     <span style={{ position:"absolute",top:6,right:6,width:17,height:17,borderRadius:"50%",background:"#ff4757",color:"#fff",fontSize:10,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",border:"1.5px solid #ffd700",boxShadow:"0 1px 4px rgba(0,0,0,0.5)",fontFamily:warrior }}>1</span>
   </button>);
 }
-// === GÜNLÜK ÖDÜL — TOP ===
-// idle: fitil ipi sarkıyor | pulling: ip aşağı çekiliyor (ne kadar çekersen o kadar iyi)
-// firing: top patlıyor | opened: ödül ekranı
+// === GÜNLÜK TOP ÖDÜLÜ ===
+// Güç barı sürekli hızla dolup boşalır. 5 bölüm vardır ve ters orantılıdır:
+// bölüm ne kadar küçükse ödül o kadar büyük. Kullanıcı halatı çeker, bıraktığı
+// anda barın hangi bölümde olduğu ödülü belirler.
+// idle: halat sarkıyor | pulling: halat çekiliyor | firing: top patlıyor | opened: ödül
+const CANNON_ZONES = [
+  { min: 94, mult: 2.00, color: "#ffd700", label: "×2" },     // %6  — en mini, en yüksek
+  { min: 82, mult: 1.60, color: "#ffb300", label: "×1.6" },   // %12
+  { min: 62, mult: 1.35, color: "#ff9f43", label: "×1.35" },  // %20
+  { min: 35, mult: 1.15, color: "#e07a3a", label: "×1.15" },  // %27
+  { min: 0,  mult: 1.00, color: "#8a5a3a", label: "×1" },     // %35 — en geniş, en düşük
+];
+const cannonZoneOf = (lvl) => CANNON_ZONES.find(z => lvl >= z.min) || CANNON_ZONES[CANNON_ZONES.length - 1];
+
 function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
   const [phase, setPhase] = useState("idle");
-  const [pull, setPull] = useState(0);         // 0-100 arası çekme miktarı
-  const [isCrit, setIsCrit] = useState(false);
+  const [level, setLevel] = useState(0);       // 0-100, bar seviyesi (aşağıdan yukarı)
+  const [pull, setPull] = useState(0);         // halatın çekilme miktarı (px)
+  const [zoneIdx, setZoneIdx] = useState(4);
   const [bonusPct, setBonusPct] = useState(0);
   const [rewardAmount, setRewardAmount] = useState(DAILY_CHEST_GOLD);
   const [showCoins, setShowCoins] = useState(false);
-  const pullRef = useRef(0);
+  const levelRef = useRef(0);
+  const rafRef = useRef(null);
   const startYRef = useRef(0);
-  const MAX_PULL = 120;                        // px — tam çekiş mesafesi
-  const SWEET_MIN = 70, SWEET_MAX = 100;       // kritik bölge (%)
+  const PULL_FIRE = 58;                        // bu kadar çekilince ateş alır
+
+  // Bar sürekli dolup boşalır — ateş edilene kadar durmaz
+  useEffect(() => {
+    if (phase === "firing" || phase === "opened") return;
+    const t0 = performance.now();
+    const tick = (now) => {
+      const v = 50 - 50 * Math.cos((now - t0) / 175);   // hızlı gidip gelme
+      levelRef.current = v; setLevel(v);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [phase]);
 
   const onDown = (e) => {
     if (phase !== "idle") return;
-    setPhase("pulling");
-    startYRef.current = e.clientY;
-    sfx.init();
+    setPhase("pulling"); startYRef.current = e.clientY; sfx.init();
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
   };
   const onMove = (e) => {
     if (phase !== "pulling") return;
-    const dy = Math.max(0, e.clientY - startYRef.current);
-    const v = Math.min(100, (dy / MAX_PULL) * 100);
-    pullRef.current = v; setPull(v);
+    setPull(Math.max(0, Math.min(PULL_FIRE + 14, e.clientY - startYRef.current)));
   };
-  const fire = () => {
+  const release = () => {
     if (phase !== "pulling") return;
-    const v = pullRef.current;
-    if (v < 22) { setPhase("idle"); setPull(0); pullRef.current = 0; return; } // yeterince çekilmedi
-    const crit = v >= SWEET_MIN && v <= SWEET_MAX;
-    const pct = crit ? Math.round(10 + Math.random() * 10) : 0;
-    setIsCrit(crit); setBonusPct(pct);
-    setRewardAmount(crit ? Math.round(DAILY_CHEST_GOLD * (1 + pct / 100)) : DAILY_CHEST_GOLD);
+    if (pull < PULL_FIRE) { setPull(0); setPhase("idle"); return; }  // yeterince çekilmedi
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    const lvl = levelRef.current;
+    const zi = CANNON_ZONES.findIndex(z => lvl >= z.min);
+    const zone = CANNON_ZONES[zi < 0 ? CANNON_ZONES.length - 1 : zi];
+    setZoneIdx(zi < 0 ? CANNON_ZONES.length - 1 : zi);
+    setBonusPct(Math.round((zone.mult - 1) * 100));
+    setRewardAmount(Math.round(DAILY_CHEST_GOLD * zone.mult));
     setPhase("firing");
     sfx.playVoice('explosion');
-    setTimeout(() => {
-      setPhase("opened"); setShowCoins(true);
-      sfx.play('gold');
-    }, 850);
+    setTimeout(() => { setPhase("opened"); setShowCoins(true); sfx.play('gold'); }, 850);
   };
 
   const coins = Array.from({ length: 14 }, (_, i) => ({ id: i, delay: i * 42, dx: (Math.random() - 0.5) * 130, dr: (Math.random() - 0.5) * 70 }));
   const claim = () => onClaim(rewardAmount);
-  const ropeLen = 46 + (pull / 100) * MAX_PULL;
-  const inSweet = pull >= SWEET_MIN && pull <= SWEET_MAX;
+  const liveZone = cannonZoneOf(level);
+  const isTop = level >= CANNON_ZONES[0].min;
+  const BAR_H = 168;
+
+  // Gerçek halat dokusu: bükümlü lifler + yuvarlaklık gölgesi
+  const ropeTexture = "repeating-linear-gradient(118deg, #6b4a22 0px, #a87c3e 2px, #d9b56e 4px, #f0d79a 5px, #d9b56e 6px, #a87c3e 8px, #6b4a22 10px)";
+  const ropeRound = "inset 2px 0 3px rgba(0,0,0,0.55), inset -2px 0 3px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(0,0,0,0.25)";
 
   return (<div style={{ position:"fixed",inset:0,overflow:"hidden",background:"radial-gradient(ellipse at 50% 40%, rgba(255,214,0,0.12) 0%, rgba(0,0,0,0.88) 75%)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(6px)" }} onClick={phase === "opened" ? claim : (phase === "idle" ? onClose : undefined)}>
-    <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, rgba(20,26,52,0.99) 0%, rgba(10,16,32,0.99) 60%, rgba(18,16,30,0.99) 100%)",border:"3px solid #ffe94d",outline:"2px solid rgba(255,233,77,0.65)",outlineOffset:6,borderRadius:22,padding:"34px 38px 30px",textAlign:"center",maxWidth:340,width:"90%",boxShadow:"0 0 40px #ffe94d, 0 0 90px rgba(255,233,77,0.75), 0 0 150px rgba(255,233,77,0.4), 0 24px 70px rgba(0,0,0,0.6)",overflow:"visible",animation: phase === "firing" ? "cannonRecoil 0.55s ease-out" : "chestGlow 1.6s ease-in-out infinite" }}>
-      <button onClick={phase === "opened" ? claim : onClose} title={L(lang,"backBtn")} style={{ position:"absolute",top:-14,right:-14,width:34,height:34,borderRadius:"50%",background:"#0c1529",border:"2px solid #ffe94d",color:"#ffe94d",fontSize:16,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,boxShadow:"0 0 14px rgba(255,233,77,0.8)",zIndex:2 }}>✕</button>
+    <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, rgba(20,26,52,0.99) 0%, rgba(10,16,32,0.99) 60%, rgba(18,16,30,0.99) 100%)",border:"3px solid #ffe94d",outline:"2px solid rgba(255,233,77,0.65)",outlineOffset:6,borderRadius:22,padding:"30px 30px 26px",textAlign:"center",maxWidth:360,width:"92%",boxShadow:"0 0 40px #ffe94d, 0 0 90px rgba(255,233,77,0.75), 0 0 150px rgba(255,233,77,0.4), 0 24px 70px rgba(0,0,0,0.6)",overflow:"visible",animation: phase === "firing" ? "cannonRecoil 0.55s ease-out" : "chestGlow 1.6s ease-in-out infinite" }}>
+      <button onClick={phase === "opened" ? claim : onClose} title={L(lang,"backBtn")} style={{ position:"absolute",top:-14,right:-14,width:34,height:34,borderRadius:"50%",background:"#0c1529",border:"2px solid #ffe94d",color:"#ffe94d",fontSize:16,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,boxShadow:"0 0 14px rgba(255,233,77,0.8)",zIndex:3 }}>✕</button>
 
       {phase !== "opened" && (<>
+        <div style={{ fontSize:13,fontWeight:800,color:"#ffe94d",fontFamily:mono,letterSpacing:3,marginBottom:8 }}>{L(lang,"dailyChestTooltip").toUpperCase()}</div>
+
         {/* TOP */}
-        <div style={{ position:"relative",width:170,height:150,margin:"0 auto 2px" }}>
+        <div style={{ position:"relative",width:158,height:132,margin:"0 auto" }}>
           <img src={CANNON_IMG} onError={cannonFallback} alt="" draggable={false}
             style={{ width:"100%",height:"100%",objectFit:"contain",userSelect:"none",
               animation: phase === "firing" ? "chestJolt 0.55s ease-out" : (phase === "pulling" ? "none" : "chestWiggle 2.6s ease-in-out infinite"),
-              transform: phase === "pulling" ? `translateX(${-pull * 0.06}px)` : "none",
-              filter:"drop-shadow(0 0 24px rgba(255,233,77,0.7)) drop-shadow(0 6px 12px rgba(0,0,0,0.6))" }} />
+              transform: phase === "pulling" ? `translateX(${-pull * 0.08}px)` : "none",
+              filter:"drop-shadow(0 0 22px rgba(255,233,77,0.65)) drop-shadow(0 6px 12px rgba(0,0,0,0.6))" }} />
           {phase === "firing" && (<>
-            <span style={{ position:"absolute",left:"6%",top:"30%",width:78,height:78,marginLeft:-39,marginTop:-39,borderRadius:"50%",pointerEvents:"none",
+            <span style={{ position:"absolute",left:"6%",top:"30%",width:76,height:76,marginLeft:-38,marginTop:-38,borderRadius:"50%",pointerEvents:"none",
               background:"radial-gradient(circle, rgba(255,249,196,0.98) 0%, rgba(255,179,0,0.9) 38%, rgba(214,52,52,0.5) 62%, transparent 78%)",
               animation:"muzzleFlash 0.5s ease-out" }} />
-            <span style={{ position:"absolute",inset:"-18%",borderRadius:"50%",border:"3px solid rgba(255,190,80,0.8)",pointerEvents:"none",
-              animation:"explodeWave 0.75s ease-out both" }} />
-            {[0,1,2,3].map(i => (<span key={i} style={{ position:"absolute",bottom:"12%",left:`${14+i*20}%`,fontSize:18,opacity:0,filter:"grayscale(1) brightness(1.3)",pointerEvents:"none",
-              animation:`smokeRise ${1.2+i*0.22}s ease-in ${0.1+i*0.1}s forwards` }}>💨</span>))}
+            <span style={{ position:"absolute",inset:"-18%",borderRadius:"50%",border:"3px solid rgba(255,190,80,0.8)",pointerEvents:"none",animation:"explodeWave 0.75s ease-out both" }} />
+            {[0,1,2,3].map(i => (<span key={i} style={{ position:"absolute",bottom:"10%",left:`${14+i*20}%`,fontSize:17,opacity:0,filter:"grayscale(1) brightness(1.3)",pointerEvents:"none",animation:`smokeRise ${1.2+i*0.22}s ease-in ${0.1+i*0.1}s forwards` }}>💨</span>))}
           </>)}
         </div>
 
-        <div style={{ fontSize:14,fontWeight:800,color:"#ffe94d",fontFamily:mono,letterSpacing:4,marginBottom:6 }}>{L(lang,"dailyChestTooltip").toUpperCase()}</div>
-        <div style={{ fontSize:13,fontWeight:600,color: inSweet ? "#4ade80" : t.textDim,fontFamily:mono,marginBottom:10,minHeight:18 }}>
-          {phase === "pulling" ? (inSweet ? L(lang,"ropeSweet") : L(lang,"ropePulling")) : L(lang,"ropeHint")}
+        {/* GÜÇ BARI + HALAT yan yana */}
+        <div style={{ display:"flex",alignItems:"flex-start",justifyContent:"center",gap:26,marginTop:4 }}>
+
+          {/* 5 BÖLÜMLÜ GÜÇ BARI — ters orantılı, en tepe en mini ve en değerli */}
+          <div style={{ position:"relative",width:52,height:BAR_H,borderRadius:10,overflow:"hidden",flexShrink:0,
+            background:"linear-gradient(180deg,#0a1020,#060a14)",border:"2px solid rgba(255,233,77,0.5)",
+            boxShadow:"inset 0 2px 8px rgba(0,0,0,0.8), 0 0 18px rgba(255,214,0,0.25)" }}>
+            {CANNON_ZONES.map((z, i) => {
+              const top = 100 - (i === 0 ? 100 : CANNON_ZONES[i-1].min);
+              const hgt = (i === 0 ? 100 : CANNON_ZONES[i-1].min) - z.min;
+              const active = liveZone === z;
+              return (<div key={i} style={{ position:"absolute",left:0,right:0,top:`${top}%`,height:`${hgt}%`,
+                borderBottom:"1px solid rgba(0,0,0,0.55)",
+                background: active ? `${z.color}55` : `${z.color}1f`,
+                display:"flex",alignItems:"center",justifyContent:"center",transition:"background 0.1s linear" }}>
+                <span style={{ fontSize: i === 0 ? 10 : 11,fontWeight:900,fontFamily:warrior,letterSpacing:0.5,
+                  color: active ? "#fff" : z.color, textShadow: active ? `0 0 8px ${z.color}` : "none" }}>{z.label}</span>
+              </div>);
+            })}
+            {/* dolan sıvı */}
+            <div style={{ position:"absolute",left:0,right:0,bottom:0,height:`${level}%`,pointerEvents:"none",
+              background:`linear-gradient(180deg, ${liveZone.color}cc 0%, ${liveZone.color}66 55%, transparent 100%)`,
+              boxShadow:`0 0 22px ${liveZone.color}` }} />
+            {/* keskin üst çizgi — nişan hattı */}
+            <div style={{ position:"absolute",left:-2,right:-2,bottom:`${level}%`,height:3,pointerEvents:"none",
+              background:"#fff",boxShadow:`0 0 12px #fff, 0 0 22px ${liveZone.color}` }} />
+          </div>
+
+          {/* HALAT — bükümlü lif dokusu, ucunda düğüm */}
+          <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={release} onPointerCancel={release}
+            style={{ position:"relative",width:60,height:BAR_H,cursor: phase === "pulling" ? "grabbing" : "grab",touchAction:"none",userSelect:"none",display:"flex",flexDirection:"column",alignItems:"center" }}>
+            {/* halat gövdesi */}
+            <div style={{ width:10,height:52 + pull,borderRadius:5,background:ropeTexture,boxShadow:ropeRound,
+              transition: phase === "pulling" ? "none" : "height 0.3s cubic-bezier(0.34,1.56,0.64,1)" }} />
+            {/* DÜĞÜM — üst üste binen iki büküm + gölge */}
+            <div style={{ position:"relative",width:30,height:28,marginTop:-3,
+              animation: phase === "idle" ? "float 2s ease-in-out infinite" : "none",
+              filter: isTop ? "drop-shadow(0 0 10px rgba(255,215,0,0.95))" : "drop-shadow(0 3px 5px rgba(0,0,0,0.6))" }}>
+              <span style={{ position:"absolute",left:1,top:4,width:28,height:19,borderRadius:"50% / 60%",background:ropeTexture,boxShadow:"inset 0 -3px 5px rgba(0,0,0,0.5), inset 0 2px 3px rgba(255,235,190,0.35)" }} />
+              <span style={{ position:"absolute",left:6,top:0,width:18,height:26,borderRadius:"55% / 45%",
+                background:"repeating-linear-gradient(62deg, #6b4a22 0px, #a87c3e 2px, #d9b56e 4px, #f0d79a 5px, #d9b56e 6px, #a87c3e 8px, #6b4a22 10px)",
+                boxShadow:"inset 2px 0 4px rgba(0,0,0,0.5), inset -2px 0 4px rgba(0,0,0,0.4)" }} />
+              <span style={{ position:"absolute",left:11,bottom:-5,width:8,height:9,borderRadius:"0 0 4px 4px",background:ropeTexture,opacity:0.95 }} />
+            </div>
+            <div style={{ marginTop:8,fontSize:10,fontWeight:800,fontFamily:mono,letterSpacing:1,
+              color: phase === "pulling" ? (pull >= PULL_FIRE ? "#4ade80" : "#ffe94d") : t.textDim,minHeight:14 }}>
+              {phase === "pulling" ? (pull >= PULL_FIRE ? L(lang,"ropeSweet") : L(lang,"ropePulling")) : "↓"}
+            </div>
+          </div>
         </div>
 
-        {/* FİTİL İPİ — aşağı sürükle */}
-        {phase !== "firing" && (
-          <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={fire} onPointerCancel={fire}
-            style={{ position:"relative",height:150,cursor:"grab",touchAction:"none",userSelect:"none",display:"flex",flexDirection:"column",alignItems:"center" }}>
-            {/* ip */}
-            <div style={{ width:5,height:ropeLen,borderRadius:3,
-              background: inSweet
-                ? "repeating-linear-gradient(180deg,#8ef0b0 0 5px,#4ade80 5px 10px)"
-                : "repeating-linear-gradient(180deg,#e8d5a8 0 5px,#b99a5e 5px 10px)",
-              boxShadow: inSweet ? "0 0 14px rgba(74,222,128,0.8)" : "0 2px 6px rgba(0,0,0,0.5)",
-              transition: phase === "pulling" ? "none" : "height 0.25s cubic-bezier(0.34,1.56,0.64,1)" }} />
-            {/* tutamak */}
-            <div style={{ width:52,height:52,borderRadius:"50%",marginTop:-2,display:"flex",alignItems:"center",justifyContent:"center",
-              background: inSweet ? "radial-gradient(circle at 35% 30%, #b9f6ca, #2e7d32 72%)" : "radial-gradient(circle at 35% 30%, #f0d79a, #6b4a1e 72%)",
-              border: `3px solid ${inSweet ? "#4ade80" : "#c9a15e"}`,
-              boxShadow: inSweet ? "0 0 22px rgba(74,222,128,0.85)" : "0 4px 12px rgba(0,0,0,0.55)",
-              fontSize:22,
-              animation: phase === "idle" ? "float 1.9s ease-in-out infinite" : "none" }}>🪢</div>
-            {/* kritik bölge işareti */}
-            <div style={{ position:"absolute",right:6,top:`${46 + (SWEET_MIN/100)*MAX_PULL}px`,height:`${((SWEET_MAX-SWEET_MIN)/100)*MAX_PULL}px`,width:14,borderRadius:4,
-              background:"rgba(74,222,128,0.28)",border:"1px solid rgba(74,222,128,0.7)",pointerEvents:"none" }} />
-          </div>
-        )}
-        {phase === "firing" && <div style={{ height:150 }} />}
+        <div style={{ fontSize:12,fontWeight:600,color:t.textDim,fontFamily:mono,marginTop:10 }}>{L(lang,"ropeHint")}</div>
       </>)}
 
       {phase === "opened" && (<>
         <div style={{ fontSize:60,marginBottom:8,animation:"popIn 0.5s ease-out",filter:"drop-shadow(0 0 30px #ffe066)" }}>🎉</div>
-        {isCrit && <div style={{ fontSize:15,fontWeight:900,color:"#4ade80",fontFamily:warrior,letterSpacing:1.5,marginBottom:6,animation:"critBurstPop 0.6s ease-out",textShadow:"0 0 14px rgba(74,222,128,0.8)" }}>⚡ {L(lang,"criticalHitLabel")} {L(lang,"bonusGoldLabel")(bonusPct)}</div>}
+        {bonusPct > 0 && <div style={{ fontSize:15,fontWeight:900,color:CANNON_ZONES[zoneIdx].color,fontFamily:warrior,letterSpacing:1.5,marginBottom:6,animation:"critBurstPop 0.6s ease-out",textShadow:`0 0 14px ${CANNON_ZONES[zoneIdx].color}` }}>⚡ {CANNON_ZONES[zoneIdx].label} {L(lang,"bonusGoldLabel")(bonusPct)}</div>}
         <div style={{ fontSize:13,fontWeight:800,color:"rgba(255,214,0,0.85)",fontFamily:mono,letterSpacing:4,marginBottom:8 }}>{L(lang,"dailyRewardLabel")}</div>
         <div style={{ fontSize:52,fontWeight:900,fontFamily:warrior,marginBottom:14,letterSpacing:2,background:"linear-gradient(180deg, #fff7d6 0%, #ffd700 45%, #d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 25px rgba(255,214,0,0.8))",animation:"rewardPulse 1.4s ease-in-out infinite" }}>+{rewardAmount} <img src="/img/coin.png" alt="" style={{ width:22,height:22,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /></div>
         <button onClick={claim} style={{ padding:"20px 52px",background:"linear-gradient(135deg, #ffd700 0%, #ff9f43 55%, #d97706 100%)",color:"#1a1206",border:"none",borderRadius:14,fontSize:22,fontWeight:900,letterSpacing:4,cursor:"pointer",fontFamily:warrior,boxShadow:"0 0 40px rgba(255,214,0,0.6), 0 6px 24px rgba(0,0,0,0.5)",animation:"btnBreath 1.8s ease-in-out infinite",textTransform:"uppercase",width:"100%" }}>{L(lang,"collectBtn")}</button>
@@ -2527,7 +2575,7 @@ function DailyChestPopup({ onClaim, onClose, lang = "tr" }) {
         </div>}
       </>)}
 
-      {/* PATLAMA ANINDA: kocaman 3B "+300 ALTIN" */}
+      {/* PATLAMA ANINDA: kocaman 3B "+X ALTIN" */}
       {phase === "firing" && (
         <div style={{ position:"fixed",inset:0,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none",zIndex:5 }}>
           <div style={{ opacity:1,animation:"zoomThroughEye 0.85s cubic-bezier(0.19,1,0.22,1) forwards" }}>
