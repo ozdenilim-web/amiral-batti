@@ -2809,68 +2809,55 @@ function BattleRecapScreen({ oppShipsData, attackOverlay, atkHitMap, cellSize, l
   </div>);
 }
 
-// === MAÇ SONU ANI — maç biter bitmez, ekranın TAM ORTASINDA, 1 saniye. Atış sesiyle gelir. ===
-// Kazanma ve kaybetme aynı tasarımı paylaşır; sadece renk, ikon ve yazı değişir.
+// === MAÇ SONU ANI — "Zoom Through the Eye": yazı gözün içinden geçerek gelir,
+// 1 saniye sabit durur, sonra izleyicinin üzerinden geçip yok olur.
+// Ekranda SADECE yazı vardır. Kazanma mavi, kaybetme kırmızı; 3B kabartma blok harfler.
 function ResultBurst({ isWin, lang = "tr" }) {
   const word = isWin ? L(lang, "victory") : L(lang, "defeat");
-  const ring    = isWin ? "rgba(255,214,90,0.75)" : "rgba(255,90,80,0.75)";
-  const bg      = isWin
-    ? "radial-gradient(ellipse at 50% 50%, rgba(255,215,0,0.22) 0%, rgba(40,22,2,0.85) 42%, rgba(2,6,16,0.97) 78%)"
-    : "radial-gradient(ellipse at 50% 50%, rgba(255,60,50,0.20) 0%, rgba(42,6,8,0.86) 42%, rgba(2,6,16,0.97) 78%)";
-  const rays = isWin
-    ? "conic-gradient(from 0deg, rgba(255,215,0,0) 0deg, rgba(255,225,90,0.30) 14deg, rgba(255,215,0,0) 34deg, rgba(255,215,0,0) 82deg, rgba(255,225,90,0.24) 98deg, rgba(255,215,0,0) 120deg, rgba(255,215,0,0) 172deg, rgba(255,225,90,0.30) 190deg, rgba(255,215,0,0) 212deg, rgba(255,215,0,0) 262deg, rgba(255,225,90,0.24) 280deg, rgba(255,215,0,0) 302deg, rgba(255,215,0,0) 360deg)"
-    : "conic-gradient(from 0deg, rgba(255,71,87,0) 0deg, rgba(255,110,90,0.26) 14deg, rgba(255,71,87,0) 34deg, rgba(255,71,87,0) 82deg, rgba(255,110,90,0.20) 98deg, rgba(255,71,87,0) 120deg, rgba(255,71,87,0) 172deg, rgba(255,110,90,0.26) 190deg, rgba(255,71,87,0) 212deg, rgba(255,71,87,0) 262deg, rgba(255,110,90,0.20) 280deg, rgba(255,71,87,0) 302deg, rgba(255,71,87,0) 360deg)";
-  const textFill = isWin
-    ? { background:"linear-gradient(180deg,#fffbe0 0%,#ffe98a 24%,#ffd700 48%,#a86a08 72%,#ffe98a 100%)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }
-    : { background:"linear-gradient(180deg,#ffe3e0 0%,#ff9a90 24%,#ff4757 50%,#7f1d1d 74%,#ff9a90 100%)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" };
-  const glow = isWin
-    ? "drop-shadow(0 0 26px rgba(255,215,0,0.9)) drop-shadow(0 4px 10px rgba(0,0,0,0.7))"
-    : "drop-shadow(0 0 24px rgba(255,71,87,0.85)) drop-shadow(0 4px 10px rgba(0,0,0,0.7))";
+  // 3B kabartma: yüzü beyaz, gövdesi renkli katmanlar. Katmanlar koyulaşarak derinlik verir.
+  const shades = isWin
+    ? ["#5b8ff0","#4f80e6","#4373dc","#3866d1","#2e5ac6","#254fbb","#1d45b0","#163ca5","#0f329a","#0a2b8f","#072484","#051d78"]
+    : ["#ff6b6b","#f95f5f","#f25454","#ea4949","#e13e3e","#d63434","#ca2b2b","#bd2323","#af1c1c","#a01616","#901111","#800d0d"];
+  const extrude = shades.map((c, i) => `${i + 1}px ${i + 1}px 0 ${c}`).join(",");
+  const ambient = isWin
+    ? "0 18px 34px rgba(4,20,70,0.75), 0 0 42px rgba(90,150,255,0.55)"
+    : "0 18px 34px rgba(70,6,6,0.75), 0 0 42px rgba(255,90,90,0.5)";
+  const halo = isWin ? "rgba(70,130,255,0.30)" : "rgba(255,70,70,0.28)";
   return (<div style={{ position:"fixed",inset:0,zIndex:9500,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",
-    background:bg, animation:"pageFadeIn 0.18s ease-out" }}>
-    {/* Bu üç keyframe başka bileşenlerin yerel style'ında tanımlı — burada kendi kopyamız olmalı */}
+    background:`radial-gradient(ellipse at 50% 50%, ${halo} 0%, rgba(3,7,18,0.94) 55%, rgba(1,3,10,0.99) 100%)` }}>
     <style>{`
-@keyframes vbRayRotate{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-@keyframes vbFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-@keyframes vbLine{0%{transform:scaleX(0);opacity:0}100%{transform:scaleX(1);opacity:1}}
+@keyframes zoomThroughEye{
+  0%   {opacity:0; transform:scale(0.04) rotate(-6deg); filter:blur(22px)}
+  10%  {opacity:1}
+  22%  {transform:scale(1.42) rotate(1.5deg); filter:blur(0)}
+  27%  {transform:scale(0.94) rotate(-0.5deg)}
+  30%  {transform:scale(1) rotate(0deg)}
+  80%  {opacity:1; transform:scale(1) rotate(0deg); filter:blur(0)}
+  100% {opacity:0; transform:scale(5.2) rotate(0deg); filter:blur(14px)}
+}
+@keyframes zteFlash{
+  0%   {opacity:0; transform:scale(0.2)}
+  20%  {opacity:0.85; transform:scale(1.15)}
+  46%  {opacity:0; transform:scale(1.9)}
+  100% {opacity:0; transform:scale(1.9)}
+}
     `}</style>
-    {/* Dönen konik ışınlar */}
-    <span className="gpu" style={{ position:"absolute",left:"50%",top:"50%",width:"185vmax",height:"185vmax",marginLeft:"-92.5vmax",marginTop:"-92.5vmax",pointerEvents:"none",
-      background:rays,
-      WebkitMaskImage:"radial-gradient(circle, rgba(0,0,0,0.95) 8%, rgba(0,0,0,0.45) 38%, transparent 62%)",
-      maskImage:"radial-gradient(circle, rgba(0,0,0,0.95) 8%, rgba(0,0,0,0.45) 38%, transparent 62%)",
-      animation:"vbRayRotate 11s linear infinite" }} />
-    {/* Genişleyen şok dalgaları */}
-    {[0,1,2].map(i => (
-      <span key={i} style={{ position:"absolute",left:"50%",top:"50%",width:190,height:190,marginLeft:-95,marginTop:-95,borderRadius:"50%",
-        border:`3px solid ${ring}`,pointerEvents:"none",
-        animation:`explodeWave 1s cubic-bezier(0.16,1,0.3,1) ${i*0.14}s both` }} />
-    ))}
-    <div style={{ position:"relative",textAlign:"center",padding:"0 16px" }}>
-      {/* İkon */}
-      <div style={{ fontSize:"clamp(58px, 18vw, 104px)",lineHeight:1,marginBottom:4,
-        filter: isWin
-          ? "drop-shadow(0 0 34px rgba(255,215,0,0.95)) drop-shadow(0 0 70px rgba(255,190,40,0.6))"
-          : "drop-shadow(0 0 30px rgba(255,71,87,0.9)) drop-shadow(0 0 60px rgba(220,40,40,0.5))",
-        animation:"siegeIntroPop 0.45s cubic-bezier(0.16,1,0.3,1) both" }}>{isWin ? "\u{1F3C6}" : "\u{1F480}"}</div>
-      {/* Dev KAZANDIN / KAYBETTİN — harf harf */}
-      <div style={{ display:"flex",justifyContent:"center",flexWrap:"nowrap",gap:"0.01em" }}>
-        {word.split("").map((ch, i) => (
-          <span key={i} style={{ display:"inline-block",
-            fontSize:"clamp(40px, 14vw, 98px)",fontWeight:900,fontFamily:warrior,letterSpacing:2,lineHeight:1.05,
-            ...textFill, filter:glow,
-            animation:`siegeIntroPop 0.4s cubic-bezier(0.34,1.56,0.64,1) ${0.1 + i*0.04}s both` }}>
-            {ch === " " ? "\u00a0" : ch}
-          </span>
-        ))}
-      </div>
-      {/* Alt çizgi */}
-      <div style={{ height:3,margin:"14px auto 0",width:"min(320px, 74%)",borderRadius:2,
-        background: isWin
-          ? "linear-gradient(90deg,transparent,#ffd700,#fffbe0,#ffd700,transparent)"
-          : "linear-gradient(90deg,transparent,#ff4757,#ffd0cc,#ff4757,transparent)",
-        boxShadow: isWin ? "0 0 22px rgba(255,215,0,0.85)" : "0 0 22px rgba(255,71,87,0.8)",
-        animation:"vbLine 0.45s ease-out 0.35s both" }} />
+    {/* Yazının arkasından geçen tek patlama parıltısı */}
+    <span style={{ position:"absolute",left:"50%",top:"50%",width:"70vmin",height:"70vmin",marginLeft:"-35vmin",marginTop:"-35vmin",
+      borderRadius:"50%",pointerEvents:"none",
+      background:`radial-gradient(circle, ${isWin ? "rgba(150,200,255,0.55)" : "rgba(255,140,140,0.5)"} 0%, transparent 62%)`,
+      animation:"zteFlash 2s cubic-bezier(0.16,1,0.3,1) both" }} />
+    {/* SADECE YAZI */}
+    <div style={{ position:"relative",padding:"0 14px",willChange:"transform,opacity",
+      animation:"zoomThroughEye 2s cubic-bezier(0.19,1,0.22,1) both" }}>
+      <div style={{
+        fontFamily:warrior, fontWeight:900, whiteSpace:"nowrap",
+        fontSize:"clamp(52px, 17vw, 132px)", lineHeight:1, letterSpacing:"0.02em",
+        color:"#ffffff",
+        WebkitTextStroke: isWin ? "2px #0a2b8f" : "2px #8f0d0d",
+        textShadow:`${extrude}, ${ambient}`,
+        transform:"skewY(-2deg)",
+      }}>{word}</div>
     </div>
   </div>);
 }
@@ -3577,7 +3564,8 @@ export default function Game() {
   }, [gameOverStage]);
   // Sahneler arası otomatik geçiş. "rewards"tan çıkış RewardModal'ın kendi kapatmasıyla olur.
   useEffect(() => {
-    if (gameOverStage === "burst") { const tm = setTimeout(() => setGameOverStage("rewards"), 1000); return () => clearTimeout(tm); }
+    // Zoom Through the Eye: ~0.6sn yakınlaşma → 1sn sabit → ~0.4sn izleyicinin üzerinden geçip yok olma
+    if (gameOverStage === "burst") { const tm = setTimeout(() => setGameOverStage("rewards"), 2000); return () => clearTimeout(tm); }
     if (gameOverStage === "map") { const tm = setTimeout(() => setGameOverStage("final"), 5000); return () => clearTimeout(tm); }
     // Güvenlik: "rewards" sahnesine geldik ama rapor (matchRewards) hâlâ gelmediyse — normalde
     // gelmesi gereken guarantee-effect'ten önce buraya düşmüş olabiliriz — 2sn sonra yine de devam et.
