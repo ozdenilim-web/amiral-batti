@@ -1095,8 +1095,17 @@ class SoundEngine {
       const a = new Audio('/sfx/gameover.mp3');
       a.volume = 1.0;
       this._gameOverEl = a;
+      // Sting bitince sessizlik kalmasın — lobi müziği hemen devreye girsin.
+      const backToLobby = () => {
+        if (this._gameOverEl !== a) return; // yerine başka şey geldiyse karışma
+        this._gameOverEl = null;
+        this.currentMusic = null;
+        try { this.playLobbyMusic(); } catch (e) {}
+      };
+      a.addEventListener('ended', backToLobby, { once: true });
+      a.addEventListener('error', backToLobby, { once: true }); // dosya açılamazsa da sessiz kalmasın
       const p = a.play();
-      if (p && p.catch) p.catch(() => {});
+      if (p && p.catch) p.catch(backToLobby);
     } catch (e) {}
   }
   playIntroFanfare() { this.ensureMusic(0.10); }
