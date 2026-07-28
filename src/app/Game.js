@@ -1194,20 +1194,55 @@ function launchExplosion(canvasId, x, y, duration=1200) {
   animate();
 }
 
+// === KUMARHANE SAYACI — altın rakamı hedefe doğru hızlıca "döner" ===
+// delay: paralar rozete varmaya başlarken saymaya başlasın diye küçük gecikme.
+function RollingGold({ value, lang = "tr", delay = 0, duration = 900, style }) {
+  const [shown, setShown] = useState(value);
+  const fromRef = useRef(value);
+  const rafRef = useRef(null);
+  const toRef = useRef(value);
+  useEffect(() => {
+    const from = fromRef.current, to = value;
+    toRef.current = to;
+    if (from === to) return;
+    let startTs = 0;
+    const tick = (now) => {
+      if (!startTs) startTs = now;
+      const p = Math.min(1, (now - startTs) / duration);
+      const e = 1 - Math.pow(1 - p, 3); // hızlı başla, yumuşak otur
+      setShown(Math.round(from + (to - from) * e));
+      if (p < 1) rafRef.current = requestAnimationFrame(tick);
+      else fromRef.current = to;
+    };
+    const startTimer = setTimeout(() => { rafRef.current = requestAnimationFrame(tick); }, delay);
+    return () => { clearTimeout(startTimer); if (rafRef.current) cancelAnimationFrame(rafRef.current); fromRef.current = toRef.current; setShown(toRef.current); };
+  }, [value]);
+  const rolling = shown !== value;
+  return (<span style={{ ...style, display:"inline-block", transition:"transform 0.12s ease", transform: rolling ? "scale(1.13)" : "scale(1)", textShadow: rolling ? "0 0 12px rgba(255,215,0,0.95)" : (style?.textShadow || "none") }}>
+    {shown.toLocaleString(lang === "en" ? "en-US" : "tr-TR")}
+  </span>);
+}
+
 // === GOLD COİN ANİMASYONU ===
-// targetRef verilirse (ör. lobideki altın rozeti) paralar rastgele yukarı süzülüp kaybolmak yerine
-// TEK TEK, hızlıca doğrudan o rozete uçar ve varışta rozet hafifçe "zıplar" — altın nereye gitti belli olsun.
-// targetRef yoksa (rozet o an ekranda değilse) eski yukarı-süzülme davranışına güvenli şekilde düşer.
-function GoldCoinAnim({ amount, onDone, bottomPct, targetRef }) {
+// Paralar HER ZAMAN profil altın rozetine uçar ve orada kaybolur.
+// Rozet o an ekranda değilse (maç sonu, kuşatma vb.) bileşen kendi geçici rozetini
+// sağ üstte gösterir, paralar oraya konar ve içindeki sayaç kumarhane sayacı gibi döner.
+function GoldCoinAnim({ amount, onDone, bottomPct, targetRef, goldTotal, lang = "tr" }) {
   const wrapRef = useRef(null);
-  const [fly, setFly] = useState(null); // { dx, dy } — rozete olan mesafe, ölçülünce dolar
-  const [coins] = useState(() => Array.from({length: Math.min(amount > 100 ? 14 : amount > 20 ? 9 : 6, 16)}, (_,i) => ({
-    id: i, delay: i*28, x: (Math.random()-0.5)*70, rotation: (Math.random()-0.5)*60, jx: (Math.random()-0.5)*22, jy: (Math.random()-0.5)*16,
-    mx: (Math.random()-0.5)*150, my: -(35 + Math.random()*55), dr: (Math.random()-0.5)*70
+  const selfBadgeRef = useRef(null);
+  const [fly, setFly] = useState(null);      // { dx, dy } — rozete olan mesafe
+  const [ownBadge, setOwnBadge] = useState(true); // gerçek rozet ekranda mı, değil mi
+  const [coins] = useState(() => Array.from({length: Math.min(amount > 100 ? 16 : amount > 20 ? 11 : 7, 18)}, (_,i) => ({
+    id: i, delay: i*26, x: (Math.random()-0.5)*70, rotation: (Math.random()-0.5)*60, jx: (Math.random()-0.5)*20, jy: (Math.random()-0.5)*14,
+    mx: (Math.random()-0.5)*190, my: -(30 + Math.random()*70), dr: (Math.random()-0.5)*70
   })));
   useLayoutEffect(() => {
-    if (targetRef?.current && wrapRef.current) {
-      const tRect = targetRef.current.getBoundingClientRect();
+    const real = targetRef?.current;
+    const realOk = !!(real && real.getBoundingClientRect().width > 0);
+    setOwnBadge(!realOk);
+    const target = realOk ? real : selfBadgeRef.current;
+    if (target && wrapRef.current) {
+      const tRect = target.getBoundingClientRect();
       const oRect = wrapRef.current.getBoundingClientRect();
       if (tRect.width > 0) {
         setFly({
@@ -1217,25 +1252,37 @@ function GoldCoinAnim({ amount, onDone, bottomPct, targetRef }) {
       }
     }
   }, []);
-  const flightMs = fly ? 400 : 520;
+  const flightMs = 420;
+  const lastArrivalMs = coins.length * 26 + flightMs;
   useEffect(() => {
     const timer = setTimeout(() => {
       onDone?.();
-      // Son para varır varmaz rozet hafifçe zıplasın
-      try { targetRef?.current?.animate?.([{ transform: "scale(1)" }, { transform: "scale(1.18)" }, { transform: "scale(1)" }], { duration: 260, easing: "ease-out" }); } catch (e) {}
-    }, coins.length * 28 + flightMs + 80);
+      try { targetRef?.current?.animate?.([{ transform: "scale(1)" }, { transform: "scale(1.2)" }, { transform: "scale(1)" }], { duration: 280, easing: "ease-out" }); } catch (e) {}
+    }, lastArrivalMs + (ownBadge ? 950 : 200)); // kendi rozetimizse sayaç dönsün diye biraz daha bekle
     return () => clearTimeout(timer);
-  }, [fly]);
-  return (<div ref={wrapRef} style={{ position:'fixed',bottom: bottomPct!=null?`${bottomPct}%`:100,left:'50%',transform:'translateX(-50%)',zIndex:10000,pointerEvents:'none' }}>
-    {coins.map(c => fly ? (
-      <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, fontSize:24,
-        ['--fly-x']:`${fly.dx + c.jx}px`, ['--fly-y']:`${fly.dy + c.jy}px`, ['--mid-x']:`${c.mx}px`, ['--mid-y']:`${c.my}px`,
-        animation:`flyToProfile ${flightMs}ms cubic-bezier(0.3,0.05,0.55,1) ${c.delay}ms forwards`, opacity:0 }}>🪙</div>
-    ) : (
-      <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, fontSize:32, ['--drift']:`${c.dr}px`, animation:`coinFly ${flightMs}ms cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards`, opacity:0, transform:`rotate(${c.rotation}deg)` }}>🪙</div>
-    ))}
-    {!fly && <div style={{ position:'absolute',left:'50%',transform:'translateX(-50%)',bottom:70,fontSize:28,fontWeight:900,color:t.gold,fontFamily:warrior,textShadow:`0 0 30px ${t.goldGlow}, 0 0 60px ${t.goldGlow}`,animation:'scaleUp 0.4s cubic-bezier(0.34,1.56,0.64,1) 150ms forwards',opacity:0,whiteSpace:'nowrap',letterSpacing:4 }}>+{amount} <img src="/img/coin.png" alt="" style={{ width:18,height:18,verticalAlign:"middle",filter:"drop-shadow(0 0 8px rgba(255,215,0,0.9))" }} /></div>}
-  </div>);
+  }, [fly, ownBadge]);
+  const total = typeof goldTotal === "number" ? goldTotal : null;
+  return (<>
+    {/* Gerçek rozet ekranda değilse: paraların konacağı geçici rozet (sağ üst) */}
+    <div ref={selfBadgeRef} style={{ position:"fixed", top:"calc(14px + env(safe-area-inset-top, 0px))", right:14, zIndex:10001, pointerEvents:"none",
+      opacity: ownBadge ? 1 : 0, display:"flex", alignItems:"center", gap:6,
+      background:"linear-gradient(180deg, rgba(26,19,4,0.96), rgba(12,9,2,0.98))", borderRadius:10, padding:"6px 12px 6px 8px",
+      border:"1px solid rgba(201,161,94,0.55)", boxShadow:"inset 0 1px 0 rgba(240,215,154,0.15), 0 6px 20px rgba(0,0,0,0.55)",
+      animation: ownBadge ? "chestBounceIn 0.35s cubic-bezier(0.16,1,0.3,1)" : "none" }}>
+      <img src="/img/coin.png" alt="" style={{ width:18,height:18,flexShrink:0 }} />
+      <RollingGold value={total != null ? total : amount} lang={lang} delay={flightMs - 60} duration={Math.max(700, lastArrivalMs)}
+        style={{ fontSize:16,fontWeight:800,fontFamily:mono,lineHeight:1,color:"#f0d79a",whiteSpace:"nowrap" }} />
+    </div>
+    <div ref={wrapRef} style={{ position:'fixed',bottom: bottomPct!=null?`${bottomPct}%`:100,left:'50%',transform:'translateX(-50%)',zIndex:10000,pointerEvents:'none' }}>
+      {coins.map(c => fly ? (
+        <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, fontSize:24,
+          ['--fly-x']:`${fly.dx + c.jx}px`, ['--fly-y']:`${fly.dy + c.jy}px`, ['--mid-x']:`${c.mx}px`, ['--mid-y']:`${c.my}px`,
+          animation:`flyToProfile ${flightMs}ms cubic-bezier(0.3,0.05,0.55,1) ${c.delay}ms forwards`, opacity:0 }}>🪙</div>
+      ) : (
+        <div key={c.id} style={{ position:'absolute', left:c.x, bottom:0, fontSize:32, ['--drift']:`${c.dr}px`, animation:`coinFly ${flightMs}ms cubic-bezier(0.25,0.46,0.45,0.94) ${c.delay}ms forwards`, opacity:0, transform:`rotate(${c.rotation}deg)` }}>🪙</div>
+      ))}
+    </div>
+  </>);
 }
 
 // === RİPPLE BUTON ===
@@ -6500,7 +6547,7 @@ export default function Game() {
         </div>
       ); })()}
       <canvas id="confetti-canvas" style={{ position:'fixed',inset:0,pointerEvents:'none',zIndex:10002 }} />
-      {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
+      {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} targetRef={goldBadgeRef} goldTotal={safeGold(myProfile?.gold)} lang={appLang} />}
     </>);
   }
 
@@ -6552,7 +6599,7 @@ export default function Game() {
           </div>
           <div ref={goldBadgeRef} style={{ flexShrink:0,display:"flex",alignItems:"center",gap:5,background:"linear-gradient(180deg, rgba(26,19,4,0.9), rgba(12,9,2,0.95))",borderRadius:10,padding:"5px 11px 5px 7px",border:"1px solid rgba(201,161,94,0.45)",boxShadow:"inset 0 1px 0 rgba(240,215,154,0.15)" }}>
             <img src="/img/coin.png" alt="" style={{ width:18,height:18,flexShrink:0 }} />
-            <div style={{ fontSize:16,fontWeight:800,fontFamily:mono,lineHeight:1,color:"#f0d79a",whiteSpace:"nowrap" }}>{safeGold(myProfile.gold).toLocaleString(appLang==="en"?"en-US":"tr-TR")}</div>
+            <RollingGold value={safeGold(myProfile.gold)} lang={appLang} delay={360} duration={900} style={{ fontSize:16,fontWeight:800,fontFamily:mono,lineHeight:1,color:"#f0d79a",whiteSpace:"nowrap" }} />
           </div>
         </div>
         {showAvatarPick && <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginBottom:12,padding:"8px 10px",background:"rgba(0,0,0,0.35)",borderRadius:10,border:"1px solid #26394b" }}>
@@ -6735,7 +6782,7 @@ export default function Game() {
       )}
       {showDailyChest && !dailyChestModalOpen && <DailyChestFab onOpen={() => setDailyChestModalOpen(true)} lang={appLang} />}
       {dailyChestModalOpen && <DailyChestPopup onClaim={claimDailyChest} onClose={() => setDailyChestModalOpen(false)} lang={appLang} />}
-      {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} targetRef={goldBadgeRef} />}
+      {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} targetRef={goldBadgeRef} goldTotal={safeGold(myProfile?.gold)} lang={appLang} />}
       <HorizonStrip lang={appLang} />
     </div>);
   }
@@ -6997,7 +7044,7 @@ export default function Game() {
       </button>
       <button onClick={() => shareGame(appLang)} style={{ marginTop:10,padding:"11px 28px",background:"linear-gradient(135deg,rgba(37,211,102,0.16),rgba(18,140,62,0.10))",color:"#25d366",border:"2px solid rgba(37,211,102,0.45)",borderRadius:10,fontSize:12,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}>📤 {L(appLang,"inviteBtn")}</button>
       <button onClick={resetGame} style={{ marginTop:10,marginBottom:24,padding:"10px 28px",background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:10,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"backBtn")}</button>
-      {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} bottomPct={58} />}
+      {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} bottomPct={58} targetRef={goldBadgeRef} goldTotal={safeGold(myProfile?.gold)} lang={appLang} />}
     </div>);
   }
 
@@ -7182,7 +7229,7 @@ export default function Game() {
         revengeStreak={!isWin ? safeAch(myProfile?.ach).lossStreak : 0} />
       {matchRewards && rewardModalOpen && <RewardModal key={rewardNonce} rewards={matchRewards} dailyMissions={dailyMissions} missionProgress={missionProgress} newAch={newAchUnlocks} profile={myProfile} sfx={sfx} onClose={() => setRewardModalOpen(false)} lang={appLang} />}
       <canvas id="confetti-canvas" style={{ position:'fixed',inset:0,pointerEvents:'none',zIndex:10002 }} />
-      {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
+      {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} targetRef={goldBadgeRef} goldTotal={safeGold(myProfile?.gold)} lang={appLang} />}
     </>);
   }
 
@@ -7309,7 +7356,7 @@ export default function Game() {
         )}
       </>)}
       <canvas id="confetti-canvas" style={{ position:'fixed',inset:0,pointerEvents:'none',zIndex:10002 }} />
-      {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} />}
+      {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} targetRef={goldBadgeRef} goldTotal={safeGold(myProfile?.gold)} lang={appLang} />}
     </div>);
   }
 
