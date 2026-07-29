@@ -2642,7 +2642,6 @@ function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoar
           {/* Atmosferik hale — görsel kutu gibi durmasın, kartın arka planıyla kaynaşsın diye arkada büyük bulanık ışıma */}
           <span style={{ position:"absolute",inset:"-26%",borderRadius:"50%",background:`radial-gradient(circle, ${isWin?"rgba(255,215,0,0.32)":"rgba(255,71,87,0.28)"} 0%, ${isWin?"rgba(255,215,0,0.12)":"rgba(255,71,87,0.10)"} 45%, transparent 72%)`,filter:"blur(7px)",pointerEvents:"none" }} />
           <img src={isWin ? "/img/ship-victory.png" : "/img/ship-defeat.png"} onError={(e)=>{ e.currentTarget.onerror=null; e.currentTarget.src="/img/victory-medal.png"; }} alt="" style={{ position:"relative",width:"100%",height:"100%",objectFit:"contain",animation:"float 3s ease-in-out 0.9s infinite",
-            WebkitMaskImage:"radial-gradient(circle at 50% 48%, #000 68%, transparent 96%)",maskImage:"radial-gradient(circle at 50% 48%, #000 68%, transparent 96%)",
             filter:isWin
             ? `drop-shadow(0 0 22px ${t.goldGlow}) drop-shadow(0 0 46px rgba(0,229,255,0.5)) drop-shadow(0 10px 18px rgba(0,0,0,0.6))`
             : "drop-shadow(0 0 24px rgba(255,71,87,0.55)) drop-shadow(0 10px 18px rgba(0,0,0,0.7))" }} />
