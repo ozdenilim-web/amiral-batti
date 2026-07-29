@@ -2417,7 +2417,9 @@ function DailyChestPopup({ onClaim, onClose, streak = 1, lang = "tr" }) {
   const levelRef = useRef(0);
   const rafRef = useRef(null);
   const startYRef = useRef(0);
+  const openedAtRef = useRef(0);
   const PULL_FIRE = 58;                        // bu kadar çekilince ateş alır
+  const MIN_REWARD_VIEW_MS = 1000;             // ödül ekranı en az bu kadar görünsün — halatı bırakırken oluşan tıklama ekranı anında kapatmasın
 
   // Bar sürekli dolup boşalır — ateş edilene kadar durmaz
   useEffect(() => {
@@ -2455,11 +2457,13 @@ function DailyChestPopup({ onClaim, onClose, streak = 1, lang = "tr" }) {
     setRewardAmount(Math.round(DAILY_CHEST_GOLD * zone.mult * sMult));
     setPhase("firing");
     sfx.playVoice('explosion');
-    setTimeout(() => { setPhase("opened"); setShowCoins(true); sfx.play('gold'); }, 850);
+    setTimeout(() => { setPhase("opened"); setShowCoins(true); sfx.play('gold'); openedAtRef.current = Date.now(); }, 850);
   };
 
   const coins = Array.from({ length: 14 }, (_, i) => ({ id: i, delay: i * 42, dx: (Math.random() - 0.5) * 130, dr: (Math.random() - 0.5) * 70 }));
-  const claim = () => onClaim(rewardAmount);
+  // Halatı bırakma anındaki dokunuş bazen arka plana "click" olarak sızıyordu — ödül ekranı
+  // açılır açılmaz tıklanıp anında kapanıyordu. En az MIN_REWARD_VIEW_MS boyunca kapatmayı yok sayıyoruz.
+  const claim = () => { if (Date.now() - openedAtRef.current < MIN_REWARD_VIEW_MS) return; onClaim(rewardAmount); };
   const liveZone = cannonZoneOf(level);
   const isTop = level >= CANNON_ZONES[0].min;
   const BAR_H = 168;
