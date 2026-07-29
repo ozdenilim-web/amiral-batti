@@ -1445,6 +1445,7 @@ function isConsecutiveDay(lastTs, nowTs) { const l = new Date(lastTs), n = new D
 function ArenaSelect({ myGold, onSelect, onBack, lang = "tr" }) {
   const [openInfo, setOpenInfo] = useState(null);
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)",padding:"24px 14px",fontFamily:mono,color:"#dfe9f0" }}>
+    <img src="/img/banner-arena.png" alt="" draggable={false} style={{ width:"100%",maxWidth:220,height:"auto",marginBottom:8,filter:"drop-shadow(0 0 22px rgba(255,196,60,0.35))" }} />
     <div style={{ fontSize:24,fontWeight:900,letterSpacing:5,color:"#f0d79a",marginBottom:6,fontFamily:warrior }}>{L(lang,"arenaSelectTitle")}</div>
     <div style={{ fontSize:14,fontWeight:700,color:"#f0d79a",fontFamily:mono,marginBottom:14,padding:"6px 16px",background:"linear-gradient(180deg, rgba(26,19,4,0.9), rgba(12,9,2,0.95))",borderRadius:10,border:"1px solid rgba(201,161,94,0.45)",letterSpacing:1,display:"flex",alignItems:"center",gap:6 }}><img src="/img/coin.png" alt="" style={{ width:18,height:18 }} /> {myGold} {L(lang,"goldLabel")}</div>
     <div style={{ fontSize:11,color:"#7A8FA0",fontFamily:mono,textAlign:"center",marginBottom:16,maxWidth:400,lineHeight:1.6,padding:"0 8px" }}>{L(lang,"arenaGeneralNote")}</div>
@@ -1488,6 +1489,7 @@ const WATER_MODES = [
 ];
 function DifferentWaters({ onBack, onPlaySalvo, onPlayKusatma, onPlayTersane, lang = "tr" }) {
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)",padding:"24px 14px",fontFamily:mono,color:"#dfe9f0" }}>
+    <img src="/img/banner-farkli-sular.png" alt="" draggable={false} style={{ width:"100%",maxWidth:220,height:"auto",marginBottom:8,filter:"drop-shadow(0 0 22px rgba(28,199,230,0.35))" }} />
     <div style={{ fontSize:24,fontWeight:900,letterSpacing:5,color:"#5fd8ee",marginBottom:6,fontFamily:warrior,textShadow:"0 0 24px rgba(28,199,230,0.3)",textAlign:"center" }}>{lang==="en"?"DIFFERENT WATERS":"FARKLI SULAR"}</div>
     <div style={{ fontSize:12,color:"#c9a15e",fontFamily:warrior,fontStyle:"italic",fontWeight:700,letterSpacing:1.5,textAlign:"center",marginBottom:18,maxWidth:360,lineHeight:1.6,textShadow:"0 0 12px rgba(201,161,94,0.3)" }}>{lang==="en"?"Every water hides its own storm...":"Her suyun kendi fırtınası var..."}</div>
     <div style={{ width:"100%",maxWidth:400,display:"flex",flexDirection:"column",gap:12 }}>
@@ -3079,6 +3081,7 @@ function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack, ready, onTogg
   const cancelInvite=async()=>{if(!sentInvite)return;await remove(ref(db,`invites/${sentInvite.targetUid}/${myUid}`));setSentInvite(null);};
   const rejectInvite=async(invite)=>{await update(ref(db,`invites/${myUid}/${invite.id}`),{status:"rejected"});setTimeout(()=>remove(ref(db,`invites/${myUid}/${invite.id}`)),2000);};
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)",padding:"20px 12px",fontFamily:mono,color:"#dfe9f0" }}>
+    <img src="/img/banner-salon.png" alt="" draggable={false} style={{ width:"100%",maxWidth:200,height:"auto",marginBottom:6,filter:"drop-shadow(0 0 22px rgba(28,199,230,0.35))" }} />
     <div style={{ fontSize:22,fontWeight:900,letterSpacing:5,color:"#5fd8ee",marginBottom:4,fontFamily:warrior,textShadow:"0 0 20px rgba(28,199,230,0.3)" }}>{L(lang,"onlineSalon")}</div>
     <div style={{ fontSize:10,color:"#54697a",letterSpacing:4,marginBottom:14,fontFamily:warrior }}>{L(lang,"activeSailors")}</div>
     <button onClick={onToggleReady} style={{ width:"100%",maxWidth:400,marginBottom:14,padding:"13px 0",borderRadius:12,fontSize:14,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior,textTransform:"uppercase",background:ready?"linear-gradient(180deg, #3ad9f2 0%, #1CC7E6 20%, #12A0BE 62%, #0B7E98 100%)":"linear-gradient(180deg,#20313f,#132030)",color:ready?"#052029":"#A9BCC9",border:`1px solid ${ready?"#3ad9f2":"#26394b"}`,boxShadow:ready?"inset 0 2px 0 rgba(255,255,255,0.5), 0 3px 0 #064e60":"inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 0 rgba(0,0,0,0.4)" }}>{ready?"✅":"⚡"} {L(lang,"readyToPlay")}</button>
@@ -6742,11 +6745,43 @@ export default function Game() {
     const BRONZE = "linear-gradient(180deg,#5a3d22 0%,#c9a15e 42%,#f0d79a 52%,#c9a15e 62%,#5a3d22 100%)";
     const neutralBtn = (dis) => ({ position:"relative",overflow:"hidden",flex:1,height:56,display:"flex",alignItems:"center",justifyContent:"center",gap:9,background:"linear-gradient(180deg,#20313f,#132030)",color:"#A9BCC9",border:"1px solid #26394b",borderRadius:12,fontSize:16,fontWeight:800,fontFamily:warrior,textTransform:"uppercase",letterSpacing:2,cursor:dis?"not-allowed":"pointer",opacity:dis?0.45:1,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.10), 0 2px 0 rgba(0,0,0,0.45), 0 7px 16px rgba(0,0,0,0.32)" });
     const btnSub = { fontFamily:mono,fontWeight:400,letterSpacing:1,fontSize:8.5,color:"#7A8FA0",textTransform:"none",marginTop:3 };
-    // Mod ikonları: yüklenen görsel + arkasında nabız atan parlama halesi (yalnızca transform/opacity — mobil GPU'da ucuz).
-    const ModeIcon = (src, glow) => (
+    // Mod ikonları: küçük butonda (30px) okunması için sade vektör çizim + arkasında nabız atan
+    // parlama halesi (yalnızca transform/opacity — mobil GPU'da ucuz). Ayrıntılı görseller yerine
+    // basit glif kullanıyoruz çünkü fotoğrafik illüstrasyonlar bu boyutta bulanıklaşıp birbirine benziyordu;
+    // o görseller artık Salon/Arena/Farklı Sular ekranlarının büyük başlık afişi olarak kullanılıyor.
+    const MODE_GLYPHS = {
+      salon: (c) => (<>
+        <circle cx="12" cy="12" r="8.4" />
+        <circle cx="12" cy="12" r="4.6" />
+        <circle cx="12" cy="12" r="1.4" fill={c} stroke="none" />
+        <path d="M12 3.6 A8.4 8.4 0 0 1 20.4 12" strokeWidth="2.6" />
+      </>),
+      arena: (c) => (<>
+        <path d="M4 4 L20 20" />
+        <path d="M17.2 17.2 L20 20 M20 17.2 L17.2 20" />
+        <path d="M20 4 L4 20" />
+        <path d="M6.8 17.2 L4 20 M4 17.2 L6.8 20" />
+      </>),
+      bot: (c) => (<>
+        <rect x="6" y="7.5" width="12" height="9.5" rx="3" />
+        <path d="M12 7.5 V4.4" />
+        <circle cx="12" cy="3.3" r="1.3" fill={c} stroke="none" />
+        <circle cx="9.4" cy="12" r="1.3" fill={c} stroke="none" />
+        <circle cx="14.6" cy="12" r="1.3" fill={c} stroke="none" />
+        <path d="M9.2 15.3 H14.8" />
+      </>),
+      sular: (c) => (<>
+        <path d="M2.5 8.5 Q6 5.5 9.5 8.5 T16.5 8.5 T21.5 8.5" />
+        <path d="M2.5 13.5 Q6 10.5 9.5 13.5 T16.5 13.5 T21.5 13.5" />
+        <path d="M2.5 18.5 Q6 15.5 9.5 18.5 T16.5 18.5 T21.5 18.5" />
+      </>),
+    };
+    const ModeIcon = (glyph, glow) => (
       <span style={{ position:"relative",width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
         <span style={{ position:"absolute",inset:-7,borderRadius:"50%",background:`radial-gradient(circle, ${glow} 0%, transparent 72%)`,animation:"modeGlowPulse 2.4s ease-in-out infinite",pointerEvents:"none" }} />
-        <img src={src} alt="" draggable={false} style={{ position:"relative",width:30,height:30,objectFit:"contain",filter:`drop-shadow(0 0 6px ${glow})` }} />
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke={glow.replace(/[\d.]+\)$/,"1)")} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" style={{ position:"relative",filter:`drop-shadow(0 0 5px ${glow})` }}>
+          {MODE_GLYPHS[glyph](glow.replace(/[\d.]+\)$/,"1)"))}
+        </svg>
       </span>
     );
     return (<div style={{ ...appStyle, background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)",position:"relative",overflow:"hidden",paddingTop:"calc(46px + env(safe-area-inset-top, 0px))" }}><style>{ANIMS}{`
@@ -6848,21 +6883,21 @@ export default function Game() {
       <QuickMatchModal myProfile={myProfile} lang={appLang} phase={quickMatchPhase} candidate={quickMatchCandidate} opponent={quickMatchOpponent} secondsLeft={quickMatchSecondsLeft} onCancel={cancelQuickMatch} onRetry={retryQuickMatch} />
       <div style={{ display:"flex",gap:12,marginTop:12,width:"100%",maxWidth:400,zIndex:1 }}>
         <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowOnlineLobby(true);}} disabled={authLoading} style={neutralBtn(authLoading)}>
-          {ModeIcon("/img/icon-salon.png","rgba(0,229,255,0.65)")}
+          {ModeIcon("salon","rgba(0,229,255,0.65)")}
           <span style={{ display:"flex",flexDirection:"column",alignItems:"flex-start",lineHeight:1 }}>{L(appLang,"salon")}<small style={btnSub}>{appLang==="en"?"find a rival":"oyuncu bul"}</small></span>
         </RippleButton>
         <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowArenaSelect(true);}} disabled={authLoading} style={neutralBtn(authLoading)}>
-          {ModeIcon("/img/icon-arena.png","rgba(255,196,60,0.65)")}
+          {ModeIcon("arena","rgba(255,196,60,0.65)")}
           <span style={{ display:"flex",flexDirection:"column",alignItems:"flex-start",lineHeight:1 }}>{L(appLang,"arena")}<small style={btnSub}>{appLang==="en"?"wagered":"bahisli"}</small></span>
         </RippleButton>
       </div>
       <div style={{ display:"flex",gap:12,marginTop:12,width:"100%",maxWidth:400,zIndex:1 }}>
         <RippleButton onClick={startBotGame} style={neutralBtn(false)}>
-          {ModeIcon("/img/icon-bot.png","rgba(150,205,255,0.65)")}
+          {ModeIcon("bot","rgba(150,205,255,0.65)")}
           <span style={{ display:"flex",flexDirection:"column",alignItems:"flex-start",lineHeight:1 }}>{L(appLang,"bot")}<small style={btnSub}>{appLang==="en"?"practice":"alıştırma"}</small></span>
         </RippleButton>
         <RippleButton onClick={()=>setShowDifferentWaters(true)} style={neutralBtn(false)}>
-          {ModeIcon("/img/icon-farkli-sular.png","rgba(168,85,247,0.65)")}
+          {ModeIcon("sular","rgba(168,85,247,0.65)")}
           <span style={{ display:"flex",flexDirection:"column",alignItems:"flex-start",lineHeight:1 }}>{L(appLang,"differentWaters")}<small style={btnSub}>{appLang==="en"?"3 modes":"3 mod"}</small></span>
         </RippleButton>
       </div>
