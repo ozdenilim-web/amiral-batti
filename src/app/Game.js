@@ -895,7 +895,29 @@ class SoundEngine {
       if (savedVol !== null) this.volumeMult = Math.max(0, parseInt(savedVol, 10)) / 50;
     } catch(e) {}
   }
-  init() { if (this.ctx) return; try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { this.enabled = false; } }
+  init() {
+    if (!this.ctx) {
+      try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch(e) { this.enabled = false; return; }
+      // Mobil tarayıcılarda (özellikle iOS Safari, bazı Android tarayıcılar) AudioContext
+      // "suspended" durumda başlayabilir/kalabilir — resume çağrılmazsa ctx üzerinden geçen
+      // HİÇBİR ses (tüm müzik sistemi) duyulmaz, hiçbir hata da fırlatılmaz. Sekme arka plana
+      // gidip geri geldiğinde de iOS context'i tekrar suspend edebiliyor; bu yüzden hem burada
+      // hem de sekme görünür olduğunda tekrar resume deniyoruz.
+      try {
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible" && this.ctx && this.ctx.state === "suspended") {
+            this.ctx.resume().catch(()=>{});
+          }
+        });
+      } catch(e) {}
+    }
+    // sfx.init() zaten her kullanıcı dokunuşunda/tıklamasında çağrılıyor — bu yüzden burada
+    // suspended kontrolü yapmak, her etkileşimde ucuz bir "kurtarma" fırsatı sağlıyor.
+    if (this.ctx && this.ctx.state === "suspended") {
+      try { this.ctx.resume().catch(()=>{}); } catch(e) {}
+    }
+  }
 
   // --- MP3 helpers ---
   _stopMp3() {
