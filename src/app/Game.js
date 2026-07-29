@@ -7044,6 +7044,13 @@ export default function Game() {
       )}
       {showDailyChest && !dailyChestModalOpen && <DailyChestFab onOpen={() => setDailyChestModalOpen(true)} lang={appLang} />}
       {dailyChestModalOpen && <DailyChestPopup onClaim={claimDailyChest} onClose={() => setDailyChestModalOpen(false)} streak={nextCannonStreak(myProfile)} lang={appLang} />}
+      {/* TEST: adres cubuguna ?test=1 eklenince gorunur — konsol yazmadan, istedigin kadar tikla,
+          top odulu penceresi gunde-1 kilidini atlayarak her seferinde acilir. */}
+      {isTestMode() && !dailyChestModalOpen && (
+        <button onClick={() => setDailyChestModalOpen(true)} style={{ position:"fixed",right:14,bottom:14,zIndex:9998,padding:"10px 16px",background:"linear-gradient(135deg,#ffd700,#ff9f43)",color:"#1a1206",border:"none",borderRadius:10,fontSize:12,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,boxShadow:"0 4px 16px rgba(0,0,0,0.5)" }}>
+          🎯 TEST: TOPU AÇ
+        </button>
+      )}
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} targetRef={goldBadgeRef} goldTotal={safeGold(myProfile?.gold)} lang={appLang} />}
       <HorizonStrip lang={appLang} />
     </div>);
