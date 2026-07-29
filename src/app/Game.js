@@ -437,6 +437,9 @@ const heroBtnStyle = (g1, g2, g3, g4, textColor = "#052029") => ({
   display: "flex", alignItems: "center", justifyContent: "center",
 });
 const HeroSheen = () => (<span style={{ position:"absolute",top:0,left:0,right:0,height:"44%",background:"linear-gradient(180deg, rgba(255,255,255,0.26), rgba(255,255,255,0))",borderRadius:"12px 12px 50% 50%",pointerEvents:"none" }} />);
+// Para birimi ikonu — 💰 emojisinin yerini aldı, coin.png (elmas) kullanıyor. Metin akışı içinde
+// satır yüksekliğine göre ölçekleniyor: fontSize verilmezse çevresindeki metinle aynı boyda görünür.
+const Gem = ({ size, style }) => (<img src="/img/coin.png" alt="" draggable={false} style={{ width: size || "1em", height: size || "1em", objectFit:"contain", verticalAlign:"-0.15em", display:"inline-block", flexShrink:0, ...style }} />);
 
 // Ask the browser/WebView for immersive fullscreen (hides Android system nav bar in the TWA).
 // Must be called from within a user-gesture handler; safe no-op everywhere else (desktop, iOS Safari, etc).
@@ -499,13 +502,13 @@ const TRANSLATIONS = {
     msgMinChars: "En az 2 karakter!", msgMaxChars: "En fazla 16 karakter!", msgBadName: "Bu isim uygun değil!", msgNameTaken: "Bu isim zaten alınmış!",
     msgNameCooldown: (n) => `İsim ${n} gün sonra değiştirilebilir!`, msgTypeName: "Adını yaz!", msgConnecting: "Bağlantı bekleniyor...",
     msgNotEnoughGold: "Yeterli altının yok!", msgTypeNameAndRoom: "Adını ve oda kodunu yaz!", msgRoomNotFound: "Oda bulunamadı!", msgRoomFull: "Oda dolu!",
-    msgArenaGoldNeeded: (n) => `Bu arena için ${n} 💰 gerekli!`,
+    msgArenaGoldNeeded: (n) => `Bu arena için ${n} ALTIN gerekli!`,
     trainingBattle: "EĞİTİM SAVAŞI", oppNotPlaying: "Rakip oynamıyor", hitStreak: "İSABET SERİSİ", multiplier: "ÇARPAN",
     leaderboardTitle: "SIRALAMA", motivTop1: "👑 Denizlerin hakimisin!", motivTop3: "🔥 Zirveye çok yakınsın!", motivTop10: "⚡ TOP 10'dasın, devam et!", motivDefault: "⚓ Sıralamaya girmek için savaş!",
     tabGold: "ALTIN", tabWins: "GALİBİYET", loadingText: "Yükleniyor...", noPlayersYet: "Henüz oyuncu yok",
     congratsSailor: "TEBRİKLER, DENİZCİ!", firstReward: "İLK ÖDÜLÜN", readyForBattle: "SAVAŞA HAZIRIM",
     dailyLoginReward: "GÜNLÜK GİRİŞ ÖDÜLÜ", dayStreak: "GÜN SERİ", collectBtn: "TOPLA",
-    arenaSelectTitle: "ARENA SEÇ", goldRequired: (n) => `🔒 ${n} ALTIN GEREKLİ`, minGoldLabel: (n) => `Min: ${n} 💰`, entryLabel: "GİRİŞ", sevLabel: "SEV",
+    arenaSelectTitle: "ARENA SEÇ", goldRequired: (n) => `🔒 ${n} ALTIN GEREKLİ`, minGoldLabel: (n) => `Min: ${n} ALTIN`, entryLabel: "GİRİŞ", sevLabel: "SEV",
     chestReadyMsg: "SANDIK HAZIR!", collectRewardMsg: "Ödülünü topla", mysteryChest: "GİZEMLİ SANDIK", completedMissionsMsg: "3 görevi tamamladın!", openChestBtn: "SANDIĞI AÇ",
     dailyChestTooltip: "Günlük Top Ödülü", rewardRare: "NADİR", rewardGood: "İYİ",
     achTitle: "KAZANIMLAR", achClaim: "ÖDÜLÜ AL", achClaimed: "ALINDI", achLocked: "KİLİTLİ", achSoon: "YAKINDA", achSetReward: "SET ÖDÜLÜ", achUnlockReq: "Açılma şartları", achPrevSet: "Önceki set tamamlanmalı", achBtn: "KAZANIMLAR", achAvatarReward: "ÖZEL AVATAR",
@@ -530,11 +533,11 @@ const TRANSLATIONS = {
     markTrackTitle: "İŞARETLE & TAKİP ET", markTrackBody1: "Atış yapmak istemediğin yerleri", markTrackBody2: "sağ tuş (mobilde uzun bas) ile işaretle.",
     tutMarkYou: "BURAYI DA SEN İŞARETLE", tutMarkDone: "HARİKA! ARTIK HAZIRSIN", tutMarkWhy: "Buralara ateş etmene gerek yok, çünkü rakibin buralara gemi saklayamaz.",
     startBattleBtn: "SAVAŞA BAŞLA", watersHeating: "sular ısınsın...",
-    goldChangeTitle: "ALTIN DEĞİŞİMİ", entryFeeLabel: (n) => `Giriş: -${n} 💰`, connectingToServer: "Sunucuya bağlanılıyor...", testModeMsg: "🧪 TEST MODU — 2 tab aç, oda koduyla oyna",
+    goldChangeTitle: "ALTIN DEĞİŞİMİ", entryFeeLabel: (n) => `Giriş: -${n} ALTIN`, connectingToServer: "Sunucuya bağlanılıyor...", testModeMsg: "🧪 TEST MODU — 2 tab aç, oda koduyla oyna",
     pickAvatarTooltip: "Profil simgeni seç", uploadPhotoTooltip: "Kendi fotoğrafını yükle",
-    logoutBtn: "ÇIKIŞ YAP", logoutTitle: "ÇIKIŞ YAPILIYOR", logoutBody: "Çıkış yapmadan önce KURTARMA KODUNU not aldığından emin ol.", logoutBody2: "Geri dönmek için kullanıcı adın ve kurtarma kodun yeterli — ilerlemen kaybolmaz.", logoutStay: "VAZGEÇ", logoutGo: "ÇIKIŞ YAP", codeTitle: "KURTARMA KODUN", codeBody: "Bu kodu bir yere yaz! Çıkış yaparsan ya da telefonunu değiştirirsen, kullanıcı adın ve bu kodla hesabına geri dönersin.", codeCopy: "KOPYALA", codeCopied: "KOPYALANDI ✓", codeOk: "YAZDIM, DEVAM", recTitle: "BU İSİM SENİN Mİ?", recInlineHint: "Bu isim kullanılıyor. Senin hesabınsa kurtarma kodunu gir.", recBody: (n) => `"${n}" adlı hesap zaten var. Senin hesabınsa kurtarma kodunu gir, ilerlemenle birlikte geri dön.`, recPlaceholder: "KURTARMA KODU", recEnter: "HESABIMA DÖN", recCancel: "BAŞKA İSİM SEÇ", recErrWrong: "Kod hatalı. Kontrol edip tekrar dene.", recErrShort: "Kodu eksiksiz gir.", recErrMany: "Çok fazla deneme. Biraz bekle.", myCode: "Kurtarma Kodum", myCodeNone: "Bu hesap için kod bulunamadı.", waitingForOpponent: "RAKİP BEKLENİYOR", roomCodeLabel: "ODA KODU", sendCodeMsg: "Bu kodu rakibine gönder!", entryFeePaid: (n) => `Giriş ücreti: -${n} 💰`, fleetReady: "DONANMAN HAZIR!",
-    placeShipScreenTitle: "GEMİLERİ YERLEŞTİR", extraTimeBtn: "⏱ +10 SANİYE (10 💰)", extraTimeUsedMsg: "⏱ Ek süre kullanıldı",
-    shipsPlacedLabel: (n,tot) => `${n}/${tot} GEMİ YERLEŞTİRİLDİ`, entryFeeShort: (n) => `💰 Giriş: ${n} 💰`,
+    logoutBtn: "ÇIKIŞ YAP", logoutTitle: "ÇIKIŞ YAPILIYOR", logoutBody: "Çıkış yapmadan önce KURTARMA KODUNU not aldığından emin ol.", logoutBody2: "Geri dönmek için kullanıcı adın ve kurtarma kodun yeterli — ilerlemen kaybolmaz.", logoutStay: "VAZGEÇ", logoutGo: "ÇIKIŞ YAP", codeTitle: "KURTARMA KODUN", codeBody: "Bu kodu bir yere yaz! Çıkış yaparsan ya da telefonunu değiştirirsen, kullanıcı adın ve bu kodla hesabına geri dönersin.", codeCopy: "KOPYALA", codeCopied: "KOPYALANDI ✓", codeOk: "YAZDIM, DEVAM", recTitle: "BU İSİM SENİN Mİ?", recInlineHint: "Bu isim kullanılıyor. Senin hesabınsa kurtarma kodunu gir.", recBody: (n) => `"${n}" adlı hesap zaten var. Senin hesabınsa kurtarma kodunu gir, ilerlemenle birlikte geri dön.`, recPlaceholder: "KURTARMA KODU", recEnter: "HESABIMA DÖN", recCancel: "BAŞKA İSİM SEÇ", recErrWrong: "Kod hatalı. Kontrol edip tekrar dene.", recErrShort: "Kodu eksiksiz gir.", recErrMany: "Çok fazla deneme. Biraz bekle.", myCode: "Kurtarma Kodum", myCodeNone: "Bu hesap için kod bulunamadı.", waitingForOpponent: "RAKİP BEKLENİYOR", roomCodeLabel: "ODA KODU", sendCodeMsg: "Bu kodu rakibine gönder!", entryFeePaid: (n) => `Giriş ücreti: -${n} ALTIN`, fleetReady: "DONANMAN HAZIR!",
+    placeShipScreenTitle: "GEMİLERİ YERLEŞTİR", extraTimeBtn: "⏱ +10 SANİYE (10 ALTIN)", extraTimeUsedMsg: "⏱ Ek süre kullanıldı",
+    shipsPlacedLabel: (n,tot) => `${n}/${tot} GEMİ YERLEŞTİRİLDİ`, entryFeeShort: (n) => `Giriş: ${n} ALTIN`,
     tapMapHint: "Haritada bir yere dokun", pickShipHint: "Aşağıdan bir gemi seç", randomPlaceBtn: "🎲 RASTGELE YERLEŞTİR", undoBtn: "↩ GERİ AL",
     placeHint: "Haritaya dokun yerleştir • Döndür butonuna veya tekrar dokun", confirmShipsBtn: "✓ GEMİLERİ ONAYLA",
     confirmShipsHint: "✏️ Gemiye dokun = döndürür • Basılı tutup sürükle = taşırsın", shipsReadyMsg: "Gemilerin hazır! Rakip bekleniyor...",
@@ -576,13 +579,13 @@ const TRANSLATIONS = {
     msgMinChars: "At least 2 characters!", msgMaxChars: "Max 16 characters!", msgBadName: "This name isn't allowed!", msgNameTaken: "This name is already taken!",
     msgNameCooldown: (n) => `Name can be changed again in ${n} days!`, msgTypeName: "Enter your name!", msgConnecting: "Connecting...",
     msgNotEnoughGold: "Not enough gold!", msgTypeNameAndRoom: "Enter your name and room code!", msgRoomNotFound: "Room not found!", msgRoomFull: "Room is full!",
-    msgArenaGoldNeeded: (n) => `This arena requires ${n} 💰!`,
+    msgArenaGoldNeeded: (n) => `This arena requires ${n} GOLD!`,
     trainingBattle: "TRAINING BATTLE", oppNotPlaying: "Opponent isn't playing", hitStreak: "HIT STREAK", multiplier: "MULTIPLIER",
     leaderboardTitle: "RANKINGS", motivTop1: "👑 You rule the seas!", motivTop3: "🔥 So close to the top!", motivTop10: "⚡ You're in the TOP 10, keep going!", motivDefault: "⚓ Fight your way onto the rankings!",
     tabGold: "GOLD", tabWins: "WINS", loadingText: "Loading...", noPlayersYet: "No players yet",
     congratsSailor: "CONGRATULATIONS, SAILOR!", firstReward: "YOUR FIRST REWARD", readyForBattle: "READY FOR BATTLE",
     dailyLoginReward: "DAILY LOGIN REWARD", dayStreak: "DAY STREAK", collectBtn: "COLLECT",
-    arenaSelectTitle: "CHOOSE ARENA", goldRequired: (n) => `🔒 REQUIRES ${n} GOLD`, minGoldLabel: (n) => `Min: ${n} 💰`, entryLabel: "ENTRY", sevLabel: "LVL",
+    arenaSelectTitle: "CHOOSE ARENA", goldRequired: (n) => `🔒 REQUIRES ${n} GOLD`, minGoldLabel: (n) => `Min: ${n} GOLD`, entryLabel: "ENTRY", sevLabel: "LVL",
     chestReadyMsg: "CHEST READY!", collectRewardMsg: "Collect your reward", mysteryChest: "MYSTERY CHEST", completedMissionsMsg: "You've completed 3 missions!", openChestBtn: "OPEN CHEST",
     dailyChestTooltip: "Daily Cannon Reward", rewardRare: "RARE", rewardGood: "GOOD",
     achTitle: "ACHIEVEMENTS", achClaim: "CLAIM REWARD", achClaimed: "CLAIMED", achLocked: "LOCKED", achSoon: "COMING SOON", achSetReward: "SET REWARD", achUnlockReq: "Unlock requirements", achPrevSet: "Complete the previous set", achBtn: "ACHIEVEMENTS", achAvatarReward: "EXCLUSIVE AVATAR",
@@ -607,11 +610,11 @@ const TRANSLATIONS = {
     markTrackTitle: "MARK & TRACK", markTrackBody1: "Mark cells you don't want to shoot at", markTrackBody2: "with right-click (or long-press on mobile).",
     tutMarkYou: "NOW YOU MARK THIS ONE", tutMarkDone: "AWESOME! YOU'RE READY", tutMarkWhy: "No need to shoot here — your opponent can't hide ships in these cells.",
     startBattleBtn: "START BATTLE", watersHeating: "let the waters heat up...",
-    goldChangeTitle: "GOLD CHANGE", entryFeeLabel: (n) => `Entry: -${n} 💰`, connectingToServer: "Connecting to server...", testModeMsg: "🧪 TEST MODE — open 2 tabs, play with room code",
+    goldChangeTitle: "GOLD CHANGE", entryFeeLabel: (n) => `Entry: -${n} GOLD`, connectingToServer: "Connecting to server...", testModeMsg: "🧪 TEST MODE — open 2 tabs, play with room code",
     pickAvatarTooltip: "Pick your profile icon", uploadPhotoTooltip: "Upload your own photo",
-    logoutBtn: "LOG OUT", logoutTitle: "LOGGING OUT", logoutBody: "Make sure you have written down your RECOVERY CODE before logging out.", logoutBody2: "You only need your username and recovery code to come back — no progress is lost.", logoutStay: "CANCEL", logoutGo: "LOG OUT", codeTitle: "YOUR RECOVERY CODE", codeBody: "Write this down! If you log out or change phones, sign back in with your username and this code.", codeCopy: "COPY", codeCopied: "COPIED ✓", codeOk: "SAVED IT, CONTINUE", recTitle: "IS THIS YOU?", recInlineHint: "This name is in use. If it is yours, enter your recovery code.", recBody: (n) => `An account named "${n}" already exists. If it is yours, enter your recovery code to get back in with all your progress.`, recPlaceholder: "RECOVERY CODE", recEnter: "RECOVER MY ACCOUNT", recCancel: "PICK ANOTHER NAME", recErrWrong: "Wrong code. Please check and try again.", recErrShort: "Enter the full code.", recErrMany: "Too many attempts. Please wait.", myCode: "My Recovery Code", myCodeNone: "No code found for this account.", waitingForOpponent: "WAITING FOR OPPONENT", roomCodeLabel: "ROOM CODE", sendCodeMsg: "Send this code to your opponent!", entryFeePaid: (n) => `Entry fee: -${n} 💰`, fleetReady: "YOUR FLEET IS READY!",
-    placeShipScreenTitle: "PLACE YOUR SHIPS", extraTimeBtn: "⏱ +10 SECONDS (10 💰)", extraTimeUsedMsg: "⏱ Extra time used",
-    shipsPlacedLabel: (n,tot) => `${n}/${tot} SHIPS PLACED`, entryFeeShort: (n) => `💰 Entry: ${n} 💰`,
+    logoutBtn: "LOG OUT", logoutTitle: "LOGGING OUT", logoutBody: "Make sure you have written down your RECOVERY CODE before logging out.", logoutBody2: "You only need your username and recovery code to come back — no progress is lost.", logoutStay: "CANCEL", logoutGo: "LOG OUT", codeTitle: "YOUR RECOVERY CODE", codeBody: "Write this down! If you log out or change phones, sign back in with your username and this code.", codeCopy: "COPY", codeCopied: "COPIED ✓", codeOk: "SAVED IT, CONTINUE", recTitle: "IS THIS YOU?", recInlineHint: "This name is in use. If it is yours, enter your recovery code.", recBody: (n) => `An account named "${n}" already exists. If it is yours, enter your recovery code to get back in with all your progress.`, recPlaceholder: "RECOVERY CODE", recEnter: "RECOVER MY ACCOUNT", recCancel: "PICK ANOTHER NAME", recErrWrong: "Wrong code. Please check and try again.", recErrShort: "Enter the full code.", recErrMany: "Too many attempts. Please wait.", myCode: "My Recovery Code", myCodeNone: "No code found for this account.", waitingForOpponent: "WAITING FOR OPPONENT", roomCodeLabel: "ROOM CODE", sendCodeMsg: "Send this code to your opponent!", entryFeePaid: (n) => `Entry fee: -${n} GOLD`, fleetReady: "YOUR FLEET IS READY!",
+    placeShipScreenTitle: "PLACE YOUR SHIPS", extraTimeBtn: "⏱ +10 SECONDS (10 GOLD)", extraTimeUsedMsg: "⏱ Extra time used",
+    shipsPlacedLabel: (n,tot) => `${n}/${tot} SHIPS PLACED`, entryFeeShort: (n) => `Entry: ${n} GOLD`,
     tapMapHint: "Tap a spot on the map", pickShipHint: "Pick a ship below", randomPlaceBtn: "🎲 RANDOM PLACEMENT", undoBtn: "↩ UNDO",
     placeHint: "Tap the map to place • Rotate button or tap again to turn", confirmShipsBtn: "✓ CONFIRM SHIPS",
     confirmShipsHint: "✏️ Tap a ship to rotate it • Hold and drag to move it", shipsReadyMsg: "Your ships are ready! Waiting for opponent...",
@@ -727,7 +730,7 @@ const ACH_SETS = [
       { icon:"💥", text:"Tek turda 3 isabet yap",         textEn:"Land 3 hits in one turn",     check:(p,a)=>a.tripleTurn>=1 },
       { icon:"⚑", text:"Toplam 20 kare işaretle",        textEn:"Mark 20 cells",               check:(p,a)=>a.marks>=20 },
       { icon:"🌊", text:"Toplam 5 oyun oyna",             textEn:"Play 5 games",                check:(p,a)=>(p.totalGames||0)>=5 },
-      { icon:"💰", text:"Günlük sandığı aç",               textEn:"Open the daily chest",        check:(p,a)=>a.chest>=1 },
+      { icon:<Gem size={18} />, text:"Günlük sandığı aç",               textEn:"Open the daily chest",        check:(p,a)=>a.chest>=1 },
     ] },
   { id:"s2", name:"DENİZCİ", nameEn:"SAILOR", reward:1500,
     gate: (p) => (p.totalGames||0)>=21 && safeAch(p.ach).goldEarned>=5000 && (wr(p)>=30 || (p.wins||0)>=10),
@@ -741,7 +744,7 @@ const ACH_SETS = [
       { icon:"⚡", text:"5 dakikanın altında kazan",      textEn:"Win in under 5 minutes",      check:(p,a)=>a.fast5>=1 },
       { icon:"🔥", text:"5 isabetlik seri yap",           textEn:"Land a 5-hit streak",         check:(p,a)=>a.bestHitStreak>=5 },
       { icon:"🛡", text:"3 tur üst üste isabet al",       textEn:"Hit 3 turns in a row",        check:(p,a)=>a.bestTurnStreak>=3 },
-      { icon:"💰", text:"Toplam 10.000 altın kazan",      textEn:"Earn 10,000 total gold",      check:(p,a)=>a.goldEarned>=10000 },
+      { icon:<Gem size={18} />, text:"Toplam 10.000 altın kazan",      textEn:"Earn 10,000 total gold",      check:(p,a)=>a.goldEarned>=10000 },
       { icon:"🎖", text:"Seviye 5'e ulaş",                textEn:"Reach level 5",               check:(p,a)=>(p.level||0)>=5 },
     ] },
   { id:"s3", name:"KAPTAN", nameEn:"CAPTAIN", reward:2500,
@@ -1084,39 +1087,12 @@ class SoundEngine {
       startNew();
     }
   }
-  // ZAFER MÜZİĞİ — kullanıcının kendi parçası. MÜZİK kanalından çalar (efekt kanalından değil):
-  // böylece arkadaki lobi/savaş müziğini kapatır ve bitince ona geri dönmez, döngüde devam eder.
-  playVictoryMusic() {
-    if (!this.ctx) this.init();
-    if (!this.ctx) return;
-    this.currentMusic = 'victory';
-    this._switchMp3('/sfx/victory.mp3', 0.55, true, 450, 700);
-  }
-  // BOZGUN MÜZİĞİ — kısa bir sting (~2.7 sn).
-  // Müzik kanalı (Web Audio + gain rampası) kısa dosyalarda güvenilir çalmıyordu; bu yüzden
-  // patlama sesiyle AYNI, kanıtlanmış basit yolu kullanıyor: doğrudan <audio>, tam sesle.
-  // Arkadaki savaş/lobi müziği ayrıca susturuluyor ki sting net duyulsun.
-  playGameOverMusic() {
-    this.currentMusic = 'gameover';
-    try { this._stopMp3(); } catch (e) {}   // arka plan müziğini kes
-    try {
-      if (this._gameOverEl) { this._gameOverEl.pause(); this._gameOverEl = null; }
-      const a = new Audio('/sfx/gameover.mp3');
-      a.volume = 1.0;
-      this._gameOverEl = a;
-      // Sting bitince sessizlik kalmasın — lobi müziği hemen devreye girsin.
-      const backToLobby = () => {
-        if (this._gameOverEl !== a) return; // yerine başka şey geldiyse karışma
-        this._gameOverEl = null;
-        this.currentMusic = null;
-        try { this.playLobbyMusic(); } catch (e) {}
-      };
-      a.addEventListener('ended', backToLobby, { once: true });
-      a.addEventListener('error', backToLobby, { once: true }); // dosya açılamazsa da sessiz kalmasın
-      const p = a.play();
-      if (p && p.catch) p.catch(backToLobby);
-    } catch (e) {}
-  }
+  // ZAFER MÜZİĞİ — kullanıcı isteğiyle kaldırıldı (beğenilmedi). Artık maç sonunda müzik
+  // değiştirmiyoruz; hangi müzik çalıyorsa (lobi/savaş) öylece devam ediyor.
+  playVictoryMusic() {}
+  // BOZGUN MÜZİĞİ — kullanıcı isteğiyle kaldırıldı (beğenilmedi). Aynı şekilde no-op;
+  // lobi müziği kendi akışında (ekrandan çıkışta) zaten devreye giriyor.
+  playGameOverMusic() {}
   playIntroFanfare() { this.ensureMusic(0.10); }
   // YERLEŞTİRME — Taktik müzik (sakin ama gerilimli)
   playPlacementMusic() { this.ensureMusic(0.10); }
@@ -1467,7 +1443,7 @@ function ArenaSelect({ myGold, onSelect, onBack, lang = "tr" }) {
             <div style={{ textAlign:"right",flexShrink:0 }}><div style={{ fontSize:16,fontWeight:800,color:cantAfford?"#e0645a":"#f0d79a",fontFamily:warrior }}>{arena.entryFee} <img src="/img/coin.png" alt="" style={{ width:16,height:16,verticalAlign:"middle" }} /></div><div style={{ fontSize:9,color:"#54697a",fontWeight:700,letterSpacing:1 }}>{L(lang,"entryLabel")}</div><div style={{ fontSize:12,fontWeight:800,color:"#c9a15e",fontFamily:warrior,marginTop:3 }}>🏆 {arena.winGold} <img src="/img/coin.png" alt="" style={{ width:16,height:16,verticalAlign:"middle" }} /></div></div>
           </div>
           {infoOpen && <div style={{ background:"rgba(8,17,24,0.96)",border:"1px solid #26394b",borderTop:"none",borderRadius:"0 0 12px 12px",padding:"12px 18px",fontSize:12,color:"#A9BCC9",fontFamily:mono,lineHeight:1.8,animation:"fadeUp 0.2s ease-out" }}>
-            <div>💰 {L(lang,"arenaInfoEntry")(arena.entryFee)}</div>
+            <div><Gem size={14} /> {L(lang,"arenaInfoEntry")(arena.entryFee)}</div>
             <div>🏆 {L(lang,"arenaInfoWin")(arena.winGold)}</div>
             <div>⭐ {L(lang,"arenaInfoXpBonus")}</div>
           </div>}
@@ -1552,7 +1528,7 @@ function QuickMatchCard({ label, name, avatar, gold, level, accent, flicker, lan
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:6,width:112 }}>
     <div style={{ width:64,height:64,borderRadius:"50%",background:`${accent}22`,border:`2px solid ${accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,boxShadow:`0 0 20px ${accent}55`,animation: flicker ? "qmFlicker 0.12s ease-out" : "qmSettle 0.5s cubic-bezier(0.34,1.56,0.64,1)" }}>{avatar || "⚓"}</div>
     <div style={{ fontSize:12,fontWeight:800,color:"#fff",fontFamily:warrior,letterSpacing:0.5,maxWidth:104,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textAlign:"center" }}>{name}</div>
-    {gold != null && <div style={{ display:"flex",alignItems:"center",gap:3,fontSize:11,color:t.gold,fontFamily:mono,fontWeight:700 }}>💰{gold}</div>}
+    {gold != null && <div style={{ display:"flex",alignItems:"center",gap:3,fontSize:11,color:t.gold,fontFamily:mono,fontWeight:700 }}><Gem size={12} />{gold}</div>}
     {level != null && level > 0 && <div style={{ fontSize:9,color:t.textDim,fontFamily:mono }}>{L(lang,"sevLabel")} {level}</div>}
     <div style={{ fontSize:8,color:t.textDim,fontFamily:mono,letterSpacing:2,opacity:0.7 }}>{label}</div>
   </div>);
@@ -1830,7 +1806,7 @@ function Leaderboard({ onBack, myUid, lang = "tr" }) {
     return L(lang,"motivDefault");
   };
   const tabs = [
-    { key:'gold', label:L(lang,"tabGold"), icon:'🪙' },
+    { key:'gold', label:L(lang,"tabGold"), icon:<Gem size={13} /> },
     { key:'wins', label:L(lang,"tabWins"), icon:'🏆' },
   ];
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)",padding:"20px 12px",fontFamily:mono,color:"#dfe9f0" }}>
@@ -1865,7 +1841,7 @@ function Leaderboard({ onBack, myUid, lang = "tr" }) {
                 <span style={{ color:"#c9a15e" }}>⚓ {p.wins||0}G</span>
                 <span style={{ color:"#e0958f" }}>✕ {p.losses||0}M</span>
                 <span>%{winRate}</span>
-                <span style={{ color:"#f0d79a" }}>🪙 {p.gold||0}</span>
+                <span style={{ color:"#f0d79a",display:"inline-flex",alignItems:"center",gap:2 }}><Gem size={9} /> {p.gold||0}</span>
               </div>
             </div>
             {/* Primary sort value */}
@@ -2298,7 +2274,7 @@ function AchievementsScreen({ profile, onClose, onClaim, lang = "tr" }) {
               <span style={{ fontSize:22,flexShrink:0 }}>{ACH_AVATARS[s.id]}</span>
               <div style={{ flex:1,minWidth:0 }}>
                 <div style={{ fontSize:13,fontWeight:900,color:"#f0d79a",fontFamily:warrior,letterSpacing:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{idx+1}. SET — {setName}</div>
-                <div style={{ fontSize:10,fontWeight:700,color:"#c9a15e",fontFamily:mono,marginTop:2 }}>✓ {totalCount}/{totalCount} · 💰 {s.reward}</div>
+                <div style={{ fontSize:10,fontWeight:700,color:"#c9a15e",fontFamily:mono,marginTop:2,display:"flex",alignItems:"center",gap:3 }}>✓ {totalCount}/{totalCount} · <Gem size={11} /> {s.reward}</div>
               </div>
               {isClaimed
                 ? <span style={{ fontSize:11,fontWeight:800,color:"#c9a15e",fontFamily:warrior,letterSpacing:2,flexShrink:0 }}>✓ {L(lang,"achClaimed")}</span>
@@ -2332,7 +2308,7 @@ function AchievementsScreen({ profile, onClose, onClaim, lang = "tr" }) {
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:9,fontWeight:800,color:"#54697a",fontFamily:warrior,letterSpacing:2,marginBottom:3 }}>{L(lang,"achSetReward")}</div>
                   <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-                    <span style={{ fontSize:15,fontWeight:800,color:"#f0d79a",fontFamily:warrior }}>💰 {s.reward}</span>
+                    <span style={{ fontSize:15,fontWeight:800,color:"#f0d79a",fontFamily:warrior,display:"inline-flex",alignItems:"center",gap:4 }}><Gem size={14} /> {s.reward}</span>
                     <span style={{ fontSize:16 }}>{ACH_AVATARS[s.id]}</span>
                     <span style={{ fontSize:8,fontWeight:800,color:"#7A8FA0",fontFamily:warrior,letterSpacing:1 }}>{L(lang,"achAvatarReward")}</span>
                   </div>
@@ -2347,7 +2323,7 @@ function AchievementsScreen({ profile, onClose, onClaim, lang = "tr" }) {
           <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:6 }}>
             <span style={{ fontSize:14,filter:"grayscale(1)" }}>🔒</span>
             <span style={{ fontSize:14,fontWeight:900,color:t.textDim,fontFamily:warrior,letterSpacing:3 }}>5. SET — {en?"LEGEND":"EFSANE"}</span>
-            <span style={{ marginLeft:"auto",fontSize:9,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:2,opacity:0.7 }}>💰 7500 + {ACH_AVATARS.s5}</span>
+            <span style={{ marginLeft:"auto",fontSize:9,fontWeight:800,color:t.gold,fontFamily:warrior,letterSpacing:2,opacity:0.7,display:"inline-flex",alignItems:"center",gap:3 }}><Gem size={10} /> 7500 + {ACH_AVATARS.s5}</span>
           </div>
           {ACH_SET5_GATE.map((g,gi)=><div key={gi} style={{ fontSize:10,color:t.textDim,fontFamily:mono,marginBottom:2 }}>○ {en?g.en:g.tr}</div>)}
         </div>
@@ -2791,7 +2767,7 @@ function RewardModal({ rewards: rawRewards, dailyMissions, missionProgress, newA
         <button onClick={onClose} style={{ position:"absolute",top:10,right:10,width:30,height:30,borderRadius:"50%",background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,color:t.textDim,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0 }}>✕</button>
         <div style={{ textAlign:"center",fontSize:17,fontWeight:900,color:rewards.isWin?t.gold:t.accent,fontFamily:warrior,letterSpacing:4,marginBottom:14,textShadow:`0 0 18px ${rewards.isWin?t.goldGlow:t.accentGlow}` }}>{rewards.isWin?"⚔ ":"🛡 "}{L(lang, rewards.isWin?"rewardTitleWin":"rewardTitleLoss")}</div>
         {rewards.revenge > 1 && <div style={{ textAlign:"center",fontSize:10,fontWeight:900,color:"#ff9a76",fontFamily:warrior,letterSpacing:2,marginBottom:10,textShadow:"0 0 10px rgba(255,90,50,0.6)" }}>{L(lang,"rewardRevengeRow")(rewards.revenge)}</div>}
-        <Row show={row>=1} icon="💰" label={L(lang,"rewardGold")}
+        <Row show={row>=1} icon={<Gem size={18} />} label={L(lang,"rewardGold")}
           value={rewards.gold > 0 ? `+${goldShown}` : rewards.gold < 0 ? `${goldShown}` : "0"}
           color={rewards.gold < 0 ? t.hit : t.gold} glow={rewards.gold < 0 ? t.hitGlow : t.goldGlow}
           coinBurst={rewards.gold > 0} downArrow={rewards.gold < 0} />
@@ -3132,7 +3108,7 @@ function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack, ready, onTogg
     {ready && <div style={{ fontSize:10,color:"#5fd8ee",fontFamily:mono,marginBottom:14,textAlign:"center" }}>{L(lang,"readyHint")}</div>}
     {invites.filter(inv=>inv.status==="pending").map(invite=>(<div key={invite.id} style={{ width:"100%",maxWidth:400,marginBottom:8,padding:"12px 16px",background:"linear-gradient(180deg, rgba(20,34,48,0.85), rgba(10,20,30,0.9))",border:"1px solid rgba(28,199,230,0.4)",borderRadius:12 }}>
       <div style={{ fontSize:12,color:"#5fd8ee",fontWeight:700,fontFamily:warrior,letterSpacing:2,marginBottom:6,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}><XAnchors size={14} color="#5fd8ee"/> {L(lang,"duelInvite")}</div>
-      <div style={{ fontSize:13,color:"#dfe9f0",marginBottom:8 }}><span style={{ fontWeight:700 }}>{invite.fromName}</span><span style={{ color:"#f0d79a",fontSize:10,marginLeft:8 }}>💰 {invite.fromGold||0}</span></div>
+      <div style={{ fontSize:13,color:"#dfe9f0",marginBottom:8 }}><span style={{ fontWeight:700 }}>{invite.fromName}</span><span style={{ color:"#f0d79a",fontSize:10,marginLeft:8,display:"inline-flex",alignItems:"center",gap:3 }}><Gem size={10} /> {invite.fromGold||0}</span></div>
       <div style={{ display:"flex",gap:8 }}>
         <button onClick={()=>acceptInvite(invite)} style={{ flex:1,padding:"9px 0",background:"linear-gradient(180deg,#1CC7E6,#0B7E98)",color:"#052029",border:"none",borderRadius:8,fontSize:12,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.4)" }}>{L(lang,"accept")}</button>
         <button onClick={()=>rejectInvite(invite)} style={{ flex:1,padding:"9px 0",background:"linear-gradient(180deg,#20313f,#132030)",color:"#A9BCC9",border:"1px solid #26394b",borderRadius:8,fontSize:12,fontWeight:800,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(lang,"reject")}</button>
@@ -3148,7 +3124,7 @@ function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack, ready, onTogg
         <div style={{ fontSize:9,color:"#54697a",letterSpacing:2,marginBottom:4 }}>{players.length} {L(lang,"sailorsActive")}</div>
         {players.map(p=>{const rank=getRankInfo(typeof p.honor==="number"?p.honor:((p.wins||0)*8+(p.losses||0)*3),lang);const alreadySent=sentInvite?.targetUid===p.uid;return(<div key={p.uid} style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"linear-gradient(180deg,#20313f,#132030)",border:"1px solid #26394b",borderRadius:10,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.05)" }}>
           <div style={{ width:8,height:8,borderRadius:"50%",background:"#5fd8ee" }} />
-          <div style={{ flex:1,minWidth:0 }}><div style={{ display:"flex",alignItems:"center",gap:6 }}><span style={{ fontSize:13,fontWeight:700,color:"#dfe9f0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.displayName}</span><span style={{ fontSize:9,color:rank.color,fontFamily:warrior,letterSpacing:1 }}>{rank.icon} {rank.title}</span>{p.ready && <span style={{ fontSize:8,fontWeight:900,color:"#052029",background:"#1CC7E6",padding:"2px 6px",borderRadius:5,letterSpacing:1,fontFamily:warrior }}>{L(lang,"ready")}</span>}</div><div style={{ fontSize:9,color:"#7A8FA0",marginTop:1 }}>💰 {p.gold||0} • {p.wins||0}G/{p.losses||0}M</div></div>
+          <div style={{ flex:1,minWidth:0 }}><div style={{ display:"flex",alignItems:"center",gap:6 }}><span style={{ fontSize:13,fontWeight:700,color:"#dfe9f0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.displayName}</span><span style={{ fontSize:9,color:rank.color,fontFamily:warrior,letterSpacing:1 }}>{rank.icon} {rank.title}</span>{p.ready && <span style={{ fontSize:8,fontWeight:900,color:"#052029",background:"#1CC7E6",padding:"2px 6px",borderRadius:5,letterSpacing:1,fontFamily:warrior }}>{L(lang,"ready")}</span>}</div><div style={{ fontSize:9,color:"#7A8FA0",marginTop:1,display:"flex",alignItems:"center",gap:3 }}><Gem size={9} /> {p.gold||0} • {p.wins||0}G/{p.losses||0}M</div></div>
           <button onClick={()=>sendInvite(p.uid,p.displayName)} disabled={!!sentInvite} style={{ padding:"7px 14px",background:alreadySent?"linear-gradient(180deg,#20313f,#132030)":"linear-gradient(180deg,#1CC7E6,#0B7E98)",color:alreadySent?"#54697a":"#052029",border:alreadySent?"1px solid #26394b":"none",borderRadius:8,fontSize:10,fontWeight:800,letterSpacing:1,cursor:sentInvite?"default":"pointer",fontFamily:warrior,opacity:sentInvite&&!alreadySent?0.4:1 }}>{alreadySent?L(lang,"waitingBadge"):L(lang,"duel")}</button>
         </div>);})}
       </div>
@@ -4725,7 +4701,7 @@ export default function Game() {
           <span style={{ fontSize:10,fontWeight:800,color:t.accent,fontFamily:mono,whiteSpace:"nowrap" }}>Lv{myProfile?.level || 0}</span>
           <span style={{ fontSize:10,fontWeight:800,color:"#c084fc",fontFamily:mono,whiteSpace:"nowrap" }}>🎖{migrateHonor(myProfile)}</span>
           <span style={{ width:1,height:12,background:t.border }} />
-          <span style={{ fontSize:12,fontWeight:900,color:t.gold,fontFamily:mono,whiteSpace:"nowrap",textShadow:`0 0 8px ${t.goldGlow}` }}>💰{safeGold(myProfile?.gold)}</span>
+          <span style={{ fontSize:12,fontWeight:900,color:t.gold,fontFamily:mono,whiteSpace:"nowrap",textShadow:`0 0 8px ${t.goldGlow}`,display:"inline-flex",alignItems:"center",gap:3 }}><Gem size={13} />{safeGold(myProfile?.gold)}</span>
         </div>
       )}
       {showSettings && (
@@ -4883,7 +4859,7 @@ export default function Game() {
         <div style={{ position:"fixed",top:64,left:0,right:0,display:"flex",justifyContent:"center",zIndex:9650,padding:"0 14px",animation:"fadeUp 0.35s ease-out" }}>
           <div style={{ width:"100%",maxWidth:400,background:"linear-gradient(145deg, rgba(12,21,41,0.99), rgba(8,14,30,0.99))",border:`2px solid #34d399`,borderRadius:14,padding:"14px 18px",boxShadow:"0 0 40px rgba(52,211,153,0.4), 0 10px 30px rgba(0,0,0,0.5)",animation:"borderGlow 2s infinite" }}>
             <div style={{ fontSize:11,fontWeight:900,color:"#34d399",letterSpacing:2,fontFamily:warrior,marginBottom:6,display:"flex",alignItems:"center",gap:6 }}>⚡ {L(appLang,"duelInvite")}</div>
-            <div style={{ fontSize:14,color:t.text,fontFamily:mono,marginBottom:10 }}><span style={{ fontWeight:800 }}>{incomingInvite.fromName}</span> {L(appLang,"wantsToPlayMsg")} <span style={{ color:t.gold,fontSize:11 }}>(💰{incomingInvite.fromGold || 0})</span></div>
+            <div style={{ fontSize:14,color:t.text,fontFamily:mono,marginBottom:10 }}><span style={{ fontWeight:800 }}>{incomingInvite.fromName}</span> {L(appLang,"wantsToPlayMsg")} <span style={{ color:t.gold,fontSize:11,display:"inline-flex",alignItems:"center",gap:2 }}>(<Gem size={10} />{incomingInvite.fromGold || 0})</span></div>
             <div style={{ display:"flex",gap:8 }}>
               <button onClick={()=>acceptIncomingInvite(incomingInvite)} style={{ flex:1,padding:"10px 0",background:"linear-gradient(135deg,#34d399,#0d9488)",color:"#04231a",border:"none",borderRadius:8,fontSize:13,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"acceptFullBtn")}</button>
               <button onClick={()=>rejectIncomingInvite(incomingInvite)} style={{ flex:1,padding:"10px 0",background:"transparent",color:t.hit,border:`1px solid ${t.hit}`,borderRadius:8,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"reject")}</button>
@@ -7046,7 +7022,7 @@ export default function Game() {
             <div style={{ fontSize:52,marginBottom:8,animation:"logoFloat 3s ease-in-out infinite",display:"inline-block",filter:"drop-shadow(0 6px 14px rgba(0,0,0,0.6)) drop-shadow(0 0 20px rgba(0,229,255,0.4))" }}>⛵</div>
             <div style={{ fontSize:19,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:3,textShadow:`0 0 20px ${t.accentGlow}`,marginBottom:6 }}>{L(appLang,"voyageTitle")}</div>
             <div style={{ fontSize:12,color:t.textDim,fontFamily:mono,marginBottom:14 }}>{L(appLang,"voyageBody")(voyageReward.hours)}</div>
-            <div style={{ fontSize:36,fontWeight:900,fontFamily:warrior,marginBottom:16,background:"linear-gradient(180deg,#fff9c4 0%,#ffe066 35%,#ffd700 65%,#d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 16px rgba(255,215,0,0.8))" }}>+{voyageReward.gold} 💰</div>
+            <div style={{ fontSize:36,fontWeight:900,fontFamily:warrior,marginBottom:16,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}><span style={{ background:"linear-gradient(180deg,#fff9c4 0%,#ffe066 35%,#ffd700 65%,#d97706 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 0 16px rgba(255,215,0,0.8))" }}>+{voyageReward.gold}</span> <Gem size={30} /></div>
             <button onClick={claimVoyage} style={{ width:"100%",padding:"15px 0",background:"linear-gradient(135deg,#ffd700,#ff9f43)",color:"#1a1206",border:"none",borderRadius:12,fontSize:16,fontWeight:900,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:`0 0 30px ${t.goldGlow}`,animation:"btnBreath 2s ease-in-out infinite",textTransform:"uppercase" }}>{L(appLang,"voyageCollect")}</button>
             <div style={{ fontSize:10,color:t.textDim,fontFamily:mono,marginTop:12,lineHeight:1.5,fontStyle:"italic" }}>⚓ {L(appLang,"voyageHint")}</div>
           </div>
@@ -7220,7 +7196,7 @@ export default function Game() {
       </div>
       <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:2 }}>
         <span style={{ fontSize:17,fontWeight:800,letterSpacing:4,color:t.gold,fontFamily:warrior,textShadow:`0 0 15px ${t.goldGlow}` }}>{appLang==="en"?"SINGLE SALVO":"TEK SALVO"}</span>
-        <span style={{ fontSize:10,fontWeight:900,color:t.gold,background:"rgba(255,215,0,0.12)",border:`1px solid ${t.gold}66`,borderRadius:8,padding:"3px 8px",fontFamily:mono,letterSpacing:1,animation:"rewardPulse 1.6s ease-in-out infinite" }}>🏆 {SALVO_WIN_GOLD}💰</span>
+        <span style={{ fontSize:10,fontWeight:900,color:t.gold,background:"rgba(255,215,0,0.12)",border:`1px solid ${t.gold}66`,borderRadius:8,padding:"3px 8px",fontFamily:mono,letterSpacing:1,animation:"rewardPulse 1.6s ease-in-out infinite",display:"inline-flex",alignItems:"center",gap:3 }}>🏆 {SALVO_WIN_GOLD}<Gem size={11} /></span>
       </div>
       <div style={{ fontSize:20,fontWeight:800,marginBottom:6,color:timerLow?t.hit:t.gold,animation:timerLow?"blink3s 0.5s infinite":"none",fontFamily:warrior,textShadow:timerLow?`0 0 20px ${t.hitGlow}`:"none" }}>{formatTime(salvoTimer)}</div>
       {/* Görkemli sayaç — kaç hücre işaretlendiği tek bakışta belli olsun */}
@@ -7295,7 +7271,7 @@ export default function Game() {
               <span style={{ width:36,height:36,borderRadius:"50%",background:`${t.accent}22`,border:`2px solid ${t.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,boxShadow:`0 0 12px ${t.accentGlow}` }}>{myProfile?.avatar || "⚓"}</span>
               <span style={{ fontSize:9,fontWeight:800,color:t.accent,fontFamily:mono }}>Lv{myProfile?.level || 0}</span>
               <span style={{ fontSize:9,fontWeight:800,color:"#c084fc",fontFamily:mono }}>🎖{migrateHonor(myProfile)}</span>
-              <span style={{ fontSize:10,fontWeight:900,color:t.gold,fontFamily:mono,textShadow:`0 0 6px ${t.goldGlow}` }}>💰{salvoMyGoldAnim}</span>
+              <span style={{ fontSize:10,fontWeight:900,color:t.gold,fontFamily:mono,textShadow:`0 0 6px ${t.goldGlow}`,display:"inline-flex",alignItems:"center",gap:3 }}><Gem size={11} />{salvoMyGoldAnim}</span>
             </div>
             <Grid board={emptyGrid()} cellSize={revealCell} overlay={myOverlay} disabled revealSweepMs={2200} />
           </div>
@@ -7310,18 +7286,18 @@ export default function Game() {
               <span style={{ width:36,height:36,borderRadius:"50%",background:`${t.hit}22`,border:`2px solid ${t.hit}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,boxShadow:`0 0 12px ${t.hitGlow}` }}>🤖</span>
               <span style={{ fontSize:9,fontWeight:800,color:t.hit,fontFamily:mono }}>Lv{botStats.level}</span>
               <span style={{ fontSize:9,fontWeight:800,color:"#c084fc",fontFamily:mono }}>🎖{botStats.honor}</span>
-              <span style={{ fontSize:10,fontWeight:900,color:t.gold,fontFamily:mono,textShadow:`0 0 6px ${t.goldGlow}` }}>💰{salvoBotGoldAnim}</span>
+              <span style={{ fontSize:10,fontWeight:900,color:t.gold,fontFamily:mono,textShadow:`0 0 6px ${t.goldGlow}`,display:"inline-flex",alignItems:"center",gap:3 }}><Gem size={11} />{salvoBotGoldAnim}</span>
             </div>
             <Grid board={emptyGrid()} cellSize={revealCell} overlay={oppOverlay} disabled revealSweepMs={2200} />
           </div>
         </div>
       </div>
-      {goldChange && (won || draw) && <div style={{ fontSize:14,fontWeight:800,color:t.gold,marginTop:14,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}` }}>{goldChange.refund ? `↩ ${goldChange.amount} 💰 ${appLang==="en"?"REFUNDED":"İADE"}` : `+${goldChange.amount} 💰`}</div>}
-      {!won && !draw && <div style={{ fontSize:13,fontWeight:800,color:t.hit,marginTop:14,fontFamily:warrior,letterSpacing:1,animation:"goldDrain 1.4s ease-out both" }}>-{SALVO_ANTE} 💰</div>}
+      {goldChange && (won || draw) && <div style={{ fontSize:14,fontWeight:800,color:t.gold,marginTop:14,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}`,display:"flex",alignItems:"center",justifyContent:"center",gap:4 }}>{goldChange.refund ? <>↩ {goldChange.amount} <Gem size={13} /> {appLang==="en"?"REFUNDED":"İADE"}</> : <>+{goldChange.amount} <Gem size={13} /></>}</div>}
+      {!won && !draw && <div style={{ fontSize:13,fontWeight:800,color:t.hit,marginTop:14,fontFamily:warrior,letterSpacing:1,animation:"goldDrain 1.4s ease-out both",display:"flex",alignItems:"center",justifyContent:"center",gap:4 }}>-{SALVO_ANTE} <Gem size={12} /></div>}
       {/* Tek buton: doğrudan yeni bir maça sokar (hazır olan biriyle) — "aynı kişiye tekrar davet et" gibi ayrı bir akış yok. */}
       <button onClick={replaySalvo} style={{ marginTop:18,padding:"13px 40px",background:`linear-gradient(135deg,${t.gold},#d97706)`,color:t.bg,border:"none",borderRadius:12,fontSize:15,fontWeight:900,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 24px ${t.goldGlow}`,animation:"borderGlow 1.8s infinite",display:"flex",flexDirection:"column",alignItems:"center",gap:2 }}>
         <span>⚔ {appLang==="en"?"NEW GAME":"YENİ OYUN"}</span>
-        <span style={{ fontSize:9,fontWeight:700,letterSpacing:1,opacity:0.75 }}>{appLang==="en"?"Entry":"Giriş"} {SALVO_ANTE} 💰</span>
+        <span style={{ fontSize:9,fontWeight:700,letterSpacing:1,opacity:0.75,display:"inline-flex",alignItems:"center",gap:3 }}>{appLang==="en"?"Entry":"Giriş"} {SALVO_ANTE} <Gem size={9} /></span>
       </button>
       <button onClick={() => shareGame(appLang)} style={{ marginTop:10,padding:"11px 28px",background:"linear-gradient(135deg,rgba(37,211,102,0.16),rgba(18,140,62,0.10))",color:"#25d366",border:"2px solid rgba(37,211,102,0.45)",borderRadius:10,fontSize:12,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}>📤 {L(appLang,"inviteBtn")}</button>
       <button onClick={resetGame} style={{ marginTop:10,marginBottom:24,padding:"10px 28px",background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:10,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>🏠 {L(appLang,"homeBtn")}</button>
