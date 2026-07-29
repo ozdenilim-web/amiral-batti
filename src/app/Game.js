@@ -1959,6 +1959,7 @@ const ANIMS = `
 @keyframes btnBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
 @keyframes rewardPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+@keyframes modeGlowPulse{0%,100%{transform:scale(1);opacity:0.55}50%{transform:scale(1.18);opacity:0.9}}
 
 /* 4) Hareketli katmanlara GPU ipucu — tarayıcı önceden katman ayırır,
    böylece hareket sırasında yeniden boyama yapmaz. */
@@ -6741,6 +6742,13 @@ export default function Game() {
     const BRONZE = "linear-gradient(180deg,#5a3d22 0%,#c9a15e 42%,#f0d79a 52%,#c9a15e 62%,#5a3d22 100%)";
     const neutralBtn = (dis) => ({ position:"relative",overflow:"hidden",flex:1,height:56,display:"flex",alignItems:"center",justifyContent:"center",gap:9,background:"linear-gradient(180deg,#20313f,#132030)",color:"#A9BCC9",border:"1px solid #26394b",borderRadius:12,fontSize:16,fontWeight:800,fontFamily:warrior,textTransform:"uppercase",letterSpacing:2,cursor:dis?"not-allowed":"pointer",opacity:dis?0.45:1,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.10), 0 2px 0 rgba(0,0,0,0.45), 0 7px 16px rgba(0,0,0,0.32)" });
     const btnSub = { fontFamily:mono,fontWeight:400,letterSpacing:1,fontSize:8.5,color:"#7A8FA0",textTransform:"none",marginTop:3 };
+    // Mod ikonları: yüklenen görsel + arkasında nabız atan parlama halesi (yalnızca transform/opacity — mobil GPU'da ucuz).
+    const ModeIcon = (src, glow) => (
+      <span style={{ position:"relative",width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+        <span style={{ position:"absolute",inset:-7,borderRadius:"50%",background:`radial-gradient(circle, ${glow} 0%, transparent 72%)`,animation:"modeGlowPulse 2.4s ease-in-out infinite",pointerEvents:"none" }} />
+        <img src={src} alt="" draggable={false} style={{ position:"relative",width:30,height:30,objectFit:"contain",filter:`drop-shadow(0 0 6px ${glow})` }} />
+      </span>
+    );
     return (<div style={{ ...appStyle, background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)",position:"relative",overflow:"hidden",paddingTop:"calc(46px + env(safe-area-inset-top, 0px))" }}><style>{ANIMS}{`
 @keyframes sonarSweep{to{transform:translate(-50%,-50%) rotate(360deg)}}
 `}</style>
@@ -6840,21 +6848,21 @@ export default function Game() {
       <QuickMatchModal myProfile={myProfile} lang={appLang} phase={quickMatchPhase} candidate={quickMatchCandidate} opponent={quickMatchOpponent} secondsLeft={quickMatchSecondsLeft} onCancel={cancelQuickMatch} onRetry={retryQuickMatch} />
       <div style={{ display:"flex",gap:12,marginTop:12,width:"100%",maxWidth:400,zIndex:1 }}>
         <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowOnlineLobby(true);}} disabled={authLoading} style={neutralBtn(authLoading)}>
-          <span style={{ fontSize:17,filter:"saturate(.55) opacity(.9)" }}>📡</span>
+          {ModeIcon("/img/icon-salon.png","rgba(0,229,255,0.65)")}
           <span style={{ display:"flex",flexDirection:"column",alignItems:"flex-start",lineHeight:1 }}>{L(appLang,"salon")}<small style={btnSub}>{appLang==="en"?"find a rival":"oyuncu bul"}</small></span>
         </RippleButton>
         <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowArenaSelect(true);}} disabled={authLoading} style={neutralBtn(authLoading)}>
-          <span style={{ fontSize:17,filter:"saturate(.55) opacity(.9)" }}>🎖</span>
+          {ModeIcon("/img/icon-arena.png","rgba(255,196,60,0.65)")}
           <span style={{ display:"flex",flexDirection:"column",alignItems:"flex-start",lineHeight:1 }}>{L(appLang,"arena")}<small style={btnSub}>{appLang==="en"?"wagered":"bahisli"}</small></span>
         </RippleButton>
       </div>
       <div style={{ display:"flex",gap:12,marginTop:12,width:"100%",maxWidth:400,zIndex:1 }}>
         <RippleButton onClick={startBotGame} style={neutralBtn(false)}>
-          <span style={{ fontSize:17,filter:"saturate(.55) opacity(.9)" }}>🤖</span>
+          {ModeIcon("/img/icon-bot.png","rgba(150,205,255,0.65)")}
           <span style={{ display:"flex",flexDirection:"column",alignItems:"flex-start",lineHeight:1 }}>{L(appLang,"bot")}<small style={btnSub}>{appLang==="en"?"practice":"alıştırma"}</small></span>
         </RippleButton>
         <RippleButton onClick={()=>setShowDifferentWaters(true)} style={neutralBtn(false)}>
-          <span style={{ fontSize:17,filter:"saturate(.55) opacity(.9)" }}>🌊</span>
+          {ModeIcon("/img/icon-farkli-sular.png","rgba(168,85,247,0.65)")}
           <span style={{ display:"flex",flexDirection:"column",alignItems:"flex-start",lineHeight:1 }}>{L(appLang,"differentWaters")}<small style={btnSub}>{appLang==="en"?"3 modes":"3 mod"}</small></span>
         </RippleButton>
       </div>
