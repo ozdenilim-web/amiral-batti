@@ -517,7 +517,7 @@ const TRANSLATIONS = {
     goodsBadge: "GANİMET TABLOSU", revengeGauge: "İNTİKAM YÜKLENİYOR", revengeReady: "İNTİKAM HAZIR",
     oneChestPerDevice: "Her cihaza günde 1 atış!", dailyRewardLabel: "GÜNLÜK ÖDÜL",
     cannonAimLabel: "TOPU ATEŞLE", cannonHoldLabel: "BAS TUT, TAM ZAMANINDA BIRAK!", cannonFireBtn: "ATEŞLE",
-    ropeHint: "İpi çek — barın en tepesinde ateşle!", ropePulling: "Çekmeye devam et...", ropeSweet: "ŞİMDİ!",
+    ropeHint: "İpi çek", ropePulling: "Çekmeye devam et...", ropeSweet: "ŞİMDİ!",
     criticalHitLabel: "KRİTİK VURUŞ!", bonusGoldLabel: (p) => `+%${p} BONUS ALTIN`,
     battleStarting: "SAVAŞ BAŞLIYOR",
     tagline: "savaşların atası...",
@@ -594,7 +594,7 @@ const TRANSLATIONS = {
     goodsBadge: "LOOT REPORT", revengeGauge: "REVENGE CHARGING", revengeReady: "REVENGE READY",
     oneChestPerDevice: "1 shot per device, every day!", dailyRewardLabel: "DAILY REWARD",
     cannonAimLabel: "FIRE THE CANNON", cannonHoldLabel: "HOLD, RELEASE AT THE RIGHT MOMENT!", cannonFireBtn: "FIRE",
-    ropeHint: "Pull the rope — fire at the very top!", ropePulling: "Keep pulling...", ropeSweet: "NOW!",
+    ropeHint: "Pull the rope", ropePulling: "Keep pulling...", ropeSweet: "NOW!",
     criticalHitLabel: "CRITICAL HIT!", bonusGoldLabel: (p) => `+${p}% BONUS GOLD`,
     battleStarting: "BATTLE STARTING",
     tagline: "ancestor of battles...",
@@ -2395,12 +2395,14 @@ function DailyChestFab({ onOpen, lang = "tr" }) {
 // bölüm ne kadar küçükse ödül o kadar büyük. Kullanıcı halatı çeker, bıraktığı
 // anda barın hangi bölümde olduğu ödülü belirler.
 // idle: halat sarkıyor | pulling: halat çekiliyor | firing: top patlıyor | opened: ödül
+// Rütbe renk skalası (yaygından efsaneye) — bölümler birbirinden net ayrılsın diye artık
+// aynı sıcak turuncu ailesinden değil, tamamen farklı tonlar kullanıyoruz.
 const CANNON_ZONES = [
-  { min: 94, mult: 2.00, color: "#ffd700", label: "×2" },     // %6  — en mini, en yüksek
-  { min: 82, mult: 1.60, color: "#ffb300", label: "×1.6" },   // %12
-  { min: 62, mult: 1.35, color: "#ff9f43", label: "×1.35" },  // %20
-  { min: 35, mult: 1.15, color: "#e07a3a", label: "×1.15" },  // %27
-  { min: 0,  mult: 1.00, color: "#8a5a3a", label: "×1" },     // %35 — en geniş, en düşük
+  { min: 94, mult: 2.00, color: "#ffd700", label: "×2" },     // %6  — en mini, en yüksek — ALTIN (efsane)
+  { min: 82, mult: 1.60, color: "#a78bfa", label: "×1.6" },   // %12 — MOR (epik)
+  { min: 62, mult: 1.35, color: "#38bdf8", label: "×1.35" },  // %20 — MAVİ (nadir)
+  { min: 35, mult: 1.15, color: "#4ade80", label: "×1.15" },  // %27 — YEŞİL (az bulunur)
+  { min: 0,  mult: 1.00, color: "#9aa5b1", label: "×1" },     // %35 — en geniş, en düşük — GRİ (sıradan)
 ];
 const cannonZoneOf = (lvl) => CANNON_ZONES.find(z => lvl >= z.min) || CANNON_ZONES[CANNON_ZONES.length - 1];
 
@@ -2466,12 +2468,12 @@ function DailyChestPopup({ onClaim, onClose, streak = 1, lang = "tr" }) {
   const ropeTexture = "repeating-linear-gradient(118deg, #6b4a22 0px, #a87c3e 2px, #d9b56e 4px, #f0d79a 5px, #d9b56e 6px, #a87c3e 8px, #6b4a22 10px)";
   const ropeRound = "inset 2px 0 3px rgba(0,0,0,0.55), inset -2px 0 3px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(0,0,0,0.25)";
 
-  return (<div style={{ position:"fixed",inset:0,overflow:"hidden",background:"radial-gradient(ellipse at 50% 40%, rgba(255,214,0,0.12) 0%, rgba(0,0,0,0.88) 75%)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(6px)" }} onClick={phase === "opened" ? claim : (phase === "idle" ? onClose : undefined)}>
-    <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, rgba(20,26,52,0.99) 0%, rgba(10,16,32,0.99) 60%, rgba(18,16,30,0.99) 100%)",border:"3px solid #ffe94d",outline:"2px solid rgba(255,233,77,0.65)",outlineOffset:6,borderRadius:22,padding:"30px 30px 26px",textAlign:"center",maxWidth:360,width:"92%",boxShadow:"0 0 40px #ffe94d, 0 0 90px rgba(255,233,77,0.75), 0 0 150px rgba(255,233,77,0.4), 0 24px 70px rgba(0,0,0,0.6)",overflow:"visible",animation: phase === "firing" ? "cannonRecoil 0.55s ease-out" : "chestGlow 1.6s ease-in-out infinite" }}>
+  return (<div style={{ position:"fixed",inset:0,overflow:"hidden",background:"radial-gradient(ellipse at 50% 40%, rgba(214,150,20,0.16) 0%, rgba(10,7,4,0.92) 75%)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(6px)" }} onClick={phase === "opened" ? claim : (phase === "idle" ? onClose : undefined)}>
+    <div onClick={e=>e.stopPropagation()} style={{ position:"relative",background:"linear-gradient(160deg, rgba(46,30,14,0.99) 0%, rgba(26,17,9,0.99) 55%, rgba(16,11,7,0.99) 100%)",border:"3px solid #ffe94d",outline:"2px solid rgba(255,233,77,0.65)",outlineOffset:6,borderRadius:22,padding:"30px 30px 26px",textAlign:"center",maxWidth:360,width:"92%",boxShadow:"0 0 40px #ffe94d, 0 0 90px rgba(255,233,77,0.75), 0 0 150px rgba(255,233,77,0.4), 0 24px 70px rgba(0,0,0,0.6)",overflow:"visible",animation: phase === "firing" ? "cannonRecoil 0.55s ease-out" : "chestGlow 1.6s ease-in-out infinite" }}>
       <button onClick={phase === "opened" ? claim : onClose} title={L(lang,"backBtn")} style={{ position:"absolute",top:-14,right:-14,width:34,height:34,borderRadius:"50%",background:"#0c1529",border:"2px solid #ffe94d",color:"#ffe94d",fontSize:16,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,boxShadow:"0 0 14px rgba(255,233,77,0.8)",zIndex:3 }}>✕</button>
 
       {phase !== "opened" && (<>
-        <div style={{ fontSize:13,fontWeight:800,color:"#ffe94d",fontFamily:mono,letterSpacing:3,marginBottom:8 }}>{L(lang,"dailyChestTooltip").toUpperCase()}</div>
+        <div style={{ fontSize:22,fontWeight:900,color:"#ffe94d",fontFamily:warrior,letterSpacing:4,marginBottom:10,textTransform:"uppercase",textShadow:"0 0 18px rgba(255,233,77,0.55), 0 2px 3px rgba(0,0,0,0.5)" }}>{L(lang,"dailyChestTooltip")}</div>
 
         {/* TOP */}
         <div style={{ position:"relative",width:158,height:132,margin:"0 auto" }}>
@@ -2504,7 +2506,8 @@ function DailyChestPopup({ onClaim, onClose, streak = 1, lang = "tr" }) {
                 borderBottom:"1px solid rgba(0,0,0,0.55)",
                 background: active ? `${z.color}55` : `${z.color}1f`,
                 display:"flex",alignItems:"center",justifyContent:"center",transition:"background 0.1s linear" }}>
-                <span style={{ fontSize: i === 0 ? 10 : 11,fontWeight:900,fontFamily:warrior,letterSpacing:0.5,
+                <span style={{ fontSize:13,fontWeight:900,fontFamily:mono,letterSpacing:0,padding:"1px 5px",borderRadius:5,
+                  background: active ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.45)",
                   color: active ? "#fff" : z.color, textShadow: active ? `0 0 8px ${z.color}` : "none" }}>{z.label}</span>
               </div>);
             })}
@@ -2533,23 +2536,26 @@ function DailyChestPopup({ onClaim, onClose, streak = 1, lang = "tr" }) {
                 boxShadow:"inset 2px 0 4px rgba(0,0,0,0.5), inset -2px 0 4px rgba(0,0,0,0.4)" }} />
               <span style={{ position:"absolute",left:11,bottom:-5,width:8,height:9,borderRadius:"0 0 4px 4px",background:ropeTexture,opacity:0.95 }} />
             </div>
-            <div style={{ marginTop:8,fontSize:10,fontWeight:800,fontFamily:mono,letterSpacing:1,
-              color: phase === "pulling" ? (pull >= PULL_FIRE ? "#4ade80" : "#ffe94d") : t.textDim,minHeight:14 }}>
+            <div style={{ marginTop:6,fontSize: phase === "pulling" ? 10 : 24,fontWeight:900,fontFamily: phase === "pulling" ? mono : "system-ui",letterSpacing:1,lineHeight:1,
+              color: phase === "pulling" ? (pull >= PULL_FIRE ? "#4ade80" : "#ffe94d") : "#ffe94d",minHeight:26,
+              textShadow: phase === "pulling" ? "none" : "0 0 12px rgba(255,233,77,0.85)",
+              animation: phase === "pulling" ? "none" : "float 1.3s ease-in-out infinite" }}>
               {phase === "pulling" ? (pull >= PULL_FIRE ? L(lang,"ropeSweet") : L(lang,"ropePulling")) : "↓"}
             </div>
           </div>
         </div>
 
-        <div style={{ fontSize:12,fontWeight:600,color:t.textDim,fontFamily:mono,marginTop:10 }}>{L(lang,"ropeHint")}</div>
+        <div style={{ fontSize:15,fontWeight:800,color:"#ffe94d",fontFamily:warrior,letterSpacing:2,marginTop:12,textTransform:"uppercase" }}>{L(lang,"ropeHint")}</div>
         {/* Giriş serisi — eski günlük giriş ödülünün seri çarpanı buraya taşındı */}
-        <div style={{ marginTop:8,display:"inline-flex",alignItems:"center",gap:7,padding:"5px 12px",borderRadius:20,
-          background: streakMultOf(streak) > 1 ? "rgba(255,215,0,0.12)" : "rgba(255,255,255,0.05)",
-          border: `1px solid ${streakMultOf(streak) > 1 ? "rgba(255,215,0,0.45)" : t.border}` }}>
-          <span style={{ fontSize:12 }}>🔥</span>
-          <span style={{ fontSize:11,fontWeight:800,fontFamily:mono,letterSpacing:1,color: streakMultOf(streak) > 1 ? t.gold : t.textDim }}>
+        <div style={{ marginTop:10,display:"inline-flex",alignItems:"center",gap:8,padding:"7px 16px",borderRadius:20,
+          background: streakMultOf(streak) > 1 ? "linear-gradient(135deg, rgba(255,215,0,0.22), rgba(255,159,67,0.12))" : "rgba(255,255,255,0.05)",
+          border: `1.5px solid ${streakMultOf(streak) > 1 ? "rgba(255,215,0,0.6)" : t.border}`,
+          boxShadow: streakMultOf(streak) > 1 ? "0 0 18px rgba(255,215,0,0.3)" : "none" }}>
+          <span style={{ fontSize:14,display:"inline-block",animation: streakMultOf(streak) > 1 ? "flameFlicker 1.4s ease-in-out infinite" : "none" }}>🔥</span>
+          <span style={{ fontSize:12,fontWeight:900,fontFamily:warrior,letterSpacing:1.5,color: streakMultOf(streak) > 1 ? t.gold : t.textDim }}>
             {streak} {L(lang,"dayStreak")}
           </span>
-          {streakMultOf(streak) > 1 && <span style={{ fontSize:11,fontWeight:900,fontFamily:warrior,color:t.gold,textShadow:`0 0 10px ${t.goldGlow}` }}>×{streakMultOf(streak)}</span>}
+          {streakMultOf(streak) > 1 && <span style={{ fontSize:12,fontWeight:900,fontFamily:warrior,color:t.gold,textShadow:`0 0 10px ${t.goldGlow}` }}>×{streakMultOf(streak)}</span>}
         </div>
       </>)}
 
