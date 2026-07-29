@@ -3366,6 +3366,9 @@ export default function Game() {
   const [entryFeeDeducted, setEntryFeeDeducted] = useState(null);
   const [showDailyChest, setShowDailyChest] = useState(false);
   const [dailyChestModalOpen, setDailyChestModalOpen] = useState(false);
+  // TEST: F12 konsolundan __openCannon() yazip Enter'a basinca, gunde-1 kilidini
+  // atlayarak Gunluk Top Odulu penceresini acar — bomba/atis efektini istedigin kadar dene.
+  useEffect(() => { window.__openCannon = () => setDailyChestModalOpen(true); return () => { delete window.__openCannon; }; }, []);
   const [showAvatarPick, setShowAvatarPick] = useState(false);
   const [oppAvatar, setOppAvatar] = useState(null);
   const oppAvatarRef = useRef(false);
