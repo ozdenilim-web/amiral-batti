@@ -1487,6 +1487,40 @@ const WATER_MODES = [
   { id:"manevra", name:"MANEVRA", nameEn:"MANEUVER", icon:"🧭", color:"#4ade80", desc:"Sular çekilince göreceksin…", descEn:"You'll see when the tide turns…" },
   { id:"ateskes", name:"ATEŞKES", nameEn:"CEASEFIRE", icon:"🕊️", color:"#94a3b8", desc:"Sular çekilince göreceksin…", descEn:"You'll see when the tide turns…" },
 ];
+// Ana menüdeki mod ikonlarıyla aynı mantık: küçük kutuda (44px) net okunsun diye emoji yerine sade tek renk vektör çizim.
+const WATER_ICON_PATHS = {
+  teksalvo: (c) => (<>
+    <path d="M12 2 L12 7 M12 17 L12 22 M2 12 L7 12 M17 12 L22 12 M4.5 4.5 L8 8 M16 16 L19.5 19.5 M19.5 4.5 L16 8 M8 16 L4.5 19.5" />
+    <circle cx="12" cy="12" r="2.6" fill={c} stroke="none" />
+  </>),
+  kusatma: (c) => (<>
+    <path d="M4 4 L20 20" />
+    <path d="M17.2 17.2 L20 20 M20 17.2 L17.2 20" />
+    <path d="M20 4 L4 20" />
+    <path d="M6.8 17.2 L4 20 M4 17.2 L6.8 20" />
+  </>),
+  tersane: (c) => (<>
+    <circle cx="12" cy="12" r="3.2" />
+    <path d="M12 5.5 V3 M12 21 V18.5 M18.5 12 H21 M3 12 H5.5 M16.7 7.3 L18.5 5.5 M5.5 18.5 L7.3 16.7 M16.7 16.7 L18.5 18.5 M5.5 5.5 L7.3 7.3" />
+  </>),
+  girdap: (c) => (<>
+    <path d="M12 4a8 8 0 1 0 8 8" />
+    <path d="M12 8a4 4 0 1 1 -4 4" />
+  </>),
+  manevra: (c) => (<>
+    <circle cx="12" cy="12" r="8.4" />
+    <path d="M15.4 8.6 L12.8 12.8 L8.6 15.4 L11.2 11.2 Z" fill={c} stroke="none" />
+  </>),
+  ateskes: (c) => (<>
+    <path d="M6 21 V4" />
+    <path d="M6 4 L18 4 L15 8 L18 12 L6 12" />
+  </>),
+};
+function WaterModeIcon({ id, color, dim }) {
+  return (<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke={dim?"#54697a":color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" style={{ filter:dim?"none":`drop-shadow(0 0 5px ${color}99)` }}>
+    {WATER_ICON_PATHS[id] ? WATER_ICON_PATHS[id](dim?"#54697a":color) : null}
+  </svg>);
+}
 function DifferentWaters({ onBack, onPlaySalvo, onPlayKusatma, onPlayTersane, lang = "tr" }) {
   return (<div style={{ display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100vh",minHeight:"100dvh",background:"linear-gradient(180deg,#0A1520 0%,#0F2434 52%,#081118 100%)",padding:"24px 14px",fontFamily:mono,color:"#dfe9f0" }}>
     <img src="/img/banner-farkli-sular.png" alt="" draggable={false} style={{ width:"100%",maxWidth:220,height:"auto",marginBottom:8,filter:"drop-shadow(0 0 22px rgba(28,199,230,0.35))" }} />
@@ -1499,7 +1533,7 @@ function DifferentWaters({ onBack, onPlaySalvo, onPlayKusatma, onPlayTersane, la
         return (
         <div key={mode.id} onClick={playable ? onPlay : undefined} style={{ position:"relative",overflow:"hidden",display:"flex",alignItems:"center",gap:14,padding:"15px 17px",background:"linear-gradient(180deg,#20313f,#132030)",border:"1px solid #26394b",borderRadius:12,cursor:playable?"pointer":"default",opacity:playable?1:0.7,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 14px rgba(0,0,0,0.3)" }}>
           <span style={{ position:"absolute",left:0,top:0,bottom:0,width:3,background:mode.color,opacity:playable?1:0.5 }} />
-          <div style={{ fontSize:24,width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(255,255,255,0.04)",borderRadius:10,border:"1px solid #26394b",flexShrink:0,filter:playable?"none":"grayscale(0.6)" }}>{mode.icon}</div>
+          <div style={{ width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(255,255,255,0.04)",borderRadius:10,border:"1px solid #26394b",flexShrink:0 }}><WaterModeIcon id={mode.id} color={mode.color} dim={!playable} /></div>
           <div style={{ flex:1,minWidth:0 }}>
             <div style={{ fontSize:15,fontWeight:800,color:"#A9BCC9",fontFamily:warrior,letterSpacing:3 }}>{lang==="en"?mode.nameEn:mode.name}</div>
             <div style={{ fontSize:10,fontWeight:600,color:"#54697a",marginTop:3,fontFamily:mono,lineHeight:1.4,opacity:playable?1:0.7,fontStyle:playable?"normal":"italic" }}>{lang==="en"?mode.descEn:mode.desc}</div>
@@ -6898,7 +6932,7 @@ export default function Game() {
         </RippleButton>
         <RippleButton onClick={()=>setShowDifferentWaters(true)} style={neutralBtn(false)}>
           {ModeIcon("sular","rgba(168,85,247,0.65)")}
-          <span style={{ display:"flex",flexDirection:"column",alignItems:"flex-start",lineHeight:1 }}>{L(appLang,"differentWaters")}<small style={btnSub}>{appLang==="en"?"3 modes":"3 mod"}</small></span>
+          <span style={{ display:"flex",flexDirection:"column",alignItems:"flex-start",lineHeight:1 }}>{L(appLang,"differentWaters")}</span>
         </RippleButton>
       </div>
       {/* Kazanımlar */}
