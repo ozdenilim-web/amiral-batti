@@ -729,6 +729,25 @@ const CountryFlag = ({ code, size = 16, style }) => {
 // tamamen kapalıyken" bildirimi için ileride FCM push eklenebilir; sw.js'teki
 // push dinleyicisi o gün için hazır bırakıldı.
 // ═══════════════════════════════════════════════════════════════════════
+// Düello daveti kuralları: 15 saniye cevap süresi, üst üste 3 redden sonra o kişiye
+// bir daha davet gönderilemez (taciz önleme). Sayaç kabul gelince sıfırlanır.
+const DUEL_WAIT_MS = 15000;
+// Meydan okuma penceresi bu ekranlarda ÇIKMAZ (aktif maç sürüyor, üstünü kapatmasın).
+// Bunların dışında oyuncu nerede olursa olsun ekranın ortasına düşer.
+const DUEL_HIDE_PHASES = ["placing","siege","siegeover","salvo","salvoreveal","gameover","tersane","splash"];
+const DUEL_REJECT_LIMIT = 3;
+function duelRejects(uid) {
+  try { return parseInt(localStorage.getItem("ab_duelrej_" + uid) || "0", 10) || 0; } catch (e) { return 0; }
+}
+function bumpDuelRejects(uid) {
+  const n = duelRejects(uid) + 1;
+  try { localStorage.setItem("ab_duelrej_" + uid, String(n)); } catch (e) {}
+  return n;
+}
+function resetDuelRejects(uid) {
+  try { localStorage.removeItem("ab_duelrej_" + uid); } catch (e) {}
+}
+
 const NOTIF_TAG = { voyage: "ab-voyage", cannon: "ab-cannon", invite: "ab-invite" };
 function notifSupported() {
   return typeof window !== "undefined" && "Notification" in window;
@@ -900,6 +919,7 @@ const TRANSLATIONS = {
     friendDuelWaiting: (n) => `${n} bekleniyor...`,
     friendDuelRejected: "Davet reddedildi",
     friendDuelTimeout: "Yanıt gelmedi — davet geri çekildi",
+    friendDuelBlocked: "Bu oyuncu davetlerini 3 kez reddetti — artık davet gönderemezsin",
     friendProfile: "PROFİL", friendSince: "Arkadaşlık",
     notifFriendReqTitle: "Yeni arkadaşlık isteği 👥", notifFriendReqBody: (n) => `${n} seni arkadaş olarak eklemek istiyor.`,
     challengeTag: "MEYDAN OKUMA", challengeLine: (n) => `${n} SANA MEYDAN OKUYOR!`,
@@ -1012,6 +1032,7 @@ const TRANSLATIONS = {
     friendDuelWaiting: (n) => `waiting for ${n}...`,
     friendDuelRejected: "Invite declined",
     friendDuelTimeout: "No reply — invite withdrawn",
+    friendDuelBlocked: "This player declined 3 times — you can no longer invite them",
     friendProfile: "PROFILE", friendSince: "Friends since",
     notifFriendReqTitle: "New friend request 👥", notifFriendReqBody: (n) => `${n} wants to add you as a friend.`,
     challengeTag: "CHALLENGE", challengeLine: (n) => `${n} IS CHALLENGING YOU!`,
@@ -3776,7 +3797,7 @@ function FriendsScreen({ myUid, myName, myAvatar, friends, requests, onlineMap, 
         <Stat label={L(lang,"losses")} value={prof?.losses || 0} color={t.hit} />
         <Stat label={L(lang,"winRate")} value={rate + "%"} color={t.gold} />
       </div>
-      <button onClick={()=>{ onDuel(openUid, prof?.displayName || f.name); flash(L(lang,"friendDuelSent")); }}
+      <button onClick={()=>{ if (duelRejects(openUid) >= DUEL_REJECT_LIMIT) { flash(L(lang,"friendDuelBlocked")); return; } onDuel(openUid, prof?.displayName || f.name); }}
         style={{ width:"100%",padding:"13px 0",marginBottom:9,borderRadius:11,background:"linear-gradient(135deg,#34d399,#0d9488)",color:"#04231a",border:"none",fontSize:14,fontWeight:900,letterSpacing:2.5,cursor:"pointer",fontFamily:warrior }}>⚔ {L(lang,"friendDuel")}</button>
       <button onClick={async()=>{ await removeFriend(myUid, openUid); setOpenUid(null); }}
         style={{ width:"100%",padding:"11px 0",borderRadius:11,background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,fontSize:11,fontWeight:700,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior }}>{L(lang,"friendRemove")}</button>
@@ -3825,8 +3846,15 @@ function FriendsScreen({ myUid, myName, myAvatar, friends, requests, onlineMap, 
               <span style={{ display:"block",fontSize:9.5,fontFamily:mono,marginTop:2,color:online?"#34d399":t.textDim }}>{online ? L(lang,"friendOnline") : L(lang,"friendOffline")}</span>
             </span>
           </button>
-          <button onClick={()=>{ onDuel(f.uid, f.name); flash(L(lang,"friendDuelSent")); }} disabled={!online}
-            style={{ padding:"9px 12px",borderRadius:9,background:online?"linear-gradient(135deg,#34d399,#0d9488)":"rgba(255,255,255,0.04)",color:online?"#04231a":"#3d5163",border:online?"none":`1px solid ${t.border}`,fontSize:10.5,fontWeight:900,letterSpacing:1,cursor:online?"pointer":"not-allowed",fontFamily:warrior,flexShrink:0 }}>⚔ {L(lang,"friendDuel")}</button>
+          {(() => {
+            const blocked = duelRejects(f.uid) >= DUEL_REJECT_LIMIT;
+            const can = online && !blocked;
+            return (
+              <button onClick={()=>{ if (!can) { flash(blocked ? L(lang,"friendDuelBlocked") : L(lang,"friendOffline")); return; } onDuel(f.uid, f.name); }}
+                title={blocked ? L(lang,"friendDuelBlocked") : undefined}
+                style={{ padding:"9px 12px",borderRadius:9,background:can?"linear-gradient(135deg,#34d399,#0d9488)":"rgba(255,255,255,0.04)",color:can?"#04231a":"#3d5163",border:can?"none":`1px solid ${t.border}`,fontSize:10.5,fontWeight:900,letterSpacing:1,cursor:can?"pointer":"not-allowed",fontFamily:warrior,flexShrink:0 }}>{blocked ? "🚫" : "⚔"} {L(lang,"friendDuel")}</button>
+            );
+          })()}
         </div>
       );
     })}
@@ -4276,6 +4304,8 @@ export default function Game() {
   const [popupFriendReq, setPopupFriendReq] = useState(null);
   // Gönderilmiş ve yanıt bekleyen düello daveti — { uid, name, at }
   const [pendingDuel, setPendingDuel] = useState(null);
+  // Gelen daveti kabul/red için kalan saniye (alıcı tarafı)
+  const [inviteSecs, setInviteSecs] = useState(DUEL_WAIT_MS / 1000);
   const dismissFriendReqPopup = useCallback(() => {
     setPopupFriendReq(prev => { if (prev) dismissedReqsRef.current[prev.uid] = true; return null; });
   }, []);
@@ -5141,6 +5171,10 @@ export default function Game() {
                     NOTIF_TAG.invite);
         });
       }
+    }, (err) => {
+      // Okuma izni yoksa onValue sessizce ölür — bu, "davet gidiyor ama karşı taraf
+      // görmüyor" tablosunun en sık sebebidir. Hatayı ekrana taşı.
+      setFriendMsg("Davetler okunamıyor: " + (err?.code || err?.message || "bilinmeyen hata"));
     });
     return () => unsub();
   }, [authUid]);
@@ -5190,6 +5224,11 @@ export default function Game() {
   // tarafta ekranın ortasında kabul/red penceresi açılır ve kabul edilirse maç başlar.
   const duelFriend = useCallback(async (friendUid, friendName) => {
     if (!authUid || !friendUid || pendingDuel) return;
+    if (duelRejects(friendUid) >= DUEL_REJECT_LIMIT) {
+      setFriendMsg(L(appLang, "friendDuelBlocked"));
+      setTimeout(() => setFriendMsg(null), 3500);
+      return;
+    }
     try {
       await set(ref(db, `invites/${friendUid}/${authUid}`), {
         fromName: playerName || myProfile?.displayName || "Denizci",
@@ -5202,7 +5241,7 @@ export default function Game() {
       setFriendMsg("Davet gönderilemedi: " + (e?.code || e?.message || "bilinmeyen hata"));
       setTimeout(() => setFriendMsg(null), 5000);
     }
-  }, [authUid, playerName, myProfile, pendingDuel]);
+  }, [authUid, playerName, myProfile, pendingDuel, appLang]);
 
   // Gönderilen düello davetinin yanıtını dinle. ÖNEMLİ: yalnızca match_found'a
   // güvenmiyoruz — davetin kendi düğümündeki `status` alanını da izliyoruz. Salon
@@ -5216,26 +5255,42 @@ export default function Game() {
       if (d.status === "accepted" && d.roomId) {
         remove(ref(db, path)).catch(()=>{});
         remove(ref(db, `match_found/${authUid}`)).catch(()=>{});
+        resetDuelRejects(pendingDuel.uid);   // kabul geldi → üst üste red sayacı sıfırlanır
         setPendingDuel(null);
         setShowSettings(false); setSettingsView(null);
         sfx.init(); sfx.playPlacementMusic();
         handleOnlineChallenge(d.roomId, 1);
       } else if (d.status === "rejected") {
         remove(ref(db, path)).catch(()=>{});
+        const n = bumpDuelRejects(pendingDuel.uid);
         setPendingDuel(null);
-        setFriendMsg(L(appLang, "friendDuelRejected"));
-        setTimeout(() => setFriendMsg(null), 3000);
+        setFriendMsg(n >= DUEL_REJECT_LIMIT ? L(appLang, "friendDuelBlocked") : L(appLang, "friendDuelRejected"));
+        setTimeout(() => setFriendMsg(null), 3500);
       }
     });
-    // 60 saniye içinde yanıt gelmezse daveti geri çek — sonsuza kadar asılı kalmasın.
+    // 15 saniye içinde yanıt gelmezse daveti geri çek.
     const tm = setTimeout(() => {
       remove(ref(db, path)).catch(()=>{});
       setPendingDuel(null);
       setFriendMsg(L(appLang, "friendDuelTimeout"));
       setTimeout(() => setFriendMsg(null), 3000);
-    }, 60000);
+    }, DUEL_WAIT_MS);
     return () => { unsub(); clearTimeout(tm); };
   }, [pendingDuel, authUid, appLang, handleOnlineChallenge]);
+
+  // Gelen davet geri sayımı: davetin gönderilme anına göre kalan süreyi hesaplar,
+  // sıfırlanınca daveti ekrandan düşürür (gönderen taraf da aynı anda geri çekiyor).
+  useEffect(() => {
+    if (!incomingInvite) { setInviteSecs(DUEL_WAIT_MS / 1000); return; }
+    const calc = () => Math.max(0, Math.ceil((DUEL_WAIT_MS - (Date.now() - (incomingInvite.time || Date.now()))) / 1000));
+    setInviteSecs(calc());
+    const iv = setInterval(() => {
+      const left = calc();
+      setInviteSecs(left);
+      if (left <= 0) { setIncomingInvite(null); clearInterval(iv); }
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [incomingInvite]);
 
   const cancelPendingDuel = useCallback(() => {
     if (!pendingDuel || !authUid) return;
@@ -6078,7 +6133,7 @@ export default function Game() {
       {/* ═══ MEYDAN OKUMA ═══
           Arkadaş listesinden ya da salondan gelen düello daveti; ekranın tam ortasına,
           her ekranın üstüne düşer (ayarlar/arkadaş listesi açıkken bile). */}
-      {incomingInvite && !showOnlineLobby && ["lobby","idle"].includes(phase) && (
+      {incomingInvite && !showOnlineLobby && !DUEL_HIDE_PHASES.includes(phase) && (
         <div style={{ position:"fixed",inset:0,zIndex:9900,background:"radial-gradient(ellipse at 50% 45%, rgba(180,30,30,0.22) 0%, rgba(2,5,12,0.90) 62%, rgba(1,2,6,0.97) 100%)",backdropFilter:"blur(5px)",display:"flex",alignItems:"center",justifyContent:"center",padding:18,animation:"settingsFadeIn 0.22s ease-out" }}>
           <div style={{ position:"relative",width:"100%",maxWidth:360,textAlign:"center",background:"linear-gradient(160deg, rgba(30,14,14,0.99) 0%, rgba(16,10,12,0.99) 55%, rgba(8,6,10,0.99) 100%)",border:"2px solid #ff6b6b",borderRadius:20,padding:"24px 22px 22px",boxShadow:"0 0 70px rgba(255,71,87,0.35), 0 18px 50px rgba(0,0,0,0.65)",animation:"popIn 0.3s cubic-bezier(0.34,1.56,0.64,1)",overflow:"hidden" }}>
             {/* üst şerit */}
@@ -6092,7 +6147,11 @@ export default function Game() {
               {L(appLang,"challengeLine")((incomingInvite.fromName || "").toLocaleUpperCase(appLang==="en"?"en-US":"tr-TR"))}
             </div>
             <div style={{ fontSize:11.5,color:"#a98a8a",fontFamily:mono,marginTop:8,lineHeight:1.5,fontStyle:"italic" }}>{L(appLang,"challengeSub")}</div>
-            <div style={{ fontSize:12,color:t.gold,fontFamily:mono,margin:"12px 0 18px",display:"inline-flex",alignItems:"center",justifyContent:"center",gap:4 }}><Gem size={12} />{incomingInvite.fromGold || 0}</div>
+            <div style={{ fontSize:12,color:t.gold,fontFamily:mono,margin:"12px 0 14px",display:"inline-flex",alignItems:"center",justifyContent:"center",gap:4 }}><Gem size={12} />{incomingInvite.fromGold || 0}</div>
+            {/* 15 saniyelik geri sayım — süre dolunca davet kendiliğinden düşer */}
+            <div style={{ height:4,borderRadius:2,background:"rgba(0,0,0,0.5)",overflow:"hidden",marginBottom:16 }}>
+              <div style={{ height:"100%",width:`${(inviteSecs/(DUEL_WAIT_MS/1000))*100}%`,background:"linear-gradient(90deg,#b91c1c,#ff6b6b)",transition:"width 1s linear" }} />
+            </div>
             <button onClick={()=>{ sfx.init(); sfx.play('click'); acceptIncomingInvite(incomingInvite); }}
               style={{ width:"100%",padding:"15px 0",marginBottom:9,background:"linear-gradient(135deg,#ff6b6b,#b91c1c)",color:"#fff5f5",border:"none",borderRadius:12,fontSize:16,fontWeight:900,letterSpacing:2.5,cursor:"pointer",fontFamily:warrior,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.25), 0 6px 20px rgba(255,71,87,0.35)",animation:"btnBreath 1.6s ease-in-out infinite" }}>{L(appLang,"challengeAccept")}</button>
             <button onClick={()=>{ sfx.init(); sfx.play('click'); rejectIncomingInvite(incomingInvite); }}
@@ -6122,7 +6181,7 @@ export default function Game() {
       {/* ═══ ARKADAŞLIK İSTEĞİ ═══
           İstek geldiği anda ekranın ortasına düşer; burada kabul edilirse doğrudan
           listeye girer, "sonra bakarım" denirse Ayarlar → Arkadaşlarım'da beklemeye devam eder. */}
-      {popupFriendReq && !incomingInvite && !pendingDuel && !showOnlineLobby && ["lobby","idle"].includes(phase) && (
+      {popupFriendReq && !incomingInvite && !pendingDuel && !showOnlineLobby && !DUEL_HIDE_PHASES.includes(phase) && (
         <div style={{ position:"fixed",inset:0,zIndex:9880,background:"rgba(2,6,14,0.80)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:18,animation:"settingsFadeIn 0.22s ease-out" }}>
           <div style={{ width:"100%",maxWidth:340,textAlign:"center",background:"linear-gradient(160deg, rgba(10,30,28,0.99), rgba(6,16,20,0.99))",border:"2px solid #34d399",borderRadius:20,padding:"24px 22px 20px",boxShadow:"0 0 60px rgba(52,211,153,0.3), 0 18px 50px rgba(0,0,0,0.6)",animation:"popIn 0.28s cubic-bezier(0.34,1.56,0.64,1)" }}>
             <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:8,fontSize:11,fontWeight:900,color:"#34d399",letterSpacing:3.5,fontFamily:warrior,marginBottom:14 }}><PeopleIcon size={15} /> {L(appLang,"friendReqTag")}</div>
