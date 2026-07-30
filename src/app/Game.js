@@ -626,6 +626,12 @@ const TRANSLATIONS = {
     friendDuelSent: "Düello daveti gönderildi — yanıt bekleniyor",
     friendProfile: "PROFİL", friendSince: "Arkadaşlık",
     notifFriendReqTitle: "Yeni arkadaşlık isteği 👥", notifFriendReqBody: (n) => `${n} seni arkadaş olarak eklemek istiyor.`,
+    challengeTag: "MEYDAN OKUMA", challengeLine: (n) => `${n} SANA MEYDAN OKUYOR!`,
+    challengeSub: "Toplar dolu, yelkenler açık. Kaçacak deliğin yok.",
+    challengeAccept: "MEYDANA ÇIK", challengeRefuse: "BUGÜN DEĞİL",
+    friendReqTag: "ARKADAŞLIK İSTEĞİ", friendReqLine: (n) => `${n} seninle arkadaş olmak istiyor`,
+    friendReqSub: "Kabul edersen listene eklenir, istediğinde düello atabilirsin.",
+    friendReqLater: "SONRA BAKARIM",
     notifVoyageTitle: "Gemin limana döndü! ⚓", notifVoyageBody: "Ambarlar dolu — ganimetini almayı bekliyor.",
     notifCannonTitle: "Günlük top hazır! 💥", notifCannonBody: "İpi çek, bugünkü ödülünü ateşle.",
     notifInviteTitle: "Düello daveti! ⚔", notifInviteBody: (n) => `${n} seni maça çağırıyor.`,
@@ -719,6 +725,12 @@ const TRANSLATIONS = {
     friendDuelSent: "Duel invite sent — waiting for a reply",
     friendProfile: "PROFILE", friendSince: "Friends since",
     notifFriendReqTitle: "New friend request 👥", notifFriendReqBody: (n) => `${n} wants to add you as a friend.`,
+    challengeTag: "CHALLENGE", challengeLine: (n) => `${n} IS CHALLENGING YOU!`,
+    challengeSub: "Cannons loaded, sails up. Nowhere left to run.",
+    challengeAccept: "TAKE THE FIELD", challengeRefuse: "NOT TODAY",
+    friendReqTag: "FRIEND REQUEST", friendReqLine: (n) => `${n} wants to be your friend`,
+    friendReqSub: "Accept and they join your list — duel them whenever you like.",
+    friendReqLater: "LATER",
     notifVoyageTitle: "Your ship is back in port! ⚓", notifVoyageBody: "The holds are full — your loot is waiting.",
     notifCannonTitle: "Daily cannon ready! 💥", notifCannonBody: "Pull the rope and fire today's reward.",
     notifInviteTitle: "Duel invite! ⚔", notifInviteBody: (n) => `${n} is challenging you to a match.`,
@@ -3823,6 +3835,13 @@ export default function Game() {
   const [friendReqs, setFriendReqs] = useState({});    // { uid: {fromName, fromAvatar, time} }
   const [onlineMap, setOnlineMap] = useState({});      // { uid: true }  — çevrimiçi arkadaşlar
   const [friendMsg, setFriendMsg] = useState(null);    // kısa geri bildirim yazısı
+  // Ekranın ortasına düşen arkadaşlık isteği penceresi. "Sonra bakarım" denen istekler
+  // bu oturumda bir daha açılmaz ama Ayarlar → Arkadaşlarım'da beklemeye devam eder.
+  const dismissedReqsRef = useRef({});
+  const [popupFriendReq, setPopupFriendReq] = useState(null);
+  const dismissFriendReqPopup = useCallback(() => {
+    setPopupFriendReq(prev => { if (prev) dismissedReqsRef.current[prev.uid] = true; return null; });
+  }, []);
   const [selectedArena, setSelectedArena] = useState(null);
   const [showArenaSelect, setShowArenaSelect] = useState(false);
   const [goldChange, setGoldChange] = useState(null);
@@ -4670,7 +4689,11 @@ export default function Game() {
       if (!snap.exists()) { setIncomingInvite(null); return; }
       let found = null;
       snap.forEach(child => { const d = child.val(); if (d && d.status === "pending" && !found) found = { id: child.key, ...d }; });
-      setIncomingInvite(found);
+      setIncomingInvite(prev => {
+        // Yeni bir meydan okuma geldiyse sesli uyar — pencere kaçırılmasın.
+        if (found && (!prev || prev.id !== found.id)) { try { sfx.init(); sfx.playVoice('explosion'); } catch (e) {} }
+        return found;
+      });
       // BİLDİRİM 3 — düello daveti. Yalnızca uygulama arka plandayken; ekrana bakarken
       // zaten davet penceresi açılıyor, üstüne bildirim atmak gürültü olurdu.
       if (found && typeof document !== "undefined" && document.visibilityState === "hidden") {
@@ -4693,6 +4716,16 @@ export default function Game() {
     const uR = onValue(ref(db, `friend_requests/${authUid}`), s => {
       const val = s.exists() ? s.val() : {};
       setFriendReqs(val);
+      // Ekran ortası penceresi: kapatılmamış en yeni isteği göster.
+      const fresh = Object.entries(val)
+        .filter(([uid]) => !dismissedReqsRef.current[uid])
+        .sort((a, b) => (b[1]?.time || 0) - (a[1]?.time || 0))[0];
+      setPopupFriendReq(prev => {
+        if (!fresh) return null;
+        if (prev && prev.uid === fresh[0]) return prev;
+        try { sfx.init(); sfx.play('click'); } catch (e) {}
+        return { uid: fresh[0], ...fresh[1] };
+      });
       // Yeni istek geldiğinde bildirim (uygulama arka plandayken).
       if (typeof document !== "undefined" && document.visibilityState === "hidden") {
         Object.entries(val).forEach(([uid, d]) => {
@@ -4779,6 +4812,7 @@ export default function Game() {
     await update(ref(db, `invites/${authUid}/${invite.id}`), { status: "accepted", roomId });
     setTimeout(() => remove(ref(db, `invites/${authUid}/${invite.id}`)), 3000);
     setIncomingInvite(null);
+    setShowSettings(false); setSettingsView(null);   // arkadaş listesinden geldiyse paneli kapat
     sfx.init(); sfx.playPlacementMusic();
     handleOnlineChallenge(roomId, 2);
   };
@@ -5315,6 +5349,12 @@ export default function Game() {
     <>
       {/* Davet mesajı penceresi — tüm ekranlarda tek örnek; shareGame() bunu açar */}
       <InviteComposer />
+      {/* Arkadaşlık geri bildirimi (istek gönderildi / düello daveti gönderildi) — her ekranda görünsün */}
+      {friendMsg && (
+        <div style={{ position:"fixed",bottom:"calc(18px + env(safe-area-inset-bottom,0px))",left:0,right:0,display:"flex",justifyContent:"center",zIndex:9950,pointerEvents:"none",padding:"0 16px" }}>
+          <span style={{ background:"rgba(6,12,22,0.96)",border:"1px solid rgba(52,211,153,0.5)",color:"#34d399",borderRadius:10,padding:"10px 16px",fontSize:11.5,fontFamily:mono,textAlign:"center",boxShadow:"0 6px 20px rgba(0,0,0,0.5)",animation:"fadeUp 0.3s ease-out" }}>{friendMsg}</span>
+        </div>
+      )}
       <div style={{ position:"fixed",top:"calc(10px + env(safe-area-inset-top, 0px))",right:14,zIndex:9500,display:"flex",alignItems:"center",gap:6 }}>
         {phase === "lobby" && <button onClick={()=>{ sfx.init(); sfx.play('click'); shareGame(appLang); }} title={L(appLang,"inviteBtn")} style={{ width:26,height:26,borderRadius:7,background:"rgba(37,211,102,0.10)",border:"1px solid rgba(37,211,102,0.4)",fontSize:12,cursor:"pointer",color:"#25d366",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}><PeopleIcon size={14} /></button>}
         {phase === "lobby" && <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowLeaderboard(true); }} title={L(appLang,"leaderboardTitle")} style={{ width:26,height:26,borderRadius:7,background:"rgba(255,215,0,0.10)",border:"1px solid rgba(255,215,0,0.4)",fontSize:12,cursor:"pointer",color:t.gold,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>🏆</button>}
@@ -5510,19 +5550,47 @@ export default function Game() {
           </div>
         </div>
       )}
-      {/* DÜELLO DAVETİ — ekranın tam ortasında, kaçırılması imkânsız tam ekran pencere.
-          Arkadaş listesinden gelen davet de buraya düşer (aynı invites altyapısı). */}
-      {incomingInvite && phase === "lobby" && !showOnlineLobby && (
-        <div style={{ position:"fixed",inset:0,zIndex:9650,background:"rgba(2,6,14,0.78)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:18,animation:"settingsFadeIn 0.22s ease-out" }}>
-          <div style={{ width:"100%",maxWidth:360,textAlign:"center",background:"linear-gradient(160deg, rgba(12,26,36,0.99), rgba(6,14,24,0.99))",border:"2px solid #34d399",borderRadius:20,padding:"26px 22px 22px",boxShadow:"0 0 60px rgba(52,211,153,0.35), 0 18px 50px rgba(0,0,0,0.6)",animation:"popIn 0.28s cubic-bezier(0.34,1.56,0.64,1)" }}>
-            <div style={{ fontSize:12,fontWeight:900,color:"#34d399",letterSpacing:3,fontFamily:warrior,marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:7 }}>⚡ {L(appLang,"duelInvite")}</div>
-            <span style={{ width:64,height:64,borderRadius:"50%",background:"rgba(52,211,153,0.12)",border:"2px solid rgba(52,211,153,0.5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,margin:"0 auto 10px" }}>{friends[incomingInvite.id]?.avatar || "⚓"}</span>
-            <div style={{ fontSize:20,fontWeight:900,color:t.text,fontFamily:warrior,letterSpacing:1.5 }}>{incomingInvite.fromName}</div>
-            <div style={{ fontSize:12,color:t.textDim,fontFamily:mono,marginTop:6,marginBottom:6 }}>{L(appLang,"wantsToPlayMsg")}</div>
-            <div style={{ fontSize:12,color:t.gold,fontFamily:mono,marginBottom:18,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:4 }}><Gem size={12} />{incomingInvite.fromGold || 0}</div>
-            <div style={{ display:"flex",gap:10 }}>
-              <button onClick={()=>acceptIncomingInvite(incomingInvite)} style={{ flex:1,padding:"14px 0",background:"linear-gradient(135deg,#34d399,#0d9488)",color:"#04231a",border:"none",borderRadius:11,fontSize:15,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"acceptFullBtn")}</button>
-              <button onClick={()=>rejectIncomingInvite(incomingInvite)} style={{ flex:"0 0 auto",padding:"14px 20px",background:"transparent",color:t.hit,border:`1px solid ${t.hit}`,borderRadius:11,fontSize:13,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"reject")}</button>
+      {/* ═══ MEYDAN OKUMA ═══
+          Arkadaş listesinden ya da salondan gelen düello daveti; ekranın tam ortasına,
+          her ekranın üstüne düşer (ayarlar/arkadaş listesi açıkken bile). */}
+      {incomingInvite && !showOnlineLobby && ["lobby","idle"].includes(phase) && (
+        <div style={{ position:"fixed",inset:0,zIndex:9900,background:"radial-gradient(ellipse at 50% 45%, rgba(180,30,30,0.22) 0%, rgba(2,5,12,0.90) 62%, rgba(1,2,6,0.97) 100%)",backdropFilter:"blur(5px)",display:"flex",alignItems:"center",justifyContent:"center",padding:18,animation:"settingsFadeIn 0.22s ease-out" }}>
+          <div style={{ position:"relative",width:"100%",maxWidth:360,textAlign:"center",background:"linear-gradient(160deg, rgba(30,14,14,0.99) 0%, rgba(16,10,12,0.99) 55%, rgba(8,6,10,0.99) 100%)",border:"2px solid #ff6b6b",borderRadius:20,padding:"24px 22px 22px",boxShadow:"0 0 70px rgba(255,71,87,0.35), 0 18px 50px rgba(0,0,0,0.65)",animation:"popIn 0.3s cubic-bezier(0.34,1.56,0.64,1)",overflow:"hidden" }}>
+            {/* üst şerit */}
+            <div style={{ position:"absolute",top:0,left:0,right:0,height:3,background:"linear-gradient(90deg,transparent,#ff6b6b,transparent)" }} />
+            <div style={{ fontSize:11,fontWeight:900,color:"#ff8f8f",letterSpacing:5,fontFamily:warrior,marginBottom:14 }}>⚔ {L(appLang,"challengeTag")} ⚔</div>
+            <div style={{ position:"relative",width:74,height:74,margin:"0 auto 12px" }}>
+              <span style={{ position:"absolute",inset:-8,borderRadius:"50%",background:"radial-gradient(circle, rgba(255,107,107,0.35) 0%, transparent 70%)",animation:"modeGlowPulse 1.8s ease-in-out infinite",pointerEvents:"none" }} />
+              <span style={{ position:"relative",width:74,height:74,borderRadius:"50%",background:"rgba(255,107,107,0.10)",border:"2px solid rgba(255,107,107,0.6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:34 }}>{friends[incomingInvite.id]?.avatar || "⚓"}</span>
+            </div>
+            <div style={{ fontSize:19,fontWeight:900,color:"#ffe3e3",fontFamily:warrior,letterSpacing:1.5,lineHeight:1.2,textShadow:"0 0 22px rgba(255,71,87,0.5)" }}>
+              {L(appLang,"challengeLine")((incomingInvite.fromName || "").toLocaleUpperCase(appLang==="en"?"en-US":"tr-TR"))}
+            </div>
+            <div style={{ fontSize:11.5,color:"#a98a8a",fontFamily:mono,marginTop:8,lineHeight:1.5,fontStyle:"italic" }}>{L(appLang,"challengeSub")}</div>
+            <div style={{ fontSize:12,color:t.gold,fontFamily:mono,margin:"12px 0 18px",display:"inline-flex",alignItems:"center",justifyContent:"center",gap:4 }}><Gem size={12} />{incomingInvite.fromGold || 0}</div>
+            <button onClick={()=>{ sfx.init(); sfx.play('click'); acceptIncomingInvite(incomingInvite); }}
+              style={{ width:"100%",padding:"15px 0",marginBottom:9,background:"linear-gradient(135deg,#ff6b6b,#b91c1c)",color:"#fff5f5",border:"none",borderRadius:12,fontSize:16,fontWeight:900,letterSpacing:2.5,cursor:"pointer",fontFamily:warrior,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.25), 0 6px 20px rgba(255,71,87,0.35)",animation:"btnBreath 1.6s ease-in-out infinite" }}>{L(appLang,"challengeAccept")}</button>
+            <button onClick={()=>{ sfx.init(); sfx.play('click'); rejectIncomingInvite(incomingInvite); }}
+              style={{ width:"100%",padding:"11px 0",background:"transparent",color:"#8a7070",border:"1px solid rgba(255,107,107,0.28)",borderRadius:12,fontSize:11.5,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"challengeRefuse")}</button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ ARKADAŞLIK İSTEĞİ ═══
+          İstek geldiği anda ekranın ortasına düşer; burada kabul edilirse doğrudan
+          listeye girer, "sonra bakarım" denirse Ayarlar → Arkadaşlarım'da beklemeye devam eder. */}
+      {popupFriendReq && !incomingInvite && !showOnlineLobby && ["lobby","idle"].includes(phase) && (
+        <div style={{ position:"fixed",inset:0,zIndex:9880,background:"rgba(2,6,14,0.80)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:18,animation:"settingsFadeIn 0.22s ease-out" }}>
+          <div style={{ width:"100%",maxWidth:340,textAlign:"center",background:"linear-gradient(160deg, rgba(10,30,28,0.99), rgba(6,16,20,0.99))",border:"2px solid #34d399",borderRadius:20,padding:"24px 22px 20px",boxShadow:"0 0 60px rgba(52,211,153,0.3), 0 18px 50px rgba(0,0,0,0.6)",animation:"popIn 0.28s cubic-bezier(0.34,1.56,0.64,1)" }}>
+            <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:8,fontSize:11,fontWeight:900,color:"#34d399",letterSpacing:3.5,fontFamily:warrior,marginBottom:14 }}><PeopleIcon size={15} /> {L(appLang,"friendReqTag")}</div>
+            <span style={{ width:62,height:62,borderRadius:"50%",background:"rgba(52,211,153,0.10)",border:"2px solid rgba(52,211,153,0.5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,margin:"0 auto 12px" }}>{popupFriendReq.fromAvatar || "⚓"}</span>
+            <div style={{ fontSize:15,fontWeight:900,color:"#dff5ec",fontFamily:warrior,letterSpacing:1.2,lineHeight:1.3 }}>{L(appLang,"friendReqLine")(popupFriendReq.fromName || "Bir denizci")}</div>
+            <div style={{ fontSize:11,color:"#6f9187",fontFamily:mono,marginTop:8,marginBottom:18,lineHeight:1.5 }}>{L(appLang,"friendReqSub")}</div>
+            <div style={{ display:"flex",gap:9 }}>
+              <button onClick={async()=>{ sfx.init(); sfx.play('click'); const u = popupFriendReq.uid; dismissFriendReqPopup(); await acceptFriendRequest(authUid, u, popupFriendReq, playerName || myProfile?.displayName, myProfile?.avatar); }}
+                style={{ flex:1,padding:"13px 0",background:"linear-gradient(135deg,#34d399,#0d9488)",color:"#04231a",border:"none",borderRadius:11,fontSize:14,fontWeight:900,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"friendAccept")}</button>
+              <button onClick={()=>{ sfx.init(); sfx.play('click'); dismissFriendReqPopup(); }}
+                style={{ flex:"0 0 auto",padding:"13px 15px",background:"transparent",color:"#54697a",border:`1px solid ${t.border}`,borderRadius:11,fontSize:11,fontWeight:700,letterSpacing:1.2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"friendReqLater")}</button>
             </div>
           </div>
         </div>
@@ -6830,19 +6898,24 @@ export default function Game() {
 
   const retryQuickMatch = () => { startQuickMatch(lastQuickMatchArenaRef.current); };
 
-  // HAZIRIM diyen oyuncu ana ekrandayken de yakalanabilsin — global match_found dinleyicisi
+  // Lobide olan HERKES için global match_found dinleyicisi.
+  // ÖNEMLİ: eskiden `readyToPlay` şartı vardı — bu yüzden arkadaş listesinden düello atan
+  // oyuncu, karşı taraf daveti kabul etse bile odaya ALINMIYORDU (davet gidiyor, maç
+  // başlamıyordu). Artık lobide olmak yeterli; hızlı eşleşme akışının kendi dinleyicisiyle
+  // çakışmasın diye sadece `matchmaking` sürerken devre dışı kalıyor.
   useEffect(() => {
-    if (phase !== "lobby" || !authUid || !readyToPlay) return;
+    if (phase !== "lobby" || !authUid || matchmaking) return;
     const unsub = onValue(ref(db, `match_found/${authUid}`), async snap => {
       if (!snap.exists()) return;
       const d = snap.val(); if (!d.roomId) return;
       // Salvo/Tersane maçları kendi başlatıcıları tarafından yönetilir — global akış karışmasın
       try { const rs = await get(ref(db, `rooms/${d.roomId}`)); const rm = rs.val()?.mode; if (rm === "salvo" || rm === "tersane") return; } catch (e) {}
       remove(ref(db, `match_found/${authUid}`)).catch(() => {});
+      setShowSettings(false); setSettingsView(null);   // ayarlar/arkadaş listesi açıksa kapat
       handleOnlineChallenge(d.roomId, d.playerNum || 2);
     });
     return () => unsub();
-  }, [phase, authUid, readyToPlay]);
+  }, [phase, authUid, matchmaking]);
 
   // Tek kaynaklı ölçü sistemi: her ekranda aynı kenar boşluğu ve aynı içerik genişliği.
   const appStyle = { minHeight: "100vh", minHeight: "100dvh", width: "100%", maxWidth: "100%", background: t.bg, color: t.text, fontFamily: mono, display: "flex", flexDirection: "column", alignItems: "center", padding: "12px clamp(10px, 4vw, 16px) 24px", boxSizing: "border-box", overflowX: "hidden" };
@@ -7362,7 +7435,7 @@ export default function Game() {
   if (showDifferentWaters) return <><style>{ANIMS}</style><DifferentWaters onBack={() => setShowDifferentWaters(false)} onPlaySalvo={() => { setShowDifferentWaters(false); startSalvoOnline(); }} onPlayKusatma={() => { setShowDifferentWaters(false); setShowSiegeLobby(true); }} onPlayTersane={() => { setShowDifferentWaters(false); startTersaneOnline(); }} lang={appLang} /></>;
   if (showArenaSelect) return <><style>{ANIMS}</style><ArenaSelect myGold={myProfile?.gold || 0} onBack={() => setShowArenaSelect(false)} onSelect={(arena) => { setSelectedArena(arena); setShowArenaSelect(false); startQuickMatch(arena); }} lang={appLang} /></>;
   if (showSiegeLobby) return <><style>{ANIMS}</style><SiegeLobby myUid={authUid} myName={playerName} myAvatar={myProfile?.avatar} onBack={() => setShowSiegeLobby(false)} onStart={(payload) => { setShowSiegeLobby(false); const humans = [0,1,2].filter(i => payload.seats && payload.seats[String(i)]).length; if (humans >= 2) startSiegeOnline(payload); else { if (payload.roomId) remove(ref(db, `siege_rooms/${payload.roomId}`)).catch(() => {}); startSiegeBotGame(); } }} lang={appLang} /></>;
-  if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myGold={myProfile?.gold} onBack={() => setShowOnlineLobby(false)} onChallenge={handleOnlineChallenge} ready={readyToPlay} onToggleReady={()=>setReadyToPlay(v=>!v)} lang={appLang} friends={friends} friendReqs={friendReqs} onAddFriend={addFriend} />{friendMsg && <div style={{ position:"fixed",bottom:"calc(18px + env(safe-area-inset-bottom,0px))",left:0,right:0,display:"flex",justifyContent:"center",zIndex:9700,pointerEvents:"none" }}><span style={{ background:"rgba(6,12,22,0.95)",border:"1px solid rgba(52,211,153,0.5)",color:"#34d399",borderRadius:10,padding:"9px 16px",fontSize:11.5,fontFamily:mono,boxShadow:"0 6px 20px rgba(0,0,0,0.5)" }}>{friendMsg}</span></div>}</>;
+  if (showOnlineLobby) return <><style>{ANIMS}</style><OnlineLobby myUid={authUid} myName={playerName} myGold={myProfile?.gold} onBack={() => setShowOnlineLobby(false)} onChallenge={handleOnlineChallenge} ready={readyToPlay} onToggleReady={()=>setReadyToPlay(v=>!v)} lang={appLang} friends={friends} friendReqs={friendReqs} onAddFriend={addFriend} />{friendMsg && <div style={{ position:"fixed",bottom:"calc(18px + env(safe-area-inset-bottom,0px))",left:0,right:0,display:"flex",justifyContent:"center",zIndex:9950,pointerEvents:"none",padding:"0 16px" }}><span style={{ background:"rgba(6,12,22,0.96)",border:"1px solid rgba(52,211,153,0.5)",color:"#34d399",borderRadius:10,padding:"10px 16px",fontSize:11.5,fontFamily:mono,textAlign:"center",boxShadow:"0 6px 20px rgba(0,0,0,0.5)" }}>{friendMsg}</span></div>}</>;
 
   if (phase === "gameover") {
     if (showReview) return <BoardReview defenseBoard={defenseBoard} shipColorMap={shipColorMap} defenseOverlay={defenseOverlay} attackOverlay={attackOverlay} oppShipsData={oppShipsData} myShipsData={myShipsData} defHitMap={defHitMap} atkHitMap={atkHitMap} cellSize={cellSize} onBack={() => setShowReview(false)} lang={appLang} />;
