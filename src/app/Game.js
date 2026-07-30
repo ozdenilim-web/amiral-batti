@@ -7455,8 +7455,9 @@ export default function Game() {
 
   // === TEK SALVO — açılış: iki taraf da aynı anda görünür, çok vuran kazanır ===
   if (phase === "salvoreveal") {
-    // Salvo kendi bitiş ekranını kullanır — KAZANDIN/KAYBETTİN penceresi buradan gelir
-    if (soloBurst) return (<><style>{ANIMS}</style><ResultBurst isWin={soloBurst.isWin} lang={appLang} /></>);
+    // TEK SABİT SAYFA: sonuç ekranı. Eskiden önce tam ekran ZAFER/BOZGUN yazısı (ResultBurst)
+    // açılıp sonra bu sayfa geliyordu — aynı yazı iki kez görünüyordu. Artık doğrudan
+    // sonuç ekranı açılır, başlık bu sayfanın tepesinde (daha küçük) yer alır.
     if (!salvoResult) {
       return (<div style={{ ...appStyle, justifyContent:"center", alignItems:"center" }}><style>{ANIMS}</style>
         <button onClick={resetGame} style={{ padding:"14px 36px",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:10,fontSize:14,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior }}>🏠 {L(appLang,"homeBtn")}</button>
@@ -7468,12 +7469,21 @@ export default function Game() {
     const titleText = won ? L(appLang,"victory") : draw ? (appLang==="en"?"DRAW":"BERABERE") : L(appLang,"defeat");
     const sweepColor = won ? t.gold : draw ? "#67e8f9" : t.hit;
     const panelBorder = won ? "rgba(255,215,0,0.35)" : draw ? "rgba(103,232,249,0.35)" : "rgba(255,71,87,0.35)";
+    // Üç alt buton (YENİ OYUN / ARKADAŞINI DAVET ET / ANA SAYFA) aynı ölçüde ve ortalı.
+    // Yalnızca renkleri farklı; yazı boyutu iki katına çıkarıldı.
+    const salvoBtn = { width:"100%",maxWidth:330,minHeight:60,marginTop:12,padding:"10px 14px",borderRadius:12,fontSize:24,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",gap:8,boxSizing:"border-box",lineHeight:1.05 };
+    // Tahtanın yanındaki kimlik/istatistik sütunu — 1.5 kat büyütüldü, tahtaya göre
+    // hem dikey hem yatay ortalandı. Elmas satırı ayrıca 3 kat büyük.
+    const idCol = { display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:5,flexShrink:0,width:86,alignSelf:"center" };
+    const idAvatar = { width:54,height:54,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26 };
+    const idLine = { fontSize:13,fontWeight:800,fontFamily:mono };
+    const idGem = { fontSize:30,fontWeight:900,color:t.gold,fontFamily:mono,textShadow:`0 0 10px ${t.goldGlow}`,display:"inline-flex",alignItems:"center",gap:5,lineHeight:1 };
     return (<div style={{ ...appStyle, justifyContent:"flex-start", paddingTop:"calc(10px + env(safe-area-inset-top, 0px))" }}><style>{ANIMS}</style>
       {/* AR patlamalı, harf harf çöken destansı başlık — mevcut oyun sonu ekranıyla AYNI teknik, biraz büyütülmüş */}
       <div style={{ position:"relative",marginBottom:12,marginTop:6,animation:"arSlideIn 0.7s cubic-bezier(0.22,1,0.36,1) both",transformStyle:"preserve-3d" }}>
         <div style={{ display:"flex",justifyContent:"center",gap:"clamp(2px, 1.4vw, 7px)",perspective:"500px",maxWidth:"100%" }}>
           {titleText.split("").map((ch,i) => (
-            <span key={i} style={{ fontSize:"clamp(36px, 12vw, 60px)",fontWeight:900,fontFamily:warrior,lineHeight:1,display:"inline-block",textTransform:"uppercase",
+            <span key={i} style={{ fontSize:"clamp(26px, 8.5vw, 42px)",fontWeight:900,fontFamily:warrior,lineHeight:1,display:"inline-block",textTransform:"uppercase",
               animation:`goLetter 0.55s cubic-bezier(0.34,1.56,0.64,1) ${0.15+i*0.08}s both${won?`, goFloat 2.6s ease-in-out ${1+i*0.15}s infinite`:""}`,
               ...(won
                 ? { background:"linear-gradient(180deg,#fffbe0 0%,#ffe066 26%,#ffd700 50%,#b45309 72%,#ffe066 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 4px 0 rgba(110,55,0,0.6)) drop-shadow(0 0 28px rgba(255,215,0,0.7)) drop-shadow(0 12px 24px rgba(0,0,0,0.8))" }
@@ -7502,12 +7512,12 @@ export default function Game() {
         <div style={{ position:"absolute",left:0,right:0,height:3,zIndex:5,pointerEvents:"none",background:`linear-gradient(90deg, transparent, ${sweepColor}, transparent)`,boxShadow:`0 0 18px 4px ${sweepColor}`,animation:"radarSweepLine 2.2s linear both" }} />
         <div style={{ animation:"mapReveal 2.2s linear both" }}>
           <div style={{ fontSize:11,fontWeight:800,color:t.accent,marginBottom:6,textAlign:"center",letterSpacing:2,fontFamily:warrior }}>{appLang==="en"?"YOUR SHOTS":"SENİN ATIŞLARIN"}</div>
-          <div style={{ display:"flex",alignItems:"flex-start",justifyContent:"center",gap:10 }}>
-            <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:3,flexShrink:0,width:52,paddingTop:8 }}>
-              <span style={{ width:36,height:36,borderRadius:"50%",background:`${t.accent}22`,border:`2px solid ${t.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,boxShadow:`0 0 12px ${t.accentGlow}` }}>{myProfile?.avatar || "⚓"}</span>
-              <span style={{ fontSize:9,fontWeight:800,color:t.accent,fontFamily:mono }}>Lv{myProfile?.level || 0}</span>
-              <span style={{ fontSize:9,fontWeight:800,color:"#c084fc",fontFamily:mono }}>🎖{migrateHonor(myProfile)}</span>
-              <span style={{ fontSize:10,fontWeight:900,color:t.gold,fontFamily:mono,textShadow:`0 0 6px ${t.goldGlow}`,display:"inline-flex",alignItems:"center",gap:3 }}><Gem size={11} />{salvoMyGoldAnim}</span>
+          <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>
+            <div style={idCol}>
+              <span style={{ ...idAvatar,background:`${t.accent}22`,border:`2px solid ${t.accent}`,boxShadow:`0 0 12px ${t.accentGlow}` }}>{myProfile?.avatar || "⚓"}</span>
+              <span style={{ ...idLine,color:t.accent }}>Lv{myProfile?.level || 0}</span>
+              <span style={{ ...idLine,color:"#c084fc" }}>🎖{migrateHonor(myProfile)}</span>
+              <span style={idGem}><Gem size={30} />{salvoMyGoldAnim}</span>
             </div>
             <Grid board={emptyGrid()} cellSize={revealCell} overlay={myOverlay} disabled revealSweepMs={2200} />
           </div>
@@ -7517,12 +7527,12 @@ export default function Game() {
             <div style={{ flex:1,height:1,background:`linear-gradient(270deg,transparent,${sweepColor}88)` }} />
           </div>
           <div style={{ fontSize:11,fontWeight:800,color:t.hit,marginBottom:6,textAlign:"center",letterSpacing:2,fontFamily:warrior }}>{(opponentName||(appLang==="en"?"OPPONENT":"RAKİP")).toUpperCase()} {appLang==="en"?"SHOTS":"ATIŞLARI"}</div>
-          <div style={{ display:"flex",alignItems:"flex-start",justifyContent:"center",gap:10 }}>
-            <div style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:3,flexShrink:0,width:52,paddingTop:8 }}>
-              <span style={{ width:36,height:36,borderRadius:"50%",background:`${t.hit}22`,border:`2px solid ${t.hit}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,boxShadow:`0 0 12px ${t.hitGlow}` }}>🤖</span>
-              <span style={{ fontSize:9,fontWeight:800,color:t.hit,fontFamily:mono }}>Lv{botStats.level}</span>
-              <span style={{ fontSize:9,fontWeight:800,color:"#c084fc",fontFamily:mono }}>🎖{botStats.honor}</span>
-              <span style={{ fontSize:10,fontWeight:900,color:t.gold,fontFamily:mono,textShadow:`0 0 6px ${t.goldGlow}`,display:"inline-flex",alignItems:"center",gap:3 }}><Gem size={11} />{salvoBotGoldAnim}</span>
+          <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>
+            <div style={idCol}>
+              <span style={{ ...idAvatar,background:`${t.hit}22`,border:`2px solid ${t.hit}`,boxShadow:`0 0 12px ${t.hitGlow}` }}>🤖</span>
+              <span style={{ ...idLine,color:t.hit }}>Lv{botStats.level}</span>
+              <span style={{ ...idLine,color:"#c084fc" }}>🎖{botStats.honor}</span>
+              <span style={idGem}><Gem size={30} />{salvoBotGoldAnim}</span>
             </div>
             <Grid board={emptyGrid()} cellSize={revealCell} overlay={oppOverlay} disabled revealSweepMs={2200} />
           </div>
@@ -7531,12 +7541,12 @@ export default function Game() {
       {goldChange && (won || draw) && <div style={{ fontSize:14,fontWeight:800,color:t.gold,marginTop:14,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}`,display:"flex",alignItems:"center",justifyContent:"center",gap:4 }}>{goldChange.refund ? <>↩ {goldChange.amount} <Gem size={13} /> {appLang==="en"?"REFUNDED":"İADE"}</> : <>+{goldChange.amount} <Gem size={13} /></>}</div>}
       {!won && !draw && <div style={{ fontSize:13,fontWeight:800,color:t.hit,marginTop:14,fontFamily:warrior,letterSpacing:1,animation:"goldDrain 1.4s ease-out both",display:"flex",alignItems:"center",justifyContent:"center",gap:4 }}>-{SALVO_ANTE} <Gem size={12} /></div>}
       {/* Tek buton: doğrudan yeni bir maça sokar (hazır olan biriyle) — "aynı kişiye tekrar davet et" gibi ayrı bir akış yok. */}
-      <button onClick={replaySalvo} style={{ marginTop:18,padding:"13px 40px",background:`linear-gradient(135deg,${t.gold},#d97706)`,color:t.bg,border:"none",borderRadius:12,fontSize:15,fontWeight:900,letterSpacing:3,cursor:"pointer",fontFamily:warrior,boxShadow:`0 4px 24px ${t.goldGlow}`,animation:"borderGlow 1.8s infinite",display:"flex",flexDirection:"column",alignItems:"center",gap:2 }}>
+      <button onClick={replaySalvo} style={{ ...salvoBtn,flexDirection:"column",gap:3,background:`linear-gradient(135deg,${t.gold},#d97706)`,color:t.bg,border:"none",boxShadow:`0 4px 24px ${t.goldGlow}`,animation:"borderGlow 1.8s infinite" }}>
         <span>⚔ {appLang==="en"?"NEW GAME":"YENİ OYUN"}</span>
-        <span style={{ fontSize:9,fontWeight:700,letterSpacing:1,opacity:0.75,display:"inline-flex",alignItems:"center",gap:3 }}>{appLang==="en"?"Entry":"Giriş"} {SALVO_ANTE} <Gem size={9} /></span>
+        <span style={{ fontSize:13,fontWeight:700,letterSpacing:1,opacity:0.75,display:"inline-flex",alignItems:"center",gap:4 }}>{appLang==="en"?"Entry":"Giriş"} {SALVO_ANTE} <Gem size={13} /></span>
       </button>
-      <button onClick={() => shareGame(appLang)} style={{ marginTop:10,padding:"11px 28px",background:"linear-gradient(135deg,rgba(37,211,102,0.16),rgba(18,140,62,0.10))",color:"#25d366",border:"2px solid rgba(37,211,102,0.45)",borderRadius:10,fontSize:12,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}><PeopleIcon size={16} /> {L(appLang,"inviteBtn")}</button>
-      <button onClick={resetGame} style={{ marginTop:10,marginBottom:24,padding:"10px 28px",background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:10,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>🏠 {L(appLang,"homeBtn")}</button>
+      <button onClick={() => shareGame(appLang)} style={{ ...salvoBtn,background:"linear-gradient(135deg,rgba(37,211,102,0.16),rgba(18,140,62,0.10))",color:"#25d366",border:"2px solid rgba(37,211,102,0.45)" }}><PeopleIcon size={24} /> {L(appLang,"inviteBtn")}</button>
+      <button onClick={resetGame} style={{ ...salvoBtn,marginBottom:24,background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}` }}>🏠 {L(appLang,"homeBtn")}</button>
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} bottomPct={58} targetRef={goldBadgeRef} goldTotal={safeGold(myProfile?.gold)} lang={appLang} />}
     </div>);
   }
