@@ -50,9 +50,12 @@ async function getAdmin() {
   return admin;
 }
 
-// Aynı kişiye çok kısa aralıkla tekrar tekrar bildirim atılmasın (basit kapı).
+// Aynı kişiye çok kısa aralıkla AYNI TÜRDEN bildirim atılmasın (basit taciz kapısı).
+// Anahtar türü de içerir: arkadaşlık isteği atıp hemen ardından düello daveti
+// göndermek engellenmemeli — bunlar farklı olaylar. Süre de kısa tutuldu, çünkü
+// düello davetinin zaten 15 saniyelik ömrü ve 3-red kuralı var.
 const lastSent = new Map();
-const MIN_GAP_MS = 20000;
+const MIN_GAP_MS = 8000;
 
 export async function POST(req) {
   let body;
@@ -80,12 +83,16 @@ export async function POST(req) {
   if (fromUid === toUid) return NextResponse.json({ ok: false, error: "self" }, { status: 400 });
 
   // 2) Hız sınırı
-  const key = fromUid + "->" + toUid;
+  const key = fromUid + "->" + toUid + ":" + (tag || "genel");
   const now = Date.now();
   if (now - (lastSent.get(key) || 0) < MIN_GAP_MS) {
-    return NextResponse.json({ ok: false, error: "rate" }, { status: 429 });
+    return NextResponse.json({ ok: false, error: "cok-sik-ayni-bildirim" }, { status: 429 });
   }
   lastSent.set(key, now);
+  // Bellek sızmasın — eski kayıtları ara sıra temizle
+  if (lastSent.size > 500) {
+    for (const [k, v] of lastSent) if (now - v > MIN_GAP_MS * 4) lastSent.delete(k);
+  }
 
   // 3) Hedefin cihaz anahtarını ve bildirim tercihini oku
   let token = null;
