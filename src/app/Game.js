@@ -468,8 +468,15 @@ function requestImmersive() {
 // tüm uygulamalar listede çıkar), desteklenmiyorsa (masaüstü Safari/Firefox gibi) doğrudan
 // WhatsApp web linkine düşer. Kullanıcı paylaşımı iptal ederse (AbortError) sessizce çıkar.
 const GAME_SHARE_URL = "https://amiral-batti-topaz.vercel.app/";
-async function shareGame(lang = "tr") {
-  const text = L(lang, "inviteShareText");
+const INVITE_NOTE_MAX = 140;
+// Davet penceresi mount olunca burayı doldurur; shareGame() önce pencereyi açar,
+// pencere yoksa (henüz mount olmadıysa) doğrudan paylaşıma düşer.
+let _openInviteComposer = null;
+
+async function sendInvite(lang = "tr", note = "") {
+  const base = L(lang, "inviteShareText");
+  const clean = (note || "").trim().slice(0, INVITE_NOTE_MAX);
+  const text = clean ? `${base}\n\n"${clean}"` : base;
   try {
     if (navigator.share) {
       await navigator.share({ title: "Amiral Battı", text, url: GAME_SHARE_URL });
@@ -479,8 +486,64 @@ async function shareGame(lang = "tr") {
     if (e && e.name === "AbortError") return; // kullanıcı vazgeçti, sorun yok
   }
   try {
-    window.open(`https://wa.me/?text=${encodeURIComponent(`${text} ${GAME_SHARE_URL}`)}`, "_blank");
+    window.open(`https://wa.me/?text=${encodeURIComponent(`${text}\n${GAME_SHARE_URL}`)}`, "_blank");
   } catch (e) {}
+}
+
+function shareGame(lang = "tr") {
+  if (_openInviteComposer) { _openInviteComposer(lang); return; }
+  sendInvite(lang, "");
+}
+
+// Davet mesajı penceresi — hazır davet metnini gösterir, gönderen isterse altına
+// kendi kısa notunu (en fazla 140 karakter) ekler; ikisi + oyun linki birlikte gider.
+function InviteComposer() {
+  const [open, setOpen] = useState(false);
+  const [lang, setLang] = useState("tr");
+  const [note, setNote] = useState("");
+  useEffect(() => {
+    _openInviteComposer = (lg) => { setLang(lg || "tr"); setNote(""); setOpen(true); };
+    return () => { _openInviteComposer = null; };
+  }, []);
+  if (!open) return null;
+  const en = lang === "en";
+  const close = () => setOpen(false);
+  const send = () => { setOpen(false); sendInvite(lang, note); };
+  return (
+    <div onClick={close} style={{ position:"fixed",inset:0,zIndex:9800,background:"rgba(0,0,0,0.66)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,animation:"settingsFadeIn 0.2s ease-out" }}>
+      <div onClick={(e)=>e.stopPropagation()} style={{ width:"100%",maxWidth:380,background:"linear-gradient(180deg,#0F2434 0%,#081118 100%)",border:"1px solid #26394b",borderRadius:18,padding:"18px 18px 20px",boxShadow:"0 18px 50px rgba(0,0,0,0.6)",animation:"popIn 0.25s ease-out" }}>
+        <div style={{ display:"flex",alignItems:"center",gap:9,marginBottom:14,color:"#25d366" }}>
+          <PeopleIcon size={20} />
+          <span style={{ fontSize:16,fontWeight:900,fontFamily:warrior,letterSpacing:2,textTransform:"uppercase" }}>{L(lang,"inviteBtn")}</span>
+        </div>
+        <div style={{ fontSize:12,lineHeight:1.55,color:"#A9BCC9",fontFamily:mono,background:"rgba(255,255,255,0.04)",border:"1px solid #22394b",borderRadius:10,padding:"10px 12px",marginBottom:14 }}>
+          {L(lang,"inviteShareText")}
+        </div>
+        <div style={{ fontSize:10,fontWeight:800,letterSpacing:1.4,color:"#7A8FA0",fontFamily:mono,textTransform:"uppercase",marginBottom:6 }}>
+          {en ? "Add your own message (optional)" : "Kendi mesajını ekle (isteğe bağlı)"}
+        </div>
+        <textarea
+          value={note}
+          maxLength={INVITE_NOTE_MAX}
+          onChange={(e)=>setNote(e.target.value.slice(0, INVITE_NOTE_MAX))}
+          placeholder={en ? "e.g. Come on, I'm waiting for you tonight!" : "ör. Hadi gel, bu akşam seni bekliyorum!"}
+          rows={3}
+          style={{ width:"100%",boxSizing:"border-box",resize:"none",background:"rgba(0,0,0,0.35)",border:"1px solid #2c465c",borderRadius:10,color:"#DDE9F2",fontSize:13,fontFamily:mono,lineHeight:1.5,padding:"10px 12px",outline:"none" }}
+        />
+        <div style={{ display:"flex",justifyContent:"flex-end",fontSize:10,fontFamily:mono,color: note.length >= INVITE_NOTE_MAX ? "#ff7a86" : "#54697a",marginTop:5 }}>
+          {note.length}/{INVITE_NOTE_MAX}
+        </div>
+        <div style={{ display:"flex",gap:10,marginTop:14 }}>
+          <button onClick={close} style={{ flex:"0 0 auto",padding:"11px 18px",background:"rgba(255,255,255,0.05)",color:"#7A8FA0",border:"1px solid #26394b",borderRadius:10,fontSize:12,fontWeight:900,letterSpacing:1.4,fontFamily:warrior,cursor:"pointer",textTransform:"uppercase" }}>
+            {en ? "Cancel" : "Vazgeç"}
+          </button>
+          <button onClick={send} style={{ flex:1,padding:"11px 18px",background:"linear-gradient(135deg,rgba(37,211,102,0.22),rgba(18,140,62,0.14))",color:"#25d366",border:"2px solid rgba(37,211,102,0.5)",borderRadius:10,fontSize:12,fontWeight:900,letterSpacing:1.4,fontFamily:warrior,cursor:"pointer",textTransform:"uppercase",display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}>
+            <PeopleIcon size={15} /> {en ? "Send" : "Gönder"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // === LOKALİZASYON ===
@@ -508,7 +571,7 @@ const TRANSLATIONS = {
     noSailorsHint: "Hızlı Oyun ile otomatik eşleşebilirsin", sailorsActive: "DENİZCİ AKTİF", duel: "⚓ DÜELLO", waitingBadge: "BEKLENİYOR", backBtn: "GERİ DÖN",
     victory: "ZAFER", defeat: "BOZGUN", newBattle: "YENİ SAVAŞ", chestProgress: "SANDIK İLERLEMESİ",
     missLabel: "KARAVANA", goldLabel: "ALTIN", levelLabel: "SEVİYE", battleMap: "SAVAŞ HARİTASI", homeBtn: "ANA SAYFA",
-    inviteBtn: "ARKADAŞINI DAVET ET", inviteShareText: "Amiral Battı'nda benimle dövüşür müsün? ⚓ Ücretsiz, online, çok eğlenceli:",
+    inviteBtn: "ARKADAŞINI DAVET ET", inviteShareText: "Amiral Battı oyununu bilirsin. Karşılıklı gemileri batırıyoruz, biraz strateji biraz şans oyunu, benimle kapışır mısın? ⚓ Ücretsiz — online — çok eğlenceli:",
     oppField: "RAKİP SAHA", myField: "BENİM SAHAM", oppShips: "RAKİP GEMİLER", myShips: "GEMİLERİM",
     missionsTitle: "GÖREVLER", missionsSub: "HER GÜN YENİLENİR", missionDone: "TAMAMLANDI", missionInProgress: "DEVAM EDİYOR",
     msgConnError: "Bağlantı hatası — tekrar dene", msgLoginFailed: "Giriş başarısız: ", msgPopupClosed: "Pencere kapatıldı",
@@ -585,7 +648,7 @@ const TRANSLATIONS = {
     noSailorsHint: "You can auto-match with Quick Play", sailorsActive: "SAILORS ONLINE", duel: "⚓ DUEL", waitingBadge: "WAITING", backBtn: "GO BACK",
     victory: "VICTORY", defeat: "DEFEAT", newBattle: "NEW BATTLE", chestProgress: "CHEST PROGRESS",
     missLabel: "MISSES", goldLabel: "GOLD", levelLabel: "LEVEL", battleMap: "BATTLE MAP", homeBtn: "HOME",
-    inviteBtn: "INVITE A FRIEND", inviteShareText: "Want to battle me on Amiral Battı? ⚓ Free, online, a lot of fun:",
+    inviteBtn: "INVITE A FRIEND", inviteShareText: "You know Battleship, right? We sink each other's ships — part strategy, part luck. Fancy a duel with me? ⚓ Free — online — a lot of fun:",
     oppField: "ENEMY FIELD", myField: "MY FIELD", oppShips: "ENEMY SHIPS", myShips: "MY SHIPS",
     missionsTitle: "MISSIONS", missionsSub: "RESETS DAILY", missionDone: "COMPLETED", missionInProgress: "IN PROGRESS",
     msgConnError: "Connection error — try again", msgLoginFailed: "Login failed: ", msgPopupClosed: "Window was closed",
@@ -4807,6 +4870,8 @@ export default function Game() {
   // Splash'ten oyun bitene kadar tüm ekranlarda sabit duran müzik + ayarlar barı
   const renderTopBar = () => (
     <>
+      {/* Davet mesajı penceresi — tüm ekranlarda tek örnek; shareGame() bunu açar */}
+      <InviteComposer />
       <div style={{ position:"fixed",top:"calc(10px + env(safe-area-inset-top, 0px))",right:14,zIndex:9500,display:"flex",alignItems:"center",gap:6 }}>
         {phase === "lobby" && <button onClick={()=>{ sfx.init(); sfx.play('click'); shareGame(appLang); }} title={L(appLang,"inviteBtn")} style={{ width:26,height:26,borderRadius:7,background:"rgba(37,211,102,0.10)",border:"1px solid rgba(37,211,102,0.4)",fontSize:12,cursor:"pointer",color:"#25d366",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}><PeopleIcon size={14} /></button>}
         {phase === "lobby" && <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowLeaderboard(true); }} title={L(appLang,"leaderboardTitle")} style={{ width:26,height:26,borderRadius:7,background:"rgba(255,215,0,0.10)",border:"1px solid rgba(255,215,0,0.4)",fontSize:12,cursor:"pointer",color:t.gold,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>🏆</button>}
