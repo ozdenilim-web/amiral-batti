@@ -442,6 +442,19 @@ const HeroSheen = () => (<span style={{ position:"absolute",top:0,left:0,right:0
 const Gem = ({ size, style }) => (<img src="/img/coin.png" alt="" draggable={false} style={{ width: size || "1em", height: size || "1em", objectFit:"contain", verticalAlign:"-0.15em", display:"inline-block", flexShrink:0, ...style }} />);
 
 // Ask the browser/WebView for immersive fullscreen (hides Android system nav bar in the TWA).
+// "Arkadaşını davet et" ikonu — birkaç insan figürü (grup). Emoji yerine vektör:
+// her cihazda aynı görünür ve buton renginden (currentColor) beslenir.
+const PeopleIcon = ({ size = 14, style }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor"
+       strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"
+       style={{ flexShrink: 0, display: "block", ...style }}>
+    <circle cx="9" cy="8" r="3.4" />
+    <path d="M2.8 19.2c0-3.3 2.8-5.5 6.2-5.5s6.2 2.2 6.2 5.5" />
+    <path d="M16.4 5.1a3.4 3.4 0 0 1 0 6.4" />
+    <path d="M18.2 14.2c1.9.7 3.2 2.3 3.2 4.4" />
+  </svg>
+);
+
 // Must be called from within a user-gesture handler; safe no-op everywhere else (desktop, iOS Safari, etc).
 function requestImmersive() {
   try {
@@ -2814,7 +2827,7 @@ function GameOverScreen({ winner, myHits, oppHits, onNewGame, onHome, onViewBoar
             {onShowRewards && <button onClick={onShowRewards} style={{ flex:1,padding:"11px 12px",background:"linear-gradient(135deg,rgba(255,215,0,0.12),rgba(255,159,67,0.05))",color:t.gold,border:`2px solid rgba(255,215,0,0.4)`,borderRadius:12,fontSize:11,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}>🏆 {L(lang,"goodsBadge")}</button>}
             <button onClick={onViewBoard} style={{ flex:1,padding:"11px 12px",background:"transparent",color:t.accent,border:`2px solid rgba(0,229,255,0.25)`,borderRadius:12,fontSize:11,fontWeight:800,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>{L(lang,"battleMap")}</button>
           </div>
-          <button onClick={() => shareGame(lang)} style={{ padding:"12px 20px",background:"linear-gradient(135deg,rgba(37,211,102,0.16),rgba(18,140,62,0.10))",color:"#25d366",border:"2px solid rgba(37,211,102,0.45)",borderRadius:12,fontSize:12,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}>📤 {L(lang,"inviteBtn")}</button>
+          <button onClick={() => shareGame(lang)} style={{ padding:"12px 20px",background:"linear-gradient(135deg,rgba(37,211,102,0.16),rgba(18,140,62,0.10))",color:"#25d366",border:"2px solid rgba(37,211,102,0.45)",borderRadius:12,fontSize:12,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}><PeopleIcon size={16} /> {L(lang,"inviteBtn")}</button>
           <button onClick={onHome} style={{ padding:"12px 20px",background:"transparent",color:t.textDim,border:`1px solid ${t.border}`,borderRadius:10,fontSize:12,fontWeight:800,letterSpacing:3,cursor:"pointer",fontFamily:warrior,opacity:0.9 }}>🏠 {L(lang,"homeBtn")}</button>
         </div>}
       </div>
@@ -4795,7 +4808,7 @@ export default function Game() {
   const renderTopBar = () => (
     <>
       <div style={{ position:"fixed",top:"calc(10px + env(safe-area-inset-top, 0px))",right:14,zIndex:9500,display:"flex",alignItems:"center",gap:6 }}>
-        {phase === "lobby" && <button onClick={()=>{ sfx.init(); sfx.play('click'); shareGame(appLang); }} title={L(appLang,"inviteBtn")} style={{ width:26,height:26,borderRadius:7,background:"rgba(37,211,102,0.10)",border:"1px solid rgba(37,211,102,0.4)",fontSize:12,cursor:"pointer",color:"#25d366",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>📤</button>}
+        {phase === "lobby" && <button onClick={()=>{ sfx.init(); sfx.play('click'); shareGame(appLang); }} title={L(appLang,"inviteBtn")} style={{ width:26,height:26,borderRadius:7,background:"rgba(37,211,102,0.10)",border:"1px solid rgba(37,211,102,0.4)",fontSize:12,cursor:"pointer",color:"#25d366",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}><PeopleIcon size={14} /></button>}
         {phase === "lobby" && <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowLeaderboard(true); }} title={L(appLang,"leaderboardTitle")} style={{ width:26,height:26,borderRadius:7,background:"rgba(255,215,0,0.10)",border:"1px solid rgba(255,215,0,0.4)",fontSize:12,cursor:"pointer",color:t.gold,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>🏆</button>}
         {phase === "siege" && <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowSurrenderConfirm(true); }} title={L(appLang,"leaveGame")} style={{ width:26,height:26,borderRadius:7,background:"rgba(255,71,87,0.12)",border:`1px solid ${t.hit}`,fontSize:12,cursor:"pointer",color:t.hit,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>⚑</button>}
         <button onClick={()=>{ sfx.init(); sfx.play('click'); toggleMusic(); }} title={L(appLang,"musicTooltip")} style={{ width:26,height:26,borderRadius:7,background:"rgba(255,255,255,0.06)",border:`1px solid ${t.border}`,fontSize:12,cursor:"pointer",color:musicOn?t.accent:t.textDim,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,transition:"all 0.15s ease" }}>{musicOn?"🎵":"🔇"}</button>
@@ -6873,8 +6886,12 @@ export default function Game() {
     const winRate = myProfile && myProfile.totalGames > 0 ? Math.round((myProfile.wins / myProfile.totalGames) * 100) : 0;
     const isNewPlayer = !myProfile || (myProfile.totalGames || 0) === 0;
     const BRONZE = "linear-gradient(180deg,#5a3d22 0%,#c9a15e 42%,#f0d79a 52%,#c9a15e 62%,#5a3d22 100%)";
-    const neutralBtn = (dis) => ({ position:"relative",overflow:"hidden",flex:1,height:56,display:"flex",alignItems:"center",justifyContent:"center",gap:9,background:"linear-gradient(180deg,#20313f,#132030)",color:"#A9BCC9",border:"1px solid #26394b",borderRadius:12,fontSize:16,fontWeight:800,fontFamily:warrior,textTransform:"uppercase",letterSpacing:2,cursor:dis?"not-allowed":"pointer",opacity:dis?0.45:1,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.10), 0 2px 0 rgba(0,0,0,0.45), 0 7px 16px rgba(0,0,0,0.32)" });
-    const btnSub = { fontFamily:mono,fontWeight:400,letterSpacing:1,fontSize:8.5,color:"#7A8FA0",textTransform:"none",marginTop:3 };
+    const neutralBtn = (dis) => ({ position:"relative",overflow:"hidden",flex:1,height:56,display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"linear-gradient(180deg,#20313f,#132030)",color:"#A9BCC9",border:"1px solid #26394b",borderRadius:12,fontSize:16,fontWeight:800,fontFamily:warrior,textTransform:"uppercase",letterSpacing:2,cursor:dis?"not-allowed":"pointer",opacity:dis?0.45:1,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.10), 0 2px 0 rgba(0,0,0,0.45), 0 7px 16px rgba(0,0,0,0.32)" });
+    // Dört mod butonunun içeriği AYNI genişlikte olsun ki ikonlar dört kutucukta da tam olarak
+    // aynı hizada (alt alta) dursun. Sabit genişlikli yazı sütunu + ortalanmış içerik = simetri.
+    const btnTextCol = { display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",lineHeight:1,width:120,flexShrink:0 };
+    const btnTitle = { fontSize:15,letterSpacing:1.2,whiteSpace:"nowrap",lineHeight:1 };
+    const btnSub = { fontFamily:mono,fontWeight:700,letterSpacing:0.5,fontSize:8.5,color:"#7A8FA0",textTransform:"none",marginTop:5,whiteSpace:"nowrap",textAlign:"center" };
     // Mod ikonları: küçük butonda (30px) okunması için sade vektör çizim + arkasında nabız atan
     // parlama halesi (yalnızca transform/opacity — mobil GPU'da ucuz). Ayrıntılı görseller yerine
     // basit glif kullanıyoruz çünkü fotoğrafik illüstrasyonlar bu boyutta bulanıklaşıp birbirine benziyordu;
@@ -7014,21 +7031,21 @@ export default function Game() {
       <div style={{ display:"flex",gap:12,marginTop:12,width:"100%",maxWidth:400,zIndex:1 }}>
         <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowOnlineLobby(true);}} disabled={authLoading} style={neutralBtn(authLoading)}>
           {ModeIcon("salon","rgba(0,229,255,0.65)")}
-          <span style={{ display:"flex",flexDirection:"column",alignItems:"flex-start",lineHeight:1 }}>{L(appLang,"salon")}<small style={btnSub}>{appLang==="en"?"find a rival":"oyuncu bul"}</small></span>
+          <span style={btnTextCol}><span style={btnTitle}>{L(appLang,"salon")}</span><small style={btnSub}>({appLang==="en"?"find a rival":"oyuncu bul"})</small></span>
         </RippleButton>
         <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowArenaSelect(true);}} disabled={authLoading} style={neutralBtn(authLoading)}>
           {ModeIcon("arena","rgba(255,196,60,0.65)")}
-          <span style={{ display:"flex",flexDirection:"column",alignItems:"flex-start",lineHeight:1 }}>{L(appLang,"arena")}<small style={btnSub}>{appLang==="en"?"wagered":"bahisli"}</small></span>
+          <span style={btnTextCol}><span style={btnTitle}>{L(appLang,"arena")}</span><small style={btnSub}>({appLang==="en"?"wagered":"iddialı"})</small></span>
         </RippleButton>
       </div>
       <div style={{ display:"flex",gap:12,marginTop:12,width:"100%",maxWidth:400,zIndex:1 }}>
         <RippleButton onClick={startBotGame} style={neutralBtn(false)}>
           {ModeIcon("bot","rgba(150,205,255,0.65)")}
-          <span style={{ display:"flex",flexDirection:"column",alignItems:"flex-start",lineHeight:1 }}>{L(appLang,"bot")}<small style={btnSub}>{appLang==="en"?"practice":"alıştırma"}</small></span>
+          <span style={btnTextCol}><span style={btnTitle}>{L(appLang,"bot")}</span><small style={btnSub}>({appLang==="en"?"practice":"alıştırma"})</small></span>
         </RippleButton>
         <RippleButton onClick={()=>setShowDifferentWaters(true)} style={neutralBtn(false)}>
           {ModeIcon("sular","rgba(168,85,247,0.65)")}
-          <span style={{ display:"flex",flexDirection:"column",alignItems:"flex-start",lineHeight:1 }}>{L(appLang,"differentWaters")}</span>
+          <span style={btnTextCol}><span style={btnTitle}>{L(appLang,"differentWaters")}</span><small style={btnSub}>({appLang==="en"?"3 modes":"3 farklı mod"})</small></span>
         </RippleButton>
       </div>
       {/* Kazanımlar */}
@@ -7406,7 +7423,7 @@ export default function Game() {
         <span>⚔ {appLang==="en"?"NEW GAME":"YENİ OYUN"}</span>
         <span style={{ fontSize:9,fontWeight:700,letterSpacing:1,opacity:0.75,display:"inline-flex",alignItems:"center",gap:3 }}>{appLang==="en"?"Entry":"Giriş"} {SALVO_ANTE} <Gem size={9} /></span>
       </button>
-      <button onClick={() => shareGame(appLang)} style={{ marginTop:10,padding:"11px 28px",background:"linear-gradient(135deg,rgba(37,211,102,0.16),rgba(18,140,62,0.10))",color:"#25d366",border:"2px solid rgba(37,211,102,0.45)",borderRadius:10,fontSize:12,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}>📤 {L(appLang,"inviteBtn")}</button>
+      <button onClick={() => shareGame(appLang)} style={{ marginTop:10,padding:"11px 28px",background:"linear-gradient(135deg,rgba(37,211,102,0.16),rgba(18,140,62,0.10))",color:"#25d366",border:"2px solid rgba(37,211,102,0.45)",borderRadius:10,fontSize:12,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",gap:8 }}><PeopleIcon size={16} /> {L(appLang,"inviteBtn")}</button>
       <button onClick={resetGame} style={{ marginTop:10,marginBottom:24,padding:"10px 28px",background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}`,borderRadius:10,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>🏠 {L(appLang,"homeBtn")}</button>
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} bottomPct={58} targetRef={goldBadgeRef} goldTotal={safeGold(myProfile?.gold)} lang={appLang} />}
     </div>);
