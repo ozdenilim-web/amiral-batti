@@ -453,7 +453,7 @@ const Gem = ({ size, style }) => (<img src="/img/coin.png" alt="" draggable={fal
 //   75.000 → desenler açılır
 //  100.000 → özel mühür (benzersiz sancak + ışıltı)
 // ═══════════════════════════════════════════════════════════════════════
-const SANCAK_STEPS = [25000, 50000, 75000, 100000];
+const SANCAK_STEPS = [10000, 50000, 75000, 100000];
 const SANCAK_GOAL = 100000;
 
 // Biçimler — bez kısmının yolu (viewBox 0 0 22 24, direk x=2)
@@ -3953,7 +3953,7 @@ function SancakScreen({ profile, lang, onSave, onClose }) {
     <Section title={L(lang,"sancakShape")}>
       {SANCAK_SHAPES.map((sh,i)=>{ const locked = i >= u.shapes; return (
         <Chip key={sh.id} active={sel.shape===sh.id} locked={locked}
-          hint={L(lang,"sancakStepInfo")(i<3?25:i<5?50:50)} onClick={()=>pick("shape", sh.id)}>
+          hint={L(lang,"sancakStepInfo")((i<3?SANCAK_STEPS[0]:SANCAK_STEPS[1])/1000)} onClick={()=>pick("shape", sh.id)}>
           <Sancak shape={sh.id} color={sel.color} pattern="duz" size={24} glow={false} />
           <span style={{ fontSize:8,color:"#8fa3b3",fontFamily:mono,whiteSpace:"nowrap" }}>{lang==="en"?sh.nameEn:sh.name}</span>
         </Chip>
@@ -3963,7 +3963,7 @@ function SancakScreen({ profile, lang, onSave, onClose }) {
     <Section title={L(lang,"sancakColor")}>
       {SANCAK_COLORS.map((co,i)=>{ const locked = i >= u.colors; return (
         <Chip key={co.id} active={sel.color===co.id} locked={locked}
-          hint={L(lang,"sancakStepInfo")(i<4?25:50)} onClick={()=>pick("color", co.id)}>
+          hint={L(lang,"sancakStepInfo")((i<4?SANCAK_STEPS[0]:SANCAK_STEPS[1])/1000)} onClick={()=>pick("color", co.id)}>
           <span style={{ width:24,height:24,borderRadius:7,background:co.c,boxShadow:`0 0 10px ${co.glow}, inset 0 1px 0 rgba(255,255,255,0.3)` }} />
           <span style={{ fontSize:8,color:"#8fa3b3",fontFamily:mono,whiteSpace:"nowrap" }}>{lang==="en"?co.nameEn:co.name}</span>
         </Chip>
@@ -3973,7 +3973,7 @@ function SancakScreen({ profile, lang, onSave, onClose }) {
     <Section title={L(lang,"sancakPattern")}>
       {SANCAK_PATTERNS.map((pa,i)=>{ const locked = i >= u.patterns; return (
         <Chip key={pa.id} active={sel.pattern===pa.id} locked={locked}
-          hint={L(lang,"sancakStepInfo")(75)} onClick={()=>pick("pattern", pa.id)}>
+          hint={L(lang,"sancakStepInfo")(SANCAK_STEPS[2]/1000)} onClick={()=>pick("pattern", pa.id)}>
           <Sancak shape={sel.shape} color={sel.color} pattern={pa.id} size={24} glow={false} />
           <span style={{ fontSize:8,color:"#8fa3b3",fontFamily:mono,whiteSpace:"nowrap" }}>{lang==="en"?pa.nameEn:pa.name}</span>
         </Chip>
@@ -4348,9 +4348,6 @@ export default function Game() {
   const [entryFeeDeducted, setEntryFeeDeducted] = useState(null);
   const [showDailyChest, setShowDailyChest] = useState(false);
   const [dailyChestModalOpen, setDailyChestModalOpen] = useState(false);
-  // TEST: F12 konsolundan __openCannon() yazip Enter'a basinca, gunde-1 kilidini
-  // atlayarak Gunluk Top Odulu penceresini acar — bomba/atis efektini istedigin kadar dene.
-  useEffect(() => { window.__openCannon = () => setDailyChestModalOpen(true); return () => { delete window.__openCannon; }; }, []);
   const [showAvatarPick, setShowAvatarPick] = useState(false);
   const [oppAvatar, setOppAvatar] = useState(null);
   const oppAvatarRef = useRef(false);
@@ -8278,7 +8275,6 @@ export default function Game() {
         <div><div style={{ fontWeight:800,fontSize:16,letterSpacing:0.5,color:"#e8eef3",fontFamily:warrior }}>{appLang==="en"?"Your first battle awaits...":"İlk savaşın seni bekliyor..."}</div><div style={{ fontSize:11,letterSpacing:1,color:"#7A8FA0",fontFamily:mono,marginTop:2 }}>{appLang==="en"?"Set sail — carve your name into the waves.":"Denize açıl, adını dalgalara yazdır."}</div></div>
       </div>)}
       {authLoading && <div style={{ background:"rgba(239,68,68,0.12)",border:`1px solid ${t.hit}`,borderRadius:8,padding:"10px 16px",marginBottom:12,fontSize:11,color:t.hit,fontFamily:mono,textAlign:"center",width:"100%",maxWidth:340,animation:"pulse 1.5s infinite" }}>{L(appLang,"connectingToServer")}</div>}
-      {isTestMode() && <div style={{ background:"rgba(251,191,36,0.15)",border:`1px solid ${t.gold}`,borderRadius:8,padding:"8px 16px",marginBottom:12,fontSize:11,color:t.gold,fontFamily:warrior,letterSpacing:2,textAlign:"center",width:"100%",maxWidth:340 }}>{L(appLang,"testModeMsg")}</div>}
       {myProfile && !isNewPlayer && (<div style={{ position:"relative",overflow:"hidden",background:"linear-gradient(180deg, rgba(20,34,48,0.8), rgba(10,20,30,0.85))",border:"1px solid #26394b",borderRadius:12,padding:"18px",marginBottom:10,width:"100%",maxWidth:400,animation:"fadeUp 0.3s ease-out",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.05), 0 6px 22px rgba(0,0,0,0.4)",zIndex:1 }}>
         <span style={{ position:"absolute",left:0,top:0,bottom:0,width:2,background:BRONZE }} />
         <div style={{ display:"flex",alignItems:"center",gap:13,marginBottom:14 }}>
@@ -8527,13 +8523,6 @@ export default function Game() {
       )}
       {showDailyChest && !dailyChestModalOpen && <DailyChestFab onOpen={() => setDailyChestModalOpen(true)} lang={appLang} />}
       {dailyChestModalOpen && <DailyChestPopup onClaim={claimDailyChest} onClose={() => setDailyChestModalOpen(false)} streak={nextCannonStreak(myProfile)} lang={appLang} />}
-      {/* TEST: adres cubuguna ?test=1 eklenince gorunur — konsol yazmadan, istedigin kadar tikla,
-          top odulu penceresi gunde-1 kilidini atlayarak her seferinde acilir. */}
-      {isTestMode() && !dailyChestModalOpen && (
-        <button onClick={() => setDailyChestModalOpen(true)} style={{ position:"fixed",right:14,bottom:14,zIndex:9998,padding:"10px 16px",background:"linear-gradient(135deg,#ffd700,#ff9f43)",color:"#1a1206",border:"none",borderRadius:10,fontSize:12,fontWeight:900,letterSpacing:1,cursor:"pointer",fontFamily:warrior,boxShadow:"0 4px 16px rgba(0,0,0,0.5)" }}>
-          🎯 TEST: TOPU AÇ
-        </button>
-      )}
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} targetRef={goldBadgeRef} goldTotal={safeGold(myProfile?.gold)} lang={appLang} />}
       <HorizonStrip lang={appLang} />
     </div>);
