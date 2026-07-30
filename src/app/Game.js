@@ -2152,6 +2152,10 @@ const ANIMS = `
 @keyframes rewardPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
 @keyframes modeGlowPulse{0%,100%{transform:scale(1);opacity:0.55}50%{transform:scale(1.18);opacity:0.9}}
+/* floatShadow her karede drop-shadow'u yeniden hesaplıyordu (sürekli repaint = takılma).
+   Süzülme hareketi korundu, gölge elemanın kendi sabit box-shadow'undan geliyor. */
+@keyframes floatShadow{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes gemFlyUp{0%{opacity:0;transform:translate(0,0) rotate(0deg) scale(0.5)}12%{opacity:1;transform:translate(calc(var(--drift,0px) * 0.15),-10vh) rotate(70deg) scale(1)}100%{opacity:0;transform:translate(var(--drift,0px),-92vh) rotate(var(--spin,360deg)) scale(0.55)}}
 
 /* 4) Hareketli katmanlara GPU ipucu — tarayıcı önceden katman ayırır,
    böylece hareket sırasında yeniden boyama yapmaz. */
@@ -3089,11 +3093,11 @@ function ResultBurst({ isWin, lang = "tr" }) {
     <span style={{ position:"absolute",left:"50%",top:"50%",width:"70vmin",height:"70vmin",marginLeft:"-35vmin",marginTop:"-35vmin",
       borderRadius:"50%",pointerEvents:"none",opacity:0,
       background:`radial-gradient(circle, ${isWin ? "rgba(150,200,255,0.55)" : "rgba(255,140,140,0.5)"} 0%, transparent 62%)`,
-      animation:"zteFlash 2s cubic-bezier(0.16,1,0.3,1) forwards" }} />
+      animation:"zteFlash 1s cubic-bezier(0.16,1,0.3,1) forwards" }} />
     {/* SADECE YAZI — opacity:1 taban değer: animasyon herhangi bir sebeple çalışmazsa
         yazı yine de görünür kalır (fill-mode "both" olsaydı görünmez kalırdı). */}
     <div style={{ position:"relative",padding:"0 14px",opacity:1,willChange:"transform,opacity",
-      animation:"zoomThroughEye 2s cubic-bezier(0.19,1,0.22,1) forwards" }}>
+      animation:"zoomThroughEye 1s cubic-bezier(0.19,1,0.22,1) forwards" }}>
       <div style={{
         fontFamily:warrior, fontWeight:900, whiteSpace:"nowrap",
         fontSize:"clamp(52px, 17vw, 132px)", lineHeight:1, letterSpacing:"0.02em",
@@ -3104,6 +3108,37 @@ function ResultBurst({ isWin, lang = "tr" }) {
       }}>{word}</div>
     </div>
   </div>);
+}
+
+// MAÇ SONU 2. SAHNE — zafer yazısı gittikten SONRA elmaslar ekranı boydan boya uçar,
+// sonra ganimet tablosu açılır. Sahneler kasten ayrı: hiçbiri diğerinin üstüne binmiyor.
+// Performans: yalnızca transform/opacity animasyonu (filter/box-shadow YOK — mobil GPU'da pahalı),
+// eleman sayısı bilinçli olarak düşük tutuldu.
+function GemFlight({ onDone, durationMs = 1500 }) {
+  const gems = useMemo(() => Array.from({ length: 14 }, (_, i) => ({
+    id: i,
+    left: 4 + Math.random() * 90,
+    size: 24 + Math.round(Math.random() * 24),
+    delay: Math.round(Math.random() * 380),
+    drift: Math.round(-80 + Math.random() * 160),
+    spin: Math.round(240 + Math.random() * 420),
+    dur: durationMs + Math.round(Math.random() * 320),
+  })), [durationMs]);
+  useEffect(() => {
+    const tm = setTimeout(() => { if (onDone) onDone(); }, durationMs + 620);
+    return () => clearTimeout(tm);
+  }, [durationMs, onDone]);
+  return (
+    <div style={{ position:"fixed",inset:0,zIndex:9550,overflow:"hidden",pointerEvents:"none",
+      background:"radial-gradient(ellipse at 50% 78%, rgba(24,110,180,0.22) 0%, rgba(3,8,16,0.90) 62%, rgba(1,3,8,0.97) 100%)" }}>
+      {gems.map(g => (
+        <img key={g.id} src="/img/coin.png" alt="" draggable={false}
+          style={{ position:"absolute",left:`${g.left}%`,bottom:-70,width:g.size,height:g.size,objectFit:"contain",opacity:0,
+            ["--drift"]:`${g.drift}px`, ["--spin"]:`${g.spin}deg`,
+            animation:`gemFlyUp ${g.dur}ms cubic-bezier(0.22,0.68,0.3,1) ${g.delay}ms forwards` }} />
+      ))}
+    </div>
+  );
 }
 
 function BoardReview({ defenseBoard, shipColorMap, defenseOverlay, attackOverlay, oppShipsData, myShipsData, defHitMap, atkHitMap, cellSize, onBack, lang = "tr" }) {
@@ -3743,8 +3778,10 @@ export default function Game() {
     return "tr";
   });
   const [goldAnim, setGoldAnim] = useState(null);
-  // Maç sonu sahne akışı: null (henüz başlamadı) → 'map' → 'burst' → 'rewards' → 'final'
+  // Maç sonu sahne akışı: null (henüz başlamadı) → 'burst' → ('gems', sadece zaferde) → 'rewards' → 'map' → 'final'
   const [gameOverStage, setGameOverStage] = useState(null);
+  // GemFlight'a verilen sabit referans — her render'da yeni fonksiyon gitmesin, sahne yeniden başlamasın.
+  const goToRewardsStage = useCallback(() => { setGameOverStage(prev => prev === "gems" ? "rewards" : prev); }, []);
   // Salvo ve Kuşatma kendi bitiş ekranlarını kullanır (gameOverStage'e girmezler),
   // bu yüzden KAZANDIN/KAYBETTİN penceresi orada ayrı bir kaplama olarak gösterilir.
   const [soloBurst, setSoloBurst] = useState(null); // { isWin } | null
@@ -3797,6 +3834,7 @@ export default function Game() {
   useEffect(() => {
     // Kazanma ve kaybetme AYNI akışı kullanır — sadece yazı, renk ve müzik değişir:
     // burst (1sn, ekranın tam ortasında KAZANDIN/KAYBETTİN + atış sesi)
+    //   → (zaferde) elmas uçuşu 1.5sn — sahneler birbirine karışmasın diye AYRI
     //   → ganimet tablosu (zafer/bozgun müziği burada başlar)
     //   → savaş haritası 5sn
     //   → zafer/bozgun ekranı
@@ -3807,6 +3845,8 @@ export default function Game() {
   useEffect(() => {
     if (gameOverStage === "burst") {
       try { sfx.init(); sfx.playVoice('explosion'); } catch (e) {} // atış sesi
+    } else if (gameOverStage === "gems") {
+      try { sfx.init(); sfx.play('gold'); } catch (e) {} // elmas uçuşu sesi
     } else if (gameOverStage === "rewards") {
       // Müzik ganimet tablosuyla BİRLİKTE başlar ve ekran boyunca sürer (lobi müziğine dönmez).
       try {
@@ -3819,7 +3859,11 @@ export default function Game() {
   // Sahneler arası otomatik geçiş. "rewards"tan çıkış RewardModal'ın kendi kapatmasıyla olur.
   useEffect(() => {
     // Zoom Through the Eye: ~0.6sn yakınlaşma → 1sn sabit → ~0.4sn izleyicinin üzerinden geçip yok olma
-    if (gameOverStage === "burst") { const tm = setTimeout(() => setGameOverStage("rewards"), 2000); return () => clearTimeout(tm); }
+    // Zafer/bozgun yazısı tam 1 saniye ekranda kalır. Kazandıysak yazı KAYBOLDUKTAN SONRA
+    // elmas uçuşu sahnesi gelir; kaybettiysek doğrudan ganimet tablosuna geçilir.
+    if (gameOverStage === "burst") { const tm = setTimeout(() => setGameOverStage(isWinRef.current ? "gems" : "rewards"), 1000); return () => clearTimeout(tm); }
+    // Güvenlik ağı: GemFlight'ın onDone'ı herhangi bir sebeple çalışmazsa sahne asılı kalmasın.
+    if (gameOverStage === "gems") { const tm = setTimeout(() => setGameOverStage(prev => prev === "gems" ? "rewards" : prev), 2600); return () => clearTimeout(tm); }
     if (gameOverStage === "map") { const tm = setTimeout(() => setGameOverStage("final"), 5000); return () => clearTimeout(tm); }
     // Güvenlik: "rewards" sahnesine geldik ama rapor (matchRewards) hâlâ gelmediyse — normalde
     // gelmesi gereken guarantee-effect'ten önce buraya düşmüş olabiliriz — 2sn sonra yine de devam et.
@@ -6898,10 +6942,13 @@ export default function Game() {
       </>);
     }
     // MAÇ SONU AKIŞI (kazanma ve kaybetme aynı, sadece renk/yazı/müzik değişir):
-    // 1sn ekranın tam ortasında KAZANDIN/KAYBETTİN (atış sesiyle) → ganimet tablosu
-    // (zafer/bozgun müziği burada başlar) → 5sn savaş haritası → tam zafer/bozgun ekranı.
+    // 1sn ekranın tam ortasında KAZANDIN/KAYBETTİN (atış sesiyle) → (zaferde) elmas uçuşu
+    // → ganimet tablosu (müzik burada) → 5sn savaş haritası → tam zafer/bozgun ekranı.
     if (!isOnboarding && gameOverStage === "burst") {
       return (<><style>{ANIMS}</style><ResultBurst isWin={isWin} lang={appLang} /></>);
+    }
+    if (!isOnboarding && gameOverStage === "gems") {
+      return (<><style>{ANIMS}</style><GemFlight onDone={goToRewardsStage} /></>);
     }
     if (!isOnboarding && gameOverStage === "rewards" && matchRewards) {
       return (<><style>{ANIMS}</style>
