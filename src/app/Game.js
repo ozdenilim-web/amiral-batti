@@ -897,6 +897,9 @@ const TRANSLATIONS = {
     friendNoReqs: "Bekleyen istek yok",
     friendReqSent: "İstek gönderildi",
     friendDuelSent: "Düello daveti gönderildi — yanıt bekleniyor",
+    friendDuelWaiting: (n) => `${n} bekleniyor...`,
+    friendDuelRejected: "Davet reddedildi",
+    friendDuelTimeout: "Yanıt gelmedi — davet geri çekildi",
     friendProfile: "PROFİL", friendSince: "Arkadaşlık",
     notifFriendReqTitle: "Yeni arkadaşlık isteği 👥", notifFriendReqBody: (n) => `${n} seni arkadaş olarak eklemek istiyor.`,
     challengeTag: "MEYDAN OKUMA", challengeLine: (n) => `${n} SANA MEYDAN OKUYOR!`,
@@ -1006,6 +1009,9 @@ const TRANSLATIONS = {
     friendNoReqs: "No pending requests",
     friendReqSent: "Request sent",
     friendDuelSent: "Duel invite sent — waiting for a reply",
+    friendDuelWaiting: (n) => `waiting for ${n}...`,
+    friendDuelRejected: "Invite declined",
+    friendDuelTimeout: "No reply — invite withdrawn",
     friendProfile: "PROFILE", friendSince: "Friends since",
     notifFriendReqTitle: "New friend request 👥", notifFriendReqBody: (n) => `${n} wants to add you as a friend.`,
     challengeTag: "CHALLENGE", challengeLine: (n) => `${n} IS CHALLENGING YOU!`,
@@ -4268,6 +4274,8 @@ export default function Game() {
   // bu oturumda bir daha açılmaz ama Ayarlar → Arkadaşlarım'da beklemeye devam eder.
   const dismissedReqsRef = useRef({});
   const [popupFriendReq, setPopupFriendReq] = useState(null);
+  // Gönderilmiş ve yanıt bekleyen düello daveti — { uid, name, at }
+  const [pendingDuel, setPendingDuel] = useState(null);
   const dismissFriendReqPopup = useCallback(() => {
     setPopupFriendReq(prev => { if (prev) dismissedReqsRef.current[prev.uid] = true; return null; });
   }, []);
@@ -5181,17 +5189,59 @@ export default function Game() {
   // Arkadaşa doğrudan düello daveti — mevcut davet altyapısını kullanır, yani karşı
   // tarafta ekranın ortasında kabul/red penceresi açılır ve kabul edilirse maç başlar.
   const duelFriend = useCallback(async (friendUid, friendName) => {
-    if (!authUid || !friendUid) return;
+    if (!authUid || !friendUid || pendingDuel) return;
     try {
       await set(ref(db, `invites/${friendUid}/${authUid}`), {
         fromName: playerName || myProfile?.displayName || "Denizci",
         fromGold: safeGold(myProfile?.gold),
         status: "pending", time: Date.now(),
       });
-      setFriendMsg(L(appLang, "friendDuelSent"));
+      setPendingDuel({ uid: friendUid, name: friendName || "Denizci", at: Date.now() });
+    } catch (e) {
+      // Hata sessizce yutulmasın — sebebi ekranda görünsün (çoğunlukla Firebase kural hatası).
+      setFriendMsg("Davet gönderilemedi: " + (e?.code || e?.message || "bilinmeyen hata"));
+      setTimeout(() => setFriendMsg(null), 5000);
+    }
+  }, [authUid, playerName, myProfile, pendingDuel]);
+
+  // Gönderilen düello davetinin yanıtını dinle. ÖNEMLİ: yalnızca match_found'a
+  // güvenmiyoruz — davetin kendi düğümündeki `status` alanını da izliyoruz. Salon
+  // ekranındaki (çalıştığı bilinen) akışın birebir aynısı, ama her ekranda geçerli.
+  useEffect(() => {
+    if (!pendingDuel || !authUid) return;
+    const path = `invites/${pendingDuel.uid}/${authUid}`;
+    const unsub = onValue(ref(db, path), (snap) => {
+      if (!snap.exists()) { setPendingDuel(null); return; }
+      const d = snap.val();
+      if (d.status === "accepted" && d.roomId) {
+        remove(ref(db, path)).catch(()=>{});
+        remove(ref(db, `match_found/${authUid}`)).catch(()=>{});
+        setPendingDuel(null);
+        setShowSettings(false); setSettingsView(null);
+        sfx.init(); sfx.playPlacementMusic();
+        handleOnlineChallenge(d.roomId, 1);
+      } else if (d.status === "rejected") {
+        remove(ref(db, path)).catch(()=>{});
+        setPendingDuel(null);
+        setFriendMsg(L(appLang, "friendDuelRejected"));
+        setTimeout(() => setFriendMsg(null), 3000);
+      }
+    });
+    // 60 saniye içinde yanıt gelmezse daveti geri çek — sonsuza kadar asılı kalmasın.
+    const tm = setTimeout(() => {
+      remove(ref(db, path)).catch(()=>{});
+      setPendingDuel(null);
+      setFriendMsg(L(appLang, "friendDuelTimeout"));
       setTimeout(() => setFriendMsg(null), 3000);
-    } catch (e) {}
-  }, [authUid, playerName, myProfile, appLang]);
+    }, 60000);
+    return () => { unsub(); clearTimeout(tm); };
+  }, [pendingDuel, authUid, appLang, handleOnlineChallenge]);
+
+  const cancelPendingDuel = useCallback(() => {
+    if (!pendingDuel || !authUid) return;
+    remove(ref(db, `invites/${pendingDuel.uid}/${authUid}`)).catch(()=>{});
+    setPendingDuel(null);
+  }, [pendingDuel, authUid]);
   // Arkadaşlık isteği gönder (salon listesinden / rakip satırından)
   const addFriend = useCallback(async (targetUid) => {
     if (!authUid || !targetUid) return;
@@ -6051,10 +6101,28 @@ export default function Game() {
         </div>
       )}
 
+      {/* ═══ DÜELLO GÖNDERİLDİ — yanıt bekleniyor ═══
+          Ayarlar panelinin de üstünde durur; oyuncu daveti attığını ve ne olduğunu görür. */}
+      {pendingDuel && (
+        <div style={{ position:"fixed",inset:0,zIndex:9890,background:"rgba(2,6,14,0.82)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:18,animation:"settingsFadeIn 0.22s ease-out" }}>
+          <div style={{ width:"100%",maxWidth:320,textAlign:"center",background:"linear-gradient(160deg, rgba(14,24,38,0.99), rgba(6,12,22,0.99))",border:"2px solid rgba(255,107,107,0.55)",borderRadius:20,padding:"26px 22px 20px",boxShadow:"0 18px 50px rgba(0,0,0,0.6)",animation:"popIn 0.26s cubic-bezier(0.34,1.56,0.64,1)" }}>
+            <div style={{ fontSize:11,fontWeight:900,color:"#ff8f8f",letterSpacing:4,fontFamily:warrior,marginBottom:16 }}>⚔ {L(appLang,"challengeTag")}</div>
+            <div style={{ position:"relative",width:58,height:58,margin:"0 auto 12px" }}>
+              <span style={{ position:"absolute",inset:-6,borderRadius:"50%",background:"radial-gradient(circle, rgba(255,107,107,0.32) 0%, transparent 70%)",animation:"modeGlowPulse 1.6s ease-in-out infinite" }} />
+              <span style={{ position:"relative",width:58,height:58,borderRadius:"50%",background:"rgba(255,107,107,0.10)",border:"2px solid rgba(255,107,107,0.5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:27 }}>{friends[pendingDuel.uid]?.avatar || "⚓"}</span>
+            </div>
+            <div style={{ fontSize:16,fontWeight:900,color:"#ffe3e3",fontFamily:warrior,letterSpacing:1.2 }}>{pendingDuel.name}</div>
+            <div style={{ fontSize:11,color:"#8fa3b3",fontFamily:mono,marginTop:8,marginBottom:18 }}>{L(appLang,"inviteWaiting")}</div>
+            <button onClick={()=>{ sfx.init(); sfx.play('click'); cancelPendingDuel(); }}
+              style={{ width:"100%",padding:"12px 0",background:"transparent",color:"#8a7070",border:`1px solid ${t.border}`,borderRadius:11,fontSize:12,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"cancelBtn")}</button>
+          </div>
+        </div>
+      )}
+
       {/* ═══ ARKADAŞLIK İSTEĞİ ═══
           İstek geldiği anda ekranın ortasına düşer; burada kabul edilirse doğrudan
           listeye girer, "sonra bakarım" denirse Ayarlar → Arkadaşlarım'da beklemeye devam eder. */}
-      {popupFriendReq && !incomingInvite && !showOnlineLobby && ["lobby","idle"].includes(phase) && (
+      {popupFriendReq && !incomingInvite && !pendingDuel && !showOnlineLobby && ["lobby","idle"].includes(phase) && (
         <div style={{ position:"fixed",inset:0,zIndex:9880,background:"rgba(2,6,14,0.80)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:18,animation:"settingsFadeIn 0.22s ease-out" }}>
           <div style={{ width:"100%",maxWidth:340,textAlign:"center",background:"linear-gradient(160deg, rgba(10,30,28,0.99), rgba(6,16,20,0.99))",border:"2px solid #34d399",borderRadius:20,padding:"24px 22px 20px",boxShadow:"0 0 60px rgba(52,211,153,0.3), 0 18px 50px rgba(0,0,0,0.6)",animation:"popIn 0.28s cubic-bezier(0.34,1.56,0.64,1)" }}>
             <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:8,fontSize:11,fontWeight:900,color:"#34d399",letterSpacing:3.5,fontFamily:warrior,marginBottom:14 }}><PeopleIcon size={15} /> {L(appLang,"friendReqTag")}</div>
@@ -7998,6 +8066,8 @@ export default function Game() {
     const winRate = myProfile && myProfile.totalGames > 0 ? Math.round((myProfile.wins / myProfile.totalGames) * 100) : 0;
     const isNewPlayer = !myProfile || (myProfile.totalGames || 0) === 0;
     const BRONZE = "linear-gradient(180deg,#5a3d22 0%,#c9a15e 42%,#f0d79a 52%,#c9a15e 62%,#5a3d22 100%)";
+    // Mühür yolu çubuğunun dolgusu — BRONZE ile birebir aynı metalik kurgu, sadece menekşe.
+    const VIOLET = "linear-gradient(180deg,#2e1065 0%,#7c3aed 42%,#e9d5ff 52%,#7c3aed 62%,#2e1065 100%)";
     const neutralBtn = (dis) => ({ position:"relative",overflow:"hidden",flex:1,height:56,display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"linear-gradient(180deg,#20313f,#132030)",color:"#A9BCC9",border:"1px solid #26394b",borderRadius:12,fontSize:16,fontWeight:800,fontFamily:warrior,textTransform:"uppercase",letterSpacing:2,cursor:dis?"not-allowed":"pointer",opacity:dis?0.45:1,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.10), 0 2px 0 rgba(0,0,0,0.45), 0 7px 16px rgba(0,0,0,0.32)" });
     // Dört mod butonunun içeriği AYNI genişlikte olsun ki ikonlar dört kutucukta da tam olarak
     // aynı hizada (alt alta) dursun. Sabit genişlikli yazı sütunu + ortalanmış içerik = simetri.
@@ -8110,30 +8180,19 @@ export default function Game() {
           return (
             <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowSettings(true); setSettingsView("sancak"); }}
               style={{ width:"100%",marginTop:10,padding:0,background:"none",border:"none",cursor:"pointer",display:"block",textAlign:"left" }}>
-              <div style={{ position:"relative",height:9,borderRadius:5,background:"rgba(0,0,0,0.5)",overflow:"visible",boxShadow:"inset 0 1px 3px rgba(0,0,0,0.8)",border:"1px solid rgba(140,90,255,0.28)" }}>
-                <div style={{ position:"absolute",inset:0,borderRadius:5,overflow:"hidden" }}>
-                  <div style={{ height:"100%",width:`${pct*100}%`,borderRadius:5,background:u.seal
-                      ? "linear-gradient(90deg,#b45309 0%,#ffd700 40%,#fffbe0 55%,#ffd700 70%,#b45309 100%)"
-                      : "linear-gradient(90deg,#4c1d95 0%,#7c3aed 45%,#a855f7 70%,#d8b4fe 100%)",
-                    transition:"width 0.9s cubic-bezier(0.34,1.56,0.64,1)" }} />
-                  <span style={{ position:"absolute",top:0,bottom:0,left:0,width:"22%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.42),transparent)",animation:"shimmerPass 3.4s linear infinite",pointerEvents:"none" }} />
-                </div>
-                {SANCAK_STEPS.map((v,i)=>{ const done = earned >= v; const left = (v/SANCAK_GOAL)*100; return (
-                  <span key={i} title={`${v/1000}K`} style={{ position:"absolute",top:"50%",left:`${left}%`,transform:"translate(-50%,-50%)",width:done?11:9,height:done?11:9,borderRadius:"50%",
-                    background: done ? (i===3 ? "#ffd700" : "#e9d5ff") : "#1a2432",
-                    border: `1.5px solid ${done ? (i===3 ? "#fffbe0" : "#a855f7") : "rgba(140,90,255,0.45)"}`,
-                    boxShadow: done ? `0 0 7px ${i===3 ? "rgba(255,215,0,0.9)" : "rgba(168,85,247,0.85)"}` : "none",
-                    pointerEvents:"none" }} />
+              {/* XP çubuğunun İKİZİ: aynı yükseklik, aynı köşe, aynı oyuk gölge, aynı yazı ölçüsü.
+                  Tek fark dolgunun rengi — bronz yerine menekşe (100K'da altına döner). */}
+              <div style={{ position:"relative",height:7,borderRadius:4,background:"rgba(0,0,0,0.45)",overflow:"hidden",boxShadow:"inset 0 1px 3px rgba(0,0,0,0.7)",border:`1px solid ${u.seal?"rgba(201,161,94,0.18)":"rgba(140,90,255,0.22)"}` }}>
+                <div style={{ height:"100%",width:`${pct*100}%`,borderRadius:4,background:u.seal ? BRONZE : VIOLET,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.35)",transition:"width 0.7s cubic-bezier(0.34,1.56,0.64,1)" }} />
+                {/* Duraklar — çubuk yüksekliğini bozmayan ince dikey çentikler */}
+                {SANCAK_STEPS.slice(0,3).map((v,i)=>{ const done = earned >= v; return (
+                  <span key={i} style={{ position:"absolute",top:0,bottom:0,left:`${(v/SANCAK_GOAL)*100}%`,width:2,marginLeft:-1,pointerEvents:"none",
+                    background: done ? "rgba(255,255,255,0.75)" : "rgba(140,90,255,0.35)" }} />
                 ); })}
               </div>
-              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:5,fontFamily:mono,fontSize:9,letterSpacing:1 }}>
-                <span style={{ color:u.seal?"#f0d79a":"#b98df5",display:"inline-flex",alignItems:"center",gap:4 }}>
-                  {u.unlocked ? <ProfileSancak profile={myProfile} size={11} /> : null}
-                  {L(appLang,"sealPath")}
-                </span>
-                <span style={{ color:"#7a6a95" }}>
-                  {nextStep ? `${Math.round(earned/1000)}K / ${nextStep/1000}K` : L(appLang,"sealDone")}
-                </span>
+              <div style={{ display:"flex",justifyContent:"space-between",marginTop:5,fontFamily:mono,fontSize:9,color:"#54697a",letterSpacing:1 }}>
+                <span>{L(appLang,"sealPath")}</span>
+                <span>{nextStep ? `${Math.round(earned/1000)}K / ${nextStep/1000}K` : L(appLang,"sealDone")}</span>
               </div>
             </button>
           );
