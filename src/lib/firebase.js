@@ -55,8 +55,15 @@ export async function getPushToken() {
     if (!vapid) return null;
     const { getMessaging, getToken, isSupported } = await import("firebase/messaging");
     if (!(await isSupported().catch(() => false))) return null;
-    const reg = await navigator.serviceWorker.register("/firebase-messaging-sw.js").catch(() => null);
+    // ÖNEMLİ: kendi kapsamıyla kaydet. Varsayılan kapsam "/" ve uygulamanın PWA
+    // çalışanı (/sw.js) da orada — ikisi aynı kapsama kaydolursa sonuncusu diğerini
+    // EZER. O yüzden uygulama tamamen kapalıyken push'u karşılayacak çalışan
+    // ortadan kalkıyor ve bildirim hiç gelmiyordu.
+    const reg = await navigator.serviceWorker
+      .register("/firebase-messaging-sw.js", { scope: "/firebase-cloud-messaging-push-scope" })
+      .catch(() => null);
     if (!reg) return null;
+    await navigator.serviceWorker.ready.catch(() => {});
     const messaging = getMessaging(app);
     return await getToken(messaging, { vapidKey: vapid, serviceWorkerRegistration: reg });
   } catch (e) { return null; }
@@ -74,8 +81,8 @@ export async function sendPush(toUid, title, message, tag) {
       body: JSON.stringify({ idToken, toUid, title, message, tag }),
     });
     const j = await res.json().catch(() => ({}));
-    return !!j.ok;
-  } catch (e) { return false; }
+    return j && j.ok ? true : (j?.error || (j?.disabled ? "disabled" : "fail"));
+  } catch (e) { return "network"; }
 }
 
 /** Olay kaydet. Analitik kapalıysa sessizce yok sayılır. */

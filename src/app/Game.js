@@ -906,6 +906,10 @@ const TRANSLATIONS = {
     settingsTitle: "AYARLAR", profile: "Profil", musicLevel: "Müzik Seviyesi", sfx: "Ses Efektleri", sfxSub: "Vuruş, isabet, seri vuruş sesleri",
     notifications: "Bildirimler", notificationsSub: "Sefer dönüşü, günlük top ve düello davetleri", language: "Dil", privacy: "Gizlilik Politikası & Kullanım Koşulları",
     notifBlocked: "Bildirimler tarayıcı ayarlarından engellenmiş",
+    pushReady: "✓ Bu cihaz kayıtlı — oyun kapalıyken de bildirim gelir",
+    pushWorking: "Cihaz kaydediliyor...",
+    pushNoToken: "⚠ Cihaz kaydı alınamadı — kapalıyken bildirim gelmez",
+    pushDbErr: "⚠ Cihaz kaydı sunucuya yazılamadı",
     notifPromptTitle: "SEFERİ KAÇIRMA", notifPromptBody: "Gemin limana döndüğünde ve günlük topun hazır olduğunda haber verelim mi?",
     notifPromptYes: "HABER VER", notifPromptNo: "Şimdi değil",
     friends: "ARKADAŞLARIM", friendsSub: (n) => n > 0 ? `${n} arkadaş` : "Henüz arkadaşın yok",
@@ -1020,6 +1024,10 @@ const TRANSLATIONS = {
     settingsTitle: "SETTINGS", profile: "Profile", musicLevel: "Music Volume", sfx: "Sound Effects", sfxSub: "Hit, sink, and streak sounds",
     notifications: "Notifications", notificationsSub: "Voyage returns, daily cannon and duel invites", language: "Language", privacy: "Privacy Policy & Terms of Use",
     notifBlocked: "Notifications are blocked in your browser settings",
+    pushReady: "✓ This device is registered — works even when the app is closed",
+    pushWorking: "Registering device...",
+    pushNoToken: "⚠ Could not register device — no alerts while closed",
+    pushDbErr: "⚠ Device registration could not be saved",
     notifPromptTitle: "DON'T MISS THE VOYAGE", notifPromptBody: "Want us to ping you when your ship returns and your daily cannon is ready?",
     notifPromptYes: "NOTIFY ME", notifPromptNo: "Not now",
     friends: "MY FRIENDS", friendsSub: (n) => n > 0 ? `${n} friends` : "No friends yet",
@@ -4555,6 +4563,8 @@ export default function Game() {
   // böylece kalıcı "engellendi" durumuna düşme riski olmaz (izin bir kez reddedilince
   // tarayıcı bir daha sormaz — bu yüzden ilk soruşu boşa harcamamak kritik).
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
+  // Kapalıyken bildirim (push) durumu — ayarlar satırında görünür, teşhis için
+  const [pushState, setPushState] = useState(null); // null | working | ready | notoken | dberr | off
   // Kullanıcı dokunuşu içinde çalışır — izin penceresi ancak böyle açılabilir.
   const toggleNotif = async (v) => {
     if (!v) { setNotifOn(false); try { localStorage.setItem('ab_notifOn','0'); } catch(e) {} registerPush(false); return; }
@@ -4571,10 +4581,13 @@ export default function Game() {
   // uygulama KAPALIYKEN bile bildirim gönderebiliyor.
   const registerPush = useCallback(async (enabled) => {
     if (!authUid) return;
-    if (!enabled) { update(ref(db, `profiles/${authUid}/push`), { enabled: false }).catch(()=>{}); return; }
+    if (!enabled) { setPushState("off"); update(ref(db, `profiles/${authUid}/push`), { enabled: false }).catch(()=>{}); return; }
+    setPushState("working");
     const token = await getPushToken();
-    if (!token) return;
-    update(ref(db, `profiles/${authUid}/push`), { token, enabled: true, at: Date.now() }).catch(()=>{});
+    if (!token) { setPushState("notoken"); return; }
+    update(ref(db, `profiles/${authUid}/push`), { token, enabled: true, at: Date.now() })
+      .then(() => setPushState("ready"))
+      .catch(() => setPushState("dberr"));
   }, [authUid]);
   // Girişte izin zaten verilmişse anahtarı tazele (anahtarlar zaman zaman yenilenir)
   useEffect(() => {
@@ -5313,7 +5326,9 @@ export default function Game() {
       // Karşı taraf uygulamayı tamamen kapatmış olsa bile haberi olsun
       sendPush(friendUid, L(appLang, "notifInviteTitle"),
                L(appLang, "notifInviteBody")(playerName || myProfile?.displayName || "Bir denizci"),
-               NOTIF_TAG.invite);
+               NOTIF_TAG.invite).then((r) => {
+        if (r !== true) { setFriendMsg("Push gönderilemedi: " + r); setTimeout(() => setFriendMsg(null), 6000); }
+      });
     } catch (e) {
       // Hata sessizce yutulmasın — sebebi ekranda görünsün (çoğunlukla Firebase kural hatası).
       setFriendMsg("Davet gönderilemedi: " + (e?.code || e?.message || "bilinmeyen hata"));
@@ -6074,7 +6089,14 @@ export default function Game() {
 
               <ToggleRow icon="💥" title={L(appLang,"sfx")} sub={L(appLang,"sfxSub")} value={sfxOnState} onChange={(v)=>{ setSfxOnState(v); sfx.setSfxOn(v); }} />
 
-              <ToggleRow icon="🔔" title={L(appLang,"notifications")} sub={notifBlocked ? L(appLang,"notifBlocked") : L(appLang,"notificationsSub")} value={notifOn} onChange={toggleNotif} />
+              <ToggleRow icon="🔔" title={L(appLang,"notifications")}
+                sub={notifBlocked ? L(appLang,"notifBlocked")
+                  : pushState === "ready" ? L(appLang,"pushReady")
+                  : pushState === "working" ? L(appLang,"pushWorking")
+                  : pushState === "notoken" ? L(appLang,"pushNoToken")
+                  : pushState === "dberr" ? L(appLang,"pushDbErr")
+                  : L(appLang,"notificationsSub")}
+                value={notifOn} onChange={toggleNotif} />
 
               <div style={sectionCardStyle}>
                 <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:10 }}>
