@@ -442,6 +442,62 @@ const HeroSheen = () => (<span style={{ position:"absolute",top:0,left:0,right:0
 const Gem = ({ size, style }) => (<img src="/img/coin.png" alt="" draggable={false} style={{ width: size || "1em", height: size || "1em", objectFit:"contain", verticalAlign:"-0.15em", display:"inline-block", flexShrink:0, ...style }} />);
 
 // Ask the browser/WebView for immersive fullscreen (hides Android system nav bar in the TWA).
+// ═══════════════════════════════════════════════════════════════════════
+// BİLDİRİMLER
+// Amaç: oyuncuyu geri çağırmak. Üç tetik var —
+//   1) Sefer dönüşü  : gemi limana döndü, ganimet dolmuş
+//   2) Günlük top     : yeni gün açıldı, ödül hakkı tazelendi
+//   3) Düello daveti  : biri seni maça çağırdı (uygulama arka plandayken)
+// Bildirim, servis çalışanı (service worker) üzerinden gösterilir — Android'de
+// zorunlu, iOS'ta (16.4+) ana ekrana eklenmiş uygulamada çalışır. Desteklenmeyen
+// tarayıcılarda her şey sessizce devre dışı kalır, oyun normal çalışmaya devam eder.
+// NOT: Sunucusuz (push aboneliği olmadan) zamanlayıcı ancak sayfa canlıyken
+// çalışır — yani uygulama arka plandayken/başka sekmedeyken. Gerçek "uygulama
+// tamamen kapalıyken" bildirimi için ileride FCM push eklenebilir; sw.js'teki
+// push dinleyicisi o gün için hazır bırakıldı.
+// ═══════════════════════════════════════════════════════════════════════
+const NOTIF_TAG = { voyage: "ab-voyage", cannon: "ab-cannon", invite: "ab-invite" };
+function notifSupported() {
+  return typeof window !== "undefined" && "Notification" in window;
+}
+function notifPrefOn() {
+  try { return localStorage.getItem("ab_notifOn") !== "0"; } catch (e) { return true; }
+}
+function notifReady() {
+  return notifSupported() && Notification.permission === "granted" && notifPrefOn();
+}
+// Kullanıcı DOKUNUŞUNDAN çağrılmalı — tarayıcılar aksi halde izin penceresini açmaz.
+async function askNotifPermission() {
+  if (!notifSupported()) return "unsupported";
+  if (Notification.permission !== "default") return Notification.permission;
+  try { return await Notification.requestPermission(); } catch (e) { return "denied"; }
+}
+async function showNotif(title, body, tag) {
+  if (!notifReady()) return false;
+  const opts = {
+    body, tag, renotify: true, icon: "/icon-192.png", badge: "/icon-192.png",
+    vibrate: [40, 60, 40], data: { url: "/" },
+  };
+  try {
+    if ("serviceWorker" in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg && reg.showNotification) { await reg.showNotification(title, opts); return true; }
+    }
+    new Notification(title, opts); // masaüstü yedeği
+    return true;
+  } catch (e) { return false; }
+}
+// Aynı bildirimi aynı gün/aynı olay için iki kez göndermemek adına küçük bir kilit.
+function notifOnce(key, fn) {
+  try {
+    if (localStorage.getItem("ab_notif_" + key) === "1") return;
+    localStorage.setItem("ab_notif_" + key, "1");
+  } catch (e) {}
+  fn();
+}
+// setTimeout 32 bit sınırı (~24.8 gün) — daha uzun beklemeleri güvenle kırp.
+const MAX_TIMEOUT = 2147483000;
+
 // "Arkadaşını davet et" ikonu — birkaç insan figürü (grup). Emoji yerine vektör:
 // her cihazda aynı görünür ve buton renginden (currentColor) beslenir.
 const PeopleIcon = ({ size = 14, style }) => (
@@ -556,7 +612,13 @@ const TRANSLATIONS = {
     attack: "SALDIRI", defense: "SAVUNMA", fire: "ATEŞ", leaveGame: "OYUNDAN AYRIL", markMode: "İŞARETLE", markModeOn: "İŞARETLEME MODU: AÇIK", hits: "İsabet",
     leaveConfirmTitle: "AYRILMAK İSTİYOR MUSUN?", leaveConfirmBotBody: "Eğitim savaşından çıkacaksın.", leaveConfirmBody: "Ayrılırsan maçı kaybedersin!", stay: "KALIYORUM", exit: "ÇIKIŞ",
     settingsTitle: "AYARLAR", profile: "Profil", musicLevel: "Müzik Seviyesi", sfx: "Ses Efektleri", sfxSub: "Vuruş, isabet, seri vuruş sesleri",
-    notifications: "Bildirimler", notificationsSub: "Günlük ödül ve enerji hatırlatmaları", language: "Dil", privacy: "Gizlilik Politikası & Kullanım Koşulları",
+    notifications: "Bildirimler", notificationsSub: "Sefer dönüşü, günlük top ve düello davetleri", language: "Dil", privacy: "Gizlilik Politikası & Kullanım Koşulları",
+    notifBlocked: "Bildirimler tarayıcı ayarlarından engellenmiş",
+    notifPromptTitle: "SEFERİ KAÇIRMA", notifPromptBody: "Gemin limana döndüğünde ve günlük topun hazır olduğunda haber verelim mi?",
+    notifPromptYes: "HABER VER", notifPromptNo: "Şimdi değil",
+    notifVoyageTitle: "Gemin limana döndü! ⚓", notifVoyageBody: "Ambarlar dolu — ganimetini almayı bekliyor.",
+    notifCannonTitle: "Günlük top hazır! 💥", notifCannonBody: "İpi çek, bugünkü ödülünü ateşle.",
+    notifInviteTitle: "Düello daveti! ⚔", notifInviteBody: (n) => `${n} seni maça çağırıyor.`,
     support: "Destek / İletişim", deleteAccount: "Hesabımı / Verilerimi Sil", close: "KAPAT", back: "Profil",
     totalGames: "TOPLAM OYUN", winRateLabel: "KAZANMA ORANI", botGamesLabel: "BOT MAÇI", onlineGamesLabel: "ONLINE MAÇI", joined: "Katılım",
     statBreakdown: "MAÇ DAĞILIMI", statBot: "🤖 BOT", statOnline: "🌐 ONLINE", statW: "G", statL: "M",
@@ -633,7 +695,13 @@ const TRANSLATIONS = {
     attack: "ATTACK", defense: "DEFENSE", fire: "FIRE", leaveGame: "LEAVE GAME", markMode: "MARK", markModeOn: "MARK MODE: ON", hits: "Hits",
     leaveConfirmTitle: "DO YOU WANT TO LEAVE?", leaveConfirmBotBody: "You'll exit the training battle.", leaveConfirmBody: "If you leave, you'll lose the match!", stay: "STAY", exit: "LEAVE",
     settingsTitle: "SETTINGS", profile: "Profile", musicLevel: "Music Volume", sfx: "Sound Effects", sfxSub: "Hit, sink, and streak sounds",
-    notifications: "Notifications", notificationsSub: "Daily reward and energy reminders", language: "Language", privacy: "Privacy Policy & Terms of Use",
+    notifications: "Notifications", notificationsSub: "Voyage returns, daily cannon and duel invites", language: "Language", privacy: "Privacy Policy & Terms of Use",
+    notifBlocked: "Notifications are blocked in your browser settings",
+    notifPromptTitle: "DON'T MISS THE VOYAGE", notifPromptBody: "Want us to ping you when your ship returns and your daily cannon is ready?",
+    notifPromptYes: "NOTIFY ME", notifPromptNo: "Not now",
+    notifVoyageTitle: "Your ship is back in port! ⚓", notifVoyageBody: "The holds are full — your loot is waiting.",
+    notifCannonTitle: "Daily cannon ready! 💥", notifCannonBody: "Pull the rope and fire today's reward.",
+    notifInviteTitle: "Duel invite! ⚔", notifInviteBody: (n) => `${n} is challenging you to a match.`,
     support: "Support / Contact", deleteAccount: "Delete My Account / Data", close: "CLOSE", back: "Profile",
     totalGames: "TOTAL GAMES", winRateLabel: "WIN RATE", botGamesLabel: "BOT MATCHES", onlineGamesLabel: "ONLINE MATCHES", joined: "Joined",
     statBreakdown: "MATCH BREAKDOWN", statBot: "🤖 BOT", statOnline: "🌐 ONLINE", statW: "W", statL: "L",
@@ -3766,7 +3834,46 @@ export default function Game() {
   const [settingsView, setSettingsView] = useState(null); // null | 'profile' | 'privacy' | 'delete' | 'deleting'
   const [musicVolume, setMusicVolumeState] = useState(() => { try { const v = localStorage.getItem('ab_musicVolume'); return v !== null ? parseInt(v,10) : 50; } catch(e) { return 50; } });
   const [sfxOnState, setSfxOnState] = useState(() => { try { const v = localStorage.getItem('ab_sfxOn'); return v !== null ? v === '1' : true; } catch(e) { return true; } });
-  const [notifOn, setNotifOn] = useState(() => { try { const v = localStorage.getItem('ab_notifOn'); return v !== null ? v === '1' : true; } catch(e) { return true; } });
+  // Anahtar AÇIK sayılması için hem kullanıcı tercihi hem tarayıcı izni gerekir —
+  // izin verilmemişken açık göstermek yalan olurdu (kullanıcı bildirim bekler, gelmez).
+  const [notifOn, setNotifOn] = useState(false);
+  const [notifBlocked, setNotifBlocked] = useState(false);
+  useEffect(() => {
+    if (!notifSupported()) { setNotifBlocked(true); return; }
+    setNotifBlocked(Notification.permission === "denied");
+    setNotifOn(Notification.permission === "granted" && notifPrefOn());
+  }, []);
+  // Lobide bir kez gösterilen yumuşak izin kartı. Tarayıcının izin penceresini doğrudan
+  // açmak yerine önce oyun içinde sorarız: "hayır" denirse izin penceresi hiç açılmaz,
+  // böylece kalıcı "engellendi" durumuna düşme riski olmaz (izin bir kez reddedilince
+  // tarayıcı bir daha sormaz — bu yüzden ilk soruşu boşa harcamamak kritik).
+  const [showNotifPrompt, setShowNotifPrompt] = useState(false);
+  // Kullanıcı dokunuşu içinde çalışır — izin penceresi ancak böyle açılabilir.
+  const toggleNotif = async (v) => {
+    if (!v) { setNotifOn(false); try { localStorage.setItem('ab_notifOn','0'); } catch(e) {} return; }
+    const res = await askNotifPermission();
+    if (res !== "granted") { setNotifOn(false); setNotifBlocked(res === "denied"); return; }
+    try { localStorage.setItem('ab_notifOn','1'); } catch(e) {}
+    setNotifOn(true); setNotifBlocked(false);
+    // Anında geri bildirim: izin verildiği an örnek bir bildirim göster.
+    showNotif(L(appLangRef.current,"notifCannonTitle"), L(appLangRef.current,"notifCannonBody"), NOTIF_TAG.cannon);
+  };
+
+  // Kartı ne zaman göster: lobide, en az bir maç oynanmışsa, izin henüz sorulmamışsa
+  // ve daha önce "şimdi değil" denmemişse. Yeni oyuncuyu ilk saniyede rahatsız etmeyiz.
+  useEffect(() => {
+    if (phase !== "lobby" || !myProfile) return;
+    if (!notifSupported() || Notification.permission !== "default") return;
+    if ((myProfile.totalGames || 0) < 1) return;
+    try { if (localStorage.getItem("ab_notifAsked") === "1") return; } catch (e) {}
+    const tm = setTimeout(() => setShowNotifPrompt(true), 1200);
+    return () => clearTimeout(tm);
+  }, [phase, myProfile]);
+  const closeNotifPrompt = (accepted) => {
+    try { localStorage.setItem("ab_notifAsked", "1"); } catch (e) {}
+    setShowNotifPrompt(false);
+    if (accepted) toggleNotif(true);
+  };
   const [appLang, setAppLang] = useState(() => {
     try {
       const saved = localStorage.getItem('ab_lang');
@@ -3777,6 +3884,10 @@ export default function Game() {
     } catch (e) {}
     return "tr";
   });
+  // Bildirim metinleri React render'ı dışında (zamanlayıcı/Firebase dinleyicisi içinde)
+  // üretildiği için dilin güncel değerine ref üzerinden erişilir.
+  const appLangRef = useRef(appLang);
+  useEffect(() => { appLangRef.current = appLang; }, [appLang]);
   const [goldAnim, setGoldAnim] = useState(null);
   // Maç sonu sahne akışı: null (henüz başlamadı) → 'burst' → ('gems', sadece zaferde) → 'rewards' → 'map' → 'final'
   const [gameOverStage, setGameOverStage] = useState(null);
@@ -4369,9 +4480,53 @@ export default function Game() {
       let found = null;
       snap.forEach(child => { const d = child.val(); if (d && d.status === "pending" && !found) found = { id: child.key, ...d }; });
       setIncomingInvite(found);
+      // BİLDİRİM 3 — düello daveti. Yalnızca uygulama arka plandayken; ekrana bakarken
+      // zaten davet penceresi açılıyor, üstüne bildirim atmak gürültü olurdu.
+      if (found && typeof document !== "undefined" && document.visibilityState === "hidden") {
+        notifOnce("inv-" + found.id + "-" + (found.time || 0), () => {
+          showNotif(L(appLangRef.current, "notifInviteTitle"),
+                    L(appLangRef.current, "notifInviteBody")(found.fromName || "Bir denizci"),
+                    NOTIF_TAG.invite);
+        });
+      }
     });
     return () => unsub();
   }, [authUid]);
+
+  // ═══ BİLDİRİM ZAMANLAYICISI ═══
+  // Sefer dolduğunda ve yeni günün top ödülü açıldığında haber ver. Zamanlayıcılar
+  // profil değiştikçe yeniden kurulur; uygulama arka plandayken de çalışırlar.
+  useEffect(() => {
+    if (!myProfile || !notifReady()) return;
+    const timers = [];
+    const now = Date.now();
+
+    // 1) SEFER — ambar dolduğu an (cap'e ulaşıldığında)
+    const v = safeVoyage(myProfile.voyage);
+    if (v.lastClaim) {
+      const capMs = voyageCapH(v.matches) * 3600000;
+      const readyAt = v.lastClaim + capMs;
+      const key = "voy-" + v.lastClaim;
+      if (readyAt > now) {
+        timers.push(setTimeout(() => {
+          notifOnce(key, () => showNotif(L(appLangRef.current, "notifVoyageTitle"), L(appLangRef.current, "notifVoyageBody"), NOTIF_TAG.voyage));
+        }, Math.min(readyAt - now, MAX_TIMEOUT)));
+      } else if (document.visibilityState === "hidden") {
+        notifOnce(key, () => showNotif(L(appLangRef.current, "notifVoyageTitle"), L(appLangRef.current, "notifVoyageBody"), NOTIF_TAG.voyage));
+      }
+    }
+
+    // 2) GÜNLÜK TOP — bugünkü hakkı kullandıysa, gece yarısı yeni hak açılınca
+    if (hasClaimedCannonToday(myProfile)) {
+      const d = new Date(); d.setHours(24, 0, 30, 0); // yerel gece yarısından 30sn sonra
+      const key = "can-" + dayKeyOf(d.getTime());
+      timers.push(setTimeout(() => {
+        notifOnce(key, () => showNotif(L(appLangRef.current, "notifCannonTitle"), L(appLangRef.current, "notifCannonBody"), NOTIF_TAG.cannon));
+      }, Math.min(Math.max(0, d.getTime() - now), MAX_TIMEOUT)));
+    }
+
+    return () => timers.forEach(clearTimeout);
+  }, [myProfile]);
 
   const acceptIncomingInvite = async (invite) => {
     const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -4961,7 +5116,7 @@ export default function Game() {
 
               <ToggleRow icon="💥" title={L(appLang,"sfx")} sub={L(appLang,"sfxSub")} value={sfxOnState} onChange={(v)=>{ setSfxOnState(v); sfx.setSfxOn(v); }} />
 
-              <ToggleRow icon="🔔" title={L(appLang,"notifications")} sub={L(appLang,"notificationsSub")} value={notifOn} onChange={(v)=>{ setNotifOn(v); try{ localStorage.setItem('ab_notifOn', v?'1':'0'); }catch(e){} }} />
+              <ToggleRow icon="🔔" title={L(appLang,"notifications")} sub={notifBlocked ? L(appLang,"notifBlocked") : L(appLang,"notificationsSub")} value={notifOn} onChange={toggleNotif} />
 
               <div style={sectionCardStyle}>
                 <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:10 }}>
@@ -7140,6 +7295,21 @@ export default function Game() {
         </RippleButton>
       </div>
       <QuickMatchModal myProfile={myProfile} lang={appLang} phase={quickMatchPhase} candidate={quickMatchCandidate} opponent={quickMatchOpponent} secondsLeft={quickMatchSecondsLeft} onCancel={cancelQuickMatch} onRetry={retryQuickMatch} />
+      {/* Yumuşak bildirim izni kartı — lobide bir kez, oyuncu en az bir maç oynadıktan sonra */}
+      {showNotifPrompt && (
+        <div style={{ width:"100%",maxWidth:400,marginTop:12,zIndex:1,position:"relative",overflow:"hidden",borderRadius:14,padding:"13px 15px",background:"linear-gradient(180deg, rgba(20,34,48,0.92), rgba(10,20,30,0.95))",border:"1px solid rgba(0,229,255,0.35)",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.06), 0 6px 20px rgba(0,0,0,0.35)",animation:"fadeUp 0.4s ease-out both" }}>
+          <span style={{ position:"absolute",left:0,top:0,bottom:0,width:2,background:t.accent }} />
+          <div style={{ display:"flex",alignItems:"center",gap:9,marginBottom:6 }}>
+            <span style={{ fontSize:17 }}>🔔</span>
+            <span style={{ fontSize:13,fontWeight:900,color:t.accent,fontFamily:warrior,letterSpacing:2 }}>{L(appLang,"notifPromptTitle")}</span>
+          </div>
+          <div style={{ fontSize:11,lineHeight:1.5,color:"#8fa3b3",fontFamily:mono,marginBottom:11 }}>{L(appLang,"notifPromptBody")}</div>
+          <div style={{ display:"flex",gap:9 }}>
+            <button onClick={()=>{ sfx.init(); sfx.play('click'); closeNotifPrompt(true); }} style={{ flex:1,padding:"10px 0",background:`linear-gradient(135deg,${t.accent},#0891b2)`,color:t.bg,border:"none",borderRadius:9,fontSize:12,fontWeight:900,letterSpacing:1.6,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"notifPromptYes")}</button>
+            <button onClick={()=>{ sfx.init(); sfx.play('click'); closeNotifPrompt(false); }} style={{ flex:"0 0 auto",padding:"10px 16px",background:"transparent",color:"#54697a",border:`1px solid ${t.border}`,borderRadius:9,fontSize:11,fontWeight:700,letterSpacing:1,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"notifPromptNo")}</button>
+          </div>
+        </div>
+      )}
       <div style={{ display:"flex",gap:12,marginTop:12,width:"100%",maxWidth:400,zIndex:1 }}>
         <RippleButton onClick={()=>{if(!authUid){setMessage(L(appLang,"msgConnecting"));return;}setShowOnlineLobby(true);}} disabled={authLoading} style={neutralBtn(authLoading)}>
           {ModeIcon("salon","rgba(0,229,255,0.65)")}
