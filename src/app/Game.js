@@ -4583,11 +4583,11 @@ export default function Game() {
     if (!authUid) return;
     if (!enabled) { setPushState("off"); update(ref(db, `profiles/${authUid}/push`), { enabled: false }).catch(()=>{}); return; }
     setPushState("working");
-    const token = await getPushToken();
-    if (!token) { setPushState("notoken"); return; }
-    update(ref(db, `profiles/${authUid}/push`), { token, enabled: true, at: Date.now() })
+    const res = await getPushToken();
+    if (!res || !res.token) { setPushState("HATA: " + (res?.error || "bilinmeyen")); return; }
+    update(ref(db, `profiles/${authUid}/push`), { token: res.token, enabled: true, at: Date.now() })
       .then(() => setPushState("ready"))
-      .catch(() => setPushState("dberr"));
+      .catch((e) => setPushState("HATA: yazma " + (e?.code || "")));
   }, [authUid]);
   // Girişte izin zaten verilmişse anahtarı tazele (anahtarlar zaman zaman yenilenir)
   useEffect(() => {
@@ -6093,8 +6093,7 @@ export default function Game() {
                 sub={notifBlocked ? L(appLang,"notifBlocked")
                   : pushState === "ready" ? L(appLang,"pushReady")
                   : pushState === "working" ? L(appLang,"pushWorking")
-                  : pushState === "notoken" ? L(appLang,"pushNoToken")
-                  : pushState === "dberr" ? L(appLang,"pushDbErr")
+                  : (pushState && pushState.startsWith("HATA")) ? "⚠ " + pushState
                   : L(appLang,"notificationsSub")}
                 value={notifOn} onChange={toggleNotif} />
 

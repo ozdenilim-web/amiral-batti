@@ -50,23 +50,29 @@ if (typeof window !== "undefined" && firebaseConfig.measurementId && !firebaseCo
 // için gerekli. VAPID anahtarı tanımlı değilse sessizce null döner — oyun etkilenmez.
 export async function getPushToken() {
   try {
-    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return null;
+    if (typeof window === "undefined") return { error: "ssr" };
+    if (!("serviceWorker" in navigator)) return { error: "sw-yok" };
+    if (!("Notification" in window)) return { error: "bildirim-desteklenmiyor" };
+    if (Notification.permission !== "granted") return { error: "izin-yok" };
     const vapid = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
-    if (!vapid) return null;
+    if (!vapid) return { error: "VAPID-ANAHTARI-YOK" };
     const { getMessaging, getToken, isSupported } = await import("firebase/messaging");
-    if (!(await isSupported().catch(() => false))) return null;
+    if (!(await isSupported().catch(() => false))) return { error: "tarayici-desteklemiyor" };
     // ÖNEMLİ: kendi kapsamıyla kaydet. Varsayılan kapsam "/" ve uygulamanın PWA
     // çalışanı (/sw.js) da orada — ikisi aynı kapsama kaydolursa sonuncusu diğerini
-    // EZER. O yüzden uygulama tamamen kapalıyken push'u karşılayacak çalışan
-    // ortadan kalkıyor ve bildirim hiç gelmiyordu.
-    const reg = await navigator.serviceWorker
-      .register("/firebase-messaging-sw.js", { scope: "/firebase-cloud-messaging-push-scope" })
-      .catch(() => null);
-    if (!reg) return null;
-    await navigator.serviceWorker.ready.catch(() => {});
+    // EZER, uygulama kapalıyken push'u karşılayacak çalışan ortadan kalkar.
+    let reg;
+    try {
+      reg = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/firebase-cloud-messaging-push-scope" });
+    } catch (e) { return { error: "sw-kaydi: " + (e?.message || e) }; }
+    if (!reg) return { error: "sw-kaydi-bos" };
+    try { await navigator.serviceWorker.ready; } catch (e) {}
     const messaging = getMessaging(app);
-    return await getToken(messaging, { vapidKey: vapid, serviceWorkerRegistration: reg });
-  } catch (e) { return null; }
+    const token = await getToken(messaging, { vapidKey: vapid, serviceWorkerRegistration: reg });
+    return token ? { token } : { error: "bos-anahtar" };
+  } catch (e) {
+    return { error: (e?.code || e?.message || "bilinmeyen").toString().slice(0, 90) };
+  }
 }
 
 /** Karşı tarafa push gönder (uygulaması kapalı olsa bile ulaşır). */
