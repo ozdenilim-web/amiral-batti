@@ -443,6 +443,279 @@ const Gem = ({ size, style }) => (<img src="/img/coin.png" alt="" draggable={fal
 
 // Ask the browser/WebView for immersive fullscreen (hides Android system nav bar in the TWA).
 // ═══════════════════════════════════════════════════════════════════════
+// SANCAK — kazanılan kozmetik kimlik
+// Üç bağımsız katmanın çarpımı: BİÇİM × RENK × DESEN. Az sayıda parçadan
+// yüzlerce kombinasyon çıkar ve oyuncu ne alacağını önceden bilir (şans yok).
+// Basamaklar TOPLAM KAZANILAN elmasa (ach.goldEarned) bakar — harcayınca geri
+// gitmez, "kazandıkça ilerler".
+//   25.000 → 3 biçim, 4 renk
+//   50.000 → 5 biçim, 7 renk
+//   75.000 → desenler açılır
+//  100.000 → özel mühür (benzersiz sancak + ışıltı)
+// ═══════════════════════════════════════════════════════════════════════
+const SANCAK_STEPS = [25000, 50000, 75000, 100000];
+const SANCAK_GOAL = 100000;
+
+// Biçimler — bez kısmının yolu (viewBox 0 0 22 24, direk x=2)
+const SANCAK_SHAPES = [
+  { id: "catal",  name: "Çatal kuyruk", nameEn: "Swallowtail", d: "M4 3 H20 L15.5 9 L20 15 H4 Z" },
+  { id: "ucgen",  name: "Üçgen flama",  nameEn: "Pennant",     d: "M4 3 H21 L4 13.5 Z" },
+  { id: "duz",    name: "Düz sancak",   nameEn: "Banner",      d: "M4 3 H20 V15 H4 Z" },
+  { id: "kavis",  name: "Kavisli",      nameEn: "Curved",      d: "M4 3 H20 Q16 9 20 15 H4 Z" },
+  { id: "mizrak", name: "Mızrak",       nameEn: "Lance",       d: "M4 3 H17 L21 9 L17 15 H4 Z" },
+  { id: "kirlangic", name: "Kırlangıç", nameEn: "Forked",      d: "M4 3 H21 L16 6.5 L21 9 L16 12 L21 15 H4 Z" },
+];
+// Renkler — bez rengi + üstteki desen rengi
+const SANCAK_COLORS = [
+  { id: "kizil",  name: "Kızıl",   nameEn: "Crimson", c: "#e0453f", ink: "#ffe0b8", glow: "rgba(224,69,63,0.55)" },
+  { id: "gok",    name: "Gök",     nameEn: "Azure",   c: "#1CC7E6", ink: "#04303c", glow: "rgba(28,199,230,0.55)" },
+  { id: "altin",  name: "Altın",   nameEn: "Gold",    c: "#e0b64a", ink: "#3a2a08", glow: "rgba(224,182,74,0.55)" },
+  { id: "zumrut", name: "Zümrüt",  nameEn: "Emerald", c: "#34d399", ink: "#043226", glow: "rgba(52,211,153,0.55)" },
+  { id: "mor",    name: "Mor",     nameEn: "Violet",  c: "#a855f7", ink: "#f0e2ff", glow: "rgba(168,85,247,0.55)" },
+  { id: "kar",    name: "Kar",     nameEn: "Snow",    c: "#e8f0f5", ink: "#16303f", glow: "rgba(232,240,245,0.5)" },
+  { id: "obsidyen", name: "Obsidyen", nameEn: "Obsidian", c: "#25313d", ink: "#8fd8ee", glow: "rgba(120,190,220,0.45)" },
+  { id: "bakir",  name: "Bakır",   nameEn: "Copper",  c: "#c96f3a", ink: "#ffe6cc", glow: "rgba(201,111,58,0.55)" },
+  { id: "denizmavisi", name: "Derin mavi", nameEn: "Deep blue", c: "#2f5fd0", ink: "#dbe6ff", glow: "rgba(47,95,208,0.55)" },
+  { id: "gul",    name: "Gül",     nameEn: "Rose",    c: "#f472b6", ink: "#4a0f2c", glow: "rgba(244,114,182,0.55)" },
+  { id: "kehribar", name: "Kehribar", nameEn: "Amber", c: "#fb923c", ink: "#3c1a02", glow: "rgba(251,146,60,0.55)" },
+  { id: "yosun",  name: "Yosun",   nameEn: "Moss",    c: "#84a95c", ink: "#1d2a10", glow: "rgba(132,169,92,0.5)" },
+];
+// Desenler — bezin ÜSTÜNE binen ikinci katman (clipPath ile bez içine kırpılır)
+const SANCAK_PATTERNS = [
+  { id: "duz",    name: "Düz",     nameEn: "Plain" },
+  { id: "serit",  name: "Şeritli", nameEn: "Striped" },
+  { id: "hac",    name: "Haçlı",   nameEn: "Cross" },
+  { id: "capraz", name: "Çapraz",  nameEn: "Saltire" },
+  { id: "kama",   name: "Kama",    nameEn: "Chevron" },
+];
+// Toplam kazanılan elmasa göre neyin açık olduğu
+function sancakUnlock(goldEarned) {
+  const g = goldEarned || 0;
+  return {
+    unlocked: g >= SANCAK_STEPS[0],
+    shapes:   g >= SANCAK_STEPS[1] ? 5 : g >= SANCAK_STEPS[0] ? 3 : 0,
+    colors:   g >= SANCAK_STEPS[1] ? 7 : g >= SANCAK_STEPS[0] ? 4 : 0,
+    patterns: g >= SANCAK_STEPS[2] ? SANCAK_PATTERNS.length : 1,
+    seal:     g >= SANCAK_STEPS[3],
+    step:     g >= SANCAK_STEPS[3] ? 4 : g >= SANCAK_STEPS[2] ? 3 : g >= SANCAK_STEPS[1] ? 2 : g >= SANCAK_STEPS[0] ? 1 : 0,
+  };
+}
+function safeSancak(s) {
+  const o = { shape: "catal", color: "kizil", pattern: "duz" };
+  if (s && typeof s === "object") {
+    if (SANCAK_SHAPES.some(x => x.id === s.shape)) o.shape = s.shape;
+    if (SANCAK_COLORS.some(x => x.id === s.color)) o.color = s.color;
+    if (SANCAK_PATTERNS.some(x => x.id === s.pattern)) o.pattern = s.pattern;
+  }
+  return o;
+}
+// Sancak çizimi. `seal` açıksa altın çerçeve + ışıltı eklenir (100.000 ödülü).
+let _sancakUid = 0;
+const Sancak = ({ shape = "catal", color = "kizil", pattern = "duz", size = 18, seal = false, glow = true, style }) => {
+  const sh = SANCAK_SHAPES.find(x => x.id === shape) || SANCAK_SHAPES[0];
+  const co = SANCAK_COLORS.find(x => x.id === color) || SANCAK_COLORS[0];
+  const cid = useMemo(() => "sk" + (++_sancakUid), []);
+  const ink = co.ink;
+  const marks = pattern === "serit"
+    ? (<><rect x="0" y="5.2" width="24" height="1.9" fill={ink} /><rect x="0" y="9.6" width="24" height="1.9" fill={ink} /></>)
+    : pattern === "hac"
+    ? (<><rect x="9.6" y="0" width="2.6" height="24" fill={ink} /><rect x="0" y="7.7" width="24" height="2.6" fill={ink} /></>)
+    : pattern === "capraz"
+    ? (<><path d="M3 2 L21 16 L21 13.4 L5.6 2 Z" fill={ink} /><path d="M21 2 L3 16 L3 13.4 L18.4 2 Z" fill={ink} /></>)
+    : pattern === "kama"
+    ? (<path d="M3 2 L12 9 L3 16 L3 12.6 L7.6 9 L3 5.4 Z" fill={ink} />)
+    : null;
+  return (
+    <svg viewBox="0 0 22 24" width={size} height={size * 24 / 22} aria-hidden="true"
+         style={{ flexShrink:0, display:"block", overflow:"visible",
+                  filter: glow ? `drop-shadow(0 0 ${seal ? 5 : 3}px ${seal ? "rgba(255,215,0,0.75)" : co.glow})` : "none", ...style }}>
+      <defs><clipPath id={cid}><path d={sh.d} /></clipPath></defs>
+      <rect x="2" y="2" width="1.7" height="20" rx="0.8" fill={seal ? "#e0c07a" : "#8a7a5e"} />
+      <path d={sh.d} fill={co.c} />
+      {marks && <g clipPath={`url(#${cid})`}>{marks}</g>}
+      {seal && <><path d={sh.d} fill="none" stroke="#ffd700" strokeWidth="1.1" />
+                 <circle cx="10.5" cy="9" r="2.1" fill="#ffd700" opacity="0.9" /></>}
+    </svg>
+  );
+};
+// Profilden doğrudan sancak çizen kısayol — her yerde aynı görünsün diye tek nokta.
+const ProfileSancak = ({ profile, size = 16, style }) => {
+  if (!profile) return null;
+  const u = sancakUnlock(safeAch(profile.ach).goldEarned);
+  if (!u.unlocked) return null;
+  const s = safeSancak(profile.sancak);
+  return <Sancak shape={s.shape} color={s.color} pattern={s.pattern} size={size} seal={u.seal} style={style} />;
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// ÜLKE BAYRAĞI — ücretsiz, hesap açılışında seçilir.
+// Emoji bayrakları Windows'ta HİÇ görünmediği için (işletim sistemi bayrak
+// emojisi içermiyor) her bayrak SVG olarak çizilir. Çoğu bayrak yatay/dikey
+// bantlardan oluştuğu için tek bir veri tablosundan üretilebiliyor; birkaçı
+// için küçük ek şekiller var (hilal, daire, İskandinav haçı, kanton).
+// ═══════════════════════════════════════════════════════════════════════
+const COUNTRIES = [
+  { c:"TR", tr:"Türkiye",       en:"Türkiye",        f:"#E30A17", extra:"crescent" },
+  { c:"AZ", tr:"Azerbaycan",    en:"Azerbaijan",     h:["#00B5E2","#EF3340","#509E2F"], extra:"crescentSm" },
+  { c:"DE", tr:"Almanya",       en:"Germany",        h:["#000000","#DD0000","#FFCE00"] },
+  { c:"NL", tr:"Hollanda",      en:"Netherlands",    h:["#AE1C28","#FFFFFF","#21468B"] },
+  { c:"FR", tr:"Fransa",        en:"France",         v:["#002395","#FFFFFF","#ED2939"] },
+  { c:"GB", tr:"Birleşik Krallık", en:"United Kingdom", f:"#012169", extra:"union" },
+  { c:"US", tr:"ABD",           en:"United States",  extra:"usa" },
+  { c:"IT", tr:"İtalya",        en:"Italy",          v:["#009246","#FFFFFF","#CE2B37"] },
+  { c:"ES", tr:"İspanya",       en:"Spain",          h:["#AA151B","#F1BF00","#AA151B"], w:[1,2,1] },
+  { c:"PT", tr:"Portekiz",      en:"Portugal",       v:["#046A38","#DA291C"], w:[2,3] },
+  { c:"BE", tr:"Belçika",       en:"Belgium",        v:["#000000","#FDDA24","#EF3340"] },
+  { c:"AT", tr:"Avusturya",     en:"Austria",        h:["#ED2939","#FFFFFF","#ED2939"] },
+  { c:"CH", tr:"İsviçre",       en:"Switzerland",    f:"#DA291C", extra:"swissCross" },
+  { c:"SE", tr:"İsveç",         en:"Sweden",         f:"#006AA7", extra:"nordic", ink:"#FECC00" },
+  { c:"NO", tr:"Norveç",        en:"Norway",         f:"#BA0C2F", extra:"nordic", ink:"#FFFFFF" },
+  { c:"DK", tr:"Danimarka",     en:"Denmark",        f:"#C8102E", extra:"nordic", ink:"#FFFFFF" },
+  { c:"FI", tr:"Finlandiya",    en:"Finland",        f:"#FFFFFF", extra:"nordic", ink:"#003580" },
+  { c:"PL", tr:"Polonya",       en:"Poland",         h:["#FFFFFF","#DC143C"] },
+  { c:"CZ", tr:"Çekya",         en:"Czechia",        h:["#FFFFFF","#D7141A"] },
+  { c:"HU", tr:"Macaristan",    en:"Hungary",        h:["#CE2939","#FFFFFF","#477050"] },
+  { c:"RO", tr:"Romanya",       en:"Romania",        v:["#002B7F","#FCD116","#CE1126"] },
+  { c:"BG", tr:"Bulgaristan",   en:"Bulgaria",       h:["#FFFFFF","#00966E","#D62612"] },
+  { c:"GR", tr:"Yunanistan",    en:"Greece",         extra:"greece" },
+  { c:"RU", tr:"Rusya",         en:"Russia",         h:["#FFFFFF","#0039A6","#D52B1E"] },
+  { c:"UA", tr:"Ukrayna",       en:"Ukraine",        h:["#0057B7","#FFDD00"] },
+  { c:"RS", tr:"Sırbistan",     en:"Serbia",         h:["#C6363C","#0C4076","#FFFFFF"] },
+  { c:"AL", tr:"Arnavutluk",    en:"Albania",        f:"#E41E20", extra:"star", ink:"#000000" },
+  { c:"BA", tr:"Bosna Hersek",  en:"Bosnia",         f:"#002F6C", extra:"tri", ink:"#FECB00" },
+  { c:"XK", tr:"Kosova",        en:"Kosovo",         f:"#244AA5", extra:"star", ink:"#D0A650" },
+  { c:"MK", tr:"K. Makedonya",  en:"N. Macedonia",   f:"#D20000", extra:"sun", ink:"#FFE600" },
+  { c:"KZ", tr:"Kazakistan",    en:"Kazakhstan",     f:"#00AFCA", extra:"sun" },
+  { c:"UZ", tr:"Özbekistan",    en:"Uzbekistan",     h:["#0099B5","#FFFFFF","#1EB53A"] },
+  { c:"KG", tr:"Kırgızistan",   en:"Kyrgyzstan",     f:"#E8112D", extra:"sun" },
+  { c:"TM", tr:"Türkmenistan",  en:"Turkmenistan",   f:"#28AE66", extra:"crescentSm", ink:"#FFFFFF" },
+  { c:"SA", tr:"Suudi Arabistan", en:"Saudi Arabia", f:"#006C35", extra:"bar", ink:"#FFFFFF" },
+  { c:"AE", tr:"BAE",           en:"UAE",            extra:"uae" },
+  { c:"QA", tr:"Katar",         en:"Qatar",          v:["#FFFFFF","#8A1538"], w:[1,3] },
+  { c:"KW", tr:"Kuveyt",        en:"Kuwait",         h:["#007A3D","#FFFFFF","#CE1126"] },
+  { c:"IQ", tr:"Irak",          en:"Iraq",           h:["#CE1126","#FFFFFF","#000000"] },
+  { c:"SY", tr:"Suriye",        en:"Syria",          h:["#CE1126","#FFFFFF","#000000"] },
+  { c:"LB", tr:"Lübnan",        en:"Lebanon",        h:["#EE161F","#FFFFFF","#EE161F"], w:[1,2,1] },
+  { c:"JO", tr:"Ürdün",         en:"Jordan",         h:["#000000","#FFFFFF","#007A3D"] },
+  { c:"PS", tr:"Filistin",      en:"Palestine",      h:["#000000","#FFFFFF","#007A3D"] },
+  { c:"EG", tr:"Mısır",         en:"Egypt",          h:["#CE1126","#FFFFFF","#000000"] },
+  { c:"LY", tr:"Libya",         en:"Libya",          h:["#E70013","#000000","#239E46"], w:[1,2,1] },
+  { c:"TN", tr:"Tunus",         en:"Tunisia",        f:"#E70013", extra:"crescentSm" },
+  { c:"DZ", tr:"Cezayir",       en:"Algeria",        v:["#006233","#FFFFFF"], extra:"crescentSm", ink:"#D21034" },
+  { c:"MA", tr:"Fas",           en:"Morocco",        f:"#C1272D", extra:"star", ink:"#006233" },
+  { c:"IR", tr:"İran",          en:"Iran",           h:["#239F40","#FFFFFF","#DA0000"] },
+  { c:"PK", tr:"Pakistan",      en:"Pakistan",       f:"#01411C", extra:"crescentSm", hoist:"#FFFFFF" },
+  { c:"IN", tr:"Hindistan",     en:"India",          h:["#FF9933","#FFFFFF","#138808"], extra:"chakra" },
+  { c:"BD", tr:"Bangladeş",     en:"Bangladesh",     f:"#006A4E", extra:"dot", ink:"#F42A41" },
+  { c:"ID", tr:"Endonezya",     en:"Indonesia",      h:["#FF0000","#FFFFFF"] },
+  { c:"MY", tr:"Malezya",       en:"Malaysia",       f:"#CC0001", extra:"malaysia" },
+  { c:"JP", tr:"Japonya",       en:"Japan",          f:"#FFFFFF", extra:"dot", ink:"#BC002D" },
+  { c:"KR", tr:"G. Kore",       en:"South Korea",    f:"#FFFFFF", extra:"korea" },
+  { c:"CN", tr:"Çin",           en:"China",          f:"#EE1C25", extra:"starL", ink:"#FFDE00" },
+  { c:"BR", tr:"Brezilya",      en:"Brazil",         f:"#009C3B", extra:"rhombus", ink:"#FFDF00" },
+  { c:"AR", tr:"Arjantin",      en:"Arjantin",       h:["#74ACDF","#FFFFFF","#74ACDF"] },
+  { c:"MX", tr:"Meksika",       en:"Mexico",         v:["#006847","#FFFFFF","#CE1126"] },
+  { c:"CA", tr:"Kanada",        en:"Canada",         v:["#D80621","#FFFFFF","#D80621"], w:[1,2,1], extra:"maple", ink:"#D80621" },
+  { c:"AU", tr:"Avustralya",    en:"Australia",      f:"#012169", extra:"star", ink:"#FFFFFF" },
+  { c:"ZA", tr:"G. Afrika",     en:"South Africa",   h:["#007A4D","#FFFFFF","#001489"] },
+  { c:"NG", tr:"Nijerya",       en:"Nigeria",        v:["#008751","#FFFFFF","#008751"] },
+  { c:"SO", tr:"Somali",        en:"Somalia",        f:"#4189DD", extra:"star", ink:"#FFFFFF" },
+  { c:"SD", tr:"Sudan",         en:"Sudan",          h:["#D21034","#FFFFFF","#000000"] },
+  { c:"XX", tr:"Belirtmek istemiyorum", en:"Prefer not to say", f:"#3d5163" },
+];
+const CountryFlag = ({ code, size = 16, style }) => {
+  const d = COUNTRIES.find(x => x.c === code);
+  if (!d) return null;
+  const W = 24, H = 16;
+  const bands = (arr, vertical) => {
+    const w = d.w || arr.map(() => 1);
+    const tot = w.reduce((a, b) => a + b, 0);
+    let off = 0;
+    return arr.map((col, i) => {
+      const len = ((vertical ? W : H) * w[i]) / tot;
+      const el = vertical
+        ? <rect key={i} x={off} y="0" width={len + 0.4} height={H} fill={col} />
+        : <rect key={i} x="0" y={off} width={W} height={len + 0.4} fill={col} />;
+      off += len; return el;
+    });
+  };
+  let body = null;
+  if (d.h) body = bands(d.h, false);
+  else if (d.v) body = bands(d.v, true);
+  else if (d.extra === "usa") body = (<>
+      <rect x="0" y="0" width={W} height={H} fill="#FFFFFF" />
+      {[0,1,2,3,4,5,6].map(i => <rect key={i} x="0" y={i*2.3} width={W} height="1.15" fill="#B31942" />)}
+      <rect x="0" y="0" width="10" height="8.6" fill="#0A3161" />
+    </>);
+  else if (d.extra === "greece") body = (<>
+      <rect x="0" y="0" width={W} height={H} fill="#FFFFFF" />
+      {[0,1,2,3,4].map(i => <rect key={i} x="0" y={i*3.55} width={W} height="1.78" fill="#0D5EAF" />)}
+      <rect x="0" y="0" width="8.9" height="8.9" fill="#0D5EAF" />
+      <rect x="3.5" y="0" width="1.9" height="8.9" fill="#FFFFFF" />
+      <rect x="0" y="3.5" width="8.9" height="1.9" fill="#FFFFFF" />
+    </>);
+  else if (d.extra === "uae") body = (<>
+      <rect x="0" y="0" width={W} height="5.33" fill="#00732F" />
+      <rect x="0" y="5.33" width={W} height="5.33" fill="#FFFFFF" />
+      <rect x="0" y="10.66" width={W} height="5.34" fill="#000000" />
+      <rect x="0" y="0" width="6" height={H} fill="#FF0000" />
+    </>);
+  else body = <rect x="0" y="0" width={W} height={H} fill={d.f || "#3d5163"} />;
+  const ink = d.ink || "#FFFFFF";
+  return (
+    <svg viewBox="0 0 24 16" width={size * 1.5} height={size} aria-hidden="true"
+         style={{ flexShrink:0, display:"block", borderRadius:2, boxShadow:"0 0 0 0.5px rgba(255,255,255,0.22)", ...style }}>
+      {body}
+      {d.extra === "crescent" && (<>
+        <circle cx="9" cy="8" r="4.1" fill="#FFFFFF" /><circle cx="10.4" cy="8" r="3.3" fill={d.f} />
+        <path d="M15.1 8 L16.9 8.6 L15.8 7.1 L16.9 5.6 L15.1 6.2 L14 4.8 L14 6.6 L12.3 7.1 L14 7.6 L14 9.4 Z" fill="#FFFFFF" />
+      </>)}
+      {d.hoist && <rect x="0" y="0" width="6" height={H} fill={d.hoist} />}
+      {d.extra === "crescentSm" && (() => {
+        const fg = d.ink || "#FFFFFF";
+        const bg = d.h ? d.h[1] : (d.v ? d.v[1] : d.f);
+        return (<>
+          <circle cx="12" cy="8" r="3.4" fill={fg} /><circle cx="13.2" cy="8" r="2.7" fill={bg} />
+          <path d="M16.4 8 L17.9 8.5 L17 7.2 L17.9 6 L16.4 6.5 L15.5 5.3 L15.5 6.8 L14.1 7.2 L15.5 7.6 L15.5 9.1 Z" fill={fg} />
+        </>);
+      })()}
+      {d.extra === "star" && <path d="M12 4.2 L13.4 7.2 L16.6 7.6 L14.2 9.8 L14.9 13 L12 11.4 L9.1 13 L9.8 9.8 L7.4 7.6 L10.6 7.2 Z" fill={ink} />}
+      {d.extra === "starL" && <path d="M6.5 4.2 L7.6 6.6 L10.2 6.9 L8.3 8.6 L8.8 11.2 L6.5 9.9 L4.2 11.2 L4.7 8.6 L2.8 6.9 L5.4 6.6 Z" fill={ink} />}
+      {d.extra === "tri" && <path d="M7 2 L19 2 L19 14 Z" fill={ink} />}
+      {d.extra === "bar" && <><rect x="4" y="6" width="16" height="1.6" fill={ink} /><rect x="4" y="9.4" width="12" height="1.4" fill={ink} /></>}
+      {d.extra === "rhombus" && <><path d="M12 2.6 L21.4 8 L12 13.4 L2.6 8 Z" fill={ink} /><circle cx="12" cy="8" r="2.6" fill="#002776" /></>}
+      {d.extra === "maple" && <path d="M12 3.4 L12.9 6.4 L15.4 5.2 L14.7 7.9 L17.4 7.6 L15.4 9.4 L16.2 10.6 L13.2 10.3 L13.6 12.8 L12 11.5 L10.4 12.8 L10.8 10.3 L7.8 10.6 L8.6 9.4 L6.6 7.6 L9.3 7.9 L8.6 5.2 L11.1 6.4 Z" fill={ink} />}
+      {d.extra === "korea" && (<>
+        <path d="M8 8 a4 4 0 0 1 8 0 a2 2 0 0 0 -4 0 a2 2 0 0 1 -4 0 Z" fill="#CD2E3A" />
+        <path d="M16 8 a4 4 0 0 1 -8 0 a2 2 0 0 0 4 0 a2 2 0 0 1 4 0 Z" fill="#0047A0" />
+      </>)}
+      {d.extra === "malaysia" && (<>
+        {[0,1,2,3,4,5,6].map(i => <rect key={i} x="0" y={i*2.3} width={W} height="1.15" fill="#FFFFFF" />)}
+        <rect x="0" y="0" width="11" height="8.6" fill="#010066" />
+        <circle cx="5" cy="4.3" r="2.4" fill="#FFCC00" /><circle cx="6" cy="4.3" r="1.9" fill="#010066" />
+      </>)}
+      {d.extra === "nordic" && (<>
+        <rect x="0" y="6.5" width={W} height="3" fill={ink} />
+        <rect x="7" y="0" width="3" height={H} fill={ink} />
+      </>)}
+      {d.extra === "swissCross" && (<>
+        <rect x="10" y="4" width="4" height="8" fill="#FFFFFF" />
+        <rect x="8" y="6" width="8" height="4" fill="#FFFFFF" />
+      </>)}
+      {d.extra === "dot" && <circle cx="12" cy="8" r="4" fill={ink} />}
+      {d.extra === "sun" && <circle cx="12" cy="8" r="3.4" fill="#FFCE00" />}
+      {d.extra === "chakra" && <circle cx="12" cy="8" r="2.6" fill="none" stroke="#000080" strokeWidth="1" />}
+      {d.extra === "union" && (<>
+        <path d="M0 0 L24 16 M24 0 L0 16" stroke="#FFFFFF" strokeWidth="3.2" />
+        <path d="M0 0 L24 16 M24 0 L0 16" stroke="#C8102E" strokeWidth="1.6" />
+        <rect x="0" y="6" width={W} height="4" fill="#FFFFFF" /><rect x="10" y="0" width="4" height={H} fill="#FFFFFF" />
+        <rect x="0" y="6.9" width={W} height="2.2" fill="#C8102E" /><rect x="10.9" y="0" width="2.2" height={H} fill="#C8102E" />
+      </>)}
+    </svg>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════
 // BİLDİRİMLER
 // Amaç: oyuncuyu geri çağırmak. Üç tetik var —
 //   1) Sefer dönüşü  : gemi limana döndü, ganimet dolmuş
@@ -632,6 +905,16 @@ const TRANSLATIONS = {
     friendReqTag: "ARKADAŞLIK İSTEĞİ", friendReqLine: (n) => `${n} seninle arkadaş olmak istiyor`,
     friendReqSub: "Kabul edersen listene eklenir, istediğinde düello atabilirsin.",
     friendReqLater: "SONRA BAKARIM",
+    sealPath: "MÜHÜR YOLU", sealDone: "TAMAMLANDI",
+    sancakTitle: "SANCAĞIM", sancakSub: "Kazanılan kimliğin — isminin yanında görünür",
+    sancakLocked: (n) => `${n} elmas kazanınca açılır`,
+    sancakShape: "BİÇİM", sancakColor: "RENK", sancakPattern: "DESEN",
+    sancakPreview: "ÖNİZLEME", sancakSaved: "Sancağın güncellendi",
+    sancakStepInfo: (n) => `${n}K'da açılır`,
+    sancakSeal: "ÖZEL MÜHÜR AÇIK", sancakEarned: (n) => `Toplam kazanılan: ${n} elmas`,
+    countryTitle: "ÜLKEN", countrySub: "Sıralama ve profilde görünür — maç ekranında görünmez",
+    countryPick: "ÜLKENİ SEÇ", countryHide: "Bayrağımı gizle", countryHideSub: "Kimse ülkeni göremez",
+    countryNone: "Seçilmedi", countrySkip: "GEÇ",
     notifVoyageTitle: "Gemin limana döndü! ⚓", notifVoyageBody: "Ambarlar dolu — ganimetini almayı bekliyor.",
     notifCannonTitle: "Günlük top hazır! 💥", notifCannonBody: "İpi çek, bugünkü ödülünü ateşle.",
     notifInviteTitle: "Düello daveti! ⚔", notifInviteBody: (n) => `${n} seni maça çağırıyor.`,
@@ -731,6 +1014,16 @@ const TRANSLATIONS = {
     friendReqTag: "FRIEND REQUEST", friendReqLine: (n) => `${n} wants to be your friend`,
     friendReqSub: "Accept and they join your list — duel them whenever you like.",
     friendReqLater: "LATER",
+    sealPath: "SEAL PATH", sealDone: "COMPLETE",
+    sancakTitle: "MY BANNER", sancakSub: "Your earned identity — shown next to your name",
+    sancakLocked: (n) => `Unlocks at ${n} diamonds earned`,
+    sancakShape: "SHAPE", sancakColor: "COLOR", sancakPattern: "PATTERN",
+    sancakPreview: "PREVIEW", sancakSaved: "Banner updated",
+    sancakStepInfo: (n) => `unlocks at ${n}K`,
+    sancakSeal: "SPECIAL SEAL UNLOCKED", sancakEarned: (n) => `Total earned: ${n} diamonds`,
+    countryTitle: "YOUR COUNTRY", countrySub: "Shown on rankings and profile — never in a match",
+    countryPick: "PICK YOUR COUNTRY", countryHide: "Hide my flag", countryHideSub: "Nobody can see your country",
+    countryNone: "Not set", countrySkip: "SKIP",
     notifVoyageTitle: "Your ship is back in port! ⚓", notifVoyageBody: "The holds are full — your loot is waiting.",
     notifCannonTitle: "Daily cannon ready! 💥", notifCannonBody: "Pull the rope and fire today's reward.",
     notifInviteTitle: "Duel invite! ⚔", notifInviteBody: (n) => `${n} is challenging you to a match.`,
@@ -1980,7 +2273,7 @@ async function ensureProfile(uid, displayName) {
   const snap = await get(profileRef);
   if (!snap.exists()) {
     const startGold = STARTING_GOLD;
-    const profile = { displayName: displayName||"Denizci", wins:0, losses:0, totalGames:0, botGames:0, onlineGames:0, gold:startGold, honor:0, level:0, levelProgress:0, loginStreak:0, lastCannonReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false, recentResults:[], ach:{ ...ACH_DEFAULT }, achievClaimed:{}, voyage:{ lastClaim:Date.now(), dayKey:"", matches:0 }, daily:{ ...DAILY_DEFAULT, dayKey:todayKey() } };
+    const profile = { displayName: displayName||"Denizci", wins:0, losses:0, totalGames:0, botGames:0, onlineGames:0, gold:startGold, honor:0, level:0, levelProgress:0, loginStreak:0, lastCannonReward:null, createdAt:Date.now(), lastGameAt:null, onboardingDone:false, recentResults:[], ach:{ ...ACH_DEFAULT }, achievClaimed:{}, voyage:{ lastClaim:Date.now(), dayKey:"", matches:0 }, daily:{ ...DAILY_DEFAULT, dayKey:todayKey() }, flag:"", flagHidden:false, sancak:{ shape:"catal", color:"kizil", pattern:"duz" } };
     await set(profileRef, profile);
     return profile;
   }
@@ -2009,6 +2302,9 @@ async function ensureProfile(uid, displayName) {
     honor: migrateHonor(existing),
     voyage: safeVoyage(existing.voyage),
     daily: safeDaily(existing.daily),
+    flag: (typeof existing.flag === "string" && COUNTRIES.some(x => x.c === existing.flag)) ? existing.flag : "",
+    flagHidden: existing.flagHidden === true,
+    sancak: safeSancak(existing.sancak),
   };
   // ALWAYS overwrite with set() — kills any hidden NaN in any field
   await set(profileRef, sanitized);
@@ -2114,6 +2410,8 @@ function Leaderboard({ onBack, myUid, lang = "tr" }) {
             {/* Name + rank */}
             <div style={{ flex:1,minWidth:0 }}>
               <div style={{ display:"flex",alignItems:"center",gap:5 }}>
+                {p.flag && !p.flagHidden && <CountryFlag code={p.flag} size={11} />}
+                <ProfileSancak profile={p} size={13} />
                 <span style={{ fontSize:14,fontWeight:800,color:isMe?"#5fd8ee":"#dfe9f0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontFamily:warrior,letterSpacing:1 }}>{p.displayName}</span>
                 <span style={{ fontSize:9,fontWeight:800,color:rank.color,fontFamily:warrior }}>{rank.icon} {rank.title}</span>
               </div>
@@ -3530,6 +3828,135 @@ function FriendsScreen({ myUid, myName, myAvatar, friends, requests, onlineMap, 
   </>);
 }
 
+// SANCAK ekranı — ayarlardan ya da mühür yolu çubuğuna dokununca açılır.
+// Kilitli parçalar SOLUK ama GÖRÜNÜR: göremediğin şey seni çekmez, görüp de
+// alamadığın şey çeker. Seçim anında kaydedilir, istendiği kadar değiştirilebilir.
+function SancakScreen({ profile, lang, onSave, onClose }) {
+  const earned = safeAch(profile?.ach).goldEarned || 0;
+  const u = sancakUnlock(earned);
+  const cur = safeSancak(profile?.sancak);
+  const [sel, setSel] = useState(cur);
+  const pick = (k, v) => { const next = { ...sel, [k]: v }; setSel(next); onSave(next); };
+  const nfmt = (n) => n.toLocaleString(lang === "en" ? "en-US" : "tr-TR");
+
+  const Section = ({ title, children }) => (
+    <div style={{ marginBottom:16 }}>
+      <div style={{ fontSize:9.5,fontWeight:800,letterSpacing:2.2,color:"#8f7ab8",fontFamily:warrior,marginBottom:8 }}>{title}</div>
+      <div style={{ display:"flex",flexWrap:"wrap",gap:8 }}>{children}</div>
+    </div>
+  );
+  const Chip = ({ active, locked, hint, onClick, children }) => (
+    <button onClick={locked ? undefined : onClick} title={locked ? hint : undefined}
+      style={{ position:"relative",minWidth:54,padding:"9px 8px 7px",borderRadius:11,cursor:locked?"not-allowed":"pointer",
+        background: active ? "rgba(168,85,247,0.18)" : "rgba(255,255,255,0.04)",
+        border: `1.5px solid ${active ? "#a855f7" : locked ? "rgba(255,255,255,0.07)" : "#2b3d50"}`,
+        opacity: locked ? 0.32 : 1, display:"flex",flexDirection:"column",alignItems:"center",gap:5,
+        boxShadow: active ? "0 0 14px rgba(168,85,247,0.35)" : "none" }}>
+      {children}
+      {locked && <span style={{ position:"absolute",top:3,right:5,fontSize:8,color:"#c9a15e",fontFamily:mono }}>🔒</span>}
+    </button>
+  );
+
+  return (<>
+    <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:4 }}>
+      <button onClick={onClose} style={{ background:"none",border:"none",color:t.accent,fontSize:20,cursor:"pointer",padding:0,lineHeight:1 }}>‹</button>
+      <span style={{ fontSize:16,fontWeight:900,color:t.text,fontFamily:warrior,letterSpacing:2 }}>{L(lang,"sancakTitle")}</span>
+    </div>
+    <div style={{ fontSize:10.5,color:"#7A8FA0",fontFamily:mono,marginBottom:14,lineHeight:1.5 }}>{L(lang,"sancakSub")}</div>
+
+    {/* ÖNİZLEME + İLERLEME */}
+    <div style={{ position:"relative",overflow:"hidden",display:"flex",alignItems:"center",gap:14,padding:"16px 16px",borderRadius:14,marginBottom:16,
+      background: u.seal ? "linear-gradient(160deg,rgba(58,42,12,0.9),rgba(24,17,6,0.95))" : "linear-gradient(160deg,rgba(34,20,58,0.9),rgba(14,10,26,0.95))",
+      border: `1px solid ${u.seal ? "rgba(255,215,0,0.45)" : "rgba(168,85,247,0.4)"}` }}>
+      <span style={{ position:"absolute",top:0,left:0,right:0,height:2,background:u.seal?"linear-gradient(90deg,transparent,#ffd700,transparent)":"linear-gradient(90deg,transparent,#a855f7,transparent)" }} />
+      {u.unlocked
+        ? <Sancak shape={sel.shape} color={sel.color} pattern={sel.pattern} size={54} seal={u.seal} />
+        : <span style={{ width:54,height:59,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,opacity:0.35 }}>🔒</span>}
+      <div style={{ flex:1,minWidth:0 }}>
+        <div style={{ fontSize:12,fontWeight:900,fontFamily:warrior,letterSpacing:2,color:u.seal?"#f0d79a":"#c4a6f0" }}>
+          {u.seal ? L(lang,"sancakSeal") : u.unlocked ? L(lang,"sancakPreview") : L(lang,"sancakLocked")(nfmt(SANCAK_STEPS[0]))}
+        </div>
+        <div style={{ fontSize:10,color:"#7a6a95",fontFamily:mono,marginTop:5 }}>{L(lang,"sancakEarned")(nfmt(earned))}</div>
+        <div style={{ display:"flex",gap:5,marginTop:9 }}>
+          {SANCAK_STEPS.map((v,i)=>{ const done = earned >= v; return (
+            <span key={i} style={{ flex:1,textAlign:"center",fontSize:8.5,fontFamily:mono,letterSpacing:0.5,padding:"3px 0",borderRadius:6,
+              color: done ? (i===3?"#3a2a08":"#2a1245") : "#5c5170",
+              background: done ? (i===3?"#ffd700":"#c4a6f0") : "rgba(255,255,255,0.05)",
+              border: done ? "none" : "1px solid rgba(255,255,255,0.07)" }}>{v/1000}K</span>
+          ); })}
+        </div>
+      </div>
+    </div>
+
+    <Section title={L(lang,"sancakShape")}>
+      {SANCAK_SHAPES.map((sh,i)=>{ const locked = i >= u.shapes; return (
+        <Chip key={sh.id} active={sel.shape===sh.id} locked={locked}
+          hint={L(lang,"sancakStepInfo")(i<3?25:i<5?50:50)} onClick={()=>pick("shape", sh.id)}>
+          <Sancak shape={sh.id} color={sel.color} pattern="duz" size={24} glow={false} />
+          <span style={{ fontSize:8,color:"#8fa3b3",fontFamily:mono,whiteSpace:"nowrap" }}>{lang==="en"?sh.nameEn:sh.name}</span>
+        </Chip>
+      ); })}
+    </Section>
+
+    <Section title={L(lang,"sancakColor")}>
+      {SANCAK_COLORS.map((co,i)=>{ const locked = i >= u.colors; return (
+        <Chip key={co.id} active={sel.color===co.id} locked={locked}
+          hint={L(lang,"sancakStepInfo")(i<4?25:50)} onClick={()=>pick("color", co.id)}>
+          <span style={{ width:24,height:24,borderRadius:7,background:co.c,boxShadow:`0 0 10px ${co.glow}, inset 0 1px 0 rgba(255,255,255,0.3)` }} />
+          <span style={{ fontSize:8,color:"#8fa3b3",fontFamily:mono,whiteSpace:"nowrap" }}>{lang==="en"?co.nameEn:co.name}</span>
+        </Chip>
+      ); })}
+    </Section>
+
+    <Section title={L(lang,"sancakPattern")}>
+      {SANCAK_PATTERNS.map((pa,i)=>{ const locked = i >= u.patterns; return (
+        <Chip key={pa.id} active={sel.pattern===pa.id} locked={locked}
+          hint={L(lang,"sancakStepInfo")(75)} onClick={()=>pick("pattern", pa.id)}>
+          <Sancak shape={sel.shape} color={sel.color} pattern={pa.id} size={24} glow={false} />
+          <span style={{ fontSize:8,color:"#8fa3b3",fontFamily:mono,whiteSpace:"nowrap" }}>{lang==="en"?pa.nameEn:pa.name}</span>
+        </Chip>
+      ); })}
+    </Section>
+  </>);
+}
+
+// ÜLKE seçimi — ücretsiz. Hesap açılışında ve ayarlardan değiştirilebilir.
+function CountryScreen({ profile, lang, onSave, onToggleHide, onClose }) {
+  const [q, setQ] = useState("");
+  const cur = profile?.flag || "";
+  const list = COUNTRIES.filter(c => {
+    if (!q.trim()) return true;
+    const s = q.trim().toLocaleLowerCase(lang==="en"?"en-US":"tr-TR");
+    return (lang==="en"?c.en:c.tr).toLocaleLowerCase(lang==="en"?"en-US":"tr-TR").includes(s) || c.c.toLowerCase().includes(s);
+  });
+  return (<>
+    <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:4 }}>
+      <button onClick={onClose} style={{ background:"none",border:"none",color:t.accent,fontSize:20,cursor:"pointer",padding:0,lineHeight:1 }}>‹</button>
+      <span style={{ fontSize:16,fontWeight:900,color:t.text,fontFamily:warrior,letterSpacing:2 }}>{L(lang,"countryTitle")}</span>
+    </div>
+    <div style={{ fontSize:10.5,color:"#7A8FA0",fontFamily:mono,marginBottom:12,lineHeight:1.5 }}>{L(lang,"countrySub")}</div>
+    <div style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:11,background:"rgba(255,255,255,0.04)",border:`1px solid ${t.border}`,marginBottom:12 }}>
+      <span style={{ fontSize:11,color:"#7A8FA0",fontFamily:mono,flex:1 }}>{L(lang,"countryHide")}</span>
+      <button onClick={onToggleHide} style={{ width:44,height:24,borderRadius:12,padding:2,border:"none",cursor:"pointer",background:profile?.flagHidden?"#34d399":"#2b3d50",display:"flex",justifyContent:profile?.flagHidden?"flex-end":"flex-start" }}>
+        <span style={{ width:20,height:20,borderRadius:"50%",background:"#fff",display:"block" }} />
+      </button>
+    </div>
+    <input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Ara / Search"
+      style={{ width:"100%",boxSizing:"border-box",marginBottom:12,padding:"10px 12px",borderRadius:10,background:"rgba(0,0,0,0.35)",border:`1px solid ${t.border}`,color:t.text,fontFamily:mono,fontSize:12,outline:"none" }} />
+    <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(96px,1fr))",gap:7 }}>
+      {list.map(c => (
+        <button key={c.c} onClick={()=>onSave(c.c)}
+          style={{ display:"flex",alignItems:"center",gap:7,padding:"8px 9px",borderRadius:10,cursor:"pointer",
+            background: cur===c.c ? "rgba(28,199,230,0.15)" : "rgba(255,255,255,0.035)",
+            border: `1.5px solid ${cur===c.c ? t.accent : "#243546"}` }}>
+          <CountryFlag code={c.c} size={13} />
+          <span style={{ fontSize:9.5,color:"#b8c8d4",fontFamily:mono,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{lang==="en"?c.en:c.tr}</span>
+        </button>
+      ))}
+    </div>
+  </>);
+}
+
 function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack, ready, onToggleReady, lang, friends, friendReqs, onAddFriend }) {
   const [players,setPlayers]=useState([]);const [invites,setInvites]=useState([]);const [sentInvite,setSentInvite]=useState(null);
   useEffect(()=>{const unsub=onValue(ref(db,"online_players"),snap=>{if(!snap.exists()){setPlayers([]);return;}const list=[];snap.forEach(child=>{const d=child.val();if(child.key!==myUid&&d.status==="idle")list.push({uid:child.key,...d});});list.sort((a,b)=>(b.gold||0)-(a.gold||0));setPlayers(list);});return()=>unsub();},[myUid]);
@@ -3601,7 +4028,7 @@ function OnlineLobby({ myUid, myName, myGold, onChallenge, onBack, ready, onTogg
         <div style={{ fontSize:9,color:"#54697a",letterSpacing:2,marginBottom:4 }}>{players.length} {L(lang,"sailorsActive")}</div>
         {players.map(p=>{const rank=getRankInfo(typeof p.honor==="number"?p.honor:((p.wins||0)*8+(p.losses||0)*3),lang);const alreadySent=sentInvite?.targetUid===p.uid;return(<div key={p.uid} style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"linear-gradient(180deg,#20313f,#132030)",border:"1px solid #26394b",borderRadius:10,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.05)" }}>
           <div style={{ width:8,height:8,borderRadius:"50%",background:"#5fd8ee" }} />
-          <div style={{ flex:1,minWidth:0 }}><div style={{ display:"flex",alignItems:"center",gap:6 }}><span style={{ fontSize:13,fontWeight:700,color:"#dfe9f0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.displayName}</span><span style={{ fontSize:9,color:rank.color,fontFamily:warrior,letterSpacing:1 }}>{rank.icon} {rank.title}</span>{p.ready && <span style={{ fontSize:8,fontWeight:900,color:"#052029",background:"#1CC7E6",padding:"2px 6px",borderRadius:5,letterSpacing:1,fontFamily:warrior }}>{L(lang,"ready")}</span>}</div><div style={{ fontSize:9,color:"#7A8FA0",marginTop:1,display:"flex",alignItems:"center",gap:3 }}><Gem size={9} /> {p.gold||0} • {p.wins||0}G/{p.losses||0}M</div></div>
+          <div style={{ flex:1,minWidth:0 }}><div style={{ display:"flex",alignItems:"center",gap:6 }}>{p.sancak && <Sancak shape={p.sancak.shape} color={p.sancak.color} pattern={p.sancak.pattern} size={13} seal={!!p.sancakSeal} />}<span style={{ fontSize:13,fontWeight:700,color:"#dfe9f0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{p.displayName}</span><span style={{ fontSize:9,color:rank.color,fontFamily:warrior,letterSpacing:1 }}>{rank.icon} {rank.title}</span>{p.ready && <span style={{ fontSize:8,fontWeight:900,color:"#052029",background:"#1CC7E6",padding:"2px 6px",borderRadius:5,letterSpacing:1,fontFamily:warrior }}>{L(lang,"ready")}</span>}</div><div style={{ fontSize:9,color:"#7A8FA0",marginTop:1,display:"flex",alignItems:"center",gap:3 }}><Gem size={9} /> {p.gold||0} • {p.wins||0}G/{p.losses||0}M</div></div>
           {(() => {
             const isFriend = !!(friends && friends[p.uid]);
             const reqIn = !!(friendReqs && friendReqs[p.uid]);   // o bana istek atmis
@@ -3778,6 +4205,8 @@ export default function Game() {
   const [inputRoomId, setInputRoomId] = useState("");
   const [playerNum, setPlayerNum] = useState(null);
   const [playerName, setPlayerName] = useState("");
+  // Hesap açılış ekranında seçilen ülke — onaylanınca profile yazılır.
+  const [signupFlag, setSignupFlag] = useState("");
   const [opponentName, setOpponentName] = useState("");
   const [message, setMessage] = useState("");
   const [authUid, setAuthUid] = useState(null);
@@ -4464,7 +4893,8 @@ export default function Game() {
     if (!authUid || !playerName.trim()) return;
     if (phase !== "lobby") { remove(ref(db, `online_players/${authUid}`)); return; }
     const presenceRef = ref(db, `online_players/${authUid}`);
-    set(presenceRef, { displayName: playerName.trim(), gold: safeGold(myProfile?.gold), honor: migrateHonor(myProfile), wins: myProfile?.wins || 0, losses: myProfile?.losses || 0, status: "idle", lastSeen: Date.now(), ready: readyToPlay, avatar: myProfile?.avatar || "⚓" });
+    const _u = sancakUnlock(safeAch(myProfile?.ach).goldEarned);
+    set(presenceRef, { displayName: playerName.trim(), gold: safeGold(myProfile?.gold), honor: migrateHonor(myProfile), wins: myProfile?.wins || 0, losses: myProfile?.losses || 0, status: "idle", lastSeen: Date.now(), ready: readyToPlay, avatar: myProfile?.avatar || "⚓", sancak: _u.unlocked ? safeSancak(myProfile?.sancak) : null, sancakSeal: _u.seal });
     onDisconnect(presenceRef).remove();
     return () => { remove(presenceRef); };
   }, [authUid, playerName, phase, myProfile?.gold, readyToPlay]);
@@ -4949,6 +5379,11 @@ export default function Game() {
     // Save nameSetAt timestamp
     await set(ref(db, `profiles/${authUid}/nameSetAt`), Date.now());
     profile.nameSetAt = Date.now();
+    // Hesap açılışında seçilen ülke bayrağı (ücretsiz, isteğe bağlı)
+    if (signupFlag) {
+      await update(ref(db, `profiles/${authUid}`), { flag: signupFlag }).catch(()=>{});
+      profile.flag = signupFlag;
+    }
     if (newCode) {
       await update(ref(db, `profiles/${authUid}`), { hasRecovery: true }).catch(()=>{});
       profile.hasRecovery = true;
@@ -5389,6 +5824,33 @@ export default function Game() {
                 <span style={chevronStyle}>›</span>
               </button>
 
+              {/* SANCAĞIM — kazanılan kozmetik kimlik */}
+              <button onClick={()=>{ sfx.init(); sfx.play('click'); setSettingsView("sancak"); }} style={rowBtnStyle}>
+                <span style={rowIconStyle}>
+                  {sancakUnlock(safeAch(myProfile?.ach).goldEarned).unlocked
+                    ? <ProfileSancak profile={myProfile} size={18} style={{ margin:"0 auto" }} />
+                    : <span style={{ opacity:0.4 }}>🔒</span>}
+                </span>
+                <div style={{ flex:1,textAlign:"left" }}>
+                  <div style={rowTitleStyle}>{L(appLang,"sancakTitle")}</div>
+                  <div style={rowSubStyle}>{(() => { const e = safeAch(myProfile?.ach).goldEarned || 0; const n = SANCAK_STEPS.find(v => e < v);
+                    return n ? `${Math.round(e/1000)}K / ${n/1000}K` : L(appLang,"sealDone"); })()}</div>
+                </div>
+                <span style={chevronStyle}>›</span>
+              </button>
+
+              {/* ÜLKEM — ücretsiz */}
+              <button onClick={()=>{ sfx.init(); sfx.play('click'); setSettingsView("country"); }} style={rowBtnStyle}>
+                <span style={rowIconStyle}>
+                  {myProfile?.flag ? <CountryFlag code={myProfile.flag} size={15} style={{ margin:"0 auto" }} /> : <span style={{ opacity:0.5 }}>🏳</span>}
+                </span>
+                <div style={{ flex:1,textAlign:"left" }}>
+                  <div style={rowTitleStyle}>{L(appLang,"countryTitle")}</div>
+                  <div style={rowSubStyle}>{myProfile?.flag ? (COUNTRIES.find(c=>c.c===myProfile.flag)?.[appLang==="en"?"en":"tr"] || "") : L(appLang,"countryNone")}</div>
+                </div>
+                <span style={chevronStyle}>›</span>
+              </button>
+
               {/* ARKADAŞLARIM — profilin hemen altında. Bekleyen istek varsa rozet gösterir. */}
               <button onClick={()=>{ sfx.init(); sfx.play('click'); setSettingsView("friends"); }} style={rowBtnStyle}>
                 <span style={rowIconStyle}><PeopleIcon size={19} style={{ margin:"0 auto" }} /></span>
@@ -5452,6 +5914,19 @@ export default function Game() {
 
               <button onClick={()=>{ setShowSettings(false); setSettingsView(null); }} style={{ marginTop:6,width:"100%",padding:"12px 0",background:"linear-gradient(180deg,#20313f,#132030)",border:"1px solid #26394b",borderRadius:10,color:"#A9BCC9",fontFamily:warrior,fontWeight:800,letterSpacing:2,cursor:"pointer",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.1)" }}>{L(appLang,"close")}</button>
             </>)}
+
+            {settingsView === "sancak" && (
+              <SancakScreen profile={myProfile} lang={appLang}
+                onSave={(next)=>{ sfx.init(); sfx.play('click'); setMyProfile(p=>p?{...p,sancak:next}:p); if (authUid) update(ref(db,`profiles/${authUid}`),{ sancak: next }).catch(()=>{}); }}
+                onClose={()=>setSettingsView(null)} />
+            )}
+
+            {settingsView === "country" && (
+              <CountryScreen profile={myProfile} lang={appLang}
+                onSave={(code)=>{ sfx.init(); sfx.play('click'); setMyProfile(p=>p?{...p,flag:code}:p); if (authUid) update(ref(db,`profiles/${authUid}`),{ flag: code }).catch(()=>{}); }}
+                onToggleHide={()=>{ const v = !myProfile?.flagHidden; setMyProfile(p=>p?{...p,flagHidden:v}:p); if (authUid) update(ref(db,`profiles/${authUid}`),{ flagHidden: v }).catch(()=>{}); }}
+                onClose={()=>setSettingsView(null)} />
+            )}
 
             {settingsView === "friends" && (
               <FriendsScreen
@@ -7018,6 +7493,27 @@ export default function Game() {
         <input style={{ ...inputStyle,maxWidth:300,borderRadius:10,fontSize:16 }} placeholder={L(appLang,"namePlaceholder")} value={playerName} onChange={e=>{ if (recoverOpen) { setRecoverOpen(false); setRecoverCode(""); setRecoverErr(""); setMessage(""); } setPlayerName(e.target.value); }} maxLength={16} />
         <div style={{ fontSize:9,color:t.textDim,marginTop:6,fontFamily:mono,textAlign:"center" }}>{L(appLang,"nameHint")}</div>
 
+        {/* ÜLKE SEÇİMİ — ücretsiz, isteğe bağlı. Sadece sıralama ve profilde görünür,
+            maç ekranında asla görünmez. İstenirse hiç seçilmeden geçilebilir. */}
+        {!recoverOpen && (
+          <div style={{ width:"100%",maxWidth:300,marginTop:18 }}>
+            <div style={{ fontSize:9.5,fontWeight:800,letterSpacing:2,color:t.textDim,fontFamily:warrior,marginBottom:8,textAlign:"center" }}>{L(appLang,"countryPick")}</div>
+            <div style={{ display:"flex",flexWrap:"wrap",gap:6,justifyContent:"center",maxHeight:132,overflowY:"auto",padding:"2px 2px 4px" }}>
+              {COUNTRIES.map(c => (
+                <button key={c.c} onClick={()=>{ sfx.init(); sfx.play('click'); setSignupFlag(c.c); }} title={appLang==="en"?c.en:c.tr}
+                  style={{ padding:4,borderRadius:7,cursor:"pointer",lineHeight:0,
+                    background: signupFlag===c.c ? "rgba(28,199,230,0.2)" : "rgba(255,255,255,0.04)",
+                    border: `1.5px solid ${signupFlag===c.c ? t.accent : "transparent"}` }}>
+                  <CountryFlag code={c.c} size={14} />
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize:9,color:t.textDim,marginTop:6,fontFamily:mono,textAlign:"center" }}>
+              {signupFlag ? (COUNTRIES.find(c=>c.c===signupFlag)?.[appLang==="en"?"en":"tr"] || "") : L(appLang,"countrySub")}
+            </div>
+          </div>
+        )}
+
         {/* KURTARMA ALANI — yalnızca girilen isim BAŞKASINA AİTSE açılır.
             Yeni/boş isimlerde hiç görünmez. */}
         {recoverOpen && (
@@ -7574,7 +8070,11 @@ export default function Game() {
         <div style={{ display:"flex",alignItems:"center",gap:13,marginBottom:14 }}>
           <button onClick={()=>setShowAvatarPick(v=>!v)} title={L(appLang,"pickAvatarTooltip")} style={{ width:52,height:52,borderRadius:"50%",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,cursor:"pointer",padding:0,overflow:"hidden",background:"radial-gradient(circle at 50% 35%,#0f2a38,#08161f)",border:"none",boxShadow:"0 0 0 2px #5a3d22, 0 0 0 3px #c9a15e, 0 0 0 4px #5a3d22, inset 0 2px 6px rgba(0,0,0,0.6)" }}>{(myProfile.avatar||"").startsWith("data:")?<img src={myProfile.avatar} alt="" style={{ width:"100%",height:"100%",objectFit:"cover" }} />:(myProfile.avatar||"⚓")}</button>
           <div style={{ flex:1,minWidth:0 }}>
-            <div title={myProfile.displayName} style={{ fontSize:19,fontWeight:800,fontFamily:warrior,letterSpacing:0.6,color:"#eaf1f6",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{myProfile.displayName}</div>
+            <div style={{ display:"flex",alignItems:"center",gap:6,minWidth:0 }}>
+              {myProfile.flag && !myProfile.flagHidden && <CountryFlag code={myProfile.flag} size={13} />}
+              <ProfileSancak profile={myProfile} size={16} />
+              <div title={myProfile.displayName} style={{ fontSize:19,fontWeight:800,fontFamily:warrior,letterSpacing:0.6,color:"#eaf1f6",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{myProfile.displayName}</div>
+            </div>
             {(() => { const hn = migrateHonor(myProfile); const rk = getRankInfo(hn, appLang); return (
               <div style={{ display:"flex",alignItems:"center",gap:5,marginTop:1,minWidth:0,flexWrap:"nowrap",overflow:"hidden" }}>
                 <span style={{ fontSize:11 }}>{rk.icon}</span>
@@ -7599,6 +8099,45 @@ export default function Game() {
           <div style={{ height:"100%",width:`${myLevelPct*100}%`,borderRadius:4,background:BRONZE,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.35)",transition:"width 0.7s cubic-bezier(0.34,1.56,0.64,1)" }} />
         </div>
         <div style={{ display:"flex",justifyContent:"space-between",marginTop:5,fontFamily:mono,fontSize:9,color:"#54697a",letterSpacing:1 }}><span>{L(appLang,"level").toUpperCase()} {myLevel}</span><span>{myProfile.levelProgress||0} / {myGamesNeeded} XP</span></div>
+        {/* ═══ MÜHÜR YOLU ═══ XP çubuğunun hemen altında, HER ZAMAN görünür.
+            Toplam kazanılan elmasa göre dolar (harcayınca geri gitmez). 25/50/75/100k
+            duraklarında mini işaretler var; geçilen durak yanar. Tıklayınca sancak ekranı açılır. */}
+        {(() => {
+          const earned = safeAch(myProfile.ach).goldEarned || 0;
+          const u = sancakUnlock(earned);
+          const pct = Math.max(0, Math.min(1, earned / SANCAK_GOAL));
+          const nextStep = SANCAK_STEPS.find(v => earned < v);
+          return (
+            <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowSettings(true); setSettingsView("sancak"); }}
+              style={{ width:"100%",marginTop:10,padding:0,background:"none",border:"none",cursor:"pointer",display:"block",textAlign:"left" }}>
+              <div style={{ position:"relative",height:9,borderRadius:5,background:"rgba(0,0,0,0.5)",overflow:"visible",boxShadow:"inset 0 1px 3px rgba(0,0,0,0.8)",border:"1px solid rgba(140,90,255,0.28)" }}>
+                <div style={{ position:"absolute",inset:0,borderRadius:5,overflow:"hidden" }}>
+                  <div style={{ height:"100%",width:`${pct*100}%`,borderRadius:5,background:u.seal
+                      ? "linear-gradient(90deg,#b45309 0%,#ffd700 40%,#fffbe0 55%,#ffd700 70%,#b45309 100%)"
+                      : "linear-gradient(90deg,#4c1d95 0%,#7c3aed 45%,#a855f7 70%,#d8b4fe 100%)",
+                    transition:"width 0.9s cubic-bezier(0.34,1.56,0.64,1)" }} />
+                  <span style={{ position:"absolute",top:0,bottom:0,left:0,width:"22%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.42),transparent)",animation:"shimmerPass 3.4s linear infinite",pointerEvents:"none" }} />
+                </div>
+                {SANCAK_STEPS.map((v,i)=>{ const done = earned >= v; const left = (v/SANCAK_GOAL)*100; return (
+                  <span key={i} title={`${v/1000}K`} style={{ position:"absolute",top:"50%",left:`${left}%`,transform:"translate(-50%,-50%)",width:done?11:9,height:done?11:9,borderRadius:"50%",
+                    background: done ? (i===3 ? "#ffd700" : "#e9d5ff") : "#1a2432",
+                    border: `1.5px solid ${done ? (i===3 ? "#fffbe0" : "#a855f7") : "rgba(140,90,255,0.45)"}`,
+                    boxShadow: done ? `0 0 7px ${i===3 ? "rgba(255,215,0,0.9)" : "rgba(168,85,247,0.85)"}` : "none",
+                    pointerEvents:"none" }} />
+                ); })}
+              </div>
+              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:5,fontFamily:mono,fontSize:9,letterSpacing:1 }}>
+                <span style={{ color:u.seal?"#f0d79a":"#b98df5",display:"inline-flex",alignItems:"center",gap:4 }}>
+                  {u.unlocked ? <ProfileSancak profile={myProfile} size={11} /> : null}
+                  {L(appLang,"sealPath")}
+                </span>
+                <span style={{ color:"#7a6a95" }}>
+                  {nextStep ? `${Math.round(earned/1000)}K / ${nextStep/1000}K` : L(appLang,"sealDone")}
+                </span>
+              </div>
+            </button>
+          );
+        })()}
         {/* 4 istatistik */}
         <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:1,marginTop:14,background:"#26394b",border:"1px solid #26394b",borderRadius:9,overflow:"hidden" }}>
           {[{v:myProfile.totalGames||0,l:appLang==="en"?"Games":"Oyun",g:false},{v:myProfile.wins||0,l:L(appLang,"wins"),g:false},{v:`%${winRate}`,l:L(appLang,"winRate"),g:false},{v:safeGold(myProfile.gold).toLocaleString(appLang==="en"?"en-US":"tr-TR"),l:L(appLang,"goldLabel"),g:true}].map((s,i)=>(
