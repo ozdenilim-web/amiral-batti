@@ -45,6 +45,39 @@ if (typeof window !== "undefined" && firebaseConfig.measurementId && !firebaseCo
     .catch(() => {});
 }
 
+// === PUSH (uygulama kapalıyken bildirim) ===
+// Cihaz anahtarını alır. Anahtar, sunucunun (api/notify) o cihaza push atabilmesi
+// için gerekli. VAPID anahtarı tanımlı değilse sessizce null döner — oyun etkilenmez.
+export async function getPushToken() {
+  try {
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return null;
+    const vapid = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+    if (!vapid) return null;
+    const { getMessaging, getToken, isSupported } = await import("firebase/messaging");
+    if (!(await isSupported().catch(() => false))) return null;
+    const reg = await navigator.serviceWorker.register("/firebase-messaging-sw.js").catch(() => null);
+    if (!reg) return null;
+    const messaging = getMessaging(app);
+    return await getToken(messaging, { vapidKey: vapid, serviceWorkerRegistration: reg });
+  } catch (e) { return null; }
+}
+
+/** Karşı tarafa push gönder (uygulaması kapalı olsa bile ulaşır). */
+export async function sendPush(toUid, title, message, tag) {
+  try {
+    const u = auth.currentUser;
+    if (!u || !toUid) return false;
+    const idToken = await u.getIdToken();
+    const res = await fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken, toUid, title, message, tag }),
+    });
+    const j = await res.json().catch(() => ({}));
+    return !!j.ok;
+  } catch (e) { return false; }
+}
+
 /** Olay kaydet. Analitik kapalıysa sessizce yok sayılır. */
 export function track(name, params = {}) {
   try {

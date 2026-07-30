@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo, memo } from "react";
-import { db, auth, googleProvider, ref, set, get, onValue, update, remove, onDisconnect, runTransaction, query, orderByChild, limitToLast, signInAnonymously, onAuthStateChanged, signInWithPopup, signOut, track, identify, EmailAuthProvider, linkWithCredential, signInWithEmailAndPassword } from "../lib/firebase";
+import { db, auth, googleProvider, ref, set, get, onValue, update, remove, onDisconnect, runTransaction, query, orderByChild, limitToLast, signInAnonymously, onAuthStateChanged, signInWithPopup, signOut, track, identify, getPushToken, sendPush, EmailAuthProvider, linkWithCredential, signInWithEmailAndPassword } from "../lib/firebase";
 
 const ROWS = 11;
 const COLS = 11;
@@ -4557,14 +4557,30 @@ export default function Game() {
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
   // Kullanıcı dokunuşu içinde çalışır — izin penceresi ancak böyle açılabilir.
   const toggleNotif = async (v) => {
-    if (!v) { setNotifOn(false); try { localStorage.setItem('ab_notifOn','0'); } catch(e) {} return; }
+    if (!v) { setNotifOn(false); try { localStorage.setItem('ab_notifOn','0'); } catch(e) {} registerPush(false); return; }
     const res = await askNotifPermission();
     if (res !== "granted") { setNotifOn(false); setNotifBlocked(res === "denied"); return; }
     try { localStorage.setItem('ab_notifOn','1'); } catch(e) {}
     setNotifOn(true); setNotifBlocked(false);
+    registerPush(true);
     // Anında geri bildirim: izin verildiği an örnek bir bildirim göster.
     showNotif(L(appLangRef.current,"notifCannonTitle"), L(appLangRef.current,"notifCannonBody"), NOTIF_TAG.cannon);
   };
+
+  // Cihaz push anahtarını profile yaz — sunucu (api/notify) buradan okuyup
+  // uygulama KAPALIYKEN bile bildirim gönderebiliyor.
+  const registerPush = useCallback(async (enabled) => {
+    if (!authUid) return;
+    if (!enabled) { update(ref(db, `profiles/${authUid}/push`), { enabled: false }).catch(()=>{}); return; }
+    const token = await getPushToken();
+    if (!token) return;
+    update(ref(db, `profiles/${authUid}/push`), { token, enabled: true, at: Date.now() }).catch(()=>{});
+  }, [authUid]);
+  // Girişte izin zaten verilmişse anahtarı tazele (anahtarlar zaman zaman yenilenir)
+  useEffect(() => {
+    if (!authUid || !notifReady()) return;
+    registerPush(true);
+  }, [authUid, registerPush]);
 
   // Kartı ne zaman göster: lobide, en az bir maç oynanmışsa, izin henüz sorulmamışsa
   // ve daha önce "şimdi değil" denmemişse. Yeni oyuncuyu ilk saniyede rahatsız etmeyiz.
@@ -5294,6 +5310,10 @@ export default function Game() {
         status: "pending", time: Date.now(),
       });
       setPendingDuel({ uid: friendUid, name: friendName || "Denizci", at: Date.now() });
+      // Karşı taraf uygulamayı tamamen kapatmış olsa bile haberi olsun
+      sendPush(friendUid, L(appLang, "notifInviteTitle"),
+               L(appLang, "notifInviteBody")(playerName || myProfile?.displayName || "Bir denizci"),
+               NOTIF_TAG.invite);
     } catch (e) {
       // Hata sessizce yutulmasın — sebebi ekranda görünsün (çoğunlukla Firebase kural hatası).
       setFriendMsg("Davet gönderilemedi: " + (e?.code || e?.message || "bilinmeyen hata"));
@@ -5372,6 +5392,9 @@ export default function Game() {
   const addFriend = useCallback(async (targetUid) => {
     if (!authUid || !targetUid) return;
     const ok = await sendFriendRequest(authUid, targetUid, playerName || myProfile?.displayName, myProfile?.avatar);
+    if (ok) sendPush(targetUid, L(appLang, "notifFriendReqTitle"),
+                     L(appLang, "notifFriendReqBody")(playerName || myProfile?.displayName || "Bir denizci"),
+                     "ab-friend");
     setFriendMsg(L(appLang, ok ? "friendReqSent" : "msgConnecting"));
     setTimeout(() => setFriendMsg(null), 2500);
   }, [authUid, playerName, myProfile, appLang]);
