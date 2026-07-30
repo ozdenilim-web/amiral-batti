@@ -914,6 +914,7 @@ const TRANSLATIONS = {
     friendDuel: "DÜELLO", friendOnline: "ÇEVRİMİÇİ", friendOffline: "çevrimdışı", friendRemove: "Arkadaşlıktan çıkar",
     friendEmpty: "Henüz arkadaşın yok. Salondaki oyunculara istek gönderebilirsin.",
     friendNoReqs: "Bekleyen istek yok",
+    friendSearch: "Arkadaş ara...",
     friendReqSent: "İstek gönderildi",
     friendDuelSent: "Düello daveti gönderildi — yanıt bekleniyor",
     friendDuelWaiting: (n) => `${n} bekleniyor...`,
@@ -1027,6 +1028,7 @@ const TRANSLATIONS = {
     friendDuel: "DUEL", friendOnline: "ONLINE", friendOffline: "offline", friendRemove: "Remove friend",
     friendEmpty: "No friends yet. Send a request to players in the lobby.",
     friendNoReqs: "No pending requests",
+    friendSearch: "Search friends...",
     friendReqSent: "Request sent",
     friendDuelSent: "Duel invite sent — waiting for a reply",
     friendDuelWaiting: (n) => `waiting for ${n}...`,
@@ -3750,6 +3752,9 @@ function FriendsScreen({ myUid, myName, myAvatar, friends, requests, onlineMap, 
   const [prof, setProf] = useState(null);         // açılan arkadaşın profili
   const [busy, setBusy] = useState(null);
   const [toast, setToast] = useState(null);
+  const [q, setQ] = useState("");
+  const [page, setPage] = useState(0);
+  useEffect(() => { setPage(0); }, [q]);
   useEffect(() => {
     if (!openUid) { setProf(null); return; }
     let alive = true;
@@ -3759,8 +3764,15 @@ function FriendsScreen({ myUid, myName, myAvatar, friends, requests, onlineMap, 
   const flash = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
 
   const reqList = Object.entries(requests || {}).map(([uid, d]) => ({ uid, ...d })).sort((a,b) => (b.time||0)-(a.time||0));
-  const friendList = Object.entries(friends || {}).map(([uid, d]) => ({ uid, ...d }))
+  const allFriends = Object.entries(friends || {}).map(([uid, d]) => ({ uid, ...d }))
     .sort((a,b) => (onlineMap[b.uid] ? 1 : 0) - (onlineMap[a.uid] ? 1 : 0) || (a.name||"").localeCompare(b.name||""));
+  // Arama + sayfalama — liste uzayınca pencere büyümesin
+  const norm = (x) => (x||"").toLocaleLowerCase(lang==="en"?"en-US":"tr-TR");
+  const friendList = q.trim() ? allFriends.filter(f => norm(f.name).includes(norm(q))) : allFriends;
+  const PAGE = 8;
+  const pageCount = Math.max(1, Math.ceil(friendList.length / PAGE));
+  const curPage = Math.min(page, pageCount - 1);
+  const pageItems = friendList.slice(curPage * PAGE, curPage * PAGE + PAGE);
 
   // === ARKADAŞ PROFİLİ ===
   if (openUid) {
@@ -3829,10 +3841,17 @@ function FriendsScreen({ myUid, myName, myAvatar, friends, requests, onlineMap, 
     </>)}
 
     <div style={{ fontSize:9.5,fontWeight:800,letterSpacing:2,color:t.textDim,fontFamily:warrior,marginBottom:7 }}>{L(lang,"friendsList")}</div>
+    {allFriends.length > 5 && (
+      <div style={{ position:"relative",marginBottom:9 }}>
+        <span style={{ position:"absolute",left:11,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"#54697a",pointerEvents:"none" }}>🔍</span>
+        <input value={q} onChange={(e)=>setQ(e.target.value)} placeholder={L(lang,"friendSearch")}
+          style={{ width:"100%",boxSizing:"border-box",padding:"9px 12px 9px 32px",borderRadius:10,background:"rgba(0,0,0,0.35)",border:`1px solid ${t.border}`,color:t.text,fontFamily:mono,fontSize:12,outline:"none" }} />
+      </div>
+    )}
     {friendList.length === 0 && (
       <div style={{ padding:"22px 16px",textAlign:"center",fontSize:11.5,lineHeight:1.6,color:t.textDim,fontFamily:mono,border:`1px dashed ${t.border}`,borderRadius:12 }}>{L(lang,"friendEmpty")}</div>
     )}
-    {friendList.map(f => {
+    {pageItems.map(f => {
       const online = !!onlineMap[f.uid];
       return (
         <div key={f.uid} style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 12px",marginBottom:8,borderRadius:11,background:"linear-gradient(180deg,rgba(22,36,50,0.6),rgba(12,22,32,0.6))",border:`1px solid ${online?"rgba(52,211,153,0.4)":"#26394b"}` }}>
@@ -3858,6 +3877,15 @@ function FriendsScreen({ myUid, myName, myAvatar, friends, requests, onlineMap, 
         </div>
       );
     })}
+    {pageCount > 1 && (
+      <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:12,marginTop:10 }}>
+        <button onClick={()=>setPage(p=>Math.max(0,p-1))} disabled={curPage===0}
+          style={{ padding:"7px 14px",borderRadius:9,background:"rgba(255,255,255,0.05)",border:`1px solid ${t.border}`,color:curPage===0?"#39485a":"#A9BCC9",fontSize:14,cursor:curPage===0?"default":"pointer",fontFamily:warrior,lineHeight:1 }}>‹</button>
+        <span style={{ fontSize:11,color:t.textDim,fontFamily:mono }}>{curPage+1} / {pageCount}</span>
+        <button onClick={()=>setPage(p=>Math.min(pageCount-1,p+1))} disabled={curPage>=pageCount-1}
+          style={{ padding:"7px 14px",borderRadius:9,background:"rgba(255,255,255,0.05)",border:`1px solid ${t.border}`,color:curPage>=pageCount-1?"#39485a":"#A9BCC9",fontSize:14,cursor:curPage>=pageCount-1?"default":"pointer",fontFamily:warrior,lineHeight:1 }}>›</button>
+      </div>
+    )}
     {toast && <div style={{ marginTop:12,textAlign:"center",fontSize:11,color:"#34d399",fontFamily:mono }}>{toast}</div>}
   </>);
 }
@@ -4307,6 +4335,8 @@ export default function Game() {
   const [popupFriendReq, setPopupFriendReq] = useState(null);
   // Gönderilmiş ve yanıt bekleyen düello daveti — { uid, name, at }
   const [pendingDuel, setPendingDuel] = useState(null);
+  // Arkadaş listesi artık ayarların altındaki tabakada değil, ekranın ortasında ayrı pencere
+  const [showFriends, setShowFriends] = useState(false);
   // Gelen daveti kabul/red için kalan saniye (alıcı tarafı)
   const [inviteSecs, setInviteSecs] = useState(DUEL_WAIT_MS / 1000);
   const dismissFriendReqPopup = useCallback(() => {
@@ -5142,7 +5172,35 @@ export default function Game() {
   // OnlineLobby'nin davet dinleyicisi her Game render'ında yeniden abone olur
   // ve davet eden taraf kabul bildirimini kaçırabilir.
   const handleOnlineChallenge = useCallback((rid, pNum) => {
+    // Aynı odaya iki kez girme (davet dinleyicisi + match_found dinleyicisi aynı anda tetiklenebilir)
+    if (roomIdRef.current === rid && phaseRef.current === "placing") return;
+    // ═══ KRİTİK: MAÇ DURUMUNU SIFIRLA ═══
+    // Bu fonksiyon eskiden yalnızca oda kimliğini yazıp "placing"e geçiyordu. Oyuncu daha
+    // önce bir maç oynadıysa ESKİ DURUM taşınıyordu: placementConfirmed=true kalınca tahta
+    // kilitli açılıp doğrudan "rakip bekleniyor" ekranı geliyordu (geri tuşu da ayrılma
+    // penceresini açıyordu), placementTimer 0'da kalınca oyuncu anında hükmen yeniliyordu,
+    // isBotGame/salvo/kuşatma bayrakları kalınca ekran tamamen yanlış çiziliyordu.
+    // Hızlı eşleşme akışı (finalizeQuickMatch) bunları zaten sıfırlıyordu; arkadaş düellosu
+    // bu yoldan geçmediği için hata yalnızca orada görünüyordu.
     setShowOnlineLobby(false);
+    setShowSettings(false); setSettingsView(null);
+    setShowSurrenderConfirm(false);
+    setIsBotGame(false); isBotGameRef.current = false;
+    setSalvoMode(false); salvoModeRef.current = false;
+    setSiegeMode(false); siegeModeRef.current = false;
+    setTersaneMode(false); tersaneModeRef.current = false;
+    siegeOnlineRef.current = false; tersaneOnlineRef.current = false;
+    setDefenseBoard(emptyGrid());
+    setShipColorMap(Array.from({ length: ROWS }, () => Array(COLS).fill(null)));
+    setAttackOverlay(emptyGrid().map(r => r.map(() => null)));
+    setDefenseOverlay(emptyGrid().map(r => r.map(() => null)));
+    setPlacedShips([]); setSelectedShip(null); setHoverCells([]);
+    setPlacementConfirmed(false); setPlacementPreview(false); setPlacementTimer(PLACEMENT_SECONDS);
+    setExtraTimeUsed(false);
+    setCurrentShots([]); setMyTurn(true); setMyClock(CLOCK_SECONDS); setOppClock(CLOCK_SECONDS);
+    setWinner(null); setIsWin(false); setGameOverStage(null); setMatchRewards(null);
+    setGameStartTime(Date.now());
+
     roomIdRef.current = rid;
     rememberRoom(rid);
     setRoomId(rid);
@@ -5973,7 +6031,7 @@ export default function Game() {
               </button>
 
               {/* ARKADAŞLARIM — profilin hemen altında. Bekleyen istek varsa rozet gösterir. */}
-              <button onClick={()=>{ sfx.init(); sfx.play('click'); setSettingsView("friends"); }} style={rowBtnStyle}>
+              <button onClick={()=>{ sfx.init(); sfx.play('click'); setShowSettings(false); setSettingsView(null); setShowFriends(true); }} style={rowBtnStyle}>
                 <span style={rowIconStyle}><PeopleIcon size={19} style={{ margin:"0 auto" }} /></span>
                 <div style={{ flex:1,textAlign:"left" }}>
                   <div style={rowTitleStyle}>{L(appLang,"friends")}</div>
@@ -6047,20 +6105,6 @@ export default function Game() {
                 onSave={(code)=>{ sfx.init(); sfx.play('click'); setMyProfile(p=>p?{...p,flag:code}:p); if (authUid) update(ref(db,`profiles/${authUid}`),{ flag: code }).catch(()=>{}); }}
                 onToggleHide={()=>{ const v = !myProfile?.flagHidden; setMyProfile(p=>p?{...p,flagHidden:v}:p); if (authUid) update(ref(db,`profiles/${authUid}`),{ flagHidden: v }).catch(()=>{}); }}
                 onClose={()=>setSettingsView(null)} />
-            )}
-
-            {settingsView === "friends" && (
-              <FriendsScreen
-                myUid={authUid}
-                myName={playerName || myProfile?.displayName}
-                myAvatar={myProfile?.avatar}
-                friends={friends}
-                requests={friendReqs}
-                onlineMap={onlineMap}
-                lang={appLang}
-                onDuel={(uid, name) => { sfx.init(); sfx.play('click'); duelFriend(uid, name); }}
-                onClose={() => setSettingsView(null)}
-              />
             )}
 
             {settingsView === "profile" && myProfile && (() => {
@@ -6172,6 +6216,25 @@ export default function Game() {
               style={{ width:"100%",padding:"15px 0",marginBottom:9,background:"linear-gradient(135deg,#ff6b6b,#b91c1c)",color:"#fff5f5",border:"none",borderRadius:12,fontSize:16,fontWeight:900,letterSpacing:2.5,cursor:"pointer",fontFamily:warrior,boxShadow:"inset 0 1px 0 rgba(255,255,255,0.25), 0 6px 20px rgba(255,71,87,0.35)",animation:"btnBreath 1.6s ease-in-out infinite" }}>{L(appLang,"challengeAccept")}</button>
             <button onClick={()=>{ sfx.init(); sfx.play('click'); rejectIncomingInvite(incomingInvite); }}
               style={{ width:"100%",padding:"11px 0",background:"transparent",color:"#8a7070",border:"1px solid rgba(255,107,107,0.28)",borderRadius:12,fontSize:11.5,fontWeight:700,letterSpacing:2,cursor:"pointer",fontFamily:warrior }}>{L(appLang,"challengeRefuse")}</button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ ARKADAŞLARIM — ekranın ortasında normal pencere ═══ */}
+      {showFriends && (
+        <div onClick={()=>setShowFriends(false)} style={{ position:"fixed",inset:0,zIndex:9700,background:"rgba(2,6,14,0.78)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,animation:"settingsFadeIn 0.2s ease-out" }}>
+          <div onClick={(e)=>e.stopPropagation()} style={{ width:"100%",maxWidth:400,maxHeight:"84vh",overflowY:"auto",background:"linear-gradient(180deg,#0F2434 0%,#081118 100%)",border:"1px solid #26394b",borderRadius:18,padding:"18px 18px 20px",boxShadow:"0 20px 60px rgba(0,0,0,0.6)",animation:"popIn 0.25s cubic-bezier(0.34,1.56,0.64,1)" }}>
+            <FriendsScreen
+              myUid={authUid}
+              myName={playerName || myProfile?.displayName}
+              myAvatar={myProfile?.avatar}
+              friends={friends}
+              requests={friendReqs}
+              onlineMap={onlineMap}
+              lang={appLang}
+              onDuel={(uid, name) => { sfx.init(); sfx.play('click'); setShowFriends(false); duelFriend(uid, name); }}
+              onClose={() => setShowFriends(false)}
+            />
           </div>
         </div>
       )}
