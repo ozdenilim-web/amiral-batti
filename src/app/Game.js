@@ -7464,26 +7464,38 @@ export default function Game() {
       </div>);
     }
     const { myHits, oppHits, myOverlay, oppOverlay, won, draw } = salvoResult;
-    const measuredSalvo = fitCell(10);
-    const revealCell = Math.max(12, Math.min(measuredSalvo || 18, 18));
     const titleText = won ? L(appLang,"victory") : draw ? (appLang==="en"?"DRAW":"BERABERE") : L(appLang,"defeat");
     const sweepColor = won ? t.gold : draw ? "#67e8f9" : t.hit;
     const panelBorder = won ? "rgba(255,215,0,0.35)" : draw ? "rgba(103,232,249,0.35)" : "rgba(255,71,87,0.35)";
+
+    // === TEK SABİT SAYFA ===
+    // Ekran KAYDIRILMAZ: yükseklik 100dvh'ye kilitli. Başlık/skor/butonlar sabit yer kaplar,
+    // geriye kalan boşluğa göre iki tahtanın hücre boyutu HESAPLANIR. Böylece hangi telefonda
+    // olursa olsun her şey tek ekrana sığar, taşma/kaydırma olmaz.
+    const vh = viewport.h || 720;
+    const vw = Math.min(viewport.w || 380, 400);
+    const ID_COL_W = 76;                       // tahta yanındaki kimlik sütunu
     // Üç alt buton (YENİ OYUN / ARKADAŞINI DAVET ET / ANA SAYFA) aynı ölçüde ve ortalı.
-    // Yalnızca renkleri farklı; yazı boyutu iki katına çıkarıldı.
-    const salvoBtn = { width:"100%",maxWidth:330,minHeight:60,marginTop:12,padding:"10px 14px",borderRadius:12,fontSize:24,fontWeight:900,letterSpacing:1.5,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",gap:8,boxSizing:"border-box",lineHeight:1.05 };
-    // Tahtanın yanındaki kimlik/istatistik sütunu — 1.5 kat büyütüldü, tahtaya göre
-    // hem dikey hem yatay ortalandı. Elmas satırı ayrıca 3 kat büyük.
-    const idCol = { display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:5,flexShrink:0,width:86,alignSelf:"center" };
-    const idAvatar = { width:54,height:54,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26 };
-    const idLine = { fontSize:13,fontWeight:800,fontFamily:mono };
-    const idGem = { fontSize:30,fontWeight:900,color:t.gold,fontFamily:mono,textShadow:`0 0 10px ${t.goldGlow}`,display:"inline-flex",alignItems:"center",gap:5,lineHeight:1 };
-    return (<div style={{ ...appStyle, justifyContent:"flex-start", paddingTop:"calc(10px + env(safe-area-inset-top, 0px))" }}><style>{ANIMS}</style>
+    // Yalnızca renkleri farklı. Kısa ekranda tek sayfaya sığsın diye ölçü otomatik kısılır.
+    const btnBig = vh >= 780;
+    const CHROME_H = btnBig ? 440 : 405;       // başlık + skor + panel süsleri + altın satırı + 3 buton
+    const cellByH = Math.floor((vh - CHROME_H) / 24);   // iki tahta × 12 birim yükseklik
+    const cellByW = Math.floor((vw - 30 - ID_COL_W - 10) / 12);
+    const revealCell = Math.max(8, Math.min(18, cellByH, cellByW));
+    const salvoBtn = { width:"100%",maxWidth:320,minHeight:btnBig?52:44,marginTop:btnBig?9:6,padding:"7px 12px",borderRadius:11,fontSize:btnBig?21:18,fontWeight:900,letterSpacing:1.2,cursor:"pointer",fontFamily:warrior,display:"flex",alignItems:"center",justifyContent:"center",gap:7,boxSizing:"border-box",lineHeight:1.05,flexShrink:0 };
+    // Tahtanın yanındaki kimlik/istatistik sütunu — büyütüldü ve tahtaya göre ortalandı.
+    // Elmas satırı 4 basamaklı sayıda taşmasın diye sütun genişliğine göre ölçüldü.
+    const idCol = { display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,flexShrink:0,width:ID_COL_W,alignSelf:"center",overflow:"hidden" };
+    const idAvatar = { width:46,height:46,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0 };
+    const idLine = { fontSize:12,fontWeight:800,fontFamily:mono,whiteSpace:"nowrap" };
+    const idGem = { fontSize:17,fontWeight:900,color:t.gold,fontFamily:mono,textShadow:`0 0 8px ${t.goldGlow}`,display:"inline-flex",alignItems:"center",gap:3,lineHeight:1,whiteSpace:"nowrap",maxWidth:"100%" };
+    return (<div style={{ ...appStyle, height:"100dvh",maxHeight:"100dvh",overflow:"hidden",justifyContent:"flex-start",paddingTop:"calc(8px + env(safe-area-inset-top, 0px))",paddingBottom:"calc(6px + env(safe-area-inset-bottom, 0px))" }}><style>{ANIMS}</style>
+      <InviteComposer />
       {/* AR patlamalı, harf harf çöken destansı başlık — mevcut oyun sonu ekranıyla AYNI teknik, biraz büyütülmüş */}
-      <div style={{ position:"relative",marginBottom:12,marginTop:6,animation:"arSlideIn 0.7s cubic-bezier(0.22,1,0.36,1) both",transformStyle:"preserve-3d" }}>
-        <div style={{ display:"flex",justifyContent:"center",gap:"clamp(2px, 1.4vw, 7px)",perspective:"500px",maxWidth:"100%" }}>
+      <div style={{ position:"relative",marginBottom:6,marginTop:0,flexShrink:0,animation:"arSlideIn 0.7s cubic-bezier(0.22,1,0.36,1) both",transformStyle:"preserve-3d" }}>
+        <div style={{ display:"flex",justifyContent:"center",gap:"clamp(2px, 1.2vw, 6px)",perspective:"500px",maxWidth:"100%" }}>
           {titleText.split("").map((ch,i) => (
-            <span key={i} style={{ fontSize:"clamp(26px, 8.5vw, 42px)",fontWeight:900,fontFamily:warrior,lineHeight:1,display:"inline-block",textTransform:"uppercase",
+            <span key={i} style={{ fontSize:"clamp(24px, 7.5vw, 36px)",fontWeight:900,fontFamily:warrior,lineHeight:1,display:"inline-block",textTransform:"uppercase",
               animation:`goLetter 0.55s cubic-bezier(0.34,1.56,0.64,1) ${0.15+i*0.08}s both${won?`, goFloat 2.6s ease-in-out ${1+i*0.15}s infinite`:""}`,
               ...(won
                 ? { background:"linear-gradient(180deg,#fffbe0 0%,#ffe066 26%,#ffd700 50%,#b45309 72%,#ffe066 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",filter:"drop-shadow(0 4px 0 rgba(110,55,0,0.6)) drop-shadow(0 0 28px rgba(255,215,0,0.7)) drop-shadow(0 12px 24px rgba(0,0,0,0.8))" }
@@ -7493,60 +7505,60 @@ export default function Game() {
             }}>{ch}</span>
           ))}
         </div>
-        <div style={{ height:2,margin:"10px auto 0",width:"min(200px, 62%)",background:won?"linear-gradient(90deg,transparent,#ffd700,transparent)":draw?"linear-gradient(90deg,transparent,#67e8f9,transparent)":"linear-gradient(90deg,transparent,#ff4757,transparent)",boxShadow:won?`0 0 16px ${t.goldGlow}`:draw?"0 0 16px rgba(103,232,249,0.5)":`0 0 16px ${t.hitGlow}`,animation:"goLine 1s ease-out 0.7s both" }} />
+        <div style={{ height:2,margin:"6px auto 0",width:"min(200px, 62%)",background:won?"linear-gradient(90deg,transparent,#ffd700,transparent)":draw?"linear-gradient(90deg,transparent,#67e8f9,transparent)":"linear-gradient(90deg,transparent,#ff4757,transparent)",boxShadow:won?`0 0 16px ${t.goldGlow}`:draw?"0 0 16px rgba(103,232,249,0.5)":`0 0 16px ${t.hitGlow}`,animation:"goLine 1s ease-out 0.7s both" }} />
       </div>
       {/* Skorbord — sade, sadece isabet sayıları */}
-      <div style={{ display:"flex",gap:22,marginBottom:16,alignItems:"center",justifyContent:"center" }}>
+      <div style={{ display:"flex",gap:20,marginBottom:8,alignItems:"center",justifyContent:"center",flexShrink:0 }}>
         <div style={{ textAlign:"center" }}>
-          <div style={{ fontSize:32,fontWeight:900,color:t.accent,fontFamily:mono,minWidth:38 }}>{salvoMyHitsAnim}</div>
-          <div style={{ fontSize:10,color:t.textDim,letterSpacing:2,fontFamily:warrior }}>{appLang==="en"?"YOUR HITS":"SENİN İSABETİN"}</div>
+          <div style={{ fontSize:26,lineHeight:1.05,fontWeight:900,color:t.accent,fontFamily:mono,minWidth:38 }}>{salvoMyHitsAnim}</div>
+          <div style={{ fontSize:9,color:t.textDim,letterSpacing:2,fontFamily:warrior }}>{appLang==="en"?"YOUR HITS":"SENİN İSABETİN"}</div>
         </div>
-        <div style={{ fontSize:20,color:t.textDim }}>—</div>
+        <div style={{ fontSize:18,color:t.textDim }}>—</div>
         <div style={{ textAlign:"center" }}>
-          <div style={{ fontSize:32,fontWeight:900,color:t.hit,fontFamily:mono,minWidth:38 }}>{salvoOppHitsAnim}</div>
-          <div style={{ fontSize:10,color:t.textDim,letterSpacing:2,fontFamily:warrior }}>{(opponentName||"").toUpperCase()}</div>
+          <div style={{ fontSize:26,lineHeight:1.05,fontWeight:900,color:t.hit,fontFamily:mono,minWidth:38 }}>{salvoOppHitsAnim}</div>
+          <div style={{ fontSize:9,color:t.textDim,letterSpacing:2,fontFamily:warrior }}>{(opponentName||"").toUpperCase()}</div>
         </div>
       </div>
       {/* Tek birleşik taktik harita paneli — her tahtanın yanında oyuncunun kendi kimlik/istatistik sütunu */}
-      <div style={{ position:"relative",width:"100%",maxWidth:400,padding:"14px 12px 16px",borderRadius:16,background:"linear-gradient(180deg, rgba(10,18,36,0.97), rgba(6,11,24,0.99))",border:`2px solid ${panelBorder}`,boxShadow:"0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)",overflow:"hidden" }}>
+      <div style={{ position:"relative",width:"100%",maxWidth:400,flexShrink:1,minHeight:0,padding:"8px 10px 10px",borderRadius:16,background:"linear-gradient(180deg, rgba(10,18,36,0.97), rgba(6,11,24,0.99))",border:`2px solid ${panelBorder}`,boxShadow:"0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)",overflow:"hidden" }}>
         <div style={{ position:"absolute",left:0,right:0,height:3,zIndex:5,pointerEvents:"none",background:`linear-gradient(90deg, transparent, ${sweepColor}, transparent)`,boxShadow:`0 0 18px 4px ${sweepColor}`,animation:"radarSweepLine 2.2s linear both" }} />
         <div style={{ animation:"mapReveal 2.2s linear both" }}>
-          <div style={{ fontSize:11,fontWeight:800,color:t.accent,marginBottom:6,textAlign:"center",letterSpacing:2,fontFamily:warrior }}>{appLang==="en"?"YOUR SHOTS":"SENİN ATIŞLARIN"}</div>
+          <div style={{ fontSize:10,fontWeight:800,color:t.accent,marginBottom:3,textAlign:"center",letterSpacing:2,fontFamily:warrior }}>{appLang==="en"?"YOUR SHOTS":"SENİN ATIŞLARIN"}</div>
           <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>
             <div style={idCol}>
               <span style={{ ...idAvatar,background:`${t.accent}22`,border:`2px solid ${t.accent}`,boxShadow:`0 0 12px ${t.accentGlow}` }}>{myProfile?.avatar || "⚓"}</span>
               <span style={{ ...idLine,color:t.accent }}>Lv{myProfile?.level || 0}</span>
               <span style={{ ...idLine,color:"#c084fc" }}>🎖{migrateHonor(myProfile)}</span>
-              <span style={idGem}><Gem size={30} />{salvoMyGoldAnim}</span>
+              <span style={idGem}><Gem size={17} />{salvoMyGoldAnim}</span>
             </div>
             <Grid board={emptyGrid()} cellSize={revealCell} overlay={myOverlay} disabled revealSweepMs={2200} />
           </div>
-          <div style={{ display:"flex",alignItems:"center",gap:10,margin:"14px 0" }}>
+          <div style={{ display:"flex",alignItems:"center",gap:10,margin:"7px 0" }}>
             <div style={{ flex:1,height:1,background:`linear-gradient(90deg,transparent,${sweepColor}88)` }} />
             <span style={{ fontSize:12,fontWeight:900,letterSpacing:3,color:sweepColor,fontFamily:warrior,textShadow:`0 0 10px ${sweepColor}` }}>VS</span>
             <div style={{ flex:1,height:1,background:`linear-gradient(270deg,transparent,${sweepColor}88)` }} />
           </div>
-          <div style={{ fontSize:11,fontWeight:800,color:t.hit,marginBottom:6,textAlign:"center",letterSpacing:2,fontFamily:warrior }}>{(opponentName||(appLang==="en"?"OPPONENT":"RAKİP")).toUpperCase()} {appLang==="en"?"SHOTS":"ATIŞLARI"}</div>
+          <div style={{ fontSize:10,fontWeight:800,color:t.hit,marginBottom:3,textAlign:"center",letterSpacing:2,fontFamily:warrior }}>{(opponentName||(appLang==="en"?"OPPONENT":"RAKİP")).toUpperCase()} {appLang==="en"?"SHOTS":"ATIŞLARI"}</div>
           <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:10 }}>
             <div style={idCol}>
               <span style={{ ...idAvatar,background:`${t.hit}22`,border:`2px solid ${t.hit}`,boxShadow:`0 0 12px ${t.hitGlow}` }}>🤖</span>
               <span style={{ ...idLine,color:t.hit }}>Lv{botStats.level}</span>
               <span style={{ ...idLine,color:"#c084fc" }}>🎖{botStats.honor}</span>
-              <span style={idGem}><Gem size={30} />{salvoBotGoldAnim}</span>
+              <span style={idGem}><Gem size={17} />{salvoBotGoldAnim}</span>
             </div>
             <Grid board={emptyGrid()} cellSize={revealCell} overlay={oppOverlay} disabled revealSweepMs={2200} />
           </div>
         </div>
       </div>
-      {goldChange && (won || draw) && <div style={{ fontSize:14,fontWeight:800,color:t.gold,marginTop:14,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}`,display:"flex",alignItems:"center",justifyContent:"center",gap:4 }}>{goldChange.refund ? <>↩ {goldChange.amount} <Gem size={13} /> {appLang==="en"?"REFUNDED":"İADE"}</> : <>+{goldChange.amount} <Gem size={13} /></>}</div>}
-      {!won && !draw && <div style={{ fontSize:13,fontWeight:800,color:t.hit,marginTop:14,fontFamily:warrior,letterSpacing:1,animation:"goldDrain 1.4s ease-out both",display:"flex",alignItems:"center",justifyContent:"center",gap:4 }}>-{SALVO_ANTE} <Gem size={12} /></div>}
+      {goldChange && (won || draw) && <div style={{ fontSize:14,fontWeight:800,color:t.gold,marginTop:7,flexShrink:0,fontFamily:warrior,textShadow:`0 0 10px ${t.goldGlow}`,display:"flex",alignItems:"center",justifyContent:"center",gap:4 }}>{goldChange.refund ? <>↩ {goldChange.amount} <Gem size={13} /> {appLang==="en"?"REFUNDED":"İADE"}</> : <>+{goldChange.amount} <Gem size={13} /></>}</div>}
+      {!won && !draw && <div style={{ fontSize:13,fontWeight:800,color:t.hit,marginTop:7,flexShrink:0,fontFamily:warrior,letterSpacing:1,animation:"goldDrain 1.4s ease-out both",display:"flex",alignItems:"center",justifyContent:"center",gap:4 }}>-{SALVO_ANTE} <Gem size={12} /></div>}
       {/* Tek buton: doğrudan yeni bir maça sokar (hazır olan biriyle) — "aynı kişiye tekrar davet et" gibi ayrı bir akış yok. */}
       <button onClick={replaySalvo} style={{ ...salvoBtn,flexDirection:"column",gap:3,background:`linear-gradient(135deg,${t.gold},#d97706)`,color:t.bg,border:"none",boxShadow:`0 4px 24px ${t.goldGlow}`,animation:"borderGlow 1.8s infinite" }}>
         <span>⚔ {appLang==="en"?"NEW GAME":"YENİ OYUN"}</span>
-        <span style={{ fontSize:13,fontWeight:700,letterSpacing:1,opacity:0.75,display:"inline-flex",alignItems:"center",gap:4 }}>{appLang==="en"?"Entry":"Giriş"} {SALVO_ANTE} <Gem size={13} /></span>
+        <span style={{ fontSize:11,fontWeight:700,letterSpacing:1,opacity:0.75,display:"inline-flex",alignItems:"center",gap:4 }}>{appLang==="en"?"Entry":"Giriş"} {SALVO_ANTE} <Gem size={11} /></span>
       </button>
       <button onClick={() => shareGame(appLang)} style={{ ...salvoBtn,background:"linear-gradient(135deg,rgba(37,211,102,0.16),rgba(18,140,62,0.10))",color:"#25d366",border:"2px solid rgba(37,211,102,0.45)" }}><PeopleIcon size={24} /> {L(appLang,"inviteBtn")}</button>
-      <button onClick={resetGame} style={{ ...salvoBtn,marginBottom:24,background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}` }}>🏠 {L(appLang,"homeBtn")}</button>
+      <button onClick={resetGame} style={{ ...salvoBtn,marginBottom:0,background:"transparent",color:t.textDim,border:`1.5px solid ${t.border}` }}>🏠 {L(appLang,"homeBtn")}</button>
       {goldAnim && <GoldCoinAnim amount={goldAnim.amount} onDone={()=>setGoldAnim(null)} bottomPct={58} targetRef={goldBadgeRef} goldTotal={safeGold(myProfile?.gold)} lang={appLang} />}
     </div>);
   }
