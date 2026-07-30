@@ -4281,6 +4281,9 @@ export default function Game() {
   const [eloChange, setEloChange] = useState(null);
   const [showOnlineLobby, setShowOnlineLobby] = useState(false);
   const [matchmaking, setMatchmaking] = useState(false);
+  // Dinleyicileri yeniden kurmadan güncel değeri okumak için ref kopyaları
+  const matchmakingRef = useRef(false);
+  useEffect(() => { matchmakingRef.current = matchmaking; }, [matchmaking]);
   const [matchCancelFn, setMatchCancelFn] = useState(null);
   const [quickMatchPhase, setQuickMatchPhase] = useState(null); // null | 'searching' | 'found' | 'notfound'
   const [quickMatchCandidate, setQuickMatchCandidate] = useState(null);
@@ -5276,7 +5279,13 @@ export default function Game() {
       setTimeout(() => setFriendMsg(null), 6000);
     });
     // 15 saniye içinde yanıt gelmezse daveti geri çek.
-    const tm = setTimeout(() => {
+    const tm = setTimeout(async () => {
+      // Tam bu anda kabul edilmiş olabilir — silmeden önce son durumu oku.
+      try {
+        const snap = await get(ref(db, path));
+        const d = snap.exists() ? snap.val() : null;
+        if (d && d.status === "accepted" && d.roomId) return; // kabul geldi, dinleyici halleder
+      } catch (e) {}
       remove(ref(db, path)).catch(()=>{});
       setPendingDuel(null);
       setFriendMsg(L(appLang, "friendDuelTimeout"));
@@ -7507,24 +7516,30 @@ export default function Game() {
 
   const retryQuickMatch = () => { startQuickMatch(lastQuickMatchArenaRef.current); };
 
-  // Lobide olan HERKES için global match_found dinleyicisi.
-  // ÖNEMLİ: eskiden `readyToPlay` şartı vardı — bu yüzden arkadaş listesinden düello atan
-  // oyuncu, karşı taraf daveti kabul etse bile odaya ALINMIYORDU (davet gidiyor, maç
-  // başlamıyordu). Artık lobide olmak yeterli; hızlı eşleşme akışının kendi dinleyicisiyle
-  // çakışmasın diye sadece `matchmaking` sürerken devre dışı kalıyor.
+  // GLOBAL EŞLEŞME DİNLEYİCİSİ — davet eden tarafı odaya sokan ikinci (ve garantili) yol.
+  // Tarih: önce `readyToPlay`, sonra `matchmaking` şartı yüzünden bu dinleyici arkadaş
+  // düellosunda devre dışı kalıyordu; davet kabul ediliyor ama gönderen odaya alınmıyordu.
+  // Artık dinleyici HER ZAMAN kurulu; ne yapılacağına anlık durum (ref) bakarak karar veriliyor.
+  // NOT: `roomIdRef` hiçbir yerde sıfırlanmadığı için kapı olarak KULLANILAMAZ — ilk maçtan
+  // sonra dinleyiciyi kalıcı olarak kapatırdı. Ekran (phase) kontrolü yeterli ve doğru ölçüt.
   useEffect(() => {
-    if (phase !== "lobby" || !authUid || matchmaking) return;
+    if (!authUid) return;
     const unsub = onValue(ref(db, `match_found/${authUid}`), async snap => {
       if (!snap.exists()) return;
       const d = snap.val(); if (!d.roomId) return;
+      if (DUEL_HIDE_PHASES.includes(phaseRef.current)) return; // aktif maç ekranındayız
+      if (matchmakingRef.current) return;                  // hızlı eşleşme kendi akışını yürütüyor
       // Salvo/Tersane maçları kendi başlatıcıları tarafından yönetilir — global akış karışmasın
       try { const rs = await get(ref(db, `rooms/${d.roomId}`)); const rm = rs.val()?.mode; if (rm === "salvo" || rm === "tersane") return; } catch (e) {}
       remove(ref(db, `match_found/${authUid}`)).catch(() => {});
       setShowSettings(false); setSettingsView(null);   // ayarlar/arkadaş listesi açıksa kapat
       handleOnlineChallenge(d.roomId, d.playerNum || 2);
+    }, (err) => {
+      setFriendMsg("Eşleşme bildirimi okunamıyor: " + (err?.code || err?.message || "hata"));
+      setTimeout(() => setFriendMsg(null), 6000);
     });
     return () => unsub();
-  }, [phase, authUid, matchmaking]);
+  }, [authUid, handleOnlineChallenge]);
 
   // Tek kaynaklı ölçü sistemi: her ekranda aynı kenar boşluğu ve aynı içerik genişliği.
   const appStyle = { minHeight: "100vh", minHeight: "100dvh", width: "100%", maxWidth: "100%", background: t.bg, color: t.text, fontFamily: mono, display: "flex", flexDirection: "column", alignItems: "center", padding: "12px clamp(10px, 4vw, 16px) 24px", boxSizing: "border-box", overflowX: "hidden" };
