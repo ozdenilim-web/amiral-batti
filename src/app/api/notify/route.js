@@ -93,12 +93,15 @@ export async function POST(req) {
     const db = admin.database();
     const snap = await db.ref(`profiles/${toUid}/push`).get();
     const p = snap.exists() ? snap.val() : null;
-    if (!p || p.enabled === false) return NextResponse.json({ ok: false, error: "opted-out" });
+    // Ayrım önemli: hedef hiç kaydolmamış olabilir (bildirim izni vermemiştir) ya da
+    // bilerek kapatmış olabilir. İkisi farklı sorun, farklı çözüm.
+    if (!p) return NextResponse.json({ ok: false, error: "hedefin-cihazi-kayitli-degil" });
+    if (p.enabled === false) return NextResponse.json({ ok: false, error: "hedef-bildirimleri-kapatmis" });
     token = p.token || null;
   } catch (e) {
     return NextResponse.json({ ok: false, error: "db" }, { status: 500 });
   }
-  if (!token) return NextResponse.json({ ok: false, error: "no-token" });
+  if (!token) return NextResponse.json({ ok: false, error: "hedefin-cihazi-kayitli-degil" });
 
   // 4) Gönder
   try {

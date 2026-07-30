@@ -4569,7 +4569,11 @@ export default function Game() {
   const toggleNotif = async (v) => {
     if (!v) { setNotifOn(false); try { localStorage.setItem('ab_notifOn','0'); } catch(e) {} registerPush(false); return; }
     const res = await askNotifPermission();
-    if (res !== "granted") { setNotifOn(false); setNotifBlocked(res === "denied"); return; }
+    if (res !== "granted") {
+      setNotifOn(false); setNotifBlocked(res === "denied");
+      setPushState("HATA: izin verilmedi (" + res + ")");
+      return;
+    }
     try { localStorage.setItem('ab_notifOn','1'); } catch(e) {}
     setNotifOn(true); setNotifBlocked(false);
     registerPush(true);
