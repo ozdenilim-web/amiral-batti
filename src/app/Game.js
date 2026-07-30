@@ -5267,6 +5267,13 @@ export default function Game() {
         setFriendMsg(n >= DUEL_REJECT_LIMIT ? L(appLang, "friendDuelBlocked") : L(appLang, "friendDuelRejected"));
         setTimeout(() => setFriendMsg(null), 3500);
       }
+    }, (err) => {
+      // KRİTİK: gönderen taraf, ALICININ düğümü altındaki kendi davetini okumak zorunda
+      // (invites/<alıcı>/<ben>). Kural sadece "auth.uid === $uid" ise bu okuma reddedilir
+      // ve davet sonsuza kadar "yanıt bekleniyor"da kalır. Hatayı ekrana taşı.
+      setPendingDuel(null);
+      setFriendMsg("Davet yanıtı okunamıyor: " + (err?.code || err?.message || "bilinmeyen hata"));
+      setTimeout(() => setFriendMsg(null), 6000);
     });
     // 15 saniye içinde yanıt gelmezse daveti geri çek.
     const tm = setTimeout(() => {
