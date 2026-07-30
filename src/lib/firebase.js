@@ -48,6 +48,13 @@ if (typeof window !== "undefined" && firebaseConfig.measurementId && !firebaseCo
 // === PUSH (uygulama kapalıyken bildirim) ===
 // Cihaz anahtarını alır. Anahtar, sunucunun (api/notify) o cihaza push atabilmesi
 // için gerekli. VAPID anahtarı tanımlı değilse sessizce null döner — oyun etkilenmez.
+function errText(e) {
+  const name = e?.name || "";
+  const code = e?.code != null ? ("kod" + e.code) : "";
+  const msg = e?.message || "";
+  return [name, code, msg].filter(Boolean).join(" ").slice(0, 110) || "bilinmeyen";
+}
+
 export async function getPushToken() {
   try {
     if (typeof window === "undefined") return { error: "ssr" };
@@ -61,17 +68,47 @@ export async function getPushToken() {
     // ÖNEMLİ: kendi kapsamıyla kaydet. Varsayılan kapsam "/" ve uygulamanın PWA
     // çalışanı (/sw.js) da orada — ikisi aynı kapsama kaydolursa sonuncusu diğerini
     // EZER, uygulama kapalıyken push'u karşılayacak çalışan ortadan kalkar.
+    // TEMİZLİK: daha önce yanlış kapsama ("/") kaydolmuş bir FCM çalışanı varsa kaldır.
+    // Kalıntı kayıt, PWA çalışanıyla çakışıp abonelik kurulumunu AbortError (kod 20) ile
+    // düşürüyor — cihaz bir türlü kaydolamıyor.
+    const WANTED = "/firebase-cloud-messaging-push-scope";
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const r of regs) {
+        const url = (r.active || r.installing || r.waiting)?.scriptURL || "";
+        if (url.includes("firebase-messaging-sw.js") && !r.scope.endsWith(WANTED.slice(1) + "/") && !r.scope.includes(WANTED)) {
+          await r.unregister().catch(() => {});
+        }
+      }
+    } catch (e) {}
+
     let reg;
     try {
-      reg = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/firebase-cloud-messaging-push-scope" });
-    } catch (e) { return { error: "sw-kaydi: " + (e?.message || e) }; }
+      reg = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: WANTED });
+    } catch (e) { return { error: "sw-kaydi: " + (e?.name || "") + " " + (e?.message || e) }; }
     if (!reg) return { error: "sw-kaydi-bos" };
     try { await navigator.serviceWorker.ready; } catch (e) {}
+
     const messaging = getMessaging(app);
-    const token = await getToken(messaging, { vapidKey: vapid, serviceWorkerRegistration: reg });
-    return token ? { token } : { error: "bos-anahtar" };
+    // Bir kez başarısız olursa eski aboneliği iptal edip tekrar dene (AbortError için)
+    try {
+      const token = await getToken(messaging, { vapidKey: vapid, serviceWorkerRegistration: reg });
+      if (token) return { token };
+    } catch (e1) {
+      try {
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) await sub.unsubscribe().catch(() => {});
+      } catch (e2) {}
+      try {
+        const token2 = await getToken(messaging, { vapidKey: vapid, serviceWorkerRegistration: reg });
+        if (token2) return { token: token2 };
+      } catch (e3) {
+        return { error: errText(e3) + " (2. deneme)" };
+      }
+    }
+    return { error: "bos-anahtar" };
   } catch (e) {
-    return { error: (e?.code || e?.message || "bilinmeyen").toString().slice(0, 90) };
+    return { error: errText(e) };
   }
 }
 
