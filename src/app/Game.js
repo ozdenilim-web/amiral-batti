@@ -888,6 +888,12 @@ class SoundEngine {
     this.volumeMult = 1;         // müzik seviyesi çarpanı (ayarlar sürgüsünden)
     this._mp3Missing = {};       // dosyası bulunamayan efektler — bir daha denenmez, sentez sese düşer
     this._sfxEls = {};           // çalan mp3 efektleri — lobiye dönerken durdurulabilsin diye tutulur
+    // --- Web Audio tabanlı efekt sistemi (mobil uyumluluk için) ---
+    this._buffers = {};          // decode edilmiş mp3 efektleri (ad -> AudioBuffer)
+    this._bufPending = {};       // indirme/decode sürüyor (ad -> Promise) — aynı dosya iki kez inmesin
+    this._activeSrc = {};        // çalmakta olan BufferSource'lar (anahtar -> node) — durdurulabilsin
+    this._sfxGain = null;        // efektler için ortak çıkış
+    this._preloaded = false;
     try {
       const savedSfx = localStorage.getItem('ab_sfxOn');
       if (savedSfx !== null) this.sfxOn = savedSfx === '1';
@@ -917,6 +923,7 @@ class SoundEngine {
     if (this.ctx && this.ctx.state === "suspended") {
       try { this.ctx.resume().catch(()=>{}); } catch(e) {}
     }
+    this.preloadSfx();
   }
 
   // --- MP3 helpers ---
@@ -1118,13 +1125,89 @@ class SoundEngine {
   playIntroFanfare() { this.ensureMusic(0.10); }
   // YERLEŞTİRME — Taktik müzik (sakin ama gerilimli)
   playPlacementMusic() { this.ensureMusic(0.10); }
+  // === EFEKT SESLERİ — WEB AUDIO BUFFER SİSTEMİ ===
+  // MOBİL NOTU (önemli): `new Audio(...).play()` mobil tarayıcılarda (özellikle iOS Safari)
+  // güvenilir DEĞİL. Kullanıcı dokunuşundan sonra oluşturulan yeni Audio nesneleri, ses
+  // setTimeout içinde ya da bir ağ cevabından sonra başlatıldığında sessizce engellenir —
+  // hata da fırlatmaz. Bu yüzden bütün efektler artık müzikle AYNI AudioContext üzerinden,
+  // önceden indirilip decode edilmiş buffer'lardan çalınıyor. Context ilk dokunuşta resume
+  // olduktan sonra buradan çalan hiçbir ses engellenmez, üstelik gecikme de olmaz.
+  _ensureSfxGain() {
+    if (!this.ctx) return null;
+    if (!this._sfxGain) {
+      try {
+        this._sfxGain = this.ctx.createGain();
+        this._sfxGain.gain.value = 1;
+        this._sfxGain.connect(this.ctx.destination);
+      } catch(e) { return null; }
+    }
+    return this._sfxGain;
+  }
+  // mp3'ü indir + decode et, sonucu önbellekle. Aynı dosya için yalnızca tek istek atılır.
+  _loadBuffer(name) {
+    if (this._buffers[name]) return Promise.resolve(this._buffers[name]);
+    if (this._bufPending[name]) return this._bufPending[name];
+    if (!this.ctx) return Promise.reject(new Error('no-ctx'));
+    const p = fetch(`/sfx/${name}.mp3`)
+      .then(r => { if (!r.ok) throw new Error('404'); return r.arrayBuffer(); })
+      .then(ab => new Promise((res, rej) => {
+        // Eski Safari sürümlerinde decodeAudioData promise döndürmez — iki biçimi de destekle
+        let out;
+        try { out = this.ctx.decodeAudioData(ab, res, rej); } catch(e) { rej(e); return; }
+        if (out && out.then) out.then(res, rej);
+      }))
+      .then(buf => { this._buffers[name] = buf; this._bufPending[name] = null; return buf; })
+      .catch(e => { this._bufPending[name] = null; this._mp3Missing[name] = true; throw e; });
+    this._bufPending[name] = p;
+    return p;
+  }
+  // Efekt dosyalarını arka planda hazırla — ilk çalışta gecikme/ses kaybı olmasın.
+  preloadSfx() {
+    if (!this.ctx || this._preloaded) return;
+    this._preloaded = true;
+    const names = ['explosion', 'first_kill', 'double_kill', 'triple_kill'].concat(Object.keys(SFX_MP3));
+    names.forEach(n => { try { this._loadBuffer(n).catch(()=>{}); } catch(e) {} });
+  }
+  // Buffer'ı çal. Henüz inmediyse indikten hemen sonra çalar. Başarısız olursa onFail çağrılır.
+  // key verilirse aynı anahtarla çalan önceki ses durdurulur (üst üste binmesin).
+  _playBuffer(name, volume = 1, key = null, onFail = null) {
+    if (!this.ctx || this._mp3Missing[name]) return false;
+    const start = (buf) => {
+      if (!this.sfxOn || !this.ctx || !buf) return;
+      const out = this._ensureSfxGain();
+      if (!out) { if (onFail) onFail(); return; }
+      try {
+        if (this.ctx.state === 'suspended') this.ctx.resume().catch(()=>{});
+        const src = this.ctx.createBufferSource();
+        src.buffer = buf;
+        const vg = this.ctx.createGain();
+        vg.gain.value = volume;
+        src.connect(vg); vg.connect(out);
+        if (key) {
+          const prev = this._activeSrc[key];
+          if (prev) { try { prev.stop(); } catch(e) {} }
+          this._activeSrc[key] = src;
+          src.onended = () => { if (this._activeSrc[key] === src) this._activeSrc[key] = null; };
+        }
+        src.start(0);
+      } catch(e) { if (onFail) onFail(); }
+    };
+    const cached = this._buffers[name];
+    if (cached) { start(cached); return true; }
+    this._loadBuffer(name).then(start).catch(() => { if (onFail) onFail(); });
+    return true;
+  }
   // channel "fx" (patlama vb.) serbest çalar; channel "anon" (kill anonsları) kendi arasında tekildir.
   playVoice(name, channel = "fx") {
     if (!this.sfxOn) return;
+    if (!this.ctx) this.init();
+    const vol = channel === "anon" ? 1.0 : 0.85;
+    if (this._playBuffer(name, vol, channel === "anon" ? "__anon" : null)) return;
+    // Web Audio hiç kullanılamıyorsa (çok eski tarayıcı) eski yönteme düş
     try {
       if (channel === "anon" && this._anonEl) { try { this._anonEl.pause(); this._anonEl.currentTime = 0; } catch(e) {} }
       const a = new Audio(`/sfx/${name}.mp3`);
-      a.volume = channel === "anon" ? 1.0 : 0.85;
+      a.volume = vol;
       if (channel === "anon") this._anonEl = a;
       const p = a.play();
       if (p && p.catch) p.catch(()=>{});
@@ -1143,31 +1226,30 @@ class SoundEngine {
   // Efektin mp3'ü varsa onu, yoksa sentezlenmiş sesi çalar.
   play(type) {
     if (!this.sfxOn) return;
+    if (!this.ctx) this.init();
     if (SFX_MP3[type] != null && !this._mp3Missing[type]) {
-      try {
-        this.stopSfx(type); // aynı efekt üst üste binmesin
-        const a = new Audio(`/sfx/${type}.mp3`);
-        a.volume = SFX_MP3[type];
-        this._sfxEls[type] = a;
-        const fallback = () => { this._mp3Missing[type] = true; this._playSynth(type); };
-        a.addEventListener('error', fallback, { once: true });
-        const p = a.play();
-        if (p && p.catch) p.catch(fallback);
-        return;
-      } catch (e) { this._mp3Missing[type] = true; }
+      if (this._playBuffer(type, SFX_MP3[type], type, () => this._playSynth(type))) return;
     }
     this._playSynth(type);
   }
   // Uzun bir efekti (ör. 35 sn'lik zafer müziği) durdur — lobiye dönerken çalmaya devam etmesin.
   stopSfx(type) {
+    const src = this._activeSrc[type];
+    if (src) { try { src.stop(); } catch (e) {} this._activeSrc[type] = null; }
     const a = this._sfxEls[type];
-    if (!a) return;
-    try { a.pause(); a.currentTime = 0; a.src = ''; } catch (e) {}
-    this._sfxEls[type] = null;
+    if (a) { try { a.pause(); a.currentTime = 0; a.src = ''; } catch (e) {} this._sfxEls[type] = null; }
   }
-  stopAllSfx() { Object.keys(this._sfxEls).forEach(k => this.stopSfx(k)); }
+  stopAllSfx() {
+    Object.keys(this._activeSrc).forEach(k => {
+      const s = this._activeSrc[k];
+      if (s) { try { s.stop(); } catch (e) {} this._activeSrc[k] = null; }
+    });
+    Object.keys(this._sfxEls).forEach(k => this.stopSfx(k));
+  }
   _playSynth(type) {
     if (!this.enabled || !this.ctx || !this.sfxOn) return;
+    // Mobilde context arada bir tekrar askıya alınabiliyor — çalmadan önce uyandır.
+    if (this.ctx.state === 'suspended') { try { this.ctx.resume().catch(()=>{}); } catch(e) {} }
     try {
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
